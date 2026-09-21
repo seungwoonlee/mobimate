@@ -59,11 +59,8 @@ public class AiEngineManager
             }
         }
 
-        // 4. 기본 엔진 자동 선정 정책 (과금 방지 대원칙: IsZeroCost == true 중에서만 기본 선정)
-        var defaultZeroCost = _engines.FirstOrDefault(e => e.Info.Type == AiEngineType.Ollama && e.Info.IsZeroCost)
-                              ?? builtInGuide;
-
-        _currentEngine = defaultZeroCost;
+        // 4. 기본 엔진 자동 선정 정책: AI 설치 여부와 무관하게 [무료/내장] 마비 가이드를 최우선 기본값으로 고정
+        _currentEngine = builtInGuide;
 
         return _engines;
     }

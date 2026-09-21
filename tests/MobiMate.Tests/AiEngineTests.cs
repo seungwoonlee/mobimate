@@ -38,6 +38,16 @@ public class AiEngineTests
         Assert.True(diagRes.Success);
         Assert.Contains("진단 리포트", diagRes.Reply);
         Assert.Contains("격투가", diagRes.Reply);
+
+        // 5. 가방/창고 정리 질의
+        var warehouseRes = await guide.GenerateResponseAsync("가방 무게 초과 방지 및 계정 창고 정리법 알려줘", "");
+        Assert.True(warehouseRes.Success);
+        Assert.Contains("계정 창고", warehouseRes.Reply);
+        Assert.Contains("원자재", warehouseRes.Reply);
+
+        // 6. 응답 본문에 반복 팁 문구가 완전히 제거되었는지 검증
+        Assert.DoesNotContain("💡 팁:", combatRes.Reply);
+        Assert.DoesNotContain("💡 팁:", warehouseRes.Reply);
     }
 
     [Fact]
@@ -53,10 +63,11 @@ public class AiEngineTests
         Assert.NotNull(builtIn);
         Assert.True(builtIn.Info.IsZeroCost);
 
-        // 자동 선택된 기본 엔진은 의도치 않은 과금 방지를 위해 반드시 IsZeroCost == true 여야 함
+        // 자동 선택된 기본 엔진은 의도치 않은 과금 방지를 위해 반드시 IsZeroCost == true 여야 하며, 무조건 BuiltInGuide여야 함
         var defaultEngine = manager.CurrentEngine;
         Assert.NotNull(defaultEngine);
         Assert.True(defaultEngine.Info.IsZeroCost, "자동 기본 선택 엔진은 반드시 완전 무료(IsZeroCost == true)여야 합니다.");
+        Assert.Equal(AiEngineType.BuiltInGuide, defaultEngine.Info.Type);
     }
 
     [Fact]

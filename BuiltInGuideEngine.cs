@@ -80,7 +80,16 @@ public class BuiltInGuideEngine : IAiEngine
             sb.AppendLine("  2. 일일 미션 11개 완수 여부를 확인하여 오늘 날짜 보상을 수령하세요.");
             sb.AppendLine("  3. 주간 어비스 및 레이드 입장권 쿨타임을 점검하세요.");
         }
-        // 6. 기타 일반 질의
+        // 6. 가방 및 창고 정리 질의
+        else if (q.Contains("가방") || q.Contains("창고") || q.Contains("정리") || q.Contains("보관"))
+        {
+            sb.AppendLine("🎒 가방 및 창고 최적화 정리 공략:");
+            sb.AppendLine("1. [계정 창고 활용]: 부캐릭터와 공유 가능한 보석, 강화석, 가공 완제품은 마을 계정 창고에 우선 보관하세요.");
+            sb.AppendLine("2. [원자재 즉시 소진]: 철광석, 원목, 양모 등 무게를 많이 차지하는 원자재는 생활 시설 대기열에 즉시 등록하여 가공품으로 변환하세요.");
+            sb.AppendLine("3. [잡템 및 장비 분해]: 흰색/초록색 일반 장비는 즉시 분해하여 결정/강화 가루로 축적하고, 잡템은 마을 상점에 일괄 판매하세요.");
+            sb.AppendLine("4. [무게 80% 제한 준수]: 가방 무게가 80%를 초과하면 이동 속도 및 전투 패널티가 발생하므로 주기적으로 마을에서 정리하세요.");
+        }
+        // 7. 기타 일반 질의
         else
         {
             sb.AppendLine($"'{prompt}'에 대한 마비노기 모바일 핵심 조언입니다:");
@@ -98,10 +107,6 @@ public class BuiltInGuideEngine : IAiEngine
                 sb.AppendLine("• 실시간 전황이 반영되었습니다. 지속적으로 가방 무게와 미션 달성률을 체크해 주세요.");
             }
         }
-
-        sb.AppendLine();
-        sb.AppendLine("━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-        sb.AppendLine("💡 팁: 더 자유롭고 심층적인 자연어 AI 대화를 원하시면, 완전 무료 오프라인 로컬 AI인 'Ollama'(https://ollama.com)를 PC에 설치하시면 gemma, deepseek 등 최신 LLM이 앱에 자동 감지되어 연동됩니다.");
 
         return Task.FromResult(new AiResponse(true, sb.ToString().Trim()));
     }

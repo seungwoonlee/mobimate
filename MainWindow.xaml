@@ -7,7 +7,7 @@
         mc:Ignorable="d"
         Title="모비노기 AI도우미 (MobiMate)" 
         Height="960" Width="1300" MinHeight="520" MinWidth="600"
-        Background="#141518" WindowStartupLocation="CenterScreen"
+        Background="#0F1012" WindowStartupLocation="CenterScreen"
         FontFamily="Malgun Gothic, Segoe UI" FontSize="16">
 
     <!-- ESC 키 누르면 즉시 긴급 정지 실행 -->
@@ -16,11 +16,11 @@
     </Window.InputBindings>
 
     <Window.Resources>
-        <!-- 모던 다크 & 고대비 일러스트 색상 팔레트 -->
-        <SolidColorBrush x:Key="BgPrimary" Color="#141518"/>
-        <SolidColorBrush x:Key="BgSecondary" Color="#1E2024"/>
-        <SolidColorBrush x:Key="BgCard" Color="#282B30"/>
-        <SolidColorBrush x:Key="BgCardSub" Color="#202226"/>
+        <!-- 프리미엄 게이밍 다크 & 고대비 일러스트 색상 팔레트 -->
+        <SolidColorBrush x:Key="BgPrimary" Color="#0F1012"/>
+        <SolidColorBrush x:Key="BgSecondary" Color="#181A1E"/>
+        <SolidColorBrush x:Key="BgCard" Color="#22252B"/>
+        <SolidColorBrush x:Key="BgCardSub" Color="#1A1C22"/>
         <SolidColorBrush x:Key="AccentBlue" Color="#5865F2"/>
         <SolidColorBrush x:Key="AccentGreen" Color="#23A55A"/>
         <SolidColorBrush x:Key="AccentRed" Color="#ED4245"/>
@@ -30,9 +30,37 @@
         <SolidColorBrush x:Key="AccentCyan" Color="#00BCD4"/>
         <SolidColorBrush x:Key="TextPrimary" Color="#FFFFFF"/>
         <SolidColorBrush x:Key="TextSecondary" Color="#A3A6AA"/>
-        <SolidColorBrush x:Key="BorderColor" Color="#383A40"/>
+        <SolidColorBrush x:Key="BorderColor" Color="#2E323B"/>
 
-        <!-- 퀵 질문 칩 버튼 스타일 -->
+        <!-- 완성형 문장 가이드 카드 스타일 -->
+        <Style x:Key="GuideSentenceCard" TargetType="Button">
+            <Setter Property="Background" Value="#1C212D"/>
+            <Setter Property="Foreground" Value="#C9D1D9"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Padding" Value="12,7"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderBrush" Value="#2E3A52"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="8" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#2B3654"/>
+                    <Setter Property="BorderBrush" Value="#5865F2"/>
+                    <Setter Property="Foreground" Value="#FFFFFF"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- 퀵 질문 칩 버튼 스타일 (하위 호환) -->
         <Style x:Key="ChipButton" TargetType="Button">
             <Setter Property="Background" Value="#2B3245"/>
             <Setter Property="Foreground" Value="#79B8FF"/>
@@ -793,29 +821,31 @@
             <GridSplitter Grid.Column="1" Width="5" HorizontalAlignment="Stretch" Background="{StaticResource BorderColor}" Cursor="SizeWE"/>
 
             <!-- 5-2. 우측: 🤖 AI 코파일럿 대화 (상시 고정 & 엔진 선택기) -->
-            <Border Grid.Column="2" Background="{StaticResource BgCard}" CornerRadius="8" Padding="14" Margin="4,0,0,0">
+            <Border Grid.Column="2" Background="{StaticResource BgCard}" BorderBrush="{StaticResource BorderColor}" BorderThickness="1" CornerRadius="8" Padding="14" Margin="4,0,0,0">
                 <Grid>
                     <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/> <!-- 엔진 선택 및 배너 헤더 -->
+                        <RowDefinition Height="Auto"/> <!-- AI 헤더 -->
+                        <RowDefinition Height="Auto"/> <!-- 상시 슬림 안내 배너 -->
                         <RowDefinition Height="*"/>    <!-- AI 피드 -->
-                        <RowDefinition Height="Auto"/> <!-- 입력부 -->
+                        <RowDefinition Height="Auto"/> <!-- 완성형 문장 가이드 쉘프 및 입력부 -->
                     </Grid.RowDefinitions>
 
                     <!-- AI 엔진 선택기 헤더 -->
-                    <Border Grid.Row="0" Background="#1C2E46" CornerRadius="6" Padding="12,6" Margin="0,0,0,8">
+                    <Border Grid.Row="0" Background="#141E2E" BorderBrush="#253555" BorderThickness="1" CornerRadius="6" Padding="12,7" Margin="0,0,0,6">
                         <Grid>
                             <TextBlock Text="🤖 공략 &amp; 대화 AI 엔진" Foreground="#58A6FF" FontSize="14" FontWeight="Bold" VerticalAlignment="Center"/>
                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                                <TextBlock Text="엔진: " Foreground="{StaticResource TextSecondary}" FontSize="13" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                <TextBlock Text="엔진: " Foreground="{StaticResource TextSecondary}" FontSize="13" VerticalAlignment="Center" Margin="0,0,4,0"
+                                           ToolTip="현재 응답 엔진입니다. 로컬에 Ollama(무료 로컬 AI) 또는 CLI 에이전트가 설치되어 있으면 드롭다운에서 전환하여 더 자유롭고 풍부한 자연어 대화를 나눌 수 있습니다."/>
                                 <ComboBox x:Name="CmbAiEngine" Style="{StaticResource DarkComboBox}" SelectionChanged="CmbAiEngine_SelectionChanged" Width="260" Margin="0,0,4,0">
                                     <ComboBoxItem Content="⏳ AI 엔진 검색 중..." IsSelected="True"/>
                                 </ComboBox>
                                 <Button x:Name="BtnReloadAiModels" Content="🔄" Click="BtnReloadAiModels_Click" ToolTip="설치된 AI 엔진 새로고침"
-                                        Background="#2B2D31" Foreground="{StaticResource TextPrimary}" FontWeight="Bold" FontSize="14"
-                                        Padding="8,4" BorderThickness="0" Cursor="Hand">
+                                        Background="#222733" Foreground="{StaticResource TextPrimary}" FontWeight="Bold" FontSize="14"
+                                        Padding="8,4" BorderThickness="1" BorderBrush="#2E3A52" Cursor="Hand">
                                     <Button.Template>
                                         <ControlTemplate TargetType="Button">
-                                            <Border Background="{TemplateBinding Background}" CornerRadius="4" Padding="{TemplateBinding Padding}">
+                                            <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="4" Padding="{TemplateBinding Padding}">
                                                 <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                             </Border>
                                         </ControlTemplate>
@@ -825,18 +855,28 @@
                         </Grid>
                     </Border>
 
-                    <ScrollViewer Grid.Row="1" x:Name="ScrollAiFeed" VerticalScrollBarVisibility="Auto" Margin="0,0,0,8">
+                    <!-- 상시 슬림 안내 배너 -->
+                    <Border Grid.Row="1" x:Name="BannerEngineStatus" Background="#131A26" BorderBrush="#202D42" BorderThickness="1" CornerRadius="6" Padding="10,5" Margin="0,0,0,8">
+                        <TextBlock x:Name="TxtBannerEngineStatus" Text="💡 무료 내장 가이드 모드 | 🤖 PC에 Ollama·CLI 설치 시 드롭다운에서 자유 대화 가능" Foreground="#79B8FF" FontSize="12" FontWeight="SemiBold" TextAlignment="Center"/>
+                    </Border>
+
+                    <!-- AI 대화 피드 -->
+                    <ScrollViewer Grid.Row="2" x:Name="ScrollAiFeed" VerticalScrollBarVisibility="Auto" Margin="0,0,0,8">
                         <ItemsControl x:Name="ListAiMessages">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <Border CornerRadius="8" Padding="14,10" Margin="0,0,0,8" MaxWidth="550">
+                                    <Border CornerRadius="8" Padding="14,10" Margin="0,0,0,8" MaxWidth="580">
                                         <Border.Style>
                                             <Style TargetType="Border">
-                                                <Setter Property="Background" Value="{StaticResource BgCardSub}"/>
+                                                <Setter Property="Background" Value="#171A21"/>
+                                                <Setter Property="BorderBrush" Value="#293040"/>
+                                                <Setter Property="BorderThickness" Value="2,0,0,0"/>
                                                 <Setter Property="HorizontalAlignment" Value="Left"/>
                                                 <Style.Triggers>
                                                     <DataTrigger Binding="{Binding IsUser}" Value="True">
-                                                        <Setter Property="Background" Value="#384260"/>
+                                                        <Setter Property="Background" Value="#2B3654"/>
+                                                        <Setter Property="BorderBrush" Value="#5865F2"/>
+                                                        <Setter Property="BorderThickness" Value="0,0,0,0"/>
                                                         <Setter Property="HorizontalAlignment" Value="Right"/>
                                                     </DataTrigger>
                                                 </Style.Triggers>
@@ -846,7 +886,7 @@
                                             <TextBlock Text="{Binding Sender}" FontSize="13" FontWeight="Bold" Margin="0,0,0,4">
                                                 <TextBlock.Style>
                                                     <Style TargetType="TextBlock">
-                                                        <Setter Property="Foreground" Value="{StaticResource AccentBlue}"/>
+                                                        <Setter Property="Foreground" Value="{StaticResource AccentCyan}"/>
                                                         <Style.Triggers>
                                                             <DataTrigger Binding="{Binding IsUser}" Value="True">
                                                                 <Setter Property="Foreground" Value="{StaticResource AccentGreen}"/>
@@ -855,7 +895,7 @@
                                                     </Style>
                                                 </TextBlock.Style>
                                             </TextBlock>
-                                            <TextBlock Text="{Binding Text}" TextWrapping="Wrap" Foreground="{StaticResource TextPrimary}" FontSize="15"/>
+                                            <TextBlock Text="{Binding Text}" TextWrapping="Wrap" Foreground="{StaticResource TextPrimary}" FontSize="15" LineHeight="22"/>
                                         </StackPanel>
                                     </Border>
                                 </DataTemplate>
@@ -863,20 +903,51 @@
                         </ItemsControl>
                     </ScrollViewer>
 
-                    <Grid Grid.Row="2">
+                    <Grid Grid.Row="3">
                         <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/> <!-- 퀵 공략 칩 바 -->
+                            <RowDefinition Height="Auto"/> <!-- 완성형 문장 가이드 쉘프 -->
                             <RowDefinition Height="Auto"/> <!-- 입력부 -->
                         </Grid.RowDefinitions>
 
-                        <!-- 5대 퀵 공략 칩 바 (내장 가이드 모드 시 상시 노출, 가로 스크롤) -->
-                        <ScrollViewer Grid.Row="0" x:Name="ScrollQuickChips" PreviewMouseWheel="ScrollQuickChips_PreviewMouseWheel" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" Margin="0,0,0,8" Visibility="Visible">
+                        <!-- 6대 완성형 문장 가이드 쉘프 (내장 가이드 모드 시 상시 노출, 가로 휠 스크롤) -->
+                        <ScrollViewer Grid.Row="0" x:Name="ScrollGuideShelf" PreviewMouseWheel="ScrollGuideShelf_PreviewMouseWheel" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" Margin="0,0,0,8" Visibility="Visible">
                             <StackPanel Orientation="Horizontal">
-                                <Button Content="⚔️ 전투력/룬" Tag="전투력" Click="BtnQuickChip_Click" Style="{StaticResource ChipButton}" Margin="0,0,6,0"/>
-                                <Button Content="💰 골드/재화" Tag="골드" Click="BtnQuickChip_Click" Style="{StaticResource ChipButton}" Margin="0,0,6,0"/>
-                                <Button Content="🌿 채집/가공" Tag="채집" Click="BtnQuickChip_Click" Style="{StaticResource ChipButton}" Margin="0,0,6,0"/>
-                                <Button Content="🛡️ 던전/보스" Tag="던전" Click="BtnQuickChip_Click" Style="{StaticResource ChipButton}" Margin="0,0,6,0"/>
-                                <Button Content="📊 캐릭터 진단" Tag="진단" Click="BtnQuickChip_Click" Style="{StaticResource ChipButton}"/>
+                                <Button Style="{StaticResource GuideSentenceCard}" Tag="전투력" Click="BtnGuideSentence_Click" Margin="0,0,6,0">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock Text="⚔️" FontSize="14" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                        <TextBlock Text="현재 전투력 기준 1티어 룬 세팅 및 무기 각인 공략" FontSize="13" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button Style="{StaticResource GuideSentenceCard}" Tag="골드" Click="BtnGuideSentence_Click" Margin="0,0,6,0">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock Text="💰" FontSize="14" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                        <TextBlock Text="일일 미션과 요일 던전 보상으로 골드 빠르게 모으기" FontSize="13" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button Style="{StaticResource GuideSentenceCard}" Tag="채집" Click="BtnGuideSentence_Click" Margin="0,0,6,0">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock Text="🌿" FontSize="14" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                        <TextBlock Text="가공 시설 쿨타임 관리법과 철광석·약초·목재 채집 명당" FontSize="13" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button Style="{StaticResource GuideSentenceCard}" Tag="던전" Click="BtnGuideSentence_Click" Margin="0,0,6,0">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock Text="🛡️" FontSize="14" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                        <TextBlock Text="보스 브레이크 게이지 파훼법 및 장판 회피 요령" FontSize="13" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button Style="{StaticResource GuideSentenceCard}" Tag="진단" Click="BtnGuideSentence_Click" Margin="0,0,6,0">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock Text="📊" FontSize="14" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                        <TextBlock Text="현재 캐릭터 실시간 스탯, 전투력, 가방, 미션 정밀 진단" FontSize="13" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button Style="{StaticResource GuideSentenceCard}" Tag="창고" Click="BtnGuideSentence_Click">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock Text="🎒" FontSize="14" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                        <TextBlock Text="가방 무게 초과 방지 및 계정 창고/캐릭터 창고 정리법" FontSize="13" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
                             </StackPanel>
                         </ScrollViewer>
 
@@ -886,7 +957,7 @@
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             <TextBox x:Name="TxtAiInput" Grid.Column="0" KeyDown="TxtAiInput_KeyDown"
-                                     Background="{StaticResource BgCardSub}" Foreground="{StaticResource TextPrimary}" BorderThickness="0"
+                                     Background="{StaticResource BgCardSub}" Foreground="{StaticResource TextPrimary}" BorderThickness="1" BorderBrush="{StaticResource BorderColor}"
                                      Padding="14,10" FontSize="15">
                                 <TextBox.Resources>
                                     <Style TargetType="{x:Type Border}">

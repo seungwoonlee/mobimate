@@ -48,7 +48,7 @@ public partial class MainWindow : Window
         ListGameChatLogs.ItemsSource = GameChatLogs;
         ListAiMessages.ItemsSource = AiMessages;
 
-        AiMessages.Add(new AiMessageEntry("AI 도우미", "✨ 모비노기 AI도우미가 준비되었습니다. (ESC: 긴급 정지)", false));
+        AiMessages.Add(new AiMessageEntry("AI 도우미", "✨ 모비노기 AI도우미가 준비되었습니다. 아래 완성형 가이드 카드를 선택하거나 자유롭게 질문해 보세요! (ESC: 긴급 정지)", false));
 
         Loaded += async (s, e) =>
         {
@@ -710,9 +710,8 @@ public partial class MainWindow : Window
             CmbAiEngine.SelectedIndex = 0;
         }
 
-        // 내장 가이드 여부에 따라 퀵 칩 바 가시성 초기화
-        var isBuiltIn = current?.Info.Type == AiEngineType.BuiltInGuide;
-        ScrollQuickChips.Visibility = isBuiltIn ? Visibility.Visible : Visibility.Collapsed;
+        // 내장 가이드 여부에 따라 가이드 쉘프 및 배너 초기화
+        UpdateEngineBannerAndShelf(current);
 
         // 상태 안내 토스트
         var hasOllama = engines.Any(e => e.Info.Type == AiEngineType.Ollama);
@@ -722,7 +721,7 @@ public partial class MainWindow : Window
         }
         else
         {
-            ShowToast("💡 AI 미설치 PC 감지: 완전 무료 내장 마비 가이드로 자동 동작합니다. (0원)", true);
+            ShowToast("💡 완전 무료 내장 마비 가이드로 자동 동작합니다. (0원, 무설치)", true);
         }
     }
 
@@ -742,9 +741,7 @@ public partial class MainWindow : Window
             var engine = _aiManager.CurrentEngine;
             var engineName = engine?.Info.DisplayName ?? (item.Content as string ?? "AI");
 
-            // 내장 가이드일 때만 5대 퀵 공략 칩 바 노출
-            var isBuiltIn = engine?.Info.Type == AiEngineType.BuiltInGuide;
-            ScrollQuickChips.Visibility = isBuiltIn ? Visibility.Visible : Visibility.Collapsed;
+            UpdateEngineBannerAndShelf(engine);
 
             if (engine?.Info.Type == AiEngineType.CliAgent)
             {
@@ -757,17 +754,46 @@ public partial class MainWindow : Window
         }
     }
 
-    private void BtnQuickChip_Click(object sender, RoutedEventArgs e)
+    private void UpdateEngineBannerAndShelf(IAiEngine? engine)
+    {
+        var isBuiltIn = engine?.Info.Type == AiEngineType.BuiltInGuide;
+        ScrollGuideShelf.Visibility = isBuiltIn ? Visibility.Visible : Visibility.Collapsed;
+
+        if (isBuiltIn)
+        {
+            TxtBannerEngineStatus.Text = "💡 무료 내장 가이드 모드 | 🤖 PC에 Ollama·CLI 설치 시 드롭다운에서 자유 대화 가능";
+            TxtBannerEngineStatus.Foreground = (Brush)FindResource("AccentCyan");
+            BannerEngineStatus.Background = new SolidColorBrush(Color.FromRgb(0x13, 0x1A, 0x26));
+            BannerEngineStatus.BorderBrush = new SolidColorBrush(Color.FromRgb(0x20, 0x2D, 0x42));
+        }
+        else if (engine?.Info.Type == AiEngineType.Ollama)
+        {
+            TxtBannerEngineStatus.Text = $"🤖 로컬 LLM '{engine.Info.DisplayName}' 활성화됨 (자유 대화 가능, 100% 무료)";
+            TxtBannerEngineStatus.Foreground = (Brush)FindResource("AccentGreen");
+            BannerEngineStatus.Background = new SolidColorBrush(Color.FromRgb(0x14, 0x29, 0x1E));
+            BannerEngineStatus.BorderBrush = new SolidColorBrush(Color.FromRgb(0x1E, 0x42, 0x2E));
+        }
+        else
+        {
+            TxtBannerEngineStatus.Text = $"⚡ CLI 에이전트 '{engine?.Info.DisplayName}' 활성화됨 (사용자 계정 정책 적용)";
+            TxtBannerEngineStatus.Foreground = (Brush)FindResource("AccentYellow");
+            BannerEngineStatus.Background = new SolidColorBrush(Color.FromRgb(0x2B, 0x26, 0x14));
+            BannerEngineStatus.BorderBrush = new SolidColorBrush(Color.FromRgb(0x4A, 0x3F, 0x1D));
+        }
+    }
+
+    private void BtnGuideSentence_Click(object sender, RoutedEventArgs e)
     {
         if (sender is Button btn && btn.Tag is string tag)
         {
             var prompt = tag switch
             {
-                "전투력" => "전투력 및 룬 장착 공략 알려줘",
-                "골드" => "골드 및 재화 파밍 팁 알려줘",
-                "채집" => "주요 채집물 위치와 가공 시설 공략 알려줘",
-                "던전" => "던전 보스 브레이크 및 회피 공략 알려줘",
-                "진단" => "현재 내 캐릭터 스펙과 상태 진단해줘",
+                "전투력" => "현재 전투력 기준 1티어 룬 세팅 및 무기 각인 공략 알려줘",
+                "골드" => "일일 미션과 요일 던전 보상으로 골드 빠르게 모으는 법 알려줘",
+                "채집" => "가공 시설 쿨타임 관리법과 철광석·약초·목재 채집 명당 알려줘",
+                "던전" => "보스 브레이크 게이지 파훼법 및 장판 회피 요령 알려줘",
+                "진단" => "현재 캐릭터 실시간 스탯, 전투력, 가방, 미션 정밀 진단해줘",
+                "창고" => "가방 무게 초과 방지 및 계정 창고/캐릭터 창고 정리법 알려줘",
                 _ => btn.Content?.ToString() ?? "공략 가이드"
             };
 
@@ -775,7 +801,7 @@ public partial class MainWindow : Window
         }
     }
 
-    private void ScrollQuickChips_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
+    private void ScrollGuideShelf_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
     {
         if (sender is ScrollViewer scv)
         {
@@ -783,6 +809,10 @@ public partial class MainWindow : Window
             e.Handled = true;
         }
     }
+
+    // 기존 칩 버튼 클릭 및 휠 핸들러 하위 호환 유지
+    private void BtnQuickChip_Click(object sender, RoutedEventArgs e) => BtnGuideSentence_Click(sender, e);
+    private void ScrollQuickChips_PreviewMouseWheel(object sender, MouseWheelEventArgs e) => ScrollGuideShelf_PreviewMouseWheel(sender, e);
 
     private void ExecuteAiQueryDirect(string query)
     {
