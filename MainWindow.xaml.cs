@@ -2,11 +2,13 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Threading;
 
 namespace MabiMate;
 
@@ -23,16 +25,23 @@ public partial class MainWindow : Window
     public ObservableCollection<ChatLogEntry> GameChatLogs { get; } = new();
     public ObservableCollection<AiMessageEntry> AiMessages { get; } = new();
 
-    private bool _isLoading = false;
+    private CancellationTokenSource? _tabCts;
+    private DispatcherTimer? _searchDebounceTimer;
+    private DispatcherTimer? _toastTimer;
+
+    public ICommand EmergencyStopCommand { get; }
 
     public MainWindow()
     {
+        EmergencyStopCommand = new RelayCommand(async _ => await EmergencyStopInternalAsync());
+
         InitializeComponent();
 
+        DataContext = this;
         ListGameChatLogs.ItemsSource = GameChatLogs;
         ListAiMessages.ItemsSource = AiMessages;
 
-        AiMessages.Add(new AiMessageEntry("AI 코파일럿", "안녕하세요, 밀레시안님! ✨\n상단 6개 정보 탭과 하단 2분할 채팅창이 준비되었습니다.\n원하시는 탭을 눌러 정보를 확인하시고, 하단에서 게임 채팅이나 AI 질문을 자유롭게 이용하세요!", false));
+        AiMessages.Add(new AiMessageEntry("AI 코파일럿", "안녕하세요, 밀레시안님! ✨\n상단 6대 정보 탭과 하단 인게임 채팅/AI 대화창이 준비되었습니다.\nESC 키를 누르면 언제든 즉시 캐릭터의 행동을 긴급 정지할 수 있습니다.", false));
 
         Loaded += async (s, e) =>
         {
@@ -41,6 +50,45 @@ public partial class MainWindow : Window
         };
     }
 
+    // ================= 0. 인앱 비동기 토스트 알림 (MessageBox 완전 대체) =================
+    public void ShowToast(string message, bool isSuccess = true)
+    {
+        Dispatcher.Invoke(() =>
+        {
+            ToastBar.Visibility = Visibility.Visible;
+            ToastText.Text = message;
+
+            if (isSuccess)
+            {
+                ToastBar.Background = new SolidColorBrush(Color.FromRgb(0x1C, 0x38, 0x29));
+                ToastIcon.Text = "✓";
+                ToastIcon.Foreground = (Brush)FindResource("AccentGreen");
+            }
+            else
+            {
+                ToastBar.Background = new SolidColorBrush(Color.FromRgb(0x4A, 0x1A, 0x1A));
+                ToastIcon.Text = "⚠️";
+                ToastIcon.Foreground = (Brush)FindResource("AccentRed");
+            }
+
+            _toastTimer?.Stop();
+            _toastTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2.5) };
+            _toastTimer.Tick += (s, e) =>
+            {
+                _toastTimer.Stop();
+                ToastBar.Visibility = Visibility.Collapsed;
+            };
+            _toastTimer.Start();
+        });
+    }
+
+    private void BtnCloseToast_Click(object sender, RoutedEventArgs e)
+    {
+        _toastTimer?.Stop();
+        ToastBar.Visibility = Visibility.Collapsed;
+    }
+
+    // ================= 1. 상단 글로벌 제어 =================
     private void BtnTopmost_Click(object sender, RoutedEventArgs e)
     {
         Topmost = BtnTopmost.IsChecked == true;
@@ -59,10 +107,9 @@ public partial class MainWindow : Window
         }
     }
 
-    // ================= 상단 기본 헤더만 가볍게 새로고침 =================
     private async Task RefreshHeaderOnlyAsync()
     {
-        var (statusOk, _, _) = await _cli.RunRawAsync("status");
+        var (statusOk, _, _) = await _cli.RunRawAsync("status", timeoutSeconds: 3);
         if (!statusOk)
         {
             ApplyDisconnected();
@@ -71,23 +118,22 @@ public partial class MainWindow : Window
 
         TxtStatusIcon.Text = "🟢";
 
-        await Task.Delay(100); // 파이프 딜레이
-        var (chOk, ch, _) = await _cli.RunJsonAsync<CharacterInfo>("get_my_info");
-        await Task.Delay(100);
-        var (actOk, act, _) = await _cli.RunJsonAsync<ActivityInfo>("get_activity");
-        await Task.Delay(100);
-        var (envOk, env, _) = await _cli.RunJsonAsync<EnvironmentInfo>("get_current_environment");
+        var (chOk, ch, _) = await _cli.RunJsonAsync<CharacterInfo>("get_my_info", timeoutSeconds: 3);
+        var (actOk, act, _) = await _cli.RunJsonAsync<ActivityInfo>("get_activity", timeoutSeconds: 3);
+        var (envOk, env, _) = await _cli.RunJsonAsync<EnvironmentInfo>("get_current_environment", timeoutSeconds: 3);
 
         UpdateHeaderAndStats(ch, act, env);
     }
 
-    // ================= 현재 선택된 탭 페이지만 선별 새로고침 (부하 최소화 + 100ms 딜레이) =================
+    // 이전 탭 요청을 CancellationToken으로 즉시 취소하고 최신 탭만 안전하게 로딩
     public async Task RefreshCurrentTabAsync()
     {
-        if (_isLoading) return;
-        _isLoading = true;
+        _tabCts?.Cancel();
+        _tabCts = new CancellationTokenSource();
+        var ct = _tabCts.Token;
+
         BtnRefreshCurrentTab.IsEnabled = false;
-        BtnRefreshCurrentTab.Content = "⏳ 새로고침 중...";
+        BtnRefreshCurrentTab.Content = "⏳ 로딩 중...";
 
         try
         {
@@ -95,57 +141,62 @@ public partial class MainWindow : Window
             switch (idx)
             {
                 case 0: // 캐릭터 & 스탯
-                    var tChar = _cli.RunJsonAsync<CharacterInfo>("get_my_info");
-                    await Task.Delay(120);
-                    var tAct = _cli.RunJsonAsync<ActivityInfo>("get_activity");
-                    await Task.Delay(120);
-                    var tEnv = _cli.RunJsonAsync<EnvironmentInfo>("get_current_environment");
+                    var tChar = _cli.RunJsonAsync<CharacterInfo>("get_my_info", timeoutSeconds: 4, ct: ct);
+                    var tAct = _cli.RunJsonAsync<ActivityInfo>("get_activity", timeoutSeconds: 4, ct: ct);
+                    var tEnv = _cli.RunJsonAsync<EnvironmentInfo>("get_current_environment", timeoutSeconds: 4, ct: ct);
+                    await Task.WhenAll(tChar, tAct, tEnv);
                     UpdateHeaderAndStats((await tChar).data, (await tAct).data, (await tEnv).data);
                     break;
 
                 case 1: // 가방 & 소지품
-                    var tInv = _cli.RunJsonAsync<CharacterInfo>("get_my_info");
-                    await Task.Delay(120);
-                    var tItems = _cli.RunJsonAsync<List<ItemData>>("get_items");
+                    var tInv = _cli.RunJsonAsync<CharacterInfo>("get_my_info", timeoutSeconds: 4, ct: ct);
+                    var tItems = _cli.RunJsonAsync<List<ItemData>>("get_items", timeoutSeconds: 5, ct: ct);
+                    await Task.WhenAll(tInv, tItems);
                     var ch = (await tInv).data;
                     if (ch?.Vitals != null) UpdateWeightUi(ch.Vitals);
                     UpdateItems((await tItems).data);
                     break;
 
                 case 2: // 재화 & 화폐
-                    var tCurr = await _cli.RunJsonAsync<List<CurrencyItem>>("get_currencies");
+                    var tCurr = await _cli.RunJsonAsync<List<CurrencyItem>>("get_currencies", timeoutSeconds: 4, ct: ct);
                     UpdateCurrencies(tCurr.data);
                     break;
 
                 case 3: // 미션 & 퀘스트
-                    var tDaily = _cli.RunJsonAsync<List<MissionItem>>("get_daily_missions");
-                    await Task.Delay(120);
-                    var tWeekly = _cli.RunJsonAsync<List<MissionItem>>("get_weekly_missions");
+                    var tDaily = _cli.RunJsonAsync<List<MissionItem>>("get_daily_missions", timeoutSeconds: 4, ct: ct);
+                    var tWeekly = _cli.RunJsonAsync<List<MissionItem>>("get_weekly_missions", timeoutSeconds: 4, ct: ct);
+                    await Task.WhenAll(tDaily, tWeekly);
                     UpdateMissions((await tDaily).data, (await tWeekly).data);
                     break;
 
                 case 4: // 생활 & 생산
-                    var tAlter = _cli.RunJsonAsync<AlteringWorksResponse>("get_altering_works");
-                    await Task.Delay(120);
-                    var tGather = _cli.RunJsonAsync<GatherableResponse>("get_gatherable_items");
+                    var tAlter = _cli.RunJsonAsync<AlteringWorksResponse>("get_altering_works", timeoutSeconds: 4, ct: ct);
+                    var tGather = _cli.RunJsonAsync<GatherableResponse>("get_gatherable_items", timeoutSeconds: 4, ct: ct);
+                    await Task.WhenAll(tAlter, tGather);
                     UpdateLifeAndCraft((await tAlter).data, (await tGather).data);
                     break;
 
                 case 5: // 주변 레이더
-                    var tPcs = await _cli.RunJsonAsync<List<NearPcItem>>("get_near_pcs");
+                    var tPcs = await _cli.RunJsonAsync<List<NearPcItem>>("get_near_pcs", timeoutSeconds: 4, ct: ct);
                     UpdateNearPcs(tPcs.data);
                     break;
             }
         }
+        catch (OperationCanceledException)
+        {
+            // 새 탭 전환에 따른 정상 취소
+        }
         catch (Exception ex)
         {
-            MessageBox.Show($"데이터 로딩 오류: {ex.Message}", "오류", MessageBoxButton.OK, MessageBoxImage.Warning);
+            ShowToast($"데이터 로딩 오류: {ex.Message}", false);
         }
         finally
         {
-            _isLoading = false;
-            BtnRefreshCurrentTab.IsEnabled = true;
-            BtnRefreshCurrentTab.Content = "🔄 현재 탭 새로고침";
+            if (!ct.IsCancellationRequested)
+            {
+                BtnRefreshCurrentTab.IsEnabled = true;
+                BtnRefreshCurrentTab.Content = "🔄 탭 새로고침";
+            }
         }
     }
 
@@ -176,7 +227,6 @@ public partial class MainWindow : Window
             if (ch.AttractivenessScore != null) TxtScoreAttract.Text = $"{ch.AttractivenessScore.Value:N0}";
             if (ch.DecorScore != null) TxtScoreDecor.Text = $"{ch.DecorScore.Value:N0}";
 
-            // 9대 스탯
             if (ch.HealthMax != null) TxtStatHp.Text = $"❤️ 최대 체력: {ch.HealthMax.Value:N0}";
             if (ch.AttackPower != null) TxtStatAtk.Text = $"⚔️ 공격력: {ch.AttackPower.Value:N0}";
             if (ch.DefencePower != null) TxtStatDef.Text = $"🛡️ 방어력: {ch.DefencePower.Value:N0}";
@@ -187,7 +237,6 @@ public partial class MainWindow : Window
             if (ch.LUCK != null) TxtStatLuck.Text = $"🍀 행운 (LUCK): {ch.LUCK.Value:N0}";
             if (ch.WILL != null) TxtStatWill.Text = $"🔥 의지 (WILL): {ch.WILL.Value:N0}";
 
-            // 성기사 스탯
             if (ch.PaladinStats != null)
             {
                 var p = ch.PaladinStats;
@@ -251,7 +300,7 @@ public partial class MainWindow : Window
         if (pct >= 90)
         {
             ProgWeightTab.Foreground = (Brush)FindResource("AccentRed");
-            TxtWeightStatus.Text = "🚨 가방이 거의 꽉 찼습니다! 정리가 시급합니다.";
+            TxtWeightStatus.Text = "🚨 가방이 거의 꽉 찼습니다! 아이템 정리가 시급합니다.";
             TxtWeightStatus.Foreground = (Brush)FindResource("AccentRed");
         }
         else if (pct >= 80)
@@ -268,7 +317,7 @@ public partial class MainWindow : Window
         }
     }
 
-    // ================= 2. 가방 & 아이템 탭 =================
+    // ================= 2. 가방 & 아이템 탭 (디바운싱 지원) =================
     private void UpdateItems(List<ItemData>? items)
     {
         if (items == null) return;
@@ -301,7 +350,14 @@ public partial class MainWindow : Window
 
     private void TxtItemSearch_TextChanged(object sender, TextChangedEventArgs e)
     {
-        FilterItems();
+        _searchDebounceTimer?.Stop();
+        _searchDebounceTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(150) };
+        _searchDebounceTimer.Tick += (s, ev) =>
+        {
+            _searchDebounceTimer.Stop();
+            FilterItems();
+        };
+        _searchDebounceTimer.Start();
     }
 
     private void BtnItemFilter_Click(object sender, RoutedEventArgs e)
@@ -338,7 +394,7 @@ public partial class MainWindow : Window
         }
     }
 
-    // ================= 5. 생활 & 생산 탭 =================
+    // ================= 5. 생활 & 생산 탭 (150종 전체 스크롤 지원) =================
     private void UpdateLifeAndCraft(AlteringWorksResponse? alter, GatherableResponse? gather)
     {
         if (alter != null && alter.Works != null)
@@ -365,7 +421,8 @@ public partial class MainWindow : Window
             filtered = filtered.Where(g => g.DisplayName.Contains(q, StringComparison.OrdinalIgnoreCase));
         }
 
-        ListGatherablesFull.ItemsSource = filtered.Take(15).ToList();
+        // 전체 150종 스크롤 브라우징 (가상화 리스트뷰)
+        ListGatherablesView.ItemsSource = filtered.ToList();
     }
 
     private void TxtGatherSearchFull_TextChanged(object sender, TextChangedEventArgs e)
@@ -391,18 +448,17 @@ public partial class MainWindow : Window
 
     private async Task StartGatherAsync(string itemName)
     {
-        var confirm = MessageBox.Show($"'{itemName}' 채집을 시작할까요?\n캐릭터가 해당 장소로 이동해 채집합니다.", "채집 시작", MessageBoxButton.YesNo, MessageBoxImage.Question);
-        if (confirm != MessageBoxResult.Yes) return;
+        ShowToast($"'{itemName}' 채집 이동 및 작업을 요청했습니다...", true);
 
         var body = $"{{\"displayName\":\"{itemName}\",\"count\":5}}";
-        var (ok, _, err) = await _cli.RunRawAsync("execute_gathering", stdinJson: body);
+        var (ok, _, err) = await _cli.RunRawAsync("execute_gathering", stdinJson: body, timeoutSeconds: 6);
         if (ok)
         {
-            MessageBox.Show($"'{itemName}' 채집을 시작했습니다!", "채집 성공", MessageBoxButton.OK, MessageBoxImage.Information);
+            ShowToast($"'{itemName}' 채집을 성공적으로 시작했습니다!", true);
         }
         else
         {
-            MessageBox.Show($"채집 요청 실패: {err}", "오류", MessageBoxButton.OK, MessageBoxImage.Warning);
+            ShowToast($"채집 요청 실패: {err}", false);
         }
     }
 
@@ -410,27 +466,27 @@ public partial class MainWindow : Window
     {
         if (_allAlteringWorks.Count == 0)
         {
-            MessageBox.Show("현재 진행 중이거나 완료된 가공 작업이 없습니다.", "알림", MessageBoxButton.OK, MessageBoxImage.Information);
+            ShowToast("현재 진행 중이거나 완료된 가공 작업이 없습니다.", false);
             return;
         }
 
         var completed = _allAlteringWorks.FirstOrDefault(w => w.IsCompleted || w.RemainingSeconds == 0);
         if (completed == null)
         {
-            MessageBox.Show("아직 완료된 가공 작업이 없습니다. 남은 시간을 확인해주세요.", "알림", MessageBoxButton.OK, MessageBoxImage.Information);
+            ShowToast("아직 완료된 가공 작업이 없습니다. 남은 시간을 확인해주세요.", false);
             return;
         }
 
         var body = $"{{\"displayName\":\"{completed.DisplayName}\"}}";
-        var (ok, _, err) = await _cli.RunRawAsync("complete_altering_work", stdinJson: body);
+        var (ok, _, err) = await _cli.RunRawAsync("complete_altering_work", stdinJson: body, timeoutSeconds: 6);
         if (ok)
         {
-            MessageBox.Show($"'{completed.DisplayName}' 가공물을 수거했습니다!", "수거 완료", MessageBoxButton.OK, MessageBoxImage.Information);
+            ShowToast($"'{completed.DisplayName}' 가공물을 수거했습니다!", true);
             await RefreshCurrentTabAsync();
         }
         else
         {
-            MessageBox.Show($"수거 실패: {err}", "오류", MessageBoxButton.OK, MessageBoxImage.Warning);
+            ShowToast($"수거 실패: {err}", false);
         }
     }
 
@@ -446,7 +502,7 @@ public partial class MainWindow : Window
     {
         var len = TxtGameChatInput.Text.Length;
         TxtCharLimit.Text = $"{len} / 50자";
-        TxtCharLimit.Foreground = len > 50 ? (Brush)FindResource("AccentRed") : (Brush)FindResource("TextSecondary");
+        TxtCharLimit.Foreground = len >= 45 ? (Brush)FindResource("AccentRed") : (Brush)FindResource("TextSecondary");
     }
 
     private async void TxtGameChatInput_KeyDown(object sender, KeyEventArgs e)
@@ -467,12 +523,6 @@ public partial class MainWindow : Window
         var text = TxtGameChatInput.Text.Trim();
         if (string.IsNullOrEmpty(text)) return;
 
-        if (text.Length > 50)
-        {
-            MessageBox.Show("게임 채팅은 최대 50자까지만 입력할 수 있습니다.", "글자 수 초과", MessageBoxButton.OK, MessageBoxImage.Warning);
-            return;
-        }
-
         TxtGameChatInput.Clear();
 
         var time = DateTime.Now.ToString("HH:mm:ss");
@@ -481,10 +531,12 @@ public partial class MainWindow : Window
         if (ok)
         {
             GameChatLogs.Add(new ChatLogEntry($"[{time}] ✓ 전송 완료", text, true));
+            ShowToast($"채팅 전송 완료: \"{text}\"", true);
         }
         else
         {
             GameChatLogs.Add(new ChatLogEntry($"[{time}] ✗ 전송 실패 ({err})", text, false, err));
+            ShowToast($"채팅 전송 실패: {err}", false);
         }
 
         ScrollGameChatLog.ScrollToBottom();
@@ -527,7 +579,7 @@ public partial class MainWindow : Window
             reply = "근처 22명 플레이어와 길드원 위치는 상단의 [👥 주변 레이더] 탭에서 거리순으로 확인하실 수 있습니다.";
         else if (q.Contains("정지") || q.Contains("멈춰"))
         {
-            _ = _cli.RunRawAsync("stop_action");
+            _ = EmergencyStopInternalAsync();
             reply = "캐릭터의 진행 중인 행동(채집, 이동 등)을 즉시 정지시켰습니다!";
         }
         else
@@ -537,16 +589,42 @@ public partial class MainWindow : Window
         ScrollAiFeed.ScrollToBottom();
     }
 
+    // ================= 9. 긴급 정지 (ESC 단축키 및 버튼 공통) =================
     private async void BtnEmergencyStop_Click(object sender, RoutedEventArgs e)
     {
-        var (ok, _, err) = await _cli.RunRawAsync("stop_action");
+        await EmergencyStopInternalAsync();
+    }
+
+    private async Task EmergencyStopInternalAsync()
+    {
+        var (ok, _, err) = await _cli.RunRawAsync("stop_action", timeoutSeconds: 3);
         if (ok)
         {
-            MessageBox.Show("캐릭터의 진행 중인 모든 행동(채집, 이동, 연주 등)을 즉시 정지했습니다!", "정지 완료", MessageBoxButton.OK, MessageBoxImage.Information);
+            ShowToast("🛑 캐릭터의 진행 중인 행동(채집/이동 등)을 즉시 정지했습니다!", true);
         }
         else
         {
-            MessageBox.Show($"정지 실패: {err}", "오류", MessageBoxButton.OK, MessageBoxImage.Warning);
+            ShowToast($"정지 실패: {err}", false);
         }
+    }
+}
+
+public class RelayCommand : ICommand
+{
+    private readonly Action<object?> _execute;
+    private readonly Predicate<object?>? _canExecute;
+
+    public RelayCommand(Action<object?> execute, Predicate<object?>? canExecute = null)
+    {
+        _execute = execute ?? throw new ArgumentNullException(nameof(execute));
+        _canExecute = canExecute;
+    }
+
+    public bool CanExecute(object? parameter) => _canExecute == null || _canExecute(parameter);
+    public void Execute(object? parameter) => _execute(parameter);
+    public event EventHandler? CanExecuteChanged
+    {
+        add => CommandManager.RequerySuggested += value;
+        remove => CommandManager.RequerySuggested -= value;
     }
 }

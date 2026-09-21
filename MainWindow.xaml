@@ -6,9 +6,14 @@
         xmlns:local="clr-namespace:MabiMate"
         mc:Ignorable="d"
         Title="마비노기 모바일 AI 메이트 (MabiMate) — 올인원 코파일럿" 
-        Height="940" Width="1280" MinHeight="750" MinWidth="1050"
+        Height="880" Width="1240" MinHeight="480" MinWidth="520"
         Background="#141518" WindowStartupLocation="CenterScreen"
         FontFamily="Malgun Gothic, Segoe UI" FontSize="13">
+
+    <!-- ESC 키 누르면 즉시 긴급 정지 실행 -->
+    <Window.InputBindings>
+        <KeyBinding Key="Escape" Command="{Binding EmergencyStopCommand, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType=Window}}"/>
+    </Window.InputBindings>
 
     <Window.Resources>
         <!-- 모던 다크 & 일러스트 색상 팔레트 -->
@@ -61,7 +66,7 @@
             <Setter Property="Foreground" Value="{StaticResource TextSecondary}"/>
             <Setter Property="FontWeight" Value="Bold"/>
             <Setter Property="FontSize" Value="14"/>
-            <Setter Property="Padding" Value="18,12"/>
+            <Setter Property="Padding" Value="16,10"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="TabItem">
@@ -86,13 +91,14 @@
     <Grid Background="{StaticResource BgPrimary}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/> <!-- 1. 상단 글로벌 헤더 -->
-            <RowDefinition Height="*"/>    <!-- 2. 상단 6개 정보 탭 -->
-            <RowDefinition Height="5"/>    <!-- 3. 상하 분할 스플리터 -->
-            <RowDefinition Height="300" MinHeight="180"/> <!-- 4. 하단 상시 고정 채팅 분할창 -->
+            <RowDefinition Height="Auto"/> <!-- 2. 인앱 비동기 토스트 알림바 -->
+            <RowDefinition Height="*"/>    <!-- 3. 상단 6대 정보 탭 -->
+            <RowDefinition Height="5"/>    <!-- 4. 상하 분할 스플리터 -->
+            <RowDefinition Height="280" MinHeight="160"/> <!-- 5. 하단 상시 고정 채팅 분할창 -->
         </Grid.RowDefinitions>
 
         <!-- ================= 1. 상단 글로벌 헤더 ================= -->
-        <Border Grid.Row="0" Background="{StaticResource BgSecondary}" Padding="20,12" BorderBrush="{StaticResource BorderColor}" BorderThickness="0,0,0,1">
+        <Border Grid.Row="0" Background="{StaticResource BgSecondary}" Padding="18,10" BorderBrush="{StaticResource BorderColor}" BorderThickness="0,0,0,1">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
@@ -100,23 +106,23 @@
                 </Grid.ColumnDefinitions>
 
                 <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                    <TextBlock x:Name="TxtStatusIcon" Text="🟢" FontSize="26" Margin="0,0,14,0" VerticalAlignment="Center"/>
+                    <TextBlock x:Name="TxtStatusIcon" Text="🟢" FontSize="24" Margin="0,0,12,0" VerticalAlignment="Center"/>
                     <StackPanel VerticalAlignment="Center">
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock x:Name="TxtCharTitle" Text="[아이라] 격투가 Lv.100" FontWeight="Bold" FontSize="18" Foreground="{StaticResource TextPrimary}"/>
-                            <Border Background="#35373C" CornerRadius="6" Padding="8,3" Margin="12,0,0,0">
-                                <TextBlock x:Name="TxtCombatScore" Text="⚔️ 전투력 88,737" FontSize="13" Foreground="{StaticResource AccentYellow}" FontWeight="Bold"/>
+                            <TextBlock x:Name="TxtCharTitle" Text="[아이라] 격투가 Lv.100" FontWeight="Bold" FontSize="17" Foreground="{StaticResource TextPrimary}"/>
+                            <Border Background="#35373C" CornerRadius="6" Padding="8,2" Margin="10,0,0,0">
+                                <TextBlock x:Name="TxtCombatScore" Text="⚔️ 전투력 88,737" FontSize="12" Foreground="{StaticResource AccentYellow}" FontWeight="Bold"/>
                             </Border>
-                            <Border x:Name="BadgeActivity" Background="#1C3829" CornerRadius="6" Padding="8,3" Margin="8,0,0,0">
-                                <TextBlock x:Name="TxtActivity" Text="대기 중 (Idle)" FontSize="13" Foreground="{StaticResource AccentGreen}" FontWeight="Bold"/>
+                            <Border x:Name="BadgeActivity" Background="#1C3829" CornerRadius="6" Padding="8,2" Margin="8,0,0,0">
+                                <TextBlock x:Name="TxtActivity" Text="대기 중 (Idle)" FontSize="12" Foreground="{StaticResource AccentGreen}" FontWeight="Bold"/>
                             </Border>
                         </StackPanel>
-                        <TextBlock x:Name="TxtLocation" Text="📍 페카 고분 심층 2층 3구역 (맑음 ☀️)  |  에린 시간 2959-4-23" FontSize="13" Foreground="{StaticResource TextSecondary}" Margin="0,4,0,0"/>
+                        <TextBlock x:Name="TxtLocation" Text="📍 페카 고분 심층 2층 3구역 (맑음 ☀️)  |  에린 시간 2959-4-23" FontSize="12" Foreground="{StaticResource TextSecondary}" Margin="0,3,0,0"/>
                     </StackPanel>
                 </StackPanel>
 
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                    <Button Content="🛑 긴급 정지" Click="BtnEmergencyStop_Click" Background="{StaticResource AccentRed}" Foreground="White" FontWeight="Bold" FontSize="13" Padding="14,8" BorderThickness="0" Margin="0,0,10,0" Cursor="Hand">
+                    <Button Content="🛑 긴급 정지 (ESC)" Click="BtnEmergencyStop_Click" Background="{StaticResource AccentRed}" Foreground="White" FontWeight="Bold" FontSize="13" Padding="14,8" BorderThickness="0" Margin="0,0,10,0" Cursor="Hand">
                         <Button.Template>
                             <ControlTemplate TargetType="Button">
                                 <Border Background="{TemplateBinding Background}" CornerRadius="6" Padding="{TemplateBinding Padding}">
@@ -128,7 +134,7 @@
 
                     <ToggleButton x:Name="BtnTopmost" Content="📌 항상 위" Click="BtnTopmost_Click"
                                   Background="#35373C" Foreground="{StaticResource TextPrimary}" FontWeight="Bold" FontSize="13"
-                                  Padding="14,8" BorderThickness="0" Margin="0,0,10,0" Cursor="Hand">
+                                  Padding="12,8" BorderThickness="0" Margin="0,0,10,0" Cursor="Hand">
                         <ToggleButton.Template>
                             <ControlTemplate TargetType="ToggleButton">
                                 <Border x:Name="bd" Background="{TemplateBinding Background}" CornerRadius="6" Padding="{TemplateBinding Padding}">
@@ -143,9 +149,9 @@
                         </ToggleButton.Template>
                     </ToggleButton>
 
-                    <Button x:Name="BtnRefreshCurrentTab" Content="🔄 현재 탭 새로고침" Click="BtnRefreshCurrentTab_Click"
+                    <Button x:Name="BtnRefreshCurrentTab" Content="🔄 탭 새로고침" Click="BtnRefreshCurrentTab_Click"
                             Background="{StaticResource AccentBlue}" Foreground="White" FontWeight="Bold" FontSize="13"
-                            Padding="16,8" BorderThickness="0" Cursor="Hand">
+                            Padding="14,8" BorderThickness="0" Cursor="Hand">
                         <Button.Template>
                             <ControlTemplate TargetType="Button">
                                 <Border Background="{TemplateBinding Background}" CornerRadius="6" Padding="{TemplateBinding Padding}">
@@ -158,68 +164,76 @@
             </Grid>
         </Border>
 
-        <!-- ================= 2. 상단 6대 정보 탭 영역 ================= -->
-        <TabControl Grid.Row="1" x:Name="MainTabControl" SelectionChanged="MainTabControl_SelectionChanged" Background="{StaticResource BgSecondary}" Margin="12,12,12,6" BorderThickness="0">
+        <!-- ================= 2. 인앱 비동기 토스트 알림바 (MessageBox 대체) ================= -->
+        <Border Grid.Row="1" x:Name="ToastBar" Background="#1C3829" Padding="14,8" Visibility="Collapsed">
+            <Grid>
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock x:Name="ToastIcon" Text="✓" FontWeight="Bold" Foreground="{StaticResource AccentGreen}" FontSize="14" Margin="0,0,8,0"/>
+                    <TextBlock x:Name="ToastText" Text="알림 메시지" FontWeight="SemiBold" Foreground="White" FontSize="13"/>
+                </StackPanel>
+                <Button Content="✕" Click="BtnCloseToast_Click" HorizontalAlignment="Right" Background="Transparent" Foreground="{StaticResource TextSecondary}" BorderThickness="0" Cursor="Hand" FontWeight="Bold"/>
+            </Grid>
+        </Border>
+
+        <!-- ================= 3. 상단 6대 정보 탭 영역 ================= -->
+        <TabControl Grid.Row="2" x:Name="MainTabControl" SelectionChanged="MainTabControl_SelectionChanged" Background="{StaticResource BgSecondary}" Margin="12,8,12,6" BorderThickness="0">
 
             <!-- [1] 📊 캐릭터 & 스탯 탭 -->
             <TabItem Header="  📊 캐릭터 &amp; 스탯  ">
-                <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="20">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="18">
                     <StackPanel>
-                        <!-- 4대 종합 점수 카드 -->
-                        <TextBlock Text="🏆 캐릭터 종합 4대 점수" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" FontSize="16" Margin="0,0,0,10"/>
-                        <UniformGrid Columns="4" Margin="0,0,0,18">
-                            <Border Background="{StaticResource BgCard}" CornerRadius="8" Padding="16,12" Margin="0,0,8,0">
+                        <TextBlock Text="🏆 캐릭터 종합 4대 점수" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" FontSize="15" Margin="0,0,0,8"/>
+                        <UniformGrid Columns="4" Margin="0,0,0,16">
+                            <Border Background="{StaticResource BgCard}" CornerRadius="8" Padding="14,10" Margin="0,0,6,0">
                                 <StackPanel>
-                                    <TextBlock Text="⚔️ 전투력" FontSize="13" Foreground="{StaticResource TextSecondary}"/>
-                                    <TextBlock x:Name="TxtScoreCombat" Text="88,737" FontWeight="Bold" FontSize="22" Foreground="{StaticResource AccentYellow}" Margin="0,4,0,0"/>
+                                    <TextBlock Text="⚔️ 전투력" FontSize="12" Foreground="{StaticResource TextSecondary}"/>
+                                    <TextBlock x:Name="TxtScoreCombat" Text="88,737" FontWeight="Bold" FontSize="20" Foreground="{StaticResource AccentYellow}" Margin="0,3,0,0"/>
                                 </StackPanel>
                             </Border>
-                            <Border Background="{StaticResource BgCard}" CornerRadius="8" Padding="16,12" Margin="4,0,4,0">
+                            <Border Background="{StaticResource BgCard}" CornerRadius="8" Padding="14,10" Margin="3,0,3,0">
                                 <StackPanel>
-                                    <TextBlock Text="🌿 생활력" FontSize="13" Foreground="{StaticResource TextSecondary}"/>
-                                    <TextBlock x:Name="TxtScoreLiving" Text="23,011" FontWeight="Bold" FontSize="22" Foreground="{StaticResource AccentGreen}" Margin="0,4,0,0"/>
+                                    <TextBlock Text="🌿 생활력" FontSize="12" Foreground="{StaticResource TextSecondary}"/>
+                                    <TextBlock x:Name="TxtScoreLiving" Text="23,011" FontWeight="Bold" FontSize="20" Foreground="{StaticResource AccentGreen}" Margin="0,3,0,0"/>
                                 </StackPanel>
                             </Border>
-                            <Border Background="{StaticResource BgCard}" CornerRadius="8" Padding="16,12" Margin="4,0,4,0">
+                            <Border Background="{StaticResource BgCard}" CornerRadius="8" Padding="14,10" Margin="3,0,3,0">
                                 <StackPanel>
-                                    <TextBlock Text="✨ 매력" FontSize="13" Foreground="{StaticResource TextSecondary}"/>
-                                    <TextBlock x:Name="TxtScoreAttract" Text="19,745" FontWeight="Bold" FontSize="22" Foreground="{StaticResource AccentPurple}" Margin="0,4,0,0"/>
+                                    <TextBlock Text="✨ 매력" FontSize="12" Foreground="{StaticResource TextSecondary}"/>
+                                    <TextBlock x:Name="TxtScoreAttract" Text="19,745" FontWeight="Bold" FontSize="20" Foreground="{StaticResource AccentPurple}" Margin="0,3,0,0"/>
                                 </StackPanel>
                             </Border>
-                            <Border Background="{StaticResource BgCard}" CornerRadius="8" Padding="16,12" Margin="8,0,0,0">
+                            <Border Background="{StaticResource BgCard}" CornerRadius="8" Padding="14,10" Margin="6,0,0,0">
                                 <StackPanel>
-                                    <TextBlock Text="🎨 데코 점수" FontSize="13" Foreground="{StaticResource TextSecondary}"/>
-                                    <TextBlock x:Name="TxtScoreDecor" Text="5,445" FontWeight="Bold" FontSize="22" Foreground="{StaticResource AccentCyan}" Margin="0,4,0,0"/>
+                                    <TextBlock Text="🎨 데코 점수" FontSize="12" Foreground="{StaticResource TextSecondary}"/>
+                                    <TextBlock x:Name="TxtScoreDecor" Text="5,445" FontWeight="Bold" FontSize="20" Foreground="{StaticResource AccentCyan}" Margin="0,3,0,0"/>
                                 </StackPanel>
                             </Border>
                         </UniformGrid>
 
-                        <!-- 전투 스탯 9종 -->
-                        <TextBlock Text="🛡️ 전투 기본 능력치" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" FontSize="16" Margin="0,0,0,10"/>
+                        <TextBlock Text="🛡️ 전투 기본 능력치" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" FontSize="15" Margin="0,0,0,8"/>
                         <Border Style="{StaticResource VisualCard}">
                             <UniformGrid Columns="3" Rows="3">
-                                <TextBlock x:Name="TxtStatHp" Text="❤️ 최대 체력: 72,614" Foreground="{StaticResource TextPrimary}" FontSize="14" Margin="10,10"/>
-                                <TextBlock x:Name="TxtStatAtk" Text="⚔️ 공격력: 33,338" Foreground="{StaticResource TextPrimary}" FontSize="14" Margin="10,10"/>
-                                <TextBlock x:Name="TxtStatDef" Text="🛡️ 방어력: 19,178" Foreground="{StaticResource TextPrimary}" FontSize="14" Margin="10,10"/>
-                                <TextBlock x:Name="TxtStatMdef" Text="🔮 마도 저항: 4,316" Foreground="{StaticResource TextPrimary}" FontSize="14" Margin="10,10"/>
-                                <TextBlock x:Name="TxtStatStr" Text="💪 힘 (STR): 4,996" Foreground="{StaticResource TextPrimary}" FontSize="14" Margin="10,10"/>
-                                <TextBlock x:Name="TxtStatDex" Text="🎯 솜씨 (DEX): 6,019" Foreground="{StaticResource TextPrimary}" FontSize="14" Margin="10,10"/>
-                                <TextBlock x:Name="TxtStatInt" Text="🧠 지력 (INT): 5,116" Foreground="{StaticResource TextPrimary}" FontSize="14" Margin="10,10"/>
-                                <TextBlock x:Name="TxtStatLuck" Text="🍀 행운 (LUCK): 5,402" Foreground="{StaticResource TextPrimary}" FontSize="14" Margin="10,10"/>
-                                <TextBlock x:Name="TxtStatWill" Text="🔥 의지 (WILL): 4,812" Foreground="{StaticResource TextPrimary}" FontSize="14" Margin="10,10"/>
+                                <TextBlock x:Name="TxtStatHp" Text="❤️ 최대 체력: 72,614" Foreground="{StaticResource TextPrimary}" FontSize="13" Margin="8,8"/>
+                                <TextBlock x:Name="TxtStatAtk" Text="⚔️ 공격력: 33,338" Foreground="{StaticResource TextPrimary}" FontSize="13" Margin="8,8"/>
+                                <TextBlock x:Name="TxtStatDef" Text="🛡️ 방어력: 19,178" Foreground="{StaticResource TextPrimary}" FontSize="13" Margin="8,8"/>
+                                <TextBlock x:Name="TxtStatMdef" Text="🔮 마도 저항: 4,316" Foreground="{StaticResource TextPrimary}" FontSize="13" Margin="8,8"/>
+                                <TextBlock x:Name="TxtStatStr" Text="💪 힘 (STR): 4,996" Foreground="{StaticResource TextPrimary}" FontSize="13" Margin="8,8"/>
+                                <TextBlock x:Name="TxtStatDex" Text="🎯 솜씨 (DEX): 6,019" Foreground="{StaticResource TextPrimary}" FontSize="13" Margin="8,8"/>
+                                <TextBlock x:Name="TxtStatInt" Text="🧠 지력 (INT): 5,116" Foreground="{StaticResource TextPrimary}" FontSize="13" Margin="8,8"/>
+                                <TextBlock x:Name="TxtStatLuck" Text="🍀 행운 (LUCK): 5,402" Foreground="{StaticResource TextPrimary}" FontSize="13" Margin="8,8"/>
+                                <TextBlock x:Name="TxtStatWill" Text="🔥 의지 (WILL): 4,812" Foreground="{StaticResource TextPrimary}" FontSize="13" Margin="8,8"/>
                             </UniformGrid>
                         </Border>
 
-                        <!-- 성기사 스탯 -->
-                        <TextBlock Text="👑 성기사 (Paladin) 스탯" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" FontSize="16" Margin="0,6,0,10"/>
+                        <TextBlock Text="👑 성기사 (Paladin) 스탯" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" FontSize="15" Margin="0,4,0,8"/>
                         <Border Style="{StaticResource VisualCard}">
                             <UniformGrid Columns="3" Rows="2">
-                                <TextBlock x:Name="TxtPalAtk" Text="신성력: 54" Foreground="{StaticResource TextPrimary}" FontSize="14" Margin="10,10"/>
-                                <TextBlock x:Name="TxtPalDef" Text="항마력: 54" Foreground="{StaticResource TextPrimary}" FontSize="14" Margin="10,10"/>
-                                <TextBlock x:Name="TxtPalJustice" Text="정의: 694" Foreground="{StaticResource TextPrimary}" FontSize="14" Margin="10,10"/>
-                                <TextBlock x:Name="TxtPalJudge" Text="심판: 459" Foreground="{StaticResource TextPrimary}" FontSize="14" Margin="10,10"/>
-                                <TextBlock x:Name="TxtPalOrder" Text="질서: 694" Foreground="{StaticResource TextPrimary}" FontSize="14" Margin="10,10"/>
-                                <TextBlock x:Name="TxtPalBless" Text="가호: 459" Foreground="{StaticResource TextPrimary}" FontSize="14" Margin="10,10"/>
+                                <TextBlock x:Name="TxtPalAtk" Text="신성력: 54" Foreground="{StaticResource TextPrimary}" FontSize="13" Margin="8,8"/>
+                                <TextBlock x:Name="TxtPalDef" Text="항마력: 54" Foreground="{StaticResource TextPrimary}" FontSize="13" Margin="8,8"/>
+                                <TextBlock x:Name="TxtPalJustice" Text="정의: 694" Foreground="{StaticResource TextPrimary}" FontSize="13" Margin="8,8"/>
+                                <TextBlock x:Name="TxtPalJudge" Text="심판: 459" Foreground="{StaticResource TextPrimary}" FontSize="13" Margin="8,8"/>
+                                <TextBlock x:Name="TxtPalOrder" Text="질서: 694" Foreground="{StaticResource TextPrimary}" FontSize="13" Margin="8,8"/>
+                                <TextBlock x:Name="TxtPalBless" Text="가호: 459" Foreground="{StaticResource TextPrimary}" FontSize="13" Margin="8,8"/>
                             </UniformGrid>
                         </Border>
                     </StackPanel>
@@ -228,7 +242,7 @@
 
             <!-- [2] 🎒 가방 & 아이템 탭 -->
             <TabItem Header="  🎒 가방 &amp; 소지품 (600여종)  ">
-                <Grid Margin="16">
+                <Grid Margin="14">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
@@ -237,26 +251,25 @@
 
                     <Border Grid.Row="0" Style="{StaticResource VisualCard}">
                         <StackPanel>
-                            <Grid Margin="0,0,0,8">
-                                <TextBlock Text="🎒 인벤토리 소지 무게" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" FontSize="15"/>
-                                <TextBlock x:Name="TxtWeightSummary" HorizontalAlignment="Right" Text="854.6 / 1030.0 (83.0%)" FontWeight="Bold" Foreground="{StaticResource AccentYellow}" FontSize="15"/>
+                            <Grid Margin="0,0,0,6">
+                                <TextBlock Text="🎒 인벤토리 소지 무게" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" FontSize="14"/>
+                                <TextBlock x:Name="TxtWeightSummary" HorizontalAlignment="Right" Text="854.6 / 1030.0 (83.0%)" FontWeight="Bold" Foreground="{StaticResource AccentYellow}" FontSize="14"/>
                             </Grid>
-                            <ProgressBar x:Name="ProgWeightTab" Style="{StaticResource BigProgress}" Value="83" Foreground="{StaticResource AccentYellow}" Margin="0,0,0,6"/>
-                            <TextBlock x:Name="TxtWeightStatus" Text="⚠️ 여유 공간이 얼마 남지 않았습니다." FontSize="13" Foreground="{StaticResource AccentYellow}"/>
+                            <ProgressBar x:Name="ProgWeightTab" Style="{StaticResource BigProgress}" Value="83" Foreground="{StaticResource AccentYellow}" Margin="0,0,0,4"/>
+                            <TextBlock x:Name="TxtWeightStatus" Text="⚠️ 여유 공간이 얼마 남지 않았습니다." FontSize="12" Foreground="{StaticResource AccentYellow}"/>
                         </StackPanel>
                     </Border>
 
-                    <!-- 검색 및 위치 필터 -->
-                    <Grid Grid.Row="1" Margin="0,0,0,12">
+                    <Grid Grid.Row="1" Margin="0,0,0,10">
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="320"/>
+                            <ColumnDefinition Width="280"/>
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
 
                         <TextBox x:Name="TxtItemSearch" Grid.Column="0" TextChanged="TxtItemSearch_TextChanged"
                                  Background="{StaticResource BgCard}" Foreground="{StaticResource TextPrimary}" BorderThickness="0"
-                                 Padding="12,10" FontSize="14">
+                                 Padding="10,8" FontSize="13">
                             <TextBox.Resources>
                                 <Style TargetType="{x:Type Border}">
                                     <Setter Property="CornerRadius" Value="6"/>
@@ -264,24 +277,25 @@
                             </TextBox.Resources>
                         </TextBox>
 
-                        <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="16,0,0,0">
-                            <Button Content="전체" Click="BtnItemFilter_Click" Tag="All" Background="{StaticResource AccentBlue}" Foreground="White" FontWeight="Bold" Padding="14,8" BorderThickness="0" Margin="0,0,6,0" Cursor="Hand"/>
-                            <Button Content="🎒 가방 (Bag)" Click="BtnItemFilter_Click" Tag="Bag" Background="{StaticResource BgCard}" Foreground="{StaticResource TextPrimary}" FontWeight="Bold" Padding="14,8" BorderThickness="0" Margin="0,0,6,0" Cursor="Hand"/>
-                            <Button Content="🏛️ 계정 창고" Click="BtnItemFilter_Click" Tag="AccountStorage" Background="{StaticResource BgCard}" Foreground="{StaticResource TextPrimary}" FontWeight="Bold" Padding="14,8" BorderThickness="0" Margin="0,0,6,0" Cursor="Hand"/>
-                            <Button Content="📦 캐릭터 창고" Click="BtnItemFilter_Click" Tag="CharacterStorage" Background="{StaticResource BgCard}" Foreground="{StaticResource TextPrimary}" FontWeight="Bold" Padding="14,8" BorderThickness="0" Margin="0,0,6,0" Cursor="Hand"/>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="12,0,0,0">
+                            <Button Content="전체" Click="BtnItemFilter_Click" Tag="All" Background="{StaticResource AccentBlue}" Foreground="White" FontWeight="Bold" Padding="12,6" BorderThickness="0" Margin="0,0,4,0" Cursor="Hand"/>
+                            <Button Content="🎒 가방" Click="BtnItemFilter_Click" Tag="Bag" Background="{StaticResource BgCard}" Foreground="{StaticResource TextPrimary}" FontWeight="Bold" Padding="12,6" BorderThickness="0" Margin="0,0,4,0" Cursor="Hand"/>
+                            <Button Content="🏛️ 계정 창고" Click="BtnItemFilter_Click" Tag="AccountStorage" Background="{StaticResource BgCard}" Foreground="{StaticResource TextPrimary}" FontWeight="Bold" Padding="12,6" BorderThickness="0" Margin="0,0,4,0" Cursor="Hand"/>
+                            <Button Content="📦 캐릭터 창고" Click="BtnItemFilter_Click" Tag="CharacterStorage" Background="{StaticResource BgCard}" Foreground="{StaticResource TextPrimary}" FontWeight="Bold" Padding="12,6" BorderThickness="0" Margin="0,0,4,0" Cursor="Hand"/>
                         </StackPanel>
 
-                        <TextBlock x:Name="TxtItemCountLabel" Grid.Column="2" Text="총 609개 아이템" Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center" FontSize="13"/>
+                        <TextBlock x:Name="TxtItemCountLabel" Grid.Column="2" Text="총 609개 아이템" Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center" FontSize="12"/>
                     </Grid>
 
-                    <ListView x:Name="ListItemView" Grid.Row="2" Background="{StaticResource BgCard}" BorderThickness="0" Foreground="{StaticResource TextPrimary}" FontSize="13">
+                    <ListView x:Name="ListItemView" Grid.Row="2" Background="{StaticResource BgCard}" BorderThickness="0" Foreground="{StaticResource TextPrimary}" FontSize="13"
+                              VirtualizingStackPanel.IsVirtualizing="True" VirtualizingStackPanel.VirtualizationMode="Recycling">
                         <ListView.View>
                             <GridView>
-                                <GridViewColumn Header="보관 위치" Width="130" DisplayMemberBinding="{Binding Location}"/>
-                                <GridViewColumn Header="카테고리" Width="140" DisplayMemberBinding="{Binding CategoryName}"/>
-                                <GridViewColumn Header="아이템 명" Width="360" DisplayMemberBinding="{Binding DisplayName}"/>
-                                <GridViewColumn Header="수량" Width="90" DisplayMemberBinding="{Binding Count}"/>
-                                <GridViewColumn Header="잠금 상태" Width="90" DisplayMemberBinding="{Binding IsLocked}"/>
+                                <GridViewColumn Header="보관 위치" Width="120" DisplayMemberBinding="{Binding Location}"/>
+                                <GridViewColumn Header="카테고리" Width="130" DisplayMemberBinding="{Binding CategoryName}"/>
+                                <GridViewColumn Header="아이템 명" Width="320" DisplayMemberBinding="{Binding DisplayName}"/>
+                                <GridViewColumn Header="수량" Width="80" DisplayMemberBinding="{Binding Count}"/>
+                                <GridViewColumn Header="잠금 상태" Width="80" DisplayMemberBinding="{Binding IsLocked}"/>
                             </GridView>
                         </ListView.View>
                     </ListView>
@@ -290,9 +304,9 @@
 
             <!-- [3] 💰 재화 & 화폐 탭 -->
             <TabItem Header="  💰 재화 &amp; 화폐 (28종)  ">
-                <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="20">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="18">
                     <StackPanel>
-                        <TextBlock Text="💎 전체 28종 보유 재화 및 레이드 증표" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" FontSize="16" Margin="0,0,0,14"/>
+                        <TextBlock Text="💎 전체 28종 보유 재화 및 레이드 증표" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" FontSize="15" Margin="0,0,0,12"/>
                         <ItemsControl x:Name="ListAllCurrencies">
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate>
@@ -301,10 +315,10 @@
                             </ItemsControl.ItemsPanel>
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <Border Background="{StaticResource BgCard}" CornerRadius="8" Padding="16,14" Margin="6">
+                                    <Border Background="{StaticResource BgCard}" CornerRadius="8" Padding="14,12" Margin="5">
                                         <Grid>
-                                            <TextBlock Text="{Binding DisplayName}" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" FontSize="14" VerticalAlignment="Center"/>
-                                            <TextBlock Text="{Binding Amount, StringFormat='{}{0:N0}'}" HorizontalAlignment="Right" Foreground="{StaticResource AccentGold}" FontWeight="Bold" FontSize="16" VerticalAlignment="Center"/>
+                                            <TextBlock Text="{Binding DisplayName}" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" FontSize="13" VerticalAlignment="Center"/>
+                                            <TextBlock Text="{Binding Amount, StringFormat='{}{0:N0}'}" HorizontalAlignment="Right" Foreground="{StaticResource AccentGold}" FontWeight="Bold" FontSize="15" VerticalAlignment="Center"/>
                                         </Grid>
                                     </Border>
                                 </DataTemplate>
@@ -316,36 +330,35 @@
 
             <!-- [4] 📜 미션 & 퀘스트 탭 -->
             <TabItem Header="  📜 미션 &amp; 퀘스트  ">
-                <Grid Margin="16">
+                <Grid Margin="14">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
 
-                    <!-- 일일 미션 -->
-                    <Border Grid.Column="0" Style="{StaticResource VisualCard}" Margin="0,0,8,0">
+                    <Border Grid.Column="0" Style="{StaticResource VisualCard}" Margin="0,0,6,0">
                         <Grid>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="*"/>
                             </Grid.RowDefinitions>
-                            <TextBlock Grid.Row="0" Text="📅 오늘의 일일 미션 (11개)" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" FontSize="16" Margin="0,0,0,8"/>
-                            <ProgressBar x:Name="ProgDailyMissions" Grid.Row="1" Style="{StaticResource BigProgress}" Value="100" Foreground="{StaticResource AccentGreen}" Margin="0,0,0,12"/>
+                            <TextBlock Grid.Row="0" Text="📅 오늘의 일일 미션 (11개)" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" FontSize="15" Margin="0,0,0,6"/>
+                            <ProgressBar x:Name="ProgDailyMissions" Grid.Row="1" Style="{StaticResource BigProgress}" Value="100" Foreground="{StaticResource AccentGreen}" Margin="0,0,0,10"/>
                             <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
                                 <ItemsControl x:Name="ListDailyMissionsFull">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
-                                            <Border Background="{StaticResource BgCardSub}" CornerRadius="6" Padding="12,10" Margin="0,0,0,8">
+                                            <Border Background="{StaticResource BgCardSub}" CornerRadius="6" Padding="10,8" Margin="0,0,0,6">
                                                 <Grid>
                                                     <StackPanel>
                                                         <StackPanel Orientation="Horizontal">
-                                                            <TextBlock Text="✅ " Foreground="{StaticResource AccentGreen}" FontSize="14"/>
-                                                            <TextBlock Text="{Binding Title}" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" FontSize="14"/>
+                                                            <TextBlock Text="✅ " Foreground="{StaticResource AccentGreen}" FontSize="13"/>
+                                                            <TextBlock Text="{Binding Title}" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" FontSize="13"/>
                                                         </StackPanel>
-                                                        <TextBlock Text="{Binding Description}" Foreground="{StaticResource TextSecondary}" FontSize="12" Margin="22,3,0,0"/>
+                                                        <TextBlock Text="{Binding Description}" Foreground="{StaticResource TextSecondary}" FontSize="12" Margin="20,2,0,0"/>
                                                     </StackPanel>
-                                                    <TextBlock HorizontalAlignment="Right" VerticalAlignment="Center" Foreground="{StaticResource AccentYellow}" FontWeight="Bold" FontSize="13">
+                                                    <TextBlock HorizontalAlignment="Right" VerticalAlignment="Center" Foreground="{StaticResource AccentYellow}" FontWeight="Bold" FontSize="12">
                                                         <TextBlock.Text>
                                                             <MultiBinding StringFormat="{}{0} / {1}">
                                                                 <Binding Path="CurrentCount"/>
@@ -362,27 +375,26 @@
                         </Grid>
                     </Border>
 
-                    <!-- 주간 미션 -->
-                    <Border Grid.Column="1" Style="{StaticResource VisualCard}" Margin="8,0,0,0">
+                    <Border Grid.Column="1" Style="{StaticResource VisualCard}" Margin="6,0,0,0">
                         <Grid>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="*"/>
                             </Grid.RowDefinitions>
-                            <TextBlock Grid.Row="0" Text="📆 이번 주 주간 미션 (15개)" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" FontSize="16" Margin="0,0,0,8"/>
-                            <ProgressBar x:Name="ProgWeeklyMissions" Grid.Row="1" Style="{StaticResource BigProgress}" Value="70" Foreground="{StaticResource AccentBlue}" Margin="0,0,0,12"/>
+                            <TextBlock Grid.Row="0" Text="📆 이번 주 주간 미션 (15개)" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" FontSize="15" Margin="0,0,0,6"/>
+                            <ProgressBar x:Name="ProgWeeklyMissions" Grid.Row="1" Style="{StaticResource BigProgress}" Value="70" Foreground="{StaticResource AccentBlue}" Margin="0,0,0,10"/>
                             <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
                                 <ItemsControl x:Name="ListWeeklyMissionsFull">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
-                                            <Border Background="{StaticResource BgCardSub}" CornerRadius="6" Padding="12,10" Margin="0,0,0,8">
+                                            <Border Background="{StaticResource BgCardSub}" CornerRadius="6" Padding="10,8" Margin="0,0,0,6">
                                                 <Grid>
                                                     <StackPanel>
-                                                        <TextBlock Text="{Binding Title}" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" FontSize="14"/>
-                                                        <TextBlock Text="{Binding Description}" Foreground="{StaticResource TextSecondary}" FontSize="12" Margin="0,3,0,0"/>
+                                                        <TextBlock Text="{Binding Title}" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" FontSize="13"/>
+                                                        <TextBlock Text="{Binding Description}" Foreground="{StaticResource TextSecondary}" FontSize="12" Margin="0,2,0,0"/>
                                                     </StackPanel>
-                                                    <TextBlock HorizontalAlignment="Right" VerticalAlignment="Center" Foreground="{StaticResource AccentBlue}" FontWeight="Bold" FontSize="13">
+                                                    <TextBlock HorizontalAlignment="Right" VerticalAlignment="Center" Foreground="{StaticResource AccentBlue}" FontWeight="Bold" FontSize="12">
                                                         <TextBlock.Text>
                                                             <MultiBinding StringFormat="{}{0} / {1}">
                                                                 <Binding Path="CurrentCount"/>
@@ -401,36 +413,35 @@
                 </Grid>
             </TabItem>
 
-            <!-- [5] 🌿 생활 & 생산 탭 -->
+            <!-- [5] 🌿 생활 & 생산 탭 (150종 전체 스크롤 지원) -->
             <TabItem Header="  🌿 생활 &amp; 생산 (가공·채집)  ">
-                <Grid Margin="16">
+                <Grid Margin="14">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
 
-                    <!-- 가공 시설 대기열 -->
-                    <Border Grid.Column="0" Style="{StaticResource VisualCard}" Margin="0,0,8,0">
+                    <Border Grid.Column="0" Style="{StaticResource VisualCard}" Margin="0,0,6,0">
                         <Grid>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="*"/>
                             </Grid.RowDefinitions>
-                            <Grid Grid.Row="0" Margin="0,0,0,12">
-                                <TextBlock Text="⚗️ 가공 시설 대기열" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" FontSize="16"/>
-                                <Button Content="수거하기" Click="BtnCollectWorks_Click" HorizontalAlignment="Right" Background="{StaticResource AccentGreen}" Foreground="White" FontWeight="Bold" FontSize="13" Padding="14,6" BorderThickness="0" Cursor="Hand"/>
+                            <Grid Grid.Row="0" Margin="0,0,0,10">
+                                <TextBlock Text="⚗️ 가공 시설 대기열" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" FontSize="15"/>
+                                <Button Content="수거하기" Click="BtnCollectWorks_Click" HorizontalAlignment="Right" Background="{StaticResource AccentGreen}" Foreground="White" FontWeight="Bold" FontSize="12" Padding="12,5" BorderThickness="0" Cursor="Hand"/>
                             </Grid>
                             <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
                                 <ItemsControl x:Name="ListAlteringWorks">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
-                                            <Border Background="{StaticResource BgCardSub}" CornerRadius="6" Padding="14,12" Margin="0,0,0,10">
+                                            <Border Background="{StaticResource BgCardSub}" CornerRadius="6" Padding="12,10" Margin="0,0,0,8">
                                                 <Grid>
                                                     <StackPanel>
-                                                        <TextBlock Text="{Binding DisplayName}" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" FontSize="15"/>
-                                                        <TextBlock Text="{Binding FacilityName, StringFormat='작업 시설: {0}'}" Foreground="{StaticResource TextSecondary}" FontSize="12" Margin="0,4,0,0"/>
+                                                        <TextBlock Text="{Binding DisplayName}" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" FontSize="14"/>
+                                                        <TextBlock Text="{Binding FacilityName, StringFormat='작업 시설: {0}'}" Foreground="{StaticResource TextSecondary}" FontSize="12" Margin="0,3,0,0"/>
                                                     </StackPanel>
-                                                    <TextBlock HorizontalAlignment="Right" VerticalAlignment="Center" Text="{Binding RemainingSeconds, StringFormat='남은 시간: {0}초'}" Foreground="{StaticResource AccentYellow}" FontWeight="Bold" FontSize="13"/>
+                                                    <TextBlock HorizontalAlignment="Right" VerticalAlignment="Center" Text="{Binding RemainingSeconds, StringFormat='남은 시간: {0}초'}" Foreground="{StaticResource AccentYellow}" FontWeight="Bold" FontSize="12"/>
                                                 </Grid>
                                             </Border>
                                         </DataTemplate>
@@ -440,8 +451,8 @@
                         </Grid>
                     </Border>
 
-                    <!-- 150종 채집 도우미 -->
-                    <Border Grid.Column="1" Style="{StaticResource VisualCard}" Margin="8,0,0,0">
+                    <!-- 150종 채집 도우미 (전체 브라우징 지원) -->
+                    <Border Grid.Column="1" Style="{StaticResource VisualCard}" Margin="6,0,0,0">
                         <Grid>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>
@@ -449,36 +460,34 @@
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="*"/>
                             </Grid.RowDefinitions>
-                            <TextBlock Grid.Row="0" Text="🌾 150종 스마트 채집 도우미" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" FontSize="16" Margin="0,0,0,10"/>
+                            <TextBlock Grid.Row="0" Text="🌾 150종 스마트 채집 도우미" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" FontSize="15" Margin="0,0,0,8"/>
 
-                            <WrapPanel Grid.Row="1" Margin="0,0,0,10">
-                                <Button Content="🍎 사과" Click="ChipGather_Click" Tag="사과" Background="#35373C" Foreground="White" FontWeight="Bold" FontSize="13" BorderThickness="0" Padding="12,6" Margin="0,0,6,6" Cursor="Hand"/>
-                                <Button Content="🪵 장작" Click="ChipGather_Click" Tag="나무 장작" Background="#35373C" Foreground="White" FontWeight="Bold" FontSize="13" BorderThickness="0" Padding="12,6" Margin="0,0,6,6" Cursor="Hand"/>
-                                <Button Content="🥚 달걀" Click="ChipGather_Click" Tag="달걀" Background="#35373C" Foreground="White" FontWeight="Bold" FontSize="13" BorderThickness="0" Padding="12,6" Margin="0,0,6,6" Cursor="Hand"/>
-                                <Button Content="🐑 양털" Click="ChipGather_Click" Tag="양털" Background="#35373C" Foreground="White" FontWeight="Bold" FontSize="13" BorderThickness="0" Padding="12,6" Margin="0,0,6,6" Cursor="Hand"/>
-                                <Button Content="⛏️ 철광석" Click="ChipGather_Click" Tag="철광석" Background="#35373C" Foreground="White" FontWeight="Bold" FontSize="13" BorderThickness="0" Padding="12,6" Margin="0,0,6,6" Cursor="Hand"/>
+                            <WrapPanel Grid.Row="1" Margin="0,0,0,8">
+                                <Button Content="🍎 사과" Click="ChipGather_Click" Tag="사과" Background="#35373C" Foreground="White" FontWeight="Bold" FontSize="12" BorderThickness="0" Padding="10,5" Margin="0,0,4,4" Cursor="Hand"/>
+                                <Button Content="🪵 장작" Click="ChipGather_Click" Tag="나무 장작" Background="#35373C" Foreground="White" FontWeight="Bold" FontSize="12" BorderThickness="0" Padding="10,5" Margin="0,0,4,4" Cursor="Hand"/>
+                                <Button Content="🥚 달걀" Click="ChipGather_Click" Tag="달걀" Background="#35373C" Foreground="White" FontWeight="Bold" FontSize="12" BorderThickness="0" Padding="10,5" Margin="0,0,4,4" Cursor="Hand"/>
+                                <Button Content="🐑 양털" Click="ChipGather_Click" Tag="양털" Background="#35373C" Foreground="White" FontWeight="Bold" FontSize="12" BorderThickness="0" Padding="10,5" Margin="0,0,4,4" Cursor="Hand"/>
+                                <Button Content="⛏️ 철광석" Click="ChipGather_Click" Tag="철광석" Background="#35373C" Foreground="White" FontWeight="Bold" FontSize="12" BorderThickness="0" Padding="10,5" Margin="0,0,4,4" Cursor="Hand"/>
                             </WrapPanel>
 
                             <TextBox x:Name="TxtGatherSearchFull" Grid.Row="2" TextChanged="TxtGatherSearchFull_TextChanged"
                                      Background="{StaticResource BgCardSub}" Foreground="{StaticResource TextPrimary}" BorderThickness="0"
-                                     Padding="12,10" FontSize="13" Margin="0,0,0,10"/>
+                                     Padding="10,8" FontSize="12" Margin="0,0,0,8"/>
 
-                            <ScrollViewer Grid.Row="3" VerticalScrollBarVisibility="Auto">
-                                <ItemsControl x:Name="ListGatherablesFull">
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate>
-                                            <Border Background="{StaticResource BgCardSub}" CornerRadius="6" Padding="12,10" Margin="0,0,0,6">
-                                                <Grid>
-                                                    <TextBlock Text="{Binding DisplayName}" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" FontSize="14" VerticalAlignment="Center"/>
-                                                    <Button Content="채집 시작" Click="BtnStartGather_Click" Tag="{Binding DisplayName}"
-                                                            HorizontalAlignment="Right" Background="{StaticResource AccentGreen}" Foreground="White"
-                                                            FontWeight="Bold" FontSize="12" Padding="12,5" BorderThickness="0" Cursor="Hand"/>
-                                                </Grid>
-                                            </Border>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
-                            </ScrollViewer>
+                            <!-- 가상화된 전체 채집물 리스트뷰 -->
+                            <ListView x:Name="ListGatherablesView" Grid.Row="3" Background="{StaticResource BgCardSub}" BorderThickness="0" Foreground="{StaticResource TextPrimary}"
+                                      VirtualizingStackPanel.IsVirtualizing="True" VirtualizingStackPanel.VirtualizationMode="Recycling">
+                                <ListView.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid Margin="4,3">
+                                            <TextBlock Text="{Binding DisplayName}" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" FontSize="13" VerticalAlignment="Center"/>
+                                            <Button Content="채집 시작" Click="BtnStartGather_Click" Tag="{Binding DisplayName}"
+                                                    HorizontalAlignment="Right" Background="{StaticResource AccentGreen}" Foreground="White"
+                                                    FontWeight="Bold" FontSize="11" Padding="10,4" BorderThickness="0" Cursor="Hand"/>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ListView.ItemTemplate>
+                            </ListView>
                         </Grid>
                     </Border>
                 </Grid>
@@ -486,24 +495,25 @@
 
             <!-- [6] 👥 주변 레이더 탭 -->
             <TabItem Header="  👥 주변 레이더 (22명)  ">
-                <Grid Margin="16">
+                <Grid Margin="14">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
-                    <TextBlock Grid.Row="0" Text="📡 내 주변 플레이어 실시간 레이더 (거리순)" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" FontSize="16" Margin="0,0,0,12"/>
-                    <ListView x:Name="ListNearPcsView" Grid.Row="1" Background="{StaticResource BgCard}" BorderThickness="0" Foreground="{StaticResource TextPrimary}" FontSize="13">
+                    <TextBlock Grid.Row="0" Text="📡 내 주변 플레이어 실시간 레이더 (거리순)" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" FontSize="15" Margin="0,0,0,10"/>
+                    <ListView x:Name="ListNearPcsView" Grid.Row="1" Background="{StaticResource BgCard}" BorderThickness="0" Foreground="{StaticResource TextPrimary}" FontSize="13"
+                              VirtualizingStackPanel.IsVirtualizing="True" VirtualizingStackPanel.VirtualizationMode="Recycling">
                         <ListView.View>
                             <GridView>
-                                <GridViewColumn Header="거리 (m)" Width="100" DisplayMemberBinding="{Binding Distance, StringFormat='{}{0:F1}m'}"/>
-                                <GridViewColumn Header="길드 소속" Width="120">
+                                <GridViewColumn Header="거리 (m)" Width="90" DisplayMemberBinding="{Binding Distance, StringFormat='{}{0:F1}m'}"/>
+                                <GridViewColumn Header="길드 소속" Width="110">
                                     <GridViewColumn.CellTemplate>
                                         <DataTemplate>
                                             <TextBlock Text="{Binding IsSameGuild, StringFormat='길드원: {0}'}" FontWeight="Bold" Foreground="{StaticResource AccentGreen}"/>
                                         </DataTemplate>
                                     </GridViewColumn.CellTemplate>
                                 </GridViewColumn>
-                                <GridViewColumn Header="직업 및 레벨" Width="180">
+                                <GridViewColumn Header="직업 및 레벨" Width="160">
                                     <GridViewColumn.CellTemplate>
                                         <DataTemplate>
                                             <TextBlock>
@@ -514,8 +524,8 @@
                                         </DataTemplate>
                                     </GridViewColumn.CellTemplate>
                                 </GridViewColumn>
-                                <GridViewColumn Header="전투력" Width="130" DisplayMemberBinding="{Binding CombatScore, StringFormat='{}{0:N0}'}"/>
-                                <GridViewColumn Header="칭호 / 서버" Width="200">
+                                <GridViewColumn Header="전투력" Width="120" DisplayMemberBinding="{Binding CombatScore, StringFormat='{}{0:N0}'}"/>
+                                <GridViewColumn Header="칭호 / 서버" Width="180">
                                     <GridViewColumn.CellTemplate>
                                         <DataTemplate>
                                             <TextBlock Text="{Binding Title, StringFormat='[{0}]'}" Foreground="{StaticResource TextSecondary}"/>
@@ -530,32 +540,32 @@
 
         </TabControl>
 
-        <!-- ================= 3. 상하 크기 조절 스플리터 ================= -->
-        <GridSplitter Grid.Row="2" Height="5" HorizontalAlignment="Stretch" Background="#2B2D31" Cursor="SizeNS"/>
+        <!-- ================= 4. 상하 크기 조절 스플리터 (가시성 확보) ================= -->
+        <GridSplitter Grid.Row="3" Height="5" HorizontalAlignment="Stretch" Background="{StaticResource BorderColor}" Cursor="SizeNS"/>
 
-        <!-- ================= 4. 하단 상시 고정 2분할 채팅창 ================= -->
-        <Grid Grid.Row="3" Background="{StaticResource BgSecondary}" Margin="12,4,12,12">
+        <!-- ================= 5. 하단 상시 고정 2분할 채팅창 ================= -->
+        <Grid Grid.Row="4" Background="{StaticResource BgSecondary}" Margin="12,4,12,10">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>   <!-- 좌측: 인게임 전체 채팅 -->
-                <ColumnDefinition Width="5"/>   <!-- 좌우 스플리터 -->
-                <ColumnDefinition Width="*"/>   <!-- 우측: AI 코파일럿 대화 -->
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="5"/>
+                <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
 
-            <!-- 4-1. 좌측: 🎮 인게임 전체 채팅 (상시 고정) -->
-            <Border Grid.Column="0" Background="{StaticResource BgCard}" CornerRadius="8" Padding="14" Margin="0,0,4,0">
+            <!-- 5-1. 좌측: 🎮 인게임 전체 채팅 (상시 고정) -->
+            <Border Grid.Column="0" Background="{StaticResource BgCard}" CornerRadius="8" Padding="12" Margin="0,0,4,0">
                 <Grid>
                     <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/> <!-- 배너 -->
-                        <RowDefinition Height="*"/>    <!-- 전송 로그 -->
-                        <RowDefinition Height="Auto"/> <!-- 입력부 -->
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
 
-                    <Border Grid.Row="0" Background="#3A2A1A" CornerRadius="6" Padding="10,6" Margin="0,0,0,8">
+                    <Border Grid.Row="0" Background="#3A2A1A" CornerRadius="6" Padding="10,5" Margin="0,0,0,6">
                         <TextBlock Text="📢 인게임 전체 채팅 (Enter 즉시 전송, 최대 50자, @@ 불필요)" 
                                    Foreground="#FFA940" FontSize="12" FontWeight="Bold"/>
                     </Border>
 
-                    <ScrollViewer Grid.Row="1" x:Name="ScrollGameChatLog" VerticalScrollBarVisibility="Auto" Margin="0,0,0,8">
+                    <ScrollViewer Grid.Row="1" x:Name="ScrollGameChatLog" VerticalScrollBarVisibility="Auto" Margin="0,0,0,6">
                         <ItemsControl x:Name="ListGameChatLogs">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
@@ -579,24 +589,26 @@
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
-                        <TextBlock x:Name="TxtCharLimit" Grid.Row="0" Text="0 / 50자" HorizontalAlignment="Right" Foreground="{StaticResource TextSecondary}" FontSize="11" Margin="0,0,0,3"/>
+                        <TextBlock x:Name="TxtCharLimit" Grid.Row="0" Text="0 / 50자" HorizontalAlignment="Right" Foreground="{StaticResource TextSecondary}" FontSize="12" Margin="0,0,0,2"/>
                         <Grid Grid.Row="1">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             <TextBox x:Name="TxtGameChatInput" Grid.Column="0" KeyDown="TxtGameChatInput_KeyDown" TextChanged="TxtGameChatInput_TextChanged"
+                                     MaxLength="50"
                                      Background="{StaticResource BgCardSub}" Foreground="{StaticResource TextPrimary}" BorderThickness="0"
-                                     Padding="12,10" FontSize="13">
+                                     Padding="12,8" FontSize="13">
                                 <TextBox.Resources>
                                     <Style TargetType="{x:Type Border}">
                                         <Setter Property="CornerRadius" Value="6"/>
                                     </Style>
                                 </TextBox.Resources>
                             </TextBox>
+                            <!-- 전송 버튼을 파란색으로 변경 (빨간색은 긴급 정지만 단독 사용) -->
                             <Button x:Name="BtnSendGameChat" Grid.Column="1" Content="게임 전송 ↵" Click="BtnSendGameChat_Click"
-                                    Background="{StaticResource AccentRed}" Foreground="White" FontWeight="Bold" FontSize="13"
-                                    Padding="18,10" BorderThickness="0" Margin="8,0,0,0" Cursor="Hand">
+                                    Background="{StaticResource AccentBlue}" Foreground="White" FontWeight="Bold" FontSize="13"
+                                    Padding="16,8" BorderThickness="0" Margin="6,0,0,0" Cursor="Hand">
                                 <Button.Template>
                                     <ControlTemplate TargetType="Button">
                                         <Border Background="{TemplateBinding Background}" CornerRadius="6" Padding="{TemplateBinding Padding}">
@@ -610,23 +622,24 @@
                 </Grid>
             </Border>
 
-            <GridSplitter Grid.Column="1" Width="5" HorizontalAlignment="Stretch" Background="Transparent" Cursor="SizeWE"/>
+            <!-- 가시성 확보된 좌우 스플리터 -->
+            <GridSplitter Grid.Column="1" Width="5" HorizontalAlignment="Stretch" Background="{StaticResource BorderColor}" Cursor="SizeWE"/>
 
-            <!-- 4-2. 우측: 🤖 AI 코파일럿 대화 (상시 고정) -->
-            <Border Grid.Column="2" Background="{StaticResource BgCard}" CornerRadius="8" Padding="14" Margin="4,0,0,0">
+            <!-- 5-2. 우측: 🤖 AI 코파일럿 대화 (상시 고정) -->
+            <Border Grid.Column="2" Background="{StaticResource BgCard}" CornerRadius="8" Padding="12" Margin="4,0,0,0">
                 <Grid>
                     <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/> <!-- 배너 -->
-                        <RowDefinition Height="*"/>    <!-- AI 피드 -->
-                        <RowDefinition Height="Auto"/> <!-- 입력부 -->
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
 
-                    <Border Grid.Row="0" Background="#1C2E46" CornerRadius="6" Padding="10,6" Margin="0,0,0,8">
+                    <Border Grid.Row="0" Background="#1C2E46" CornerRadius="6" Padding="10,5" Margin="0,0,0,6">
                         <TextBlock Text="🤖 AI 코파일럿 대화 (게임 공략, 팁, 상태 상담, 게임 채팅 전송 안 됨)" 
                                    Foreground="#58A6FF" FontSize="12" FontWeight="Bold"/>
                     </Border>
 
-                    <ScrollViewer Grid.Row="1" x:Name="ScrollAiFeed" VerticalScrollBarVisibility="Auto" Margin="0,0,0,8">
+                    <ScrollViewer Grid.Row="1" x:Name="ScrollAiFeed" VerticalScrollBarVisibility="Auto" Margin="0,0,0,6">
                         <ItemsControl x:Name="ListAiMessages">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
@@ -671,7 +684,7 @@
                         </Grid.ColumnDefinitions>
                         <TextBox x:Name="TxtAiInput" Grid.Column="0" KeyDown="TxtAiInput_KeyDown"
                                  Background="{StaticResource BgCardSub}" Foreground="{StaticResource TextPrimary}" BorderThickness="0"
-                                 Padding="12,10" FontSize="13">
+                                 Padding="12,8" FontSize="13">
                             <TextBox.Resources>
                                 <Style TargetType="{x:Type Border}">
                                     <Setter Property="CornerRadius" Value="6"/>
@@ -680,7 +693,7 @@
                         </TextBox>
                         <Button x:Name="BtnSendAi" Grid.Column="1" Content="AI 질문 ↵" Click="BtnSendAi_Click"
                                 Background="{StaticResource AccentBlue}" Foreground="White" FontWeight="Bold" FontSize="13"
-                                Padding="18,10" BorderThickness="0" Margin="8,0,0,0" Cursor="Hand">
+                                Padding="16,8" BorderThickness="0" Margin="6,0,0,0" Cursor="Hand">
                             <Button.Template>
                                 <ControlTemplate TargetType="Button">
                                     <Border Background="{TemplateBinding Background}" CornerRadius="6" Padding="{TemplateBinding Padding}">
