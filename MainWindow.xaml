@@ -870,7 +870,7 @@
                         </Grid.RowDefinitions>
 
                         <!-- 5대 퀵 공략 칩 바 (내장 가이드 모드 시 상시 노출, 가로 스크롤) -->
-                        <ScrollViewer Grid.Row="0" x:Name="ScrollQuickChips" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" Margin="0,0,0,8" Visibility="Visible">
+                        <ScrollViewer Grid.Row="0" x:Name="ScrollQuickChips" PreviewMouseWheel="ScrollQuickChips_PreviewMouseWheel" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" Margin="0,0,0,8" Visibility="Visible">
                             <StackPanel Orientation="Horizontal">
                                 <Button Content="⚔️ 전투력/룬" Tag="전투력" Click="BtnQuickChip_Click" Style="{StaticResource ChipButton}" Margin="0,0,6,0"/>
                                 <Button Content="💰 골드/재화" Tag="골드" Click="BtnQuickChip_Click" Style="{StaticResource ChipButton}" Margin="0,0,6,0"/>

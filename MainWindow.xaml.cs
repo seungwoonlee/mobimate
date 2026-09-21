@@ -775,6 +775,15 @@ public partial class MainWindow : Window
         }
     }
 
+    private void ScrollQuickChips_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        if (sender is ScrollViewer scv)
+        {
+            scv.ScrollToHorizontalOffset(scv.HorizontalOffset - e.Delta);
+            e.Handled = true;
+        }
+    }
+
     private void ExecuteAiQueryDirect(string query)
     {
         if (!BtnSendAi.IsEnabled) return;
