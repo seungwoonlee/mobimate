@@ -774,13 +774,13 @@
                     <!-- AI 엔진 선택기 헤더 -->
                     <Border Grid.Row="0" Background="#1C2E46" CornerRadius="6" Padding="12,6" Margin="0,0,0,8">
                         <Grid>
-                            <TextBlock Text="🤖 공략 &amp; 대화 AI (Ollama)" Foreground="#58A6FF" FontSize="14" FontWeight="Bold" VerticalAlignment="Center"/>
+                            <TextBlock Text="🤖 공략 &amp; 대화 AI 엔진" Foreground="#58A6FF" FontSize="14" FontWeight="Bold" VerticalAlignment="Center"/>
                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                                <TextBlock Text="모델: " Foreground="{StaticResource TextSecondary}" FontSize="13" VerticalAlignment="Center" Margin="0,0,4,0"/>
-                                <ComboBox x:Name="CmbAiEngine" Style="{StaticResource DarkComboBox}" SelectionChanged="CmbAiEngine_SelectionChanged" Width="220" Margin="0,0,4,0">
-                                    <ComboBoxItem Content="⏳ 모델 검색 중..." IsSelected="True"/>
+                                <TextBlock Text="엔진: " Foreground="{StaticResource TextSecondary}" FontSize="13" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                <ComboBox x:Name="CmbAiEngine" Style="{StaticResource DarkComboBox}" SelectionChanged="CmbAiEngine_SelectionChanged" Width="260" Margin="0,0,4,0">
+                                    <ComboBoxItem Content="⏳ AI 엔진 검색 중..." IsSelected="True"/>
                                 </ComboBox>
-                                <Button x:Name="BtnReloadAiModels" Content="🔄" Click="BtnReloadAiModels_Click" ToolTip="설치된 Ollama 모델 새로고침"
+                                <Button x:Name="BtnReloadAiModels" Content="🔄" Click="BtnReloadAiModels_Click" ToolTip="설치된 AI 엔진 새로고침"
                                         Background="#2B2D31" Foreground="{StaticResource TextPrimary}" FontWeight="Bold" FontSize="14"
                                         Padding="8,4" BorderThickness="0" Cursor="Hand">
                                     <Button.Template>

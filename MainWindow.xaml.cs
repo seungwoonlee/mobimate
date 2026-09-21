@@ -16,7 +16,7 @@ public partial class MainWindow : Window
 {
     private readonly GameCliService _cli = new();
     private readonly SnapshotManager _snapshotManager = new();
-    private readonly OllamaService _ollama = new();
+    private readonly AiEngineManager _aiManager = new();
 
     private CharacterInfo? _lastCharInfo;
     private List<CurrencyItem>? _lastCurrencies;
@@ -48,12 +48,12 @@ public partial class MainWindow : Window
         ListGameChatLogs.ItemsSource = GameChatLogs;
         ListAiMessages.ItemsSource = AiMessages;
 
-        AiMessages.Add(new AiMessageEntry("AI 도우미", "안녕하세요, 밀레시안님! ✨\n상단 6대 정보 탭과 하단 인게임 채팅/AI 대화창이 준비되었습니다.\n우측 상단에서 PC에 설치된 Ollama 모델을 선택하여 실시간 공략 상담을 나눌 수 있습니다.\nESC 키를 누르면 언제든 즉시 캐릭터의 행동을 긴급 정지합니다.", false));
+        AiMessages.Add(new AiMessageEntry("AI 도우미", "안녕하세요, 밀레시안님! ✨\n상단 6대 정보 탭과 하단 인게임 채팅/AI 대화창이 준비되었습니다.\n우측 상단에서 PC에 감지된 AI 엔진(무료 로컬 Ollama, 완전 무료 내장 가이드, CLI 에이전트 등)을 선택하여 실시간 공략 상담을 나눌 수 있습니다.\nESC 키를 누르면 언제든 즉시 캐릭터의 행동을 긴급 정지합니다.", false));
 
         Loaded += async (s, e) =>
         {
             _isWindowLoaded = true;
-            await LoadOllamaModelsAsync();
+            await LoadAiEnginesAsync();
             await RefreshHeaderOnlyAsync();
             await RefreshCurrentTabAsync();
         };
@@ -654,50 +654,74 @@ public partial class MainWindow : Window
         ScrollGameChatLog.ScrollToBottom();
     }
 
-    // ================= 8. 하단 AI 코파일럿 대화 (실시간 Ollama 연동) =================
-    private async Task LoadOllamaModelsAsync()
+    // ================= 8. 하단 AI 코파일럿 대화 (다중 엔진 자동 감지 및 폴백) =================
+    private async Task LoadAiEnginesAsync()
     {
         CmbAiEngine.Items.Clear();
-        var models = await _ollama.GetInstalledModelsAsync();
-        if (models.Count > 0)
-        {
-            foreach (var m in models)
-            {
-                var icon = m.Contains("cloud") ? "☁️" : "🟢";
-                CmbAiEngine.Items.Add(new ComboBoxItem
-                {
-                    Content = $"{icon} {m}",
-                    Tag = m
-                });
-            }
-            CmbAiEngine.SelectedIndex = 0;
-            ShowToast($"설치된 Ollama AI 모델 {models.Count}개를 감지했습니다.", true);
-        }
-        else
+        var engines = await _aiManager.DiscoverEnginesAsync();
+
+        foreach (var engine in engines)
         {
             CmbAiEngine.Items.Add(new ComboBoxItem
             {
-                Content = "⚠️ Ollama 오프라인",
-                Tag = ""
+                Content = engine.Info.DisplayName,
+                Tag = engine.Info.Id,
+                ToolTip = engine.Info.Description
             });
+        }
+
+        // 기본 엔진 자동 선택
+        var current = _aiManager.CurrentEngine;
+        if (current != null)
+        {
+            for (int i = 0; i < CmbAiEngine.Items.Count; i++)
+            {
+                if (CmbAiEngine.Items[i] is ComboBoxItem item && (string)item.Tag == current.Info.Id)
+                {
+                    CmbAiEngine.SelectedIndex = i;
+                    break;
+                }
+            }
+        }
+        else if (CmbAiEngine.Items.Count > 0)
+        {
             CmbAiEngine.SelectedIndex = 0;
-            ShowToast("Ollama 서버(11434 포트)에 연결할 수 없습니다.", false);
+        }
+
+        // 상태 안내 토스트
+        var hasOllama = engines.Any(e => e.Info.Type == AiEngineType.Ollama);
+        if (hasOllama)
+        {
+            ShowToast($"💡 무료 로컬 AI(Ollama) 감지 완료 (엔진 {engines.Count}개 준비)", true);
+        }
+        else
+        {
+            ShowToast("💡 AI 미설치 PC 감지: 완전 무료 내장 마비 가이드로 자동 동작합니다. (0원)", true);
         }
     }
 
     private async void BtnReloadAiModels_Click(object sender, RoutedEventArgs e)
     {
-        ShowToast("설치된 Ollama 모델을 새로고침하는 중...", true);
-        await LoadOllamaModelsAsync();
+        ShowToast("설치된 AI 엔진을 새로고침하는 중...", true);
+        await LoadAiEnginesAsync();
     }
 
     private void CmbAiEngine_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (!_isWindowLoaded) return;
 
-        if (CmbAiEngine?.SelectedItem is ComboBoxItem item && item.Content is string engineName)
+        if (CmbAiEngine?.SelectedItem is ComboBoxItem item && item.Tag is string engineId)
         {
-            AiMessages?.Add(new AiMessageEntry("시스템 알림", $"🤖 대화 AI 모델이 '{engineName}'(으)로 전환되었습니다.", false));
+            _aiManager.SetCurrentEngine(engineId);
+            var engine = _aiManager.CurrentEngine;
+            var engineName = engine?.Info.DisplayName ?? (item.Content as string ?? "AI");
+
+            if (engine?.Info.Type == AiEngineType.CliAgent)
+            {
+                ShowToast($"⚠️ CLI 에이전트 '{engine.Info.TargetModel}' 선택됨 (사용자 계정 정책 적용)", true);
+            }
+
+            AiMessages?.Add(new AiMessageEntry("시스템 알림", $"🤖 대화 AI 엔진이 '{engineName}'(으)로 전환되었습니다.", false));
             ScrollAiFeed?.ScrollToBottom();
         }
     }
@@ -725,16 +749,8 @@ public partial class MainWindow : Window
         TxtAiInput.Clear();
         AiMessages.Add(new AiMessageEntry("나", query, true));
 
-        var selectedItem = CmbAiEngine.SelectedItem as ComboBoxItem;
-        var selectedModel = selectedItem?.Tag as string;
-        var displayModelName = selectedItem?.Content as string ?? "AI 코파일럿";
-
-        if (string.IsNullOrEmpty(selectedModel))
-        {
-            AiMessages.Add(new AiMessageEntry("시스템 알림", "⚠️ Ollama 서버에 연결되어 있지 않습니다. 로컬 Ollama를 기동한 후 우측 '🔄' 버튼을 눌러주세요.", false));
-            ScrollAiFeed.ScrollToBottom();
-            return;
-        }
+        var currentEngine = _aiManager.CurrentEngine;
+        var displayModelName = currentEngine?.Info.DisplayName ?? "AI 코파일럿";
 
         // 긴급 정지 키워드 즉각 처리
         if (query.Contains("정지") || query.Contains("멈춰"))
@@ -769,14 +785,14 @@ public partial class MainWindow : Window
 
         try
         {
-            var (ok, reply, err) = await _ollama.AskAiAsync(selectedModel, query, systemContext);
-            if (ok)
+            var res = await _aiManager.AskCurrentEngineAsync(query, systemContext);
+            if (res.Success)
             {
-                AiMessages.Add(new AiMessageEntry(displayModelName, reply, false));
+                AiMessages.Add(new AiMessageEntry(displayModelName, res.Reply, false));
             }
             else
             {
-                AiMessages.Add(new AiMessageEntry(displayModelName, $"⚠️ AI 응답 생성 실패: {err}", false));
+                AiMessages.Add(new AiMessageEntry(displayModelName, $"⚠️ {res.ErrorMessage}", false));
             }
         }
         catch (Exception ex)
