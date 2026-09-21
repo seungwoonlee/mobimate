@@ -86,6 +86,97 @@
                 </Setter.Value>
             </Setter>
         </Style>
+
+        <!-- 다크 테마 ComboBoxItem 스타일 (호버/선택 완벽한 가독성 확보) -->
+        <Style TargetType="ComboBoxItem">
+            <Setter Property="Background" Value="#25272C"/>
+            <Setter Property="Foreground" Value="#FFFFFF"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Padding" Value="12,8"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBoxItem">
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}" CornerRadius="4" Margin="2">
+                            <ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#384260"/>
+                                <Setter Property="Foreground" Value="#FFFFFF"/>
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource AccentBlue}"/>
+                                <Setter Property="Foreground" Value="#FFFFFF"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- 다크 테마 ComboBox 스타일 (드롭다운 팝업 포함) -->
+        <ControlTemplate x:Key="DarkComboBoxToggleButton" TargetType="ToggleButton">
+            <Grid>
+                <Border x:Name="Border" Background="#25272C" BorderBrush="#383A40" BorderThickness="1" CornerRadius="6"/>
+                <Path x:Name="Arrow" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,12,0" Fill="#A3A6AA" Data="M 0 0 L 4 4 L 8 0 Z"/>
+            </Grid>
+            <ControlTemplate.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter TargetName="Border" Property="Background" Value="#2B2D31"/>
+                    <Setter TargetName="Border" Property="BorderBrush" Value="{StaticResource AccentBlue}"/>
+                    <Setter TargetName="Arrow" Property="Fill" Value="#FFFFFF"/>
+                </Trigger>
+            </ControlTemplate.Triggers>
+        </ControlTemplate>
+
+        <Style x:Key="DarkComboBox" TargetType="ComboBox">
+            <Setter Property="Background" Value="#25272C"/>
+            <Setter Property="Foreground" Value="#FFFFFF"/>
+            <Setter Property="BorderBrush" Value="#383A40"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Padding" Value="10,6"/>
+            <Setter Property="SnapsToDevicePixels" Value="True"/>
+            <Setter Property="OverridesDefaultStyle" Value="True"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBox">
+                        <Grid>
+                            <ToggleButton Name="ToggleButton" Template="{StaticResource DarkComboBoxToggleButton}"
+                                          Focusable="false" IsChecked="{Binding Path=IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
+                                          ClickMode="Press"/>
+                            <ContentPresenter Name="ContentSite" IsHitTestVisible="False"
+                                              Content="{TemplateBinding SelectionBoxItem}"
+                                              ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                              ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}"
+                                              Margin="12,6,30,6"
+                                              VerticalAlignment="Center" HorizontalAlignment="Left"/>
+                            <Popup Name="Popup" Placement="Bottom" IsOpen="{TemplateBinding IsDropDownOpen}"
+                                   AllowsTransparency="True" Focusable="False" PopupAnimation="Slide">
+                                <Grid Name="DropDown" SnapsToDevicePixels="True" MinWidth="{TemplateBinding ActualWidth}" MaxHeight="300">
+                                    <Border x:Name="DropDownBorder" Background="#202226" BorderThickness="1" BorderBrush="#383A40" CornerRadius="6" Margin="0,4,0,4">
+                                        <Border.Effect>
+                                            <DropShadowEffect BlurRadius="10" ShadowDepth="4" Opacity="0.6"/>
+                                        </Border.Effect>
+                                        <ScrollViewer Margin="4" SnapsToDevicePixels="True">
+                                            <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Contained"/>
+                                        </ScrollViewer>
+                                    </Border>
+                                </Grid>
+                            </Popup>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="HasItems" Value="false">
+                                <Setter TargetName="DropDownBorder" Property="MinHeight" Value="60"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Window.Resources>
 
     <Grid Background="{StaticResource BgPrimary}">
@@ -123,6 +214,11 @@
                             <!-- 활동 상태 램프 -->
                             <Border x:Name="BadgeActivity" Background="#1C3829" CornerRadius="6" Padding="8,3" Margin="8,0,0,0">
                                 <TextBlock x:Name="TxtActivity" Text="대기 중 (Idle)" FontSize="14" Foreground="{StaticResource AccentGreen}" FontWeight="Bold"/>
+                            </Border>
+
+                            <!-- 게임 데이터 수집 출처 표기 배지 -->
+                            <Border Background="#1C2E46" CornerRadius="6" Padding="8,3" Margin="8,0,0,0">
+                                <TextBlock Text="📡 게임 연동: 넥슨 MM AI CLI" FontSize="13" Foreground="#58A6FF" FontWeight="Bold"/>
                             </Border>
                         </StackPanel>
                         <TextBlock x:Name="TxtLocation" Text="📍 페카 고분 심층 2층 3구역 (맑음 ☀️)  |  에린 시간 2959-4-23" FontSize="14" Foreground="{StaticResource TextSecondary}" Margin="0,4,0,0"/>
@@ -678,15 +774,23 @@
                     <!-- AI 엔진 선택기 헤더 -->
                     <Border Grid.Row="0" Background="#1C2E46" CornerRadius="6" Padding="12,6" Margin="0,0,0,8">
                         <Grid>
-                            <TextBlock Text="🤖 AI 코파일럿 대화" Foreground="#58A6FF" FontSize="14" FontWeight="Bold" VerticalAlignment="Center"/>
+                            <TextBlock Text="🤖 공략 &amp; 대화 AI (Ollama)" Foreground="#58A6FF" FontSize="14" FontWeight="Bold" VerticalAlignment="Center"/>
                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                                <TextBlock Text="엔진: " Foreground="{StaticResource TextSecondary}" FontSize="13" VerticalAlignment="Center" Margin="0,0,4,0"/>
-                                <ComboBox x:Name="CmbAiEngine" SelectionChanged="CmbAiEngine_SelectionChanged" Width="210" Background="#2B2D31" Foreground="{StaticResource TextPrimary}" FontSize="14">
-                                    <ComboBoxItem Content="🟢 로컬 내장 AI" IsSelected="True"/>
-                                    <ComboBoxItem Content="🟢 Ollama: gemma4:31b"/>
-                                    <ComboBoxItem Content="🟢 Ollama: llama3:8b"/>
-                                    <ComboBoxItem Content="☁️ Claude 3.7 Sonnet"/>
+                                <TextBlock Text="모델: " Foreground="{StaticResource TextSecondary}" FontSize="13" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                <ComboBox x:Name="CmbAiEngine" Style="{StaticResource DarkComboBox}" SelectionChanged="CmbAiEngine_SelectionChanged" Width="220" Margin="0,0,4,0">
+                                    <ComboBoxItem Content="⏳ 모델 검색 중..." IsSelected="True"/>
                                 </ComboBox>
+                                <Button x:Name="BtnReloadAiModels" Content="🔄" Click="BtnReloadAiModels_Click" ToolTip="설치된 Ollama 모델 새로고침"
+                                        Background="#2B2D31" Foreground="{StaticResource TextPrimary}" FontWeight="Bold" FontSize="14"
+                                        Padding="8,4" BorderThickness="0" Cursor="Hand">
+                                    <Button.Template>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border Background="{TemplateBinding Background}" CornerRadius="4" Padding="{TemplateBinding Padding}">
+                                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                            </Border>
+                                        </ControlTemplate>
+                                    </Button.Template>
+                                </Button>
                             </StackPanel>
                         </Grid>
                     </Border>

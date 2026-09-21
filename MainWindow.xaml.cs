@@ -16,6 +16,7 @@ public partial class MainWindow : Window
 {
     private readonly GameCliService _cli = new();
     private readonly SnapshotManager _snapshotManager = new();
+    private readonly OllamaService _ollama = new();
 
     private CharacterInfo? _lastCharInfo;
     private List<CurrencyItem>? _lastCurrencies;
@@ -47,11 +48,12 @@ public partial class MainWindow : Window
         ListGameChatLogs.ItemsSource = GameChatLogs;
         ListAiMessages.ItemsSource = AiMessages;
 
-        AiMessages.Add(new AiMessageEntry("AI 코파일럿", "안녕하세요, 밀레시안님! ✨\n상단 6대 정보 탭과 하단 인게임 채팅/AI 대화창이 준비되었습니다.\nESC 키를 누르면 언제든 즉시 캐릭터의 행동을 긴급 정지할 수 있습니다.", false));
+        AiMessages.Add(new AiMessageEntry("AI 도우미", "안녕하세요, 밀레시안님! ✨\n상단 6대 정보 탭과 하단 인게임 채팅/AI 대화창이 준비되었습니다.\n우측 상단에서 PC에 설치된 Ollama 모델을 선택하여 실시간 공략 상담을 나눌 수 있습니다.\nESC 키를 누르면 언제든 즉시 캐릭터의 행동을 긴급 정지합니다.", false));
 
         Loaded += async (s, e) =>
         {
             _isWindowLoaded = true;
+            await LoadOllamaModelsAsync();
             await RefreshHeaderOnlyAsync();
             await RefreshCurrentTabAsync();
         };
@@ -652,14 +654,50 @@ public partial class MainWindow : Window
         ScrollGameChatLog.ScrollToBottom();
     }
 
-    // ================= 8. 하단 AI 코파일럿 대화 =================
+    // ================= 8. 하단 AI 코파일럿 대화 (실시간 Ollama 연동) =================
+    private async Task LoadOllamaModelsAsync()
+    {
+        CmbAiEngine.Items.Clear();
+        var models = await _ollama.GetInstalledModelsAsync();
+        if (models.Count > 0)
+        {
+            foreach (var m in models)
+            {
+                var icon = m.Contains("cloud") ? "☁️" : "🟢";
+                CmbAiEngine.Items.Add(new ComboBoxItem
+                {
+                    Content = $"{icon} {m}",
+                    Tag = m
+                });
+            }
+            CmbAiEngine.SelectedIndex = 0;
+            ShowToast($"설치된 Ollama AI 모델 {models.Count}개를 감지했습니다.", true);
+        }
+        else
+        {
+            CmbAiEngine.Items.Add(new ComboBoxItem
+            {
+                Content = "⚠️ Ollama 오프라인",
+                Tag = ""
+            });
+            CmbAiEngine.SelectedIndex = 0;
+            ShowToast("Ollama 서버(11434 포트)에 연결할 수 없습니다.", false);
+        }
+    }
+
+    private async void BtnReloadAiModels_Click(object sender, RoutedEventArgs e)
+    {
+        ShowToast("설치된 Ollama 모델을 새로고침하는 중...", true);
+        await LoadOllamaModelsAsync();
+    }
+
     private void CmbAiEngine_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (!_isWindowLoaded) return;
 
         if (CmbAiEngine?.SelectedItem is ComboBoxItem item && item.Content is string engineName)
         {
-            AiMessages?.Add(new AiMessageEntry("시스템 알림", $"🤖 AI 엔진이 '{engineName}'(으)로 전환되었습니다.", false));
+            AiMessages?.Add(new AiMessageEntry("시스템 알림", $"🤖 대화 AI 모델이 '{engineName}'(으)로 전환되었습니다.", false));
             ScrollAiFeed?.ScrollToBottom();
         }
     }
@@ -677,7 +715,7 @@ public partial class MainWindow : Window
         SendAiQueryInternal();
     }
 
-    private void SendAiQueryInternal()
+    private async void SendAiQueryInternal()
     {
         var query = TxtAiInput.Text.Trim();
         if (string.IsNullOrEmpty(query)) return;
@@ -685,31 +723,70 @@ public partial class MainWindow : Window
         TxtAiInput.Clear();
         AiMessages.Add(new AiMessageEntry("나", query, true));
 
-        var selectedEngine = (CmbAiEngine?.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? "AI 코파일럿";
+        var selectedItem = CmbAiEngine.SelectedItem as ComboBoxItem;
+        var selectedModel = selectedItem?.Tag as string;
+        var displayModelName = selectedItem?.Content as string ?? "AI 코파일럿";
 
-        string reply;
-        var q = query.ToLower();
+        if (string.IsNullOrEmpty(selectedModel))
+        {
+            AiMessages.Add(new AiMessageEntry("시스템 알림", "⚠️ Ollama 서버에 연결되어 있지 않습니다. 로컬 Ollama를 기동한 후 우측 '🔄' 버튼을 눌러주세요.", false));
+            ScrollAiFeed.ScrollToBottom();
+            return;
+        }
 
-        if (q.Contains("가방") || q.Contains("아이템") || q.Contains("무게"))
-            reply = "가방 및 소지품 600여 종은 상단의 [🎒 가방 & 소지품] 탭에서 위치별(가방/창고)로 검색하실 수 있습니다!";
-        else if (q.Contains("돈") || q.Contains("골드") || q.Contains("재화"))
-            reply = "골드와 정령의 날개 등 28종 전체 재화는 상단의 [💰 재화 & 화폐] 탭에 상세히 정리되어 있습니다.";
-        else if (q.Contains("미션") || q.Contains("일퀘"))
-            reply = "일일 미션과 주간 미션 진행 현황은 상단의 [📜 미션 & 퀘스트] 탭에서 확인하세요.";
-        else if (q.Contains("채집") || q.Contains("가공") || q.Contains("수거"))
-            reply = "작업대 남은 시간과 150종 채집 목록은 상단의 [🌿 생활 & 생산] 탭에서 바로 조작하실 수 있습니다.";
-        else if (q.Contains("주변") || q.Contains("길드원") || q.Contains("유저"))
-            reply = "근처 22명 플레이어와 길드원 위치는 상단의 [👥 주변 레이더] 탭에서 거리순으로 확인하실 수 있습니다.";
-        else if (q.Contains("정지") || q.Contains("멈춰"))
+        // 긴급 정지 키워드 즉각 처리
+        if (query.Contains("정지") || query.Contains("멈춰"))
         {
             _ = EmergencyStopInternalAsync();
-            reply = "캐릭터의 진행 중인 행동(채집, 이동 등)을 즉시 정지시켰습니다!";
+            AiMessages.Add(new AiMessageEntry(displayModelName, "🛑 캐릭터의 진행 중인 행동(채집, 이동 등)을 즉시 긴급 정지시켰습니다!", false));
+            ScrollAiFeed.ScrollToBottom();
+            return;
         }
-        else
-            reply = $"'{query}'에 대해 알려드릴게요!\n상단 6개 정보 탭과 좌측 인게임 채팅을 자유롭게 활용해 보세요.";
 
-        AiMessages.Add(new AiMessageEntry(selectedEngine, reply, false));
-        ScrollAiFeed.ScrollToBottom();
+        // 현재 게임 상황을 정밀한 시스템 컨텍스트로 구성
+        var ch = _lastCharInfo;
+        var realm = string.IsNullOrWhiteSpace(ch?.RealmName) ? "에린" : ch.RealmName;
+        var job = string.IsNullOrWhiteSpace(ch?.JobName) ? "밀레시안" : ch.JobName;
+        var level = ch?.Level ?? 1;
+        var combatScore = ch?.CombatScore?.Value ?? 0;
+        var activity = TxtActivity.Text;
+        var location = TxtLocation.Text;
+        var weightInfo = TxtWeightSummary.Text;
+
+        var systemContext =
+            $"당신은 넥슨 '마비노기 모바일'의 든든한 플레이 동반자 AI 도우미(MobiMate)입니다.\n" +
+            $"[현재 플레이어 실시간 게임 상태]\n" +
+            $"- 서버: {realm} / 직업: {job} (Lv.{level})\n" +
+            $"- 전투력: {combatScore:N0}점\n" +
+            $"- 현재 상태: {activity} / 위치: {location}\n" +
+            $"- 가방 무게 현황: {weightInfo}\n\n" +
+            $"플레이어의 질문에 대해 마비노기 모바일 게임 공략과 현재 캐릭터 상태에 맞추어 친절하고 간결하게 2~3문장 이내의 한국어로 답변해주세요.";
+
+        BtnSendAi.IsEnabled = false;
+        BtnSendAi.Content = "생각 중... 💭";
+
+        try
+        {
+            var (ok, reply, err) = await _ollama.AskAiAsync(selectedModel, query, systemContext);
+            if (ok)
+            {
+                AiMessages.Add(new AiMessageEntry(displayModelName, reply, false));
+            }
+            else
+            {
+                AiMessages.Add(new AiMessageEntry(displayModelName, $"⚠️ AI 응답 생성 실패: {err}", false));
+            }
+        }
+        catch (Exception ex)
+        {
+            AiMessages.Add(new AiMessageEntry(displayModelName, $"⚠️ 오류 발생: {ex.Message}", false));
+        }
+        finally
+        {
+            BtnSendAi.IsEnabled = true;
+            BtnSendAi.Content = "AI 질문 ↵";
+            ScrollAiFeed.ScrollToBottom();
+        }
     }
 
     // ================= 9. 긴급 정지 (ESC 단축키 및 버튼 공통) =================
