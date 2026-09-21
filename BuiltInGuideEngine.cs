@@ -63,7 +63,24 @@ public class BuiltInGuideEngine : IAiEngine
             sb.AppendLine("2. [장판 회피]: 붉은색 예고 장판은 구르기(대시) 무적 시간으로 타이밍을 맞춰 피하세요.");
             sb.AppendLine("3. [부활 코인]: 주간 어비스는 부활 횟수가 제한되어 있으니 물약 쿨타임을 항상 체크하세요.");
         }
-        // 5. 기타 일반 질의
+        // 5. 캐릭터 실시간 정밀 진단 질의
+        else if (q.Contains("진단") || q.Contains("캐릭터") || q.Contains("내정보") || q.Contains("내 정보") || q.Contains("스펙 점검"))
+        {
+            sb.AppendLine("📊 실시간 캐릭터 정밀 진단 리포트:");
+            if (!string.IsNullOrWhiteSpace(gameContext))
+            {
+                sb.AppendLine("• 수집된 최신 게임 현황:");
+                foreach (var line in gameContext.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+                {
+                    if (line.StartsWith("-")) sb.AppendLine($"  {line}");
+                }
+            }
+            sb.AppendLine("• 종합 피드백:");
+            sb.AppendLine("  1. 가방 무게가 80%를 넘지 않도록 가공 재료를 시설에 등록하세요.");
+            sb.AppendLine("  2. 일일 미션 11개 완수 여부를 확인하여 오늘 날짜 보상을 수령하세요.");
+            sb.AppendLine("  3. 주간 어비스 및 레이드 입장권 쿨타임을 점검하세요.");
+        }
+        // 6. 기타 일반 질의
         else
         {
             sb.AppendLine($"'{prompt}'에 대한 마비노기 모바일 핵심 조언입니다:");

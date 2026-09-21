@@ -48,7 +48,7 @@ public partial class MainWindow : Window
         ListGameChatLogs.ItemsSource = GameChatLogs;
         ListAiMessages.ItemsSource = AiMessages;
 
-        AiMessages.Add(new AiMessageEntry("AI 도우미", "안녕하세요, 밀레시안님! ✨\n상단 6대 정보 탭과 하단 인게임 채팅/AI 대화창이 준비되었습니다.\n우측 상단에서 PC에 감지된 AI 엔진(무료 로컬 Ollama, 완전 무료 내장 가이드, CLI 에이전트 등)을 선택하여 실시간 공략 상담을 나눌 수 있습니다.\nESC 키를 누르면 언제든 즉시 캐릭터의 행동을 긴급 정지합니다.", false));
+        AiMessages.Add(new AiMessageEntry("AI 도우미", "✨ 모비노기 AI도우미가 준비되었습니다. (ESC: 긴급 정지)", false));
 
         Loaded += async (s, e) =>
         {
@@ -609,12 +609,16 @@ public partial class MainWindow : Window
         ListNearPcsView.ItemsSource = pcs.OrderBy(p => p.Distance).ToList();
     }
 
-    // ================= 7. 하단 인게임 전체 채팅 =================
+    // ================= 7. 하단 인게임 전체 채팅 (이모티콘 & 소셜 액션 연동) =================
     private void TxtGameChatInput_TextChanged(object sender, TextChangedEventArgs e)
     {
-        var len = TxtGameChatInput.Text.Length;
+        var raw = TxtGameChatInput.Text;
+        var len = raw.Length;
         TxtCharLimit.Text = $"{len} / 50자";
         TxtCharLimit.Foreground = len >= 45 ? (Brush)FindResource("AccentRed") : (Brush)FindResource("TextSecondary");
+
+        var hint = ChatPlanService.GetPreviewHint(raw);
+        TxtChatEmotePreview.Text = string.IsNullOrEmpty(hint) ? "" : $"[자동: {hint}]";
     }
 
     private async void TxtGameChatInput_KeyDown(object sender, KeyEventArgs e)
@@ -632,22 +636,40 @@ public partial class MainWindow : Window
 
     private async Task SendGameChatInternalAsync()
     {
-        var text = TxtGameChatInput.Text.Trim();
-        if (string.IsNullOrEmpty(text)) return;
+        var rawText = TxtGameChatInput.Text.Trim();
+        if (string.IsNullOrEmpty(rawText)) return;
 
         TxtGameChatInput.Clear();
+        TxtChatEmotePreview.Text = "";
 
+        var plan = ChatPlanService.BuildChatPlan(rawText);
         var time = DateTime.Now.ToString("HH:mm:ss");
-        var (ok, err) = await _cli.SendGameChatAsync(text);
+
+        // 1차: 이모티콘이 안전하게 부착된 대사 전송
+        var (ok, err) = await _cli.SendGameChatAsync(plan.FinalMessage);
 
         if (ok)
         {
-            GameChatLogs.Add(new ChatLogEntry($"[{time}] ✓ 전송 완료", text, true));
-            ShowToast($"채팅 전송 완료: \"{text}\"", true);
+            var logMsg = plan.BehaviourCommand != null
+                ? $"{plan.FinalMessage} (행동: {plan.BehaviourCommand})"
+                : plan.FinalMessage;
+
+            GameChatLogs.Add(new ChatLogEntry($"[{time}] ✓ 전송 완료", logMsg, true));
+            ShowToast($"채팅 전송 완료: \"{plan.FinalMessage}\"", true);
+
+            // 2차: 소셜 액션(행동) 전송 (Fail-Safe: 1차 성공 시에만 0.15초 후 실행)
+            if (!string.IsNullOrEmpty(plan.BehaviourCommand))
+            {
+                _ = Task.Run(async () =>
+                {
+                    await Task.Delay(150);
+                    await _cli.SendGameChatAsync(plan.BehaviourCommand);
+                });
+            }
         }
         else
         {
-            GameChatLogs.Add(new ChatLogEntry($"[{time}] ✗ 전송 실패 ({err})", text, false, err));
+            GameChatLogs.Add(new ChatLogEntry($"[{time}] ✗ 전송 실패 ({err})", plan.FinalMessage, false, err));
             ShowToast($"채팅 전송 실패: {err}", false);
         }
 
@@ -688,6 +710,10 @@ public partial class MainWindow : Window
             CmbAiEngine.SelectedIndex = 0;
         }
 
+        // 내장 가이드 여부에 따라 퀵 칩 바 가시성 초기화
+        var isBuiltIn = current?.Info.Type == AiEngineType.BuiltInGuide;
+        ScrollQuickChips.Visibility = isBuiltIn ? Visibility.Visible : Visibility.Collapsed;
+
         // 상태 안내 토스트
         var hasOllama = engines.Any(e => e.Info.Type == AiEngineType.Ollama);
         if (hasOllama)
@@ -716,14 +742,45 @@ public partial class MainWindow : Window
             var engine = _aiManager.CurrentEngine;
             var engineName = engine?.Info.DisplayName ?? (item.Content as string ?? "AI");
 
+            // 내장 가이드일 때만 5대 퀵 공략 칩 바 노출
+            var isBuiltIn = engine?.Info.Type == AiEngineType.BuiltInGuide;
+            ScrollQuickChips.Visibility = isBuiltIn ? Visibility.Visible : Visibility.Collapsed;
+
             if (engine?.Info.Type == AiEngineType.CliAgent)
             {
                 ShowToast($"⚠️ CLI 에이전트 '{engine.Info.TargetModel}' 선택됨 (사용자 계정 정책 적용)", true);
             }
-
-            AiMessages?.Add(new AiMessageEntry("시스템 알림", $"🤖 대화 AI 엔진이 '{engineName}'(으)로 전환되었습니다.", false));
-            ScrollAiFeed?.ScrollToBottom();
+            else
+            {
+                ShowToast($"🤖 AI 엔진이 '{engineName}'(으)로 전환되었습니다.", true);
+            }
         }
+    }
+
+    private void BtnQuickChip_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button btn && btn.Tag is string tag)
+        {
+            var prompt = tag switch
+            {
+                "전투력" => "전투력 및 룬 장착 공략 알려줘",
+                "골드" => "골드 및 재화 파밍 팁 알려줘",
+                "채집" => "주요 채집물 위치와 가공 시설 공략 알려줘",
+                "던전" => "던전 보스 브레이크 및 회피 공략 알려줘",
+                "진단" => "현재 내 캐릭터 스펙과 상태 진단해줘",
+                _ => btn.Content?.ToString() ?? "공략 가이드"
+            };
+
+            ExecuteAiQueryDirect(prompt);
+        }
+    }
+
+    private void ExecuteAiQueryDirect(string query)
+    {
+        if (!BtnSendAi.IsEnabled) return;
+        TxtAiInput.Clear();
+        AiMessages.Add(new AiMessageEntry("나", query, true));
+        _ = ProcessAiQueryAsync(query);
     }
 
     private void TxtAiInput_KeyDown(object sender, KeyEventArgs e)
@@ -739,7 +796,7 @@ public partial class MainWindow : Window
         SendAiQueryInternal();
     }
 
-    private async void SendAiQueryInternal()
+    private void SendAiQueryInternal()
     {
         if (!BtnSendAi.IsEnabled) return;
 
@@ -749,6 +806,11 @@ public partial class MainWindow : Window
         TxtAiInput.Clear();
         AiMessages.Add(new AiMessageEntry("나", query, true));
 
+        _ = ProcessAiQueryAsync(query);
+    }
+
+    private async Task ProcessAiQueryAsync(string query)
+    {
         var currentEngine = _aiManager.CurrentEngine;
         var displayModelName = currentEngine?.Info.DisplayName ?? "AI 코파일럿";
 

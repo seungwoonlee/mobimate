@@ -32,6 +32,12 @@ public class AiEngineTests
         var gatherRes = await guide.GenerateResponseAsync("철광석 채집 위치 알려줘", "");
         Assert.True(gatherRes.Success);
         Assert.Contains("두갈드 아일", gatherRes.Reply);
+
+        // 4. 캐릭터 진단 질의
+        var diagRes = await guide.GenerateResponseAsync("현재 내 캐릭터 진단해줘", "- 직업: 격투가 (Lv.100)\n- 전투력: 88,000점\n- 가방 무게: 850/1000");
+        Assert.True(diagRes.Success);
+        Assert.Contains("진단 리포트", diagRes.Reply);
+        Assert.Contains("격투가", diagRes.Reply);
     }
 
     [Fact]
