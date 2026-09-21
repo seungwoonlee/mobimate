@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
 
-namespace MabiMate;
+namespace MobiMate;
 
 // 1. 캐릭터 상세 정보 (get_my_info)
 public record CharacterInfo(

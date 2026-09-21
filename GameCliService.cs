@@ -7,7 +7,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace MabiMate;
+namespace MobiMate;
 
 public class GameCliService
 {

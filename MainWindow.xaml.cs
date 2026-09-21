@@ -10,11 +10,16 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
 
-namespace MabiMate;
+namespace MobiMate;
 
 public partial class MainWindow : Window
 {
     private readonly GameCliService _cli = new();
+    private readonly SnapshotManager _snapshotManager = new();
+
+    private CharacterInfo? _lastCharInfo;
+    private List<CurrencyItem>? _lastCurrencies;
+    private List<MissionItem>? _lastDailyMissions;
 
     private List<ItemData> _allItems = new();
     private string _currentItemLocationFilter = "All";
@@ -214,6 +219,9 @@ public partial class MainWindow : Window
     {
         if (ch != null)
         {
+            _lastCharInfo = ch;
+            UpdateDeltas();
+
             var realm = string.IsNullOrEmpty(ch.RealmName) ? "에린" : ch.RealmName;
             var job = string.IsNullOrEmpty(ch.JobName) ? "밀레시안" : ch.JobName;
             TxtCharTitle.Text = $"[{realm}] {job} Lv.{ch.Level}";
@@ -317,6 +325,53 @@ public partial class MainWindow : Window
         }
     }
 
+    private void UpdateDeltas()
+    {
+        if (_lastCharInfo == null) return;
+
+        var delta = _snapshotManager.UpdateSnapshot(_lastCharInfo, _lastCurrencies, _lastDailyMissions);
+
+        // 1. 전투력 변화량
+        if (delta.CombatScoreDiff != 0)
+        {
+            TxtCombatDelta.Text = $" ({SnapshotManager.FormatDiff(delta.CombatScoreDiff)})";
+            TxtCombatDelta.Foreground = delta.CombatScoreDiff > 0 ? (Brush)FindResource("AccentGreen") : (Brush)FindResource("AccentRed");
+            TxtCombatDelta.Visibility = Visibility.Visible;
+        }
+        else
+        {
+            TxtCombatDelta.Visibility = Visibility.Collapsed;
+        }
+
+        // 2. 가방 무게 변화량
+        if (Math.Abs(delta.WeightDiff) >= 0.05)
+        {
+            TxtWeightDelta.Text = $" ({SnapshotManager.FormatWeightDiff(delta.WeightDiff)})";
+            TxtWeightDelta.Foreground = delta.WeightDiff < 0 ? (Brush)FindResource("AccentGreen") : (Brush)FindResource("AccentYellow");
+            TxtWeightDelta.Visibility = Visibility.Visible;
+        }
+        else
+        {
+            TxtWeightDelta.Visibility = Visibility.Collapsed;
+        }
+
+        // 3. 재화 탭 세션 누적 요약
+        TxtGoldDeltaSummary.Text = delta.GoldDiff != 0 ? $"골드 {SnapshotManager.FormatDiff(delta.GoldDiff, " G")}" : "골드 +0 G";
+        TxtWingsDeltaSummary.Text = delta.WingsDiff != 0 ? $"날개 {SnapshotManager.FormatDiff(delta.WingsDiff, "개")}" : "날개 +0개";
+        TxtNyangDeltaSummary.Text = delta.NyangDiff != 0 ? $"냥토큰 {SnapshotManager.FormatDiff(delta.NyangDiff, "개")}" : "냥토큰 +0개";
+
+        // 4. 일일 미션 변화량
+        if (delta.MissionDiff > 0)
+        {
+            TxtMissionDelta.Text = $" (+{delta.MissionDiff} 완료 ▲)";
+            TxtMissionDelta.Visibility = Visibility.Visible;
+        }
+        else
+        {
+            TxtMissionDelta.Visibility = Visibility.Collapsed;
+        }
+    }
+
     // ================= 2. 가방 & 아이템 탭 (디바운싱 지원) =================
     private void UpdateItems(List<ItemData>? items)
     {
@@ -373,7 +428,9 @@ public partial class MainWindow : Window
     private void UpdateCurrencies(List<CurrencyItem>? list)
     {
         if (list == null) return;
+        _lastCurrencies = list;
         ListAllCurrencies.ItemsSource = list;
+        UpdateDeltas();
     }
 
     // ================= 4. 미션 & 퀘스트 탭 =================
@@ -381,6 +438,7 @@ public partial class MainWindow : Window
     {
         if (daily != null)
         {
+            _lastDailyMissions = daily;
             var completed = daily.Count(d => d.IsCompleted);
             ProgDailyMissions.Value = daily.Count > 0 ? (double)completed / daily.Count * 100 : 0;
             ListDailyMissionsFull.ItemsSource = daily.OrderBy(d => d.IsCompleted).ToList();
@@ -392,6 +450,8 @@ public partial class MainWindow : Window
             ProgWeeklyMissions.Value = weekly.Count > 0 ? (double)completed / weekly.Count * 100 : 0;
             ListWeeklyMissionsFull.ItemsSource = weekly.OrderBy(w => w.IsCompleted).ToList();
         }
+
+        UpdateDeltas();
     }
 
     // ================= 5. 생활 & 생산 탭 (150종 전체 스크롤 지원) =================
@@ -543,6 +603,15 @@ public partial class MainWindow : Window
     }
 
     // ================= 8. 하단 AI 코파일럿 대화 =================
+    private void CmbAiEngine_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (CmbAiEngine?.SelectedItem is ComboBoxItem item && item.Content is string engineName)
+        {
+            AiMessages?.Add(new AiMessageEntry("시스템 알림", $"🤖 AI 엔진이 '{engineName}'(으)로 전환되었습니다.", false));
+            ScrollAiFeed?.ScrollToBottom();
+        }
+    }
+
     private void TxtAiInput_KeyDown(object sender, KeyEventArgs e)
     {
         if (e.Key == Key.Enter)
@@ -563,6 +632,8 @@ public partial class MainWindow : Window
 
         TxtAiInput.Clear();
         AiMessages.Add(new AiMessageEntry("나", query, true));
+
+        var selectedEngine = (CmbAiEngine?.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? "AI 코파일럿";
 
         string reply;
         var q = query.ToLower();
@@ -585,7 +656,7 @@ public partial class MainWindow : Window
         else
             reply = $"'{query}'에 대해 알려드릴게요!\n상단 6개 정보 탭과 좌측 인게임 채팅을 자유롭게 활용해 보세요.";
 
-        AiMessages.Add(new AiMessageEntry("AI 코파일럿", reply, false));
+        AiMessages.Add(new AiMessageEntry(selectedEngine, reply, false));
         ScrollAiFeed.ScrollToBottom();
     }
 

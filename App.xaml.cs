@@ -1,8 +1,8 @@
-﻿using System.Configuration;
+using System.Configuration;
 using System.Data;
 using System.Windows;
 
-namespace MabiMate;
+namespace MobiMate;
 
 /// <summary>
 /// Interaction logic for App.xaml
