@@ -65,11 +65,16 @@ public class AiEngineTests
     }
 
     [Fact]
-    public void SetCurrentEngine_SwitchesEngineCorrectly()
+    public async Task SetCurrentEngine_SwitchesEngineCorrectly()
     {
         var manager = new AiEngineManager();
-        // 동기적으로 BuiltInGuideEngine이 동작하는지 확인
+        var engines = await manager.DiscoverEnginesAsync(CancellationToken.None);
+
+        Assert.NotEmpty(engines);
+
+        // 내장 가이드로 명시적 전환
         manager.SetCurrentEngine("builtin:guide");
-        // 아직 Discover 전이어도 List가 비어있으면 안전하게 무시됨
+        Assert.NotNull(manager.CurrentEngine);
+        Assert.Equal("builtin:guide", manager.CurrentEngine.Info.Id);
     }
 }
