@@ -8,6 +8,7 @@
     <UseWPF>true</UseWPF>
     <SelfContained>false</SelfContained>
     <PublishSingleFile>true</PublishSingleFile>
+    <DebugType>none</DebugType>
   </PropertyGroup>
 
 </Project>
