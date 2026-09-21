@@ -33,6 +33,7 @@ public partial class MainWindow : Window
     private CancellationTokenSource? _tabCts;
     private DispatcherTimer? _searchDebounceTimer;
     private DispatcherTimer? _toastTimer;
+    private bool _isWindowLoaded;
 
     public ICommand EmergencyStopCommand { get; }
 
@@ -50,6 +51,7 @@ public partial class MainWindow : Window
 
         Loaded += async (s, e) =>
         {
+            _isWindowLoaded = true;
             await RefreshHeaderOnlyAsync();
             await RefreshCurrentTabAsync();
         };
@@ -355,10 +357,54 @@ public partial class MainWindow : Window
             TxtWeightDelta.Visibility = Visibility.Collapsed;
         }
 
-        // 3. 재화 탭 세션 누적 요약
-        TxtGoldDeltaSummary.Text = delta.GoldDiff != 0 ? $"골드 {SnapshotManager.FormatDiff(delta.GoldDiff, " G")}" : "골드 +0 G";
-        TxtWingsDeltaSummary.Text = delta.WingsDiff != 0 ? $"날개 {SnapshotManager.FormatDiff(delta.WingsDiff, "개")}" : "날개 +0개";
-        TxtNyangDeltaSummary.Text = delta.NyangDiff != 0 ? $"냥토큰 {SnapshotManager.FormatDiff(delta.NyangDiff, "개")}" : "냥토큰 +0개";
+        // 3. 재화 탭 세션 누적 요약 (증감에 따른 동적 색상 매핑)
+        if (delta.GoldDiff > 0)
+        {
+            TxtGoldDeltaSummary.Text = $"골드 {SnapshotManager.FormatDiff(delta.GoldDiff, " G")}";
+            TxtGoldDeltaSummary.Foreground = (Brush)FindResource("AccentGreen");
+        }
+        else if (delta.GoldDiff < 0)
+        {
+            TxtGoldDeltaSummary.Text = $"골드 {SnapshotManager.FormatDiff(delta.GoldDiff, " G")}";
+            TxtGoldDeltaSummary.Foreground = (Brush)FindResource("AccentRed");
+        }
+        else
+        {
+            TxtGoldDeltaSummary.Text = "골드 +0 G";
+            TxtGoldDeltaSummary.Foreground = (Brush)FindResource("AccentGold");
+        }
+
+        if (delta.WingsDiff > 0)
+        {
+            TxtWingsDeltaSummary.Text = $"날개 {SnapshotManager.FormatDiff(delta.WingsDiff, "개")}";
+            TxtWingsDeltaSummary.Foreground = (Brush)FindResource("AccentGreen");
+        }
+        else if (delta.WingsDiff < 0)
+        {
+            TxtWingsDeltaSummary.Text = $"날개 {SnapshotManager.FormatDiff(delta.WingsDiff, "개")}";
+            TxtWingsDeltaSummary.Foreground = (Brush)FindResource("AccentRed");
+        }
+        else
+        {
+            TxtWingsDeltaSummary.Text = "날개 +0개";
+            TxtWingsDeltaSummary.Foreground = (Brush)FindResource("AccentCyan");
+        }
+
+        if (delta.NyangDiff > 0)
+        {
+            TxtNyangDeltaSummary.Text = $"냥토큰 {SnapshotManager.FormatDiff(delta.NyangDiff, "개")}";
+            TxtNyangDeltaSummary.Foreground = (Brush)FindResource("AccentGreen");
+        }
+        else if (delta.NyangDiff < 0)
+        {
+            TxtNyangDeltaSummary.Text = $"냥토큰 {SnapshotManager.FormatDiff(delta.NyangDiff, "개")}";
+            TxtNyangDeltaSummary.Foreground = (Brush)FindResource("AccentRed");
+        }
+        else
+        {
+            TxtNyangDeltaSummary.Text = "냥토큰 +0개";
+            TxtNyangDeltaSummary.Foreground = (Brush)FindResource("TextSecondary");
+        }
 
         // 4. 일일 미션 변화량
         if (delta.MissionDiff > 0)
@@ -405,13 +451,17 @@ public partial class MainWindow : Window
 
     private void TxtItemSearch_TextChanged(object sender, TextChangedEventArgs e)
     {
-        _searchDebounceTimer?.Stop();
-        _searchDebounceTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(150) };
-        _searchDebounceTimer.Tick += (s, ev) =>
+        if (_searchDebounceTimer == null)
         {
-            _searchDebounceTimer.Stop();
-            FilterItems();
-        };
+            _searchDebounceTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(150) };
+            _searchDebounceTimer.Tick += (s, ev) =>
+            {
+                _searchDebounceTimer.Stop();
+                FilterItems();
+            };
+        }
+
+        _searchDebounceTimer.Stop();
         _searchDebounceTimer.Start();
     }
 
@@ -605,6 +655,8 @@ public partial class MainWindow : Window
     // ================= 8. 하단 AI 코파일럿 대화 =================
     private void CmbAiEngine_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
+        if (!_isWindowLoaded) return;
+
         if (CmbAiEngine?.SelectedItem is ComboBoxItem item && item.Content is string engineName)
         {
             AiMessages?.Add(new AiMessageEntry("시스템 알림", $"🤖 AI 엔진이 '{engineName}'(으)로 전환되었습니다.", false));

@@ -45,76 +45,86 @@ public class GameCliService
 
         // 안전한 직렬화 큐: 동시 프로세스 경합 방지
         await _cliLock.WaitAsync(ct);
-
-        using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds));
-        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct, timeoutCts.Token);
-
-        Process? proc = null;
         try
         {
-            proc = new Process();
-            proc.StartInfo.FileName = CliPath;
-            proc.StartInfo.UseShellExecute = false;
-            proc.StartInfo.RedirectStandardInput = stdinJson != null;
-            proc.StartInfo.RedirectStandardOutput = true;
-            proc.StartInfo.RedirectStandardError = true;
-            proc.StartInfo.StandardOutputEncoding = Encoding.UTF8;
-            proc.StartInfo.StandardErrorEncoding = Encoding.UTF8;
-            proc.StartInfo.CreateNoWindow = true;
+            using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds));
+            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct, timeoutCts.Token);
 
-            // .NET ArgumentList로 OS 레벨 안전 인자 이스케이프 보장
-            proc.StartInfo.ArgumentList.Add(command);
-            if (args != null)
-            {
-                foreach (var arg in args)
-                {
-                    proc.StartInfo.ArgumentList.Add(arg);
-                }
-            }
-
-            proc.Start();
-
-            if (stdinJson != null)
-            {
-                await proc.StandardInput.WriteAsync(stdinJson.AsMemory(), linkedCts.Token);
-                proc.StandardInput.Close();
-            }
-
-            var stdoutTask = proc.StandardOutput.ReadToEndAsync(linkedCts.Token);
-            var stderrTask = proc.StandardError.ReadToEndAsync(linkedCts.Token);
-
-            await proc.WaitForExitAsync(linkedCts.Token);
-
-            var stdout = (await stdoutTask).Trim();
-            var stderr = (await stderrTask).Trim();
-
-            if (proc.ExitCode != 0 && string.IsNullOrEmpty(stdout))
-            {
-                return (false, stdout, string.IsNullOrEmpty(stderr) ? $"종료 코드 {proc.ExitCode}" : stderr);
-            }
-
-            return (true, stdout, stderr);
-        }
-        catch (OperationCanceledException)
-        {
+            Process? proc = null;
             try
             {
-                if (proc != null && !proc.HasExited)
-                {
-                    proc.Kill(true); // 좀비 프로세스 방지
-                }
-            }
-            catch { }
+                proc = new Process();
+                proc.StartInfo.FileName = CliPath;
+                proc.StartInfo.UseShellExecute = false;
+                proc.StartInfo.RedirectStandardInput = stdinJson != null;
+                proc.StartInfo.RedirectStandardOutput = true;
+                proc.StartInfo.RedirectStandardError = true;
+                proc.StartInfo.StandardOutputEncoding = Encoding.UTF8;
+                proc.StartInfo.StandardErrorEncoding = Encoding.UTF8;
+                proc.StartInfo.CreateNoWindow = true;
 
-            return (false, "", "게임 CLI 응답 시간 초과 (타임아웃)");
-        }
-        catch (Exception ex)
-        {
-            return (false, "", ex.Message);
+                // .NET ArgumentList로 OS 레벨 안전 인자 이스케이프 보장
+                proc.StartInfo.ArgumentList.Add(command);
+                if (args != null)
+                {
+                    foreach (var arg in args)
+                    {
+                        proc.StartInfo.ArgumentList.Add(arg);
+                    }
+                }
+
+                proc.Start();
+
+                if (stdinJson != null)
+                {
+                    await proc.StandardInput.WriteAsync(stdinJson.AsMemory(), linkedCts.Token);
+                    proc.StandardInput.Close();
+                }
+
+                var stdoutTask = proc.StandardOutput.ReadToEndAsync(linkedCts.Token);
+                var stderrTask = proc.StandardError.ReadToEndAsync(linkedCts.Token);
+
+                await proc.WaitForExitAsync(linkedCts.Token);
+
+                var stdout = (await stdoutTask).Trim();
+                var stderr = (await stderrTask).Trim();
+
+                if (proc.ExitCode != 0 && string.IsNullOrEmpty(stdout))
+                {
+                    return (false, stdout, string.IsNullOrEmpty(stderr) ? $"종료 코드 {proc.ExitCode}" : stderr);
+                }
+
+                return (true, stdout, stderr);
+            }
+            catch (OperationCanceledException)
+            {
+                try
+                {
+                    if (proc != null && !proc.HasExited)
+                    {
+                        proc.Kill(true); // 좀비 프로세스 방지
+                    }
+                }
+                catch { }
+
+                if (ct.IsCancellationRequested)
+                {
+                    throw; // 상위 호출자(탭 전환 취소)에 정상 전파
+                }
+
+                return (false, "", "게임 CLI 응답 시간 초과 (타임아웃)");
+            }
+            catch (Exception ex)
+            {
+                return (false, "", ex.Message);
+            }
+            finally
+            {
+                proc?.Dispose();
+            }
         }
         finally
         {
-            proc?.Dispose();
             _cliLock.Release();
         }
     }

@@ -681,7 +681,7 @@
                             <TextBlock Text="🤖 AI 코파일럿 대화" Foreground="#58A6FF" FontSize="14" FontWeight="Bold" VerticalAlignment="Center"/>
                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                                 <TextBlock Text="엔진: " Foreground="{StaticResource TextSecondary}" FontSize="13" VerticalAlignment="Center" Margin="0,0,4,0"/>
-                                <ComboBox x:Name="CmbAiEngine" SelectionChanged="CmbAiEngine_SelectionChanged" Width="180" Background="#2B2D31" Foreground="{StaticResource TextPrimary}" FontSize="12">
+                                <ComboBox x:Name="CmbAiEngine" SelectionChanged="CmbAiEngine_SelectionChanged" Width="210" Background="#2B2D31" Foreground="{StaticResource TextPrimary}" FontSize="14">
                                     <ComboBoxItem Content="🟢 로컬 내장 AI" IsSelected="True"/>
                                     <ComboBoxItem Content="🟢 Ollama: gemma4:31b"/>
                                     <ComboBoxItem Content="🟢 Ollama: llama3:8b"/>
