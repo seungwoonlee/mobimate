@@ -100,7 +100,7 @@ public class OllamaService
             var jsonContent = JsonSerializer.Serialize(req);
             using var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
 
-            using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+            using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
             using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct, timeoutCts.Token);
 
             var res = await _http.PostAsync("api/chat", content, linkedCts.Token);

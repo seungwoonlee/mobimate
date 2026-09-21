@@ -717,6 +717,8 @@ public partial class MainWindow : Window
 
     private async void SendAiQueryInternal()
     {
+        if (!BtnSendAi.IsEnabled) return;
+
         var query = TxtAiInput.Text.Trim();
         if (string.IsNullOrEmpty(query)) return;
 
