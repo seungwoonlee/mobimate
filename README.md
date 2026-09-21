@@ -47,8 +47,8 @@
 - 마비노기 모바일 PC 클라이언트 실행 중 (설정에서 **"MM AI 에이전트"** 활성화)
 
 ### 실행 방법
-- **일반 유저**: `dist\MobiMate.exe` (또는 `dist\MobiMate.zip` 압축 해제 후 실행)
-  - .NET 8 런타임이 자체 내장되어 있어 별도 런타임 설치 없이 단일 실행 파일로 즉시 작동합니다.
+- **일반 유저**: `dist\MobiMate.exe` (초경량 단일 실행 파일, 약 280KB)
+  - 일반적인 Windows PC에 기본 설치된 .NET 8 데스크톱 런타임을 활용하므로 별도의 무거운 패키지나 압축 해제 없이 `.exe` 파일 하나만 더블 클릭하여 즉시 실행할 수 있습니다.
 
 ### 개발 빌드 명령
 ```powershell
@@ -58,8 +58,8 @@ dotnet run
 # 프로젝트 빌드
 dotnet build
 
-# 독립형 단일 실행 파일 (.exe) 배포 빌드
-dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o dist
+# 초경량 단일 실행 파일 (.exe) 배포 빌드 (약 280KB)
+dotnet publish -c Release -r win-x64 -o dist
 ```
 
 ---
