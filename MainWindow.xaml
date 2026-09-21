@@ -750,16 +750,81 @@
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/> <!-- 배너 -->
+                        <RowDefinition Height="Auto"/> <!-- 아무말 대잔치 컨트롤 패널 -->
                         <RowDefinition Height="*"/>    <!-- 전송 로그 -->
                         <RowDefinition Height="Auto"/> <!-- 입력부 -->
                     </Grid.RowDefinitions>
 
-                    <Border Grid.Row="0" Background="#3A2A1A" CornerRadius="6" Padding="12,6" Margin="0,0,0,8">
+                    <Border Grid.Row="0" Background="#3A2A1A" CornerRadius="6" Padding="12,6" Margin="0,0,0,6">
                         <TextBlock Text="📢 인게임 전체 채팅 (Enter 즉시 전송, 최대 50자, @@ 불필요)" 
-                                   Foreground="#FFA940" FontSize="14" FontWeight="Bold"/>
+                                    Foreground="#FFA940" FontSize="14" FontWeight="Bold"/>
                     </Border>
 
-                    <ScrollViewer Grid.Row="1" x:Name="ScrollGameChatLog" VerticalScrollBarVisibility="Auto" Margin="0,0,0,8">
+                    <!-- 🗣️ 아무말 대잔치 (페르소나 혼잣말) 컨트롤 패널 -->
+                    <Border Grid.Row="1" Background="#211A14" BorderBrush="#42301A" BorderThickness="1" CornerRadius="6" Padding="8,6" Margin="0,0,0,8">
+                        <WrapPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <!-- 토글 버튼 -->
+                            <ToggleButton x:Name="TglChatterEnable" Click="TglChatterEnable_Click" 
+                                          Background="#2E2419" Foreground="#F0B27A" FontWeight="Bold" FontSize="12"
+                                          Padding="8,4" Margin="0,0,8,0" Cursor="Hand">
+                                <ToggleButton.Template>
+                                    <ControlTemplate TargetType="ToggleButton">
+                                        <Border x:Name="TglBorder" Background="{TemplateBinding Background}" BorderBrush="#543C1E" BorderThickness="1" CornerRadius="4" Padding="{TemplateBinding Padding}">
+                                            <TextBlock x:Name="TglText" Text="🗣️ 아무말 OFF" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsChecked" Value="True">
+                                                <Setter TargetName="TglBorder" Property="Background" Value="#2E5C38"/>
+                                                <Setter TargetName="TglBorder" Property="BorderBrush" Value="#48C774"/>
+                                                <Setter TargetName="TglText" Property="Text" Value="🗣️ 아무말 ON"/>
+                                                <Setter TargetName="TglText" Property="Foreground" Value="#FFFFFF"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </ToggleButton.Template>
+                            </ToggleButton>
+
+                            <!-- 페르소나 선택 -->
+                            <TextBlock Text="페르소나:" Foreground="{StaticResource TextSecondary}" FontSize="12" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                            <ComboBox x:Name="CmbPersona" Style="{StaticResource DarkComboBox}" SelectionChanged="CmbPersona_SelectionChanged" Width="160" Margin="0,0,8,0" FontSize="12">
+                                <ComboBoxItem Content="🌹 악덕영애 스타일" Tag="Villainess" IsSelected="True"/>
+                                <ComboBoxItem Content="💰 구두쇠 영감 스타일" Tag="Scrooge"/>
+                                <ComboBoxItem Content="☀️ 안녕하닝 모닝이야" Tag="MorningSpirit"/>
+                                <ComboBoxItem Content="🌊 갱상도 아재 스타일" Tag="GyeongsangAhjussi"/>
+                                <ComboBoxItem Content="✨ 아이돌 댄서 스타일" Tag="IdolDancer"/>
+                            </ComboBox>
+
+                            <!-- 주기 선택 -->
+                            <TextBlock Text="주기:" Foreground="{StaticResource TextSecondary}" FontSize="12" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                            <ComboBox x:Name="CmbChatterInterval" Style="{StaticResource DarkComboBox}" SelectionChanged="CmbChatterInterval_SelectionChanged" Width="70" Margin="0,0,8,0" FontSize="12">
+                                <ComboBoxItem Content="5초" Tag="5"/>
+                                <ComboBoxItem Content="10초" Tag="10" IsSelected="True"/>
+                                <ComboBoxItem Content="15초" Tag="15"/>
+                                <ComboBoxItem Content="20초" Tag="20"/>
+                                <ComboBoxItem Content="30초" Tag="30"/>
+                                <ComboBoxItem Content="60초" Tag="60"/>
+                            </ComboBox>
+
+                            <!-- 인게임 발송 체크박스 -->
+                            <CheckBox x:Name="ChkSendToGameDirectly" Content="인게임 전송" IsChecked="True" Checked="ChkSendToGameDirectly_CheckChanged" Unchecked="ChkSendToGameDirectly_CheckChanged"
+                                      Foreground="{StaticResource TextPrimary}" FontSize="12" VerticalAlignment="Center" Margin="0,0,8,0" ToolTip="체크 시 실제 인게임 전체 채팅으로 발송되며, 해제 시 앱 내 시뮬레이션으로만 동작합니다."/>
+
+                            <!-- 즉시 한마디 수동 발송 버튼 -->
+                            <Button x:Name="BtnTriggerChatterNow" Content="💬 한마디" Click="BtnTriggerChatterNow_Click" ToolTip="현재 상황에 맞춘 페르소나 넋두리를 즉시 1회 발송합니다."
+                                    Background="#3A2B18" Foreground="#F5CBA7" FontWeight="Bold" FontSize="12"
+                                    Padding="8,4" BorderThickness="1" BorderBrush="#5D4324" Cursor="Hand">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="4" Padding="{TemplateBinding Padding}">
+                                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        </Border>
+                                    </ControlTemplate>
+                                </Button.Template>
+                            </Button>
+                        </WrapPanel>
+                    </Border>
+
+                    <ScrollViewer Grid.Row="2" x:Name="ScrollGameChatLog" VerticalScrollBarVisibility="Auto" Margin="0,0,0,8">
                         <ItemsControl x:Name="ListGameChatLogs">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>

@@ -17,6 +17,7 @@ public partial class MainWindow : Window
     private readonly GameCliService _cli = new();
     private readonly SnapshotManager _snapshotManager = new();
     private readonly AiEngineManager _aiManager = new();
+    private InGameChatterService? _chatterService;
 
     private CharacterInfo? _lastCharInfo;
     private List<CurrencyItem>? _lastCurrencies;
@@ -49,6 +50,19 @@ public partial class MainWindow : Window
         ListAiMessages.ItemsSource = AiMessages;
 
         AiMessages.Add(new AiMessageEntry("AI 도우미", "✨ 모비노기 AI도우미가 준비되었습니다. 아래 완성형 가이드 카드를 선택하거나 자유롭게 질문해 보세요! (ESC: 긴급 정지)", false));
+
+        // 아무말 대잔치(페르소나 혼잣말) 백그라운드 서비스 초기화
+        _chatterService = new InGameChatterService(_cli, _aiManager, GetCurrentChatterContext);
+        _chatterService.OnChatterEmitted += (personaTag, msg) =>
+        {
+            Dispatcher.Invoke(() =>
+            {
+                var time = DateTime.Now.ToString("HH:mm:ss");
+                GameChatLogs.Add(new ChatLogEntry($"[{time}] {personaTag}", msg, true));
+                ScrollGameChatLog.ScrollToBottom();
+            });
+        };
+        _chatterService.OnToastRequested += (msg, success) => ShowToast(msg, success);
 
         Loaded += async (s, e) =>
         {
@@ -674,6 +688,95 @@ public partial class MainWindow : Window
         }
 
         ScrollGameChatLog.ScrollToBottom();
+    }
+
+    // ================= 7-1. 아무말 대잔치 (페르소나 혼잣말) 제어 =================
+    private ChatterContext GetCurrentChatterContext()
+    {
+        var ch = _lastCharInfo;
+        var realm = string.IsNullOrWhiteSpace(ch?.RealmName) ? "에린" : ch.RealmName;
+        var job = string.IsNullOrWhiteSpace(ch?.JobName) ? "밀레시안" : ch.JobName;
+        var level = ch?.Level ?? 1;
+        var combatScore = ch?.CombatScore?.Value ?? 0;
+        var activity = TxtActivity?.Text ?? "자유 활동";
+        var location = TxtLocation?.Text ?? "티르코네일";
+        var weightInfo = TxtWeightSummary?.Text ?? "정상";
+        var goldItem = _lastCurrencies?.FirstOrDefault(c => c.DisplayName.Contains("골드"));
+        var goldInfo = goldItem != null ? $"{goldItem.Amount:N0} 골드" : "100,000 골드";
+
+        return new ChatterContext(realm, job, level, combatScore, activity, location, weightInfo, goldInfo);
+    }
+
+    private void TglChatterEnable_Click(object sender, RoutedEventArgs e)
+    {
+        if (_chatterService == null) return;
+        var isEnabled = TglChatterEnable.IsChecked == true;
+        _chatterService.IsEnabled = isEnabled;
+
+        if (isEnabled)
+        {
+            ShowToast($"🗣️ 아무말 대잔치가 켜졌습니다. ({_chatterService.IntervalSeconds}초 주기)", true);
+        }
+        else
+        {
+            ShowToast("🗣️ 아무말 대잔치가 꺼졌습니다.", true);
+        }
+    }
+
+    private void CmbPersona_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (!_isWindowLoaded || _chatterService == null) return;
+        if (CmbPersona.SelectedItem is ComboBoxItem item && item.Tag is string tag)
+        {
+            _chatterService.CurrentPersona = tag switch
+            {
+                "Villainess" => ChatterPersona.Villainess,
+                "Scrooge" => ChatterPersona.Scrooge,
+                "MorningSpirit" => ChatterPersona.MorningSpirit,
+                "GyeongsangAhjussi" => ChatterPersona.GyeongsangAhjussi,
+                "IdolDancer" => ChatterPersona.IdolDancer,
+                _ => ChatterPersona.Villainess
+            };
+            ShowToast($"페르소나가 '{item.Content}'(으)로 변경되었습니다.", true);
+        }
+    }
+
+    private void CmbChatterInterval_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (!_isWindowLoaded || _chatterService == null) return;
+        if (CmbChatterInterval.SelectedItem is ComboBoxItem item && int.TryParse(item.Tag as string, out var sec))
+        {
+            _chatterService.IntervalSeconds = sec;
+            ShowToast($"아무말 주기가 {sec}초로 변경되었습니다.", true);
+        }
+    }
+
+    private void ChkSendToGameDirectly_CheckChanged(object sender, RoutedEventArgs e)
+    {
+        if (_chatterService == null) return;
+        var directly = ChkSendToGameDirectly.IsChecked == true;
+        _chatterService.SendToGameDirectly = directly;
+        ShowToast(directly ? "아무말 인게임 전송 활성화" : "아무말 앱 내 시뮬레이션 모드 전환", true);
+    }
+
+    private async void BtnTriggerChatterNow_Click(object sender, RoutedEventArgs e)
+    {
+        if (_chatterService == null) return;
+
+        BtnTriggerChatterNow.IsEnabled = false;
+        BtnTriggerChatterNow.Content = "⏳...";
+
+        try
+        {
+            await _chatterService.TriggerChatterAsync(isManual: true);
+        }
+        finally
+        {
+            // 연타 방지 쿨타임 2초
+            await Task.Delay(2000);
+            BtnTriggerChatterNow.IsEnabled = true;
+            BtnTriggerChatterNow.Content = "💬 한마디";
+        }
     }
 
     // ================= 8. 하단 AI 코파일럿 대화 (다중 엔진 자동 감지 및 폴백) =================
