@@ -11,4 +11,9 @@
     <DebugType>none</DebugType>
   </PropertyGroup>
 
+  <!-- 빌드/퍼블리시 시 메신저 전송용 MobiMate.zip 자동 생성 -->
+  <Target Name="ZipAfterPublish" AfterTargets="Publish" Condition="'$(PublishDir)' != ''">
+    <Exec Command="powershell -NoProfile -Command &quot;if (Test-Path '$(PublishDir)MobiMate.exe') { Compress-Archive -Path '$(PublishDir)MobiMate.exe' -DestinationPath '$(PublishDir)MobiMate.zip' -Force }&quot;" />
+  </Target>
+
 </Project>
