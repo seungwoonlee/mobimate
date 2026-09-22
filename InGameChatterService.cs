@@ -35,20 +35,7 @@ public class InGameChatterService
     public bool IsEnabled
     {
         get => _isEnabled;
-        set
-        {
-            if (_isEnabled == value) return;
-            _isEnabled = value;
-            if (_isEnabled)
-            {
-                _timer.Interval = TimeSpan.FromSeconds(Math.Max(3, _intervalSeconds));
-                _timer.Start();
-            }
-            else
-            {
-                _timer.Stop();
-            }
-        }
+        set => _isEnabled = value;
     }
 
     public ChatterPersona CurrentPersona
@@ -60,11 +47,7 @@ public class InGameChatterService
     public int IntervalSeconds
     {
         get => _intervalSeconds;
-        set
-        {
-            _intervalSeconds = Math.Max(3, value);
-            _timer.Interval = TimeSpan.FromSeconds(_intervalSeconds);
-        }
+        set => _intervalSeconds = Math.Max(3, value);
     }
 
     public bool SendToGameDirectly
@@ -79,20 +62,58 @@ public class InGameChatterService
         _aiManager = aiManager ?? throw new ArgumentNullException(nameof(aiManager));
         _contextProvider = contextProvider ?? throw new ArgumentNullException(nameof(contextProvider));
 
+        // 주기적 자동 전송은 비활성화(수동 '한마디' 생성 전용으로 전환)
         _timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(_intervalSeconds) };
-        _timer.Tick += async (s, e) => await TriggerChatterAsync(isManual: false);
     }
 
     /// <summary>
-    /// 수동 즉시 발송 또는 타이머 틱에 의한 대사 생성 및 발송 (발송 완료 후 10초 순수 대기 간격 보장)
+    /// 에린 시간 포맷터: 가상 연도(2959년)를 제거하고 마비노기 감성의 월/일/시간 및 낮/밤 아이콘으로 정돈
+    /// </summary>
+    public static string FormatErinnTime(string? erinnNow)
+    {
+        if (string.IsNullOrWhiteSpace(erinnNow)) return "";
+
+        var match = Regex.Match(erinnNow, @"(?:(\d+)-)?(\d{1,2})-(\d{1,2})\s+(\d{1,2}):(\d{2})");
+        if (match.Success)
+        {
+            var month = int.Parse(match.Groups[2].Value);
+            var day = int.Parse(match.Groups[3].Value);
+            var hour = int.Parse(match.Groups[4].Value);
+            var minute = match.Groups[5].Value;
+            var isDay = hour >= 6 && hour < 18;
+            var icon = isDay ? "☀️" : "🌙";
+            var period = isDay ? "낮" : "밤";
+            return $"에린 시간 {month}월 {day}일 {hour:D2}:{minute} {icon} ({period})";
+        }
+
+        return $"에린 시간 {erinnNow}";
+    }
+
+    /// <summary>
+    /// 한마디 버튼 클릭 시 호출: 즉시 전송하지 않고 입력란에 채워넣을 50자 이내의 완성된 대사 생성
+    /// </summary>
+    public async Task<string> GenerateChatterLineAsync()
+    {
+        var ctx = _contextProvider();
+        var line = await GeneratePersonaLineAsync(_currentPersona, ctx);
+
+        line = SanitizeLine(line);
+        if (string.IsNullOrWhiteSpace(line))
+        {
+            line = PersonaTemplates.GetRandomTemplate(_currentPersona, ctx);
+        }
+
+        var plan = ChatPlanService.BuildChatPlan(line);
+        return plan.FinalMessage;
+    }
+
+    /// <summary>
+    /// 수동 즉시 발송 또는 대사 생성 및 발송
     /// </summary>
     public async Task<bool> TriggerChatterAsync(bool isManual = false)
     {
         if (_isBusy) return false;
         _isBusy = true;
-
-        // 발송 작업 중에는 타이머를 일시 중지하여 발송 완료 시점부터 순수 간격을 측정
-        _timer.Stop();
 
         try
         {
@@ -138,14 +159,6 @@ public class InGameChatterService
         finally
         {
             _isBusy = false;
-
-            // 한마디 발송 완료 시점부터 다음 한마디까지 설정된 간격(기본 10초)을 완벽히 보장
-            // 아무말 기능이 켜져 있는(_isEnabled) 경우에만 타이머 재가동
-            if (_isEnabled)
-            {
-                _timer.Interval = TimeSpan.FromSeconds(Math.Max(3, _intervalSeconds));
-                _timer.Start();
-            }
         }
     }
 

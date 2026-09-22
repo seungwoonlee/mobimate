@@ -28,6 +28,37 @@ public class CharacterSnapshot
     public CharacterSnapshot Clone() => (CharacterSnapshot)MemberwiseClone();
 }
 
+public class CharacterHistoryRecord
+{
+    public DateTime Timestamp { get; set; } = DateTime.Now;
+    public int Level { get; set; }
+    public string Title { get; set; } = "";
+    public long CombatScore { get; set; }
+    public long LivingScore { get; set; }
+    public long AttackPower { get; set; }
+    public long DefencePower { get; set; }
+    public double WeightCurrent { get; set; }
+    public long Gold { get; set; }
+    public long Wings { get; set; }
+    public long NyangToken { get; set; }
+    public int CompletedDailyMissions { get; set; }
+}
+
+public class CharacterProfile
+{
+    public string CharacterKey { get; set; } = "";
+    public string RealmName { get; set; } = "";
+    public string JobName { get; set; } = "";
+    public string CustomName { get; set; } = ""; // 사용자 지정 닉네임/별칭
+    public DateTime FirstSeen { get; set; } = DateTime.Now;
+    public DateTime LastSeen { get; set; } = DateTime.Now;
+    public List<CharacterHistoryRecord> History { get; set; } = new();
+
+    public string DisplayName => string.IsNullOrWhiteSpace(CustomName)
+        ? $"[{RealmName}] {JobName}"
+        : $"[{RealmName}] {CustomName} ({JobName})";
+}
+
 public class SessionDelta
 {
     public CharacterSnapshot Baseline { get; }
@@ -50,13 +81,16 @@ public class SessionDelta
 public class SnapshotManager
 {
     private static readonly string StorageFile = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "character_snapshots.json");
+    private static readonly string DbStorageFile = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "character_history_db.json");
     private readonly Dictionary<string, CharacterSnapshot> _savedSnapshots = new();
+    private readonly Dictionary<string, CharacterProfile> _characterDb = new();
     private readonly Dictionary<string, CharacterSnapshot> _sessionBaselines = new();
     private readonly object _lock = new();
 
     public SnapshotManager()
     {
         LoadSnapshots();
+        LoadCharacterDb();
     }
 
     private void LoadSnapshots()
@@ -85,12 +119,49 @@ public class SnapshotManager
         }
     }
 
+    private void LoadCharacterDb()
+    {
+        try
+        {
+            if (File.Exists(DbStorageFile))
+            {
+                var json = File.ReadAllText(DbStorageFile);
+                var list = JsonSerializer.Deserialize<List<CharacterProfile>>(json);
+                if (list != null)
+                {
+                    lock (_lock)
+                    {
+                        foreach (var p in list)
+                        {
+                            _characterDb[p.CharacterKey] = p;
+                        }
+                    }
+                }
+            }
+        }
+        catch
+        {
+            // 손상된 파일 등의 경우 기본값 유지
+        }
+    }
+
     public void SaveSnapshotsAsync()
     {
         List<CharacterSnapshot> toSave;
+        List<CharacterProfile> dbToSave;
         lock (_lock)
         {
             toSave = _savedSnapshots.Values.Select(s => s.Clone()).ToList();
+            dbToSave = _characterDb.Values.Select(p => new CharacterProfile
+            {
+                CharacterKey = p.CharacterKey,
+                RealmName = p.RealmName,
+                JobName = p.JobName,
+                CustomName = p.CustomName,
+                FirstSeen = p.FirstSeen,
+                LastSeen = p.LastSeen,
+                History = new List<CharacterHistoryRecord>(p.History)
+            }).ToList();
         }
 
         Task.Run(() =>
@@ -101,12 +172,47 @@ public class SnapshotManager
                 var tempFile = StorageFile + ".tmp";
                 File.WriteAllText(tempFile, json);
                 File.Move(tempFile, StorageFile, overwrite: true);
+
+                var dbJson = JsonSerializer.Serialize(dbToSave, new JsonSerializerOptions { WriteIndented = true });
+                var dbTempFile = DbStorageFile + ".tmp";
+                File.WriteAllText(dbTempFile, dbJson);
+                File.Move(dbTempFile, DbStorageFile, overwrite: true);
             }
             catch
             {
                 // 백그라운드 I/O 예외 무해 처리
             }
         });
+    }
+
+    public CharacterProfile? GetProfile(string realm, string job)
+    {
+        var key = $"{realm}_{job}";
+        lock (_lock)
+        {
+            return _characterDb.TryGetValue(key, out var p) ? p : null;
+        }
+    }
+
+    public void SetCustomName(string realm, string job, string customName)
+    {
+        var key = $"{realm}_{job}";
+        lock (_lock)
+        {
+            if (_characterDb.TryGetValue(key, out var p))
+            {
+                p.CustomName = customName.Trim();
+                SaveSnapshotsAsync();
+            }
+        }
+    }
+
+    public List<CharacterProfile> GetAllProfiles()
+    {
+        lock (_lock)
+        {
+            return _characterDb.Values.OrderByDescending(p => p.LastSeen).ToList();
+        }
     }
 
     public SessionDelta UpdateSnapshot(
@@ -208,6 +314,52 @@ public class SnapshotManager
             }
 
             _savedSnapshots[key] = current;
+
+            // 3. 캐릭터 프로필 및 누적 히스토리 DB 갱신
+            if (!_characterDb.TryGetValue(key, out var profile))
+            {
+                profile = new CharacterProfile
+                {
+                    CharacterKey = key,
+                    RealmName = realm,
+                    JobName = job,
+                    FirstSeen = DateTime.Now,
+                    LastSeen = DateTime.Now
+                };
+                _characterDb[key] = profile;
+            }
+            profile.LastSeen = DateTime.Now;
+
+            // 히스토리 중복 방지 (수치 변동 또는 최소 5분 경과 시 누적 기록)
+            var lastRecord = profile.History.LastOrDefault();
+            bool shouldRecord = lastRecord == null ||
+                (DateTime.Now - lastRecord.Timestamp).TotalMinutes >= 5 ||
+                lastRecord.CombatScore != current.CombatScore ||
+                lastRecord.Level != current.Level ||
+                (current.Gold > 0 && lastRecord.Gold != current.Gold) ||
+                (current.Wings > 0 && lastRecord.Wings != current.Wings) ||
+                (current.NyangToken > 0 && lastRecord.NyangToken != current.NyangToken) ||
+                lastRecord.CompletedDailyMissions != current.CompletedDailyMissions;
+
+            if (shouldRecord)
+            {
+                profile.History.Add(new CharacterHistoryRecord
+                {
+                    Timestamp = DateTime.Now,
+                    Level = current.Level,
+                    Title = current.Title,
+                    CombatScore = current.CombatScore,
+                    LivingScore = ch?.LivingScore?.Value ?? 0,
+                    AttackPower = ch?.AttackPower?.Value ?? 0,
+                    DefencePower = ch?.DefencePower?.Value ?? 0,
+                    WeightCurrent = current.WeightCurrent,
+                    Gold = current.Gold,
+                    Wings = current.Wings,
+                    NyangToken = current.NyangToken,
+                    CompletedDailyMissions = current.CompletedDailyMissions
+                });
+            }
+
             SaveSnapshotsAsync();
 
             return new SessionDelta(baseline, current);
