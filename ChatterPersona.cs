@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Text.RegularExpressions;
 
 namespace MobiMate;
 
@@ -10,7 +11,7 @@ public enum ChatterPersona
 {
     Villainess,         // 🌹 악덕영애 스타일 (도도하고 콧대 높은 츤데레 귀족 영애)
     Scrooge,            // 💰 구두쇠 영감 스타일 (1골드도 아까워하는 잔소리 영감)
-    MorningSpirit,      // ☀️ 안녕하닝 모닝이야 스타일 (초발랄 하이텐션 모닝 마스코트)
+    MorningSpirit,      // ☀️ 안녕하닝 모닝이야 스타일 (마비노기 모바일 전문 유튜버 모닝이)
     GyeongsangAhjussi,  // 🌊 갱상도 아재 스타일 (투박하지만 정감 넘치는 사투리 아재)
     IdolDancer          // ✨ 아이돌 댄서 스타일 (칼군무와 킬링 파트를 꿈꾸는 K-POP 댄서)
 }
@@ -116,40 +117,40 @@ public static class PersonaTemplates
         ]
     };
 
-    // [안녕하닝 모닝이야 스타일] 대사 풀
+    // [안녕하닝 모닝이야 스타일] 대사 풀 (유튜버 모닝이 @morning2studio 고증)
     private static readonly Dictionary<string, string[]> MorningLines = new()
     {
         ["채집"] =
         [
-            "모닝모닝~ 열심히 일하는 모습 멋지닝! 힘내자닝~",
-            "풀잎마다 아침 이슬이 반짝반짝 빛나닝! 기분 최고닝!",
-            "영차영차~ 자연이 주는 선물 소중히 모아보닝!",
-            "모닝 향기가 솔솔 나닝~ 채집도 신나게 하자닝!"
+            "안녕하닝 모닝이야! 채집 재료 싹 쓸어담아서 쌀먹 가자닝~",
+            "형들! 이 채집물 경매장 시세 잘 보고 팔아야 하닝!",
+            "채집할 때도 도구 내구도 아끼는 꿀팁 잊지 말라닝!",
+            "오늘 채집 대박 나서 대성공 뜨길 모닝이가 응원하닝!"
         ],
         ["가방무거움"] =
         [
-            "우와~ 가방에 보물이 한가득이닝! 무거워도 으쌰으쌰닝!",
-            "마을 가서 가방 정리하면 기분도 상쾌해지닝~ 모닝모닝!",
-            "열심히 모은 증거닝! 잠깐 쉬면서 가방 정리 어떠닝?"
+            "가방 무게 100% 넘었닝! 형들, 마을 창고로 런해야 하닝!",
+            "이러다 캐릭터 기어다니닝! 잡템 빨리 상점에 던지자닝!",
+            "가방 다이어트 시급하닝! 무게 페널티 받으면 답 없닝!"
         ],
         ["골드부족"] =
         [
-            "골드는 또 모으면 되닝! 즐겁게 모험하다 보면 금방 부자닝!",
-            "돈보다 소중한 건 우리의 신나는 모험이닝, 파이팅이닝!"
+            "지갑에 골드가 바닥났닝? 무소과금 모닝이 꿀팁 영상 보라닝!",
+            "수리비 때문에 눈물 나닝... 오늘도 일퀘 뛰어서 골드 벌자닝!"
         ],
         ["전투"] =
         [
-            "모닝 펀치 발사닝! 나쁜 몬스터는 얍얍 물리치닝!",
-            "다치지 말고 조심조심 싸우자닝! 내가 응원하닝~",
-            "승리의 모닝 댄스를 출 준비 완료닝! 힘내자닝!"
+            "보스 브레이크 타이밍에 극딜 넣어야 하닝! 지금이닝!",
+            "장판 피하고 뒤잡기 필수닝! 형들 컨트롤 보여주라닝!",
+            "룬 세팅 제대로 하면 전투력 떡상하닝! 얍얍 물리치자닝!"
         ],
         ["일반"] =
         [
-            "모닝모닝~ 에린의 아침은 언제나 활기차닝!",
-            "오늘도 즐거운 일만 가득할 거야, 모닝 파워 뿜뿜닝!",
-            "안녕하닝! 지나가는 밀레시안 친구들 모두 반갑닝~",
-            "하늘이 푸르고 맑닝! 바람도 살랑살랑 기분 좋닝~",
-            "언제나 웃는 얼굴이 제일 예쁘닝! 스마일 모닝닝~"
+            "안녕하닝 모닝이야! 오늘도 즐거운 마비노기 모바일 되라닝~",
+            "밀레시안 형들! 오늘 일일 미션이랑 숙제 다 끝냈닝?",
+            "모닝이 채널 구독과 좋아요는 큰 힘이 된다닝! 파이팅이닝!",
+            "에린 날씨 완전 화창하닝! 오늘도 득템 가득하길 바라닝!",
+            "무소과금도 꾸준히 하면 랭커 될 수 있닝! 포기하지 말라닝!"
         ]
     };
 
@@ -245,13 +246,23 @@ public static class PersonaTemplates
 
     private static string DetermineCategory(ChatterContext ctx)
     {
-        var act = ctx.Activity.ToLowerInvariant();
+        var act = (ctx.Activity ?? "").ToLowerInvariant();
         if (act.Contains("채집") || act.Contains("벌목") || act.Contains("채광") || act.Contains("수확") || act.Contains("낚시"))
         {
             return "채집";
         }
 
-        if (ctx.WeightSummary.Contains("8") || ctx.WeightSummary.Contains("9") || ctx.WeightSummary.Contains("초과") || ctx.WeightSummary.Contains("무거움"))
+        // 가방 무게 타령은 100% 이상/초과일 때만 제한적으로 발동
+        var weight = ctx.WeightSummary ?? "";
+        var match = Regex.Match(weight, @"(\d+)%");
+        if (match.Success && int.TryParse(match.Groups[1].Value, out var pct))
+        {
+            if (pct >= 100)
+            {
+                return "가방무거움";
+            }
+        }
+        else if (weight.Contains("100% 초과") || weight.Contains("무게 초과") || weight.Contains("한도 초과"))
         {
             return "가방무거움";
         }
@@ -261,7 +272,8 @@ public static class PersonaTemplates
             return "전투";
         }
 
-        if (ctx.GoldSummary.Contains("부족") || ctx.GoldSummary == "0" || ctx.GoldSummary.StartsWith("0"))
+        var gold = ctx.GoldSummary ?? "";
+        if (gold.Contains("부족") || gold == "0" || gold.StartsWith("0"))
         {
             return "골드부족";
         }
