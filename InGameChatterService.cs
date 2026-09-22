@@ -19,8 +19,15 @@ public class InGameChatterService
     private bool _isBusy;
     private bool _isEnabled;
     private ChatterPersona _currentPersona = ChatterPersona.Villainess;
+    private CustomPersona? _currentCustomPersona;
     private int _intervalSeconds = 10;
     private bool _sendToGameDirectly = true;
+
+    public CustomPersona? CurrentCustomPersona
+    {
+        get => _currentCustomPersona;
+        set => _currentCustomPersona = value;
+    }
 
     /// <summary>
     /// 아무말 대사가 발송되었을 때 UI 피드 및 로그에 알리는 이벤트 (페르소나이름, 대사)
@@ -130,7 +137,7 @@ public class InGameChatterService
             // 2. ChatPlanService 연동 (이모티콘, 소셜 액션 및 최대 50자 제한 준수)
             var plan = ChatPlanService.BuildChatPlan(line);
             var finalMsg = plan.FinalMessage;
-            var personaTag = GetPersonaDisplayName(_currentPersona);
+            var personaTag = GetCurrentPersonaDisplayName();
 
             // 3. 인게임 실제 전송 (옵션 체크 시)
             if (_sendToGameDirectly)
@@ -192,20 +199,30 @@ public class InGameChatterService
         return PersonaTemplates.GetRandomTemplate(persona, ctx);
     }
 
-    private static string BuildPersonaPrompt(ChatterPersona persona, ChatterContext ctx)
+    private string BuildPersonaPrompt(ChatterPersona persona, ChatterContext ctx)
     {
-        var personaDesc = persona switch
+        string personaDesc;
+        if (persona == ChatterPersona.Custom && _currentCustomPersona != null)
         {
-            ChatterPersona.Villainess => "도도하고 오만한 츤데레 귀족 영애. 어미로 '~사와요', '~하나요?', '오호호!'를 쓰며 불평과 허당미를 보임.",
-            ChatterPersona.Scrooge => "1골드도 아까워하는 구두쇠 할아버지. 수리비와 물가에 혀를 차며 어미로 '~구먼', '~여', '~제', '에헴'을 씀.",
-            ChatterPersona.MorningSpirit => "마비노기 모바일 전문 게임 유튜버 '모닝이'. 영상 인삿말 '안녕하닝 모닝이야!'로 시작하거나 어미로 '~닝', '~하닝?', '~이닝', '형들'을 쓰며 무소과금 공략과 팁을 공유하는 밝고 친근한 어조.",
-            ChatterPersona.GyeongsangAhjussi => "억세고 투박하지만 정감 넘치는 부산/경상도 사투리를 쓰는 아재. 어미로 '~했나?', '~데이', '~뿌라', '~아이가', '마!'를 씀.",
-            ChatterPersona.IdolDancer => "K-POP 무대를 사랑하는 열정 넘치는 아이돌 댄서. 비트, 리듬, 칼군무, 킬링 파트, 엔딩 요정 등 댄서 용어를 쓰며 텐션이 높음.",
-            _ => "밀레시안 방랑자"
-        };
+            personaDesc = $"{_currentCustomPersona.Name}: {_currentCustomPersona.SystemPrompt}";
+        }
+        else
+        {
+            personaDesc = persona switch
+            {
+                ChatterPersona.Villainess => "도도하고 오만한 츤데레 귀족 영애. 어미로 '~사와요', '~하나요?', '오호호!'를 쓰며 불평과 허당미를 보임.",
+                ChatterPersona.Scrooge => "1골드도 아까워하는 구두쇠 할아버지. 수리비와 물가에 혀를 차며 어미로 '~구먼', '~여', '~제', '에헴'을 씀.",
+                ChatterPersona.MorningSpirit => "마비노기 모바일 전문 게임 유튜버 '모닝이'. 영상 인삿말 '안녕하닝 모닝이야!'로 시작하거나 어미로 '~닝', '~하닝?', '~이닝', '형들'을 쓰며 무소과금 공략과 팁을 공유하는 밝고 친근한 어조.",
+                ChatterPersona.GyeongsangAhjussi => "억세고 투박하지만 정감 넘치는 부산/경상도 사투리를 쓰는 아재. 어미로 '~했나?', '~데이', '~뿌라', '~아이가', '마!'를 씀.",
+                ChatterPersona.IdolDancer => "K-POP 무대를 사랑하는 열정 넘치는 아이돌 댄서. 비트, 리듬, 칼군무, 킬링 파트, 엔딩 요정 등 댄서 용어를 쓰며 텐션이 높음.",
+                _ => "밀레시안 방랑자"
+            };
+        }
+
+        var erinnStr = string.IsNullOrWhiteSpace(ctx.ErinnTime) ? "" : $", 시간:{ctx.ErinnTime}";
 
         return $"너는 마비노기 모바일 게임 속 캐릭터 페르소나 '{personaDesc}'이다.\n" +
-               $"[현재 상황] 직업:{ctx.Job}, 위치:{ctx.Location}, 행동:{ctx.Activity}, 가방:{ctx.WeightSummary}, 골드:{ctx.GoldSummary}\n" +
+               $"[현재 상황] 직업:{ctx.Job}, 위치:{ctx.Location}, 행동:{ctx.Activity}, 가방:{ctx.WeightSummary}, 골드:{ctx.GoldSummary}{erinnStr}\n" +
                $"위 상황에 맞춰 혼잣말 넋두리를 따옴표 없이 1문장(20자~35자 내외, 최대 40자 이하)으로만 한국어로 출력해라. 줄바꿈 절대 금지.";
     }
 
@@ -227,6 +244,15 @@ public class InGameChatterService
     private static string EscapeJson(string s) =>
         s.Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\n", " ").Replace("\r", " ");
 
+    public string GetCurrentPersonaDisplayName()
+    {
+        if (_currentPersona == ChatterPersona.Custom && _currentCustomPersona != null)
+        {
+            return _currentCustomPersona.DisplayName;
+        }
+        return GetPersonaDisplayName(_currentPersona);
+    }
+
     public static string GetPersonaDisplayName(ChatterPersona persona) => persona switch
     {
         ChatterPersona.Villainess => "🌹 악덕영애",
@@ -234,6 +260,7 @@ public class InGameChatterService
         ChatterPersona.MorningSpirit => "☀️ 안녕하닝 모닝이야",
         ChatterPersona.GyeongsangAhjussi => "🌊 갱상도 아재",
         ChatterPersona.IdolDancer => "✨ 아이돌 댄서",
+        ChatterPersona.Custom => "🎭 커스텀 페르소나",
         _ => "혼잣말"
     };
 }

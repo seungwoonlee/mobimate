@@ -21,6 +21,7 @@ public partial class MainWindow : Window
     private InGameChatterService? _chatterService;
 
     private CharacterInfo? _lastCharInfo;
+    private EnvironmentInfo? _lastEnvInfo;
     private List<CurrencyItem>? _lastCurrencies;
     private List<MissionItem>? _lastDailyMissions;
 
@@ -72,6 +73,7 @@ public partial class MainWindow : Window
         Loaded += async (s, e) =>
         {
             _isWindowLoaded = true;
+            LoadCustomPersonasToUi();
             await LoadAiEnginesAsync();
             await RefreshHeaderOnlyAsync();
             await RefreshCurrentTabAsync();
@@ -382,6 +384,7 @@ public partial class MainWindow : Window
 
         if (env != null)
         {
+            _lastEnvInfo = env;
             var loc = string.IsNullOrEmpty(env.ChannelName) ? "필드" : env.ChannelName;
             var weather = string.IsNullOrEmpty(env.Weather) ? "맑음" : env.Weather;
             var erinnFormatted = InGameChatterService.FormatErinnTime(env.ErinnNow);
@@ -1078,26 +1081,116 @@ public partial class MainWindow : Window
         var weightInfo = TxtWeightSummary?.Text ?? "정상";
         var goldItem = _lastCurrencies?.FirstOrDefault(c => c.DisplayName.Contains("골드"));
         var goldInfo = goldItem != null ? $"{goldItem.Amount:N0} 골드" : "100,000 골드";
+        var erinnTime = _lastEnvInfo?.ErinnNow ?? "";
 
-        return new ChatterContext(realm, job, level, combatScore, activity, location, weightInfo, goldInfo);
+        return new ChatterContext(realm, job, level, combatScore, activity, location, weightInfo, goldInfo, erinnTime);
+    }
+
+    private List<CustomPersona> _customPersonas = new();
+
+    private void LoadCustomPersonasToUi()
+    {
+        if (CmbPersona == null) return;
+
+        _customPersonas = _snapshotManager.LoadCustomPersonas();
+
+        // 기존 내장 5종을 제외한 커스텀 아이템 정리
+        var builtInTags = new HashSet<string> { "Villainess", "Scrooge", "MorningSpirit", "GyeongsangAhjussi", "IdolDancer" };
+        for (int i = CmbPersona.Items.Count - 1; i >= 0; i--)
+        {
+            if (CmbPersona.Items[i] is ComboBoxItem item && item.Tag is string tag && !builtInTags.Contains(tag))
+            {
+                CmbPersona.Items.RemoveAt(i);
+            }
+        }
+
+        // 세이브 파일의 커스텀 페르소나들 추가
+        foreach (var cp in _customPersonas)
+        {
+            var item = new ComboBoxItem
+            {
+                Content = cp.DisplayName,
+                Tag = cp.Id,
+                ToolTip = cp.SystemPrompt
+            };
+            CmbPersona.Items.Add(item);
+        }
     }
 
     private void CmbPersona_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (!_isWindowLoaded || _chatterService == null) return;
+        if (!_isWindowLoaded || _chatterService == null || CmbPersona == null) return;
         if (CmbPersona.SelectedItem is ComboBoxItem item && item.Tag is string tag)
         {
-            _chatterService.CurrentPersona = tag switch
+            var custom = _customPersonas.FirstOrDefault(p => p.Id == tag);
+            if (custom != null)
             {
-                "Villainess" => ChatterPersona.Villainess,
-                "Scrooge" => ChatterPersona.Scrooge,
-                "MorningSpirit" => ChatterPersona.MorningSpirit,
-                "GyeongsangAhjussi" => ChatterPersona.GyeongsangAhjussi,
-                "IdolDancer" => ChatterPersona.IdolDancer,
-                _ => ChatterPersona.Villainess
-            };
-            ShowToast($"페르소나가 '{item.Content}'(으)로 변경되었습니다.", true);
+                _chatterService.CurrentPersona = ChatterPersona.Custom;
+                _chatterService.CurrentCustomPersona = custom;
+                ShowToast($"페르소나가 커스텀 '{custom.DisplayName}'(으)로 변경되었습니다.", true);
+            }
+            else
+            {
+                _chatterService.CurrentPersona = tag switch
+                {
+                    "Villainess" => ChatterPersona.Villainess,
+                    "Scrooge" => ChatterPersona.Scrooge,
+                    "MorningSpirit" => ChatterPersona.MorningSpirit,
+                    "GyeongsangAhjussi" => ChatterPersona.GyeongsangAhjussi,
+                    "IdolDancer" => ChatterPersona.IdolDancer,
+                    _ => ChatterPersona.Villainess
+                };
+                _chatterService.CurrentCustomPersona = null;
+                ShowToast($"페르소나가 '{item.Content}'(으)로 변경되었습니다.", true);
+            }
         }
+    }
+
+    private void BtnAddCustomPersona_Click(object sender, RoutedEventArgs e)
+    {
+        PopupCustomPersona.IsOpen = true;
+        TxtCustomPersonaName.Focus();
+    }
+
+    private void BtnCancelCustomPersona_Click(object sender, RoutedEventArgs e)
+    {
+        PopupCustomPersona.IsOpen = false;
+    }
+
+    private void BtnSaveCustomPersona_Click(object sender, RoutedEventArgs e)
+    {
+        var name = TxtCustomPersonaName.Text.Trim();
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            ShowToast("페르소나 명칭을 입력해주세요.", false);
+            return;
+        }
+
+        var emoji = string.IsNullOrWhiteSpace(TxtCustomPersonaEmoji.Text) ? "🎭" : TxtCustomPersonaEmoji.Text.Trim();
+        var prompt = TxtCustomPersonaPrompt.Text.Trim();
+
+        var cp = new CustomPersona
+        {
+            Name = name,
+            TagEmoji = emoji,
+            SystemPrompt = prompt
+        };
+
+        _snapshotManager.SaveCustomPersona(cp);
+        LoadCustomPersonasToUi();
+
+        // 새로 생성된 페르소나 선택
+        for (int i = 0; i < CmbPersona.Items.Count; i++)
+        {
+            if (CmbPersona.Items[i] is ComboBoxItem item && (string)item.Tag == cp.Id)
+            {
+                CmbPersona.SelectedIndex = i;
+                break;
+            }
+        }
+
+        PopupCustomPersona.IsOpen = false;
+        ShowToast($"새로운 페르소나 '{cp.DisplayName}'이(가) 세이브 파일에 저장되었습니다!", true);
     }
 
     private async void BtnTriggerChatterNow_Click(object sender, RoutedEventArgs e)
@@ -1232,6 +1325,26 @@ public partial class MainWindow : Window
             TxtBannerEngineStatus.Foreground = (Brush)FindResource("AccentYellow");
             BannerEngineStatus.Background = new SolidColorBrush(Color.FromRgb(0x2B, 0x26, 0x14));
             BannerEngineStatus.BorderBrush = new SolidColorBrush(Color.FromRgb(0x4A, 0x3F, 0x1D));
+        }
+
+        // 아무말 대잔치: 페르소나 안내 뱃지 및 추가 버튼 전환
+        if (BorderPersonaHintBadge != null)
+        {
+            BorderPersonaHintBadge.Visibility = isBuiltIn ? Visibility.Visible : Visibility.Collapsed;
+        }
+        if (BtnAddCustomPersona != null)
+        {
+            BtnAddCustomPersona.Visibility = isBuiltIn ? Visibility.Collapsed : Visibility.Visible;
+        }
+
+        // 기본값(AI 미사용) 모드에서는 커스텀 페르소나를 지원하지 않으므로 기본 페르소나로 자동 롤백
+        if (isBuiltIn && _chatterService?.CurrentPersona == ChatterPersona.Custom)
+        {
+            if (CmbPersona != null && CmbPersona.Items.Count > 0)
+            {
+                CmbPersona.SelectedIndex = 0;
+                ShowToast("기본값(AI 미사용) 모드로 전환되어 기본 페르소나로 자동 변경되었습니다.", true);
+            }
         }
     }
 

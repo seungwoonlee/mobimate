@@ -938,13 +938,64 @@
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Left">
                                 <TextBlock Text="🗣️ 아무말 대잔치" FontWeight="Bold" Foreground="#F0B27A" FontSize="13" VerticalAlignment="Center" Margin="0,0,12,0"/>
                                 <TextBlock Text="페르소나:" Foreground="{StaticResource TextSecondary}" FontSize="12" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                                <ComboBox x:Name="CmbPersona" Style="{StaticResource DarkComboBox}" SelectionChanged="CmbPersona_SelectionChanged" Width="190" FontSize="12">
+                                <ComboBox x:Name="CmbPersona" Style="{StaticResource DarkComboBox}" SelectionChanged="CmbPersona_SelectionChanged" Width="180" FontSize="12">
                                     <ComboBoxItem Content="🌹 악덕영애 스타일" Tag="Villainess" IsSelected="True"/>
                                     <ComboBoxItem Content="💰 구두쇠 영감 스타일" Tag="Scrooge"/>
                                     <ComboBoxItem Content="☀️ 안녕하닝 모닝이야" Tag="MorningSpirit"/>
                                     <ComboBoxItem Content="🌊 갱상도 아재 스타일" Tag="GyeongsangAhjussi"/>
                                     <ComboBoxItem Content="✨ 아이돌 댄서 스타일" Tag="IdolDancer"/>
                                 </ComboBox>
+
+                                <!-- AI 미사용(기본값) 시 노출되는 안내 풍선글 -->
+                                <Border x:Name="BorderPersonaHintBadge" Background="#2C2318" BorderBrush="#5D4324" BorderThickness="1" CornerRadius="12" Padding="8,3" Margin="8,0,0,0" VerticalAlignment="Center" ToolTip="상단에서 유료/무료 AI 엔진을 선택하면 나만의 맞춤 페르소나를 무제한 생성하여 대사를 즐길 수 있습니다.">
+                                    <TextBlock Text="💡 AI를 사용할 경우는 페르소나를 추가할 수 있습니다." Foreground="#E59866" FontSize="11" FontWeight="SemiBold"/>
+                                </Border>
+
+                                <!-- AI 엔진 선택 시 활성화되는 + 페르소나 추가 버튼 -->
+                                <Button x:Name="BtnAddCustomPersona" Content="➕ 페르소나 추가" Click="BtnAddCustomPersona_Click" Visibility="Collapsed"
+                                        Margin="8,0,0,0" VerticalAlignment="Center"
+                                        Background="#2E4053" Foreground="#AED6F1" FontWeight="Bold" FontSize="11"
+                                        Padding="8,3" BorderThickness="1" BorderBrush="#34495E" Cursor="Hand">
+                                    <Button.Template>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="12" Padding="{TemplateBinding Padding}">
+                                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                            </Border>
+                                        </ControlTemplate>
+                                    </Button.Template>
+                                </Button>
+
+                                <!-- 커스텀 페르소나 생성 팝업 -->
+                                <Popup x:Name="PopupCustomPersona" PlacementTarget="{Binding ElementName=BtnAddCustomPersona}" Placement="Bottom" StaysOpen="False" AllowsTransparency="True">
+                                    <Border Background="#202226" BorderBrush="#AED6F1" BorderThickness="1.5" CornerRadius="8" Padding="14" Margin="0,4,0,0">
+                                        <Border.Effect>
+                                            <DropShadowEffect BlurRadius="16" ShadowDepth="6" Opacity="0.7"/>
+                                        </Border.Effect>
+                                        <StackPanel Width="360">
+                                            <TextBlock Text="🎭 새로운 AI 페르소나 생성" Foreground="#AED6F1" FontWeight="Bold" FontSize="14" Margin="0,0,0,4"/>
+                                            <TextBlock Text="이름과 말투 설정을 입력하면 세이브 파일에 영구 저장됩니다." Foreground="{StaticResource TextSecondary}" FontSize="11" Margin="0,0,0,10"/>
+
+                                            <TextBlock Text="페르소나 명칭 및 이모지" Foreground="White" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                            <Grid Margin="0,0,0,8">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="45"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBox x:Name="TxtCustomPersonaEmoji" Text="🎭" FontSize="13" TextAlignment="Center" VerticalContentAlignment="Center" Background="#181A1E" Foreground="White" BorderBrush="#383A40"/>
+                                                <TextBox x:Name="TxtCustomPersonaName" Grid.Column="1" Margin="6,0,0,0" FontSize="12" Padding="6,4" Background="#181A1E" Foreground="White" BorderBrush="#383A40" ToolTip="예: 츤데레 메이드, 열혈 만화 주인공"/>
+                                            </Grid>
+
+                                            <TextBlock Text="말투 및 성격 프롬프트 (AI 지침)" Foreground="White" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                            <TextBox x:Name="TxtCustomPersonaPrompt" Height="70" TextWrapping="Wrap" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" FontSize="11" Padding="6" Background="#181A1E" Foreground="White" BorderBrush="#383A40" Margin="0,0,0,12"
+                                                     Text="도도하지만 속으로는 주인을 챙기는 츤데레 메이드. 어미로 '~라구요!', '흥!'을 씀."/>
+
+                                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                                <Button Content="취소" Click="BtnCancelCustomPersona_Click" Background="#35373C" Foreground="White" Padding="10,4" FontSize="12" Margin="0,0,6,0" BorderThickness="0" Cursor="Hand"/>
+                                                <Button Content="💾 저장 및 등록" Click="BtnSaveCustomPersona_Click" Background="#2E4053" Foreground="#AED6F1" FontWeight="Bold" Padding="12,4" FontSize="12" BorderThickness="0" Cursor="Hand"/>
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </Border>
+                                </Popup>
                             </StackPanel>
 
                             <!-- 우측: 한마디 대사 자동 채우기 버튼 -->
