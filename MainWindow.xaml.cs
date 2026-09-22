@@ -9,6 +9,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
+using System.Text.Json;
 
 namespace MobiMate;
 
@@ -512,6 +513,15 @@ public partial class MainWindow : Window
         }
     }
 
+    private static bool IsBagLocation(string? loc) =>
+        !string.IsNullOrEmpty(loc) && (loc.Equals("inventory", StringComparison.OrdinalIgnoreCase) || loc.Equals("bag", StringComparison.OrdinalIgnoreCase));
+
+    private static bool IsAccountStorageLocation(string? loc) =>
+        !string.IsNullOrEmpty(loc) && (loc.Equals("account_storage", StringComparison.OrdinalIgnoreCase) || loc.Equals("accountstorage", StringComparison.OrdinalIgnoreCase));
+
+    private static bool IsCharacterStorageLocation(string? loc) =>
+        !string.IsNullOrEmpty(loc) && (loc.Equals("character_storage", StringComparison.OrdinalIgnoreCase) || loc.Equals("characterstorage", StringComparison.OrdinalIgnoreCase));
+
     // ================= 2. 가방 & 아이템 탭 (디바운싱 지원) =================
     private void UpdateItems(List<ItemData>? items)
     {
@@ -522,7 +532,7 @@ public partial class MainWindow : Window
         if (!_hasBagBaseline && _allItems.Count > 0)
         {
             _initialBagItemCounts.Clear();
-            foreach (var item in _allItems.Where(i => i.Location.Equals("Bag", StringComparison.OrdinalIgnoreCase)))
+            foreach (var item in _allItems.Where(i => IsBagLocation(i.Location)))
             {
                 if (_initialBagItemCounts.TryGetValue(item.DisplayName, out var existing))
                 {
@@ -545,9 +555,9 @@ public partial class MainWindow : Window
             BtnFilterAccount == null || BtnFilterChar == null || BtnFilterDiet == null) return;
 
         var allCount = _allItems.Count;
-        var bagCount = _allItems.Count(i => i.Location.Equals("Bag", StringComparison.OrdinalIgnoreCase));
-        var accCount = _allItems.Count(i => i.Location.Equals("AccountStorage", StringComparison.OrdinalIgnoreCase));
-        var charCount = _allItems.Count(i => i.Location.Equals("CharacterStorage", StringComparison.OrdinalIgnoreCase));
+        var bagCount = _allItems.Count(i => IsBagLocation(i.Location));
+        var accCount = _allItems.Count(i => IsAccountStorageLocation(i.Location));
+        var charCount = _allItems.Count(i => IsCharacterStorageLocation(i.Location));
 
         BtnFilterAll.Content = $"전체 ({allCount})";
         BtnFilterBag.Content = $"🎒 가방 ({bagCount})";
@@ -597,10 +607,22 @@ public partial class MainWindow : Window
             // 1순위: 이번 접속 세션에서 수량이 급격히 늘어난 아이템 (DeltaCount > 0, 증가량 내림차순)
             // 2순위: 기존 대량 소지 잡템 (Count 내림차순)
             viewItems = viewItems
-                .Where(i => i.Location.Equals("Bag", StringComparison.OrdinalIgnoreCase) && !i.IsLocked)
+                .Where(i => IsBagLocation(i.Location) && !i.IsLocked)
                 .OrderByDescending(i => i.DeltaCount > 0)
                 .ThenByDescending(i => i.DeltaCount)
                 .ThenByDescending(i => i.Count);
+        }
+        else if (_currentItemLocationFilter == "Bag")
+        {
+            viewItems = viewItems.Where(i => IsBagLocation(i.Location));
+        }
+        else if (_currentItemLocationFilter == "AccountStorage")
+        {
+            viewItems = viewItems.Where(i => IsAccountStorageLocation(i.Location));
+        }
+        else if (_currentItemLocationFilter == "CharacterStorage")
+        {
+            viewItems = viewItems.Where(i => IsCharacterStorageLocation(i.Location));
         }
         else if (_currentItemLocationFilter != "All")
         {
@@ -744,13 +766,13 @@ public partial class MainWindow : Window
 
         var q = TxtGatherSearchFull.Text?.Trim() ?? "";
 
-        // 1. 카테고리 및 아이템 뷰모델 생성 (가방 내 현재 소지수 및 목표 대비 부족 수량 연산)
+        // 1. 카테고리 및 아이템 뷰모델 생성 (가방 내 전체 슬롯 합산 소지수 및 목표 대비 부족 수량 연산)
         var list = _allGatherables.Select(g =>
         {
             var cat = ClassifyGatherCategory(g.DisplayName);
-            var bagItem = _allItems.FirstOrDefault(i => i.Location.Equals("Bag", StringComparison.OrdinalIgnoreCase) &&
-                                                        i.DisplayName.Equals(g.DisplayName, StringComparison.OrdinalIgnoreCase));
-            var currentBag = bagItem?.Count ?? 0;
+            var currentBag = _allItems.Where(i => IsBagLocation(i.Location) &&
+                                                  i.DisplayName.Equals(g.DisplayName, StringComparison.OrdinalIgnoreCase))
+                                      .Sum(i => i.Count);
 
             return new GatherableDisplayItem
             {
@@ -832,9 +854,9 @@ public partial class MainWindow : Window
     {
         if (sender is Button btn && btn.Tag is string itemName)
         {
-            var bagItem = _allItems.FirstOrDefault(i => i.Location.Equals("Bag", StringComparison.OrdinalIgnoreCase) &&
-                                                        i.DisplayName.Equals(itemName, StringComparison.OrdinalIgnoreCase));
-            var current = bagItem?.Count ?? 0;
+            var current = _allItems.Where(i => IsBagLocation(i.Location) &&
+                                               i.DisplayName.Equals(itemName, StringComparison.OrdinalIgnoreCase))
+                                   .Sum(i => i.Count);
             var needed = _targetGatherCount - current;
 
             if (needed <= 0)
@@ -843,24 +865,52 @@ public partial class MainWindow : Window
                 return;
             }
 
-            ShowToast($"'{itemName}' 목표 {_targetGatherCount}개 달성을 위해 {needed}회 채집을 시작합니다... (현재 소지: {current}개)", true);
             await StartGatherAsync(itemName, needed);
         }
     }
 
-    private async Task StartGatherAsync(string itemName, int count = 5)
+    private async Task StartGatherAsync(string itemName, int neededCount = 0)
     {
-        ShowToast($"'{itemName}' ({count}회) 채집 이동 및 작업을 요청했습니다...", true);
+        var countMsg = neededCount > 0 ? $" (목표 부족 {neededCount}개)" : "";
+        ShowToast($"🌾 '{itemName}'{countMsg} 채집을 시작합니다... (정령의 날개 5개 소모)", true);
 
-        var body = $"{{\"displayName\":\"{itemName}\",\"count\":{count}}}";
-        var (ok, _, err) = await _cli.RunRawAsync("execute_gathering", stdinJson: body, timeoutSeconds: 6);
+        // CLI 스펙: displayName 단일 필드 전송 (최대 100회 자동 채집)
+        var body = $"{{\"displayName\":\"{itemName}\"}}";
+        var (ok, stdout, err) = await _cli.RunRawAsync("execute_gathering", stdinJson: body, timeoutSeconds: 120);
         if (ok)
         {
-            ShowToast($"'{itemName}' ({count}회) 채집을 성공적으로 시작했습니다!", true);
+            var msg = $"'{itemName}' 채집 명령이 전달되었습니다!";
+            if (!string.IsNullOrEmpty(stdout))
+            {
+                try
+                {
+                    using var doc = JsonDocument.Parse(stdout);
+                    var root = doc.RootElement;
+                    if (root.TryGetProperty("result", out var resElem))
+                    {
+                        var resStr = resElem.GetString();
+                        var gained = root.TryGetProperty("gained", out var gElem) ? gElem.GetInt32() : 0;
+                        msg = resStr switch
+                        {
+                            "completed" => $"'{itemName}' 목표 채집을 완료했습니다! (+{gained}개 획득)",
+                            "started" => $"'{itemName}' 자동 채집/낚시가 시작되었습니다!",
+                            "stopped" => $"'{itemName}' 채집이 종료되었습니다. (+{gained}개 획득)",
+                            _ => $"'{itemName}' 채집: {resStr} (+{gained}개)"
+                        };
+                    }
+                    else if (root.TryGetProperty("message", out var mElem))
+                    {
+                        msg = mElem.GetString() ?? msg;
+                    }
+                }
+                catch { }
+            }
+            ShowToast(msg, true);
+            await RefreshCurrentTabAsync();
         }
         else
         {
-            ShowToast($"채집 요청 실패: {err}", false);
+            ShowToast($"채집 실패: {err}", false);
         }
     }
 
@@ -1256,13 +1306,73 @@ public partial class MainWindow : Window
         var currentEngine = _aiManager.CurrentEngine;
         var displayModelName = currentEngine?.Info.DisplayName ?? "AI 코파일럿";
 
-        // 긴급 정지 키워드 즉각 처리
+        // 1. 긴급 정지 키워드 즉각 처리
         if (query.Contains("정지") || query.Contains("멈춰"))
         {
             _ = EmergencyStopInternalAsync();
             AiMessages.Add(new AiMessageEntry(displayModelName, "🛑 캐릭터의 진행 중인 행동(채집, 이동 등)을 즉시 긴급 정지시켰습니다!", false));
             ScrollAiFeed.ScrollToBottom();
             return;
+        }
+
+        // 2. 일일 숙제 점검 키워드 처리
+        if (query.Contains("숙제") || query.Contains("일일 미션") || query.Contains("일일미션"))
+        {
+            BtnActionDailyMissions_Click(this, new RoutedEventArgs());
+            AiMessages.Add(new AiMessageEntry(displayModelName, "📋 미션 탭으로 이동하여 잔여 일일 숙제 목록을 점검했습니다.", false));
+            ScrollAiFeed.ScrollToBottom();
+            return;
+        }
+
+        // 3. 가방 다이어트 키워드 처리
+        if (query.Contains("다이어트") || query.Contains("가방 정리") || query.Contains("무게 줄여"))
+        {
+            BtnActionDiet_Click(this, new RoutedEventArgs());
+            AiMessages.Add(new AiMessageEntry(displayModelName, "⚖️ 가방 다이어트 필터를 활성화하여 이번 세션에 급증한 잡템 및 무거운 물품을 우선 정렬했습니다.", false));
+            ScrollAiFeed.ScrollToBottom();
+            return;
+        }
+
+        // 4. 가공 작업대 수거 키워드 처리
+        if (query.Contains("수거") || query.Contains("작업대") || query.Contains("가공물"))
+        {
+            BtnActionCollectWorks_Click(this, new RoutedEventArgs());
+            AiMessages.Add(new AiMessageEntry(displayModelName, "📥 완료된 가공 작업물 수거를 요청했습니다.", false));
+            ScrollAiFeed.ScrollToBottom();
+            return;
+        }
+
+        // 5. 채집/낚시 자연어 명령 즉시 디스패치
+        var isGatherIntent = query.Contains("채집") || query.Contains("캐줘") || query.Contains("캐라") ||
+                             query.Contains("캐러") || query.Contains("모아줘") || query.Contains("수집") ||
+                             query.Contains("낚시") || query.Contains("낚아");
+
+        if (isGatherIntent)
+        {
+            if (_allGatherables == null || _allGatherables.Count == 0)
+            {
+                var (okG, gData, _) = await _cli.RunJsonAsync<GatherableResponse>("get_gatherable_items", timeoutSeconds: 4);
+                if (okG && gData?.Items != null)
+                {
+                    _allGatherables = gData.Items;
+                }
+            }
+
+            if (_allGatherables != null && _allGatherables.Count > 0)
+            {
+                // 질의문에서 채집 가능한 아이템 명칭 매칭 (긴 이름 우선 매칭)
+                var matched = _allGatherables
+                    .OrderByDescending(g => g.DisplayName.Length)
+                    .FirstOrDefault(g => query.Contains(g.DisplayName, StringComparison.OrdinalIgnoreCase));
+
+                if (matched != null)
+                {
+                    _ = StartGatherAsync(matched.DisplayName);
+                    AiMessages.Add(new AiMessageEntry(displayModelName, $"🌾 '{matched.DisplayName}' 채집을 즉시 시작합니다! 캐릭터가 채집 장소로 자동 이동합니다. (정령의 날개 5개 소모)", false));
+                    ScrollAiFeed.ScrollToBottom();
+                    return;
+                }
+            }
         }
 
         // 현재 게임 상황을 정밀한 시스템 컨텍스트로 구성

@@ -161,5 +161,30 @@ public class InteractiveFeaturesTests
         Assert.Contains($"목표 {targetCount}", item.ProgressText);
         Assert.Contains($"부족 {expectedNeeded}개", item.ProgressText);
     }
+
+    [Fact]
+    public void InventoryLocation_Mapping_And_MultipleSlotSum_CalculatesExactBagTotal()
+    {
+        var items = new List<ItemData>
+        {
+            new("inventory", "사과", "Ingredient", 100, false), // 가방 슬롯 1: 100개
+            new("inventory", "사과", "Ingredient", 25, false),  // 가방 슬롯 2: 25개
+            new("account_storage", "사과", "Ingredient", 50, false), // 계정창고: 50개 (가방 제외)
+            new("character_storage", "사과", "Ingredient", 10, false), // 캐릭터창고: 10개 (가방 제외)
+            new("Bag", "나무 장작", "Material", 30, false),      // 레거시 Bag 위치도 가방 인식
+            new("inventory", "나무 장작", "Material", 40, false) // inventory 위치: 40개
+        };
+
+        static bool IsBag(string loc) =>
+            loc.Equals("inventory", StringComparison.OrdinalIgnoreCase) || loc.Equals("bag", StringComparison.OrdinalIgnoreCase);
+
+        // 가방 내 사과 총합: 100 + 25 = 125개
+        var appleBagTotal = items.Where(i => IsBag(i.Location) && i.DisplayName == "사과").Sum(i => i.Count);
+        Assert.Equal(125, appleBagTotal);
+
+        // 가방 내 나무 장작 총합: 30 + 40 = 70개
+        var woodBagTotal = items.Where(i => IsBag(i.Location) && i.DisplayName == "나무 장작").Sum(i => i.Count);
+        Assert.Equal(70, woodBagTotal);
+    }
 }
 
