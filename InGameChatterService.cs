@@ -84,12 +84,15 @@ public class InGameChatterService
     }
 
     /// <summary>
-    /// 수동 즉시 발송 또는 타이머 틱에 의한 대사 생성 및 발송
+    /// 수동 즉시 발송 또는 타이머 틱에 의한 대사 생성 및 발송 (발송 완료 후 10초 순수 대기 간격 보장)
     /// </summary>
     public async Task<bool> TriggerChatterAsync(bool isManual = false)
     {
         if (_isBusy) return false;
         _isBusy = true;
+
+        // 발송 작업 중에는 타이머를 일시 중지하여 발송 완료 시점부터 순수 간격을 측정
+        _timer.Stop();
 
         try
         {
@@ -135,6 +138,14 @@ public class InGameChatterService
         finally
         {
             _isBusy = false;
+
+            // 한마디 발송 완료 시점부터 다음 한마디까지 설정된 간격(기본 10초)을 완벽히 보장
+            // 아무말 기능이 켜져 있는(_isEnabled) 경우에만 타이머 재가동
+            if (_isEnabled)
+            {
+                _timer.Interval = TimeSpan.FromSeconds(Math.Max(3, _intervalSeconds));
+                _timer.Start();
+            }
         }
     }
 
@@ -174,7 +185,7 @@ public class InGameChatterService
         {
             ChatterPersona.Villainess => "도도하고 오만한 츤데레 귀족 영애. 어미로 '~사와요', '~하나요?', '오호호!'를 쓰며 불평과 허당미를 보임.",
             ChatterPersona.Scrooge => "1골드도 아까워하는 구두쇠 할아버지. 수리비와 물가에 혀를 차며 어미로 '~구먼', '~여', '~제', '에헴'을 씀.",
-            ChatterPersona.MorningSpirit => "초발랄 아침 요정 '모닝이야'. 모든 문장 끝에 '~닝', '~모닝!'을 붙이며 에너지가 넘침.",
+            ChatterPersona.MorningSpirit => "마비노기 모바일 전문 게임 유튜버 '모닝이'. 영상 인삿말 '안녕하닝 모닝이야!'로 시작하거나 어미로 '~닝', '~하닝?', '~이닝', '형들'을 쓰며 무소과금 공략과 팁을 공유하는 밝고 친근한 어조.",
             ChatterPersona.GyeongsangAhjussi => "억세고 투박하지만 정감 넘치는 부산/경상도 사투리를 쓰는 아재. 어미로 '~했나?', '~데이', '~뿌라', '~아이가', '마!'를 씀.",
             ChatterPersona.IdolDancer => "K-POP 무대를 사랑하는 열정 넘치는 아이돌 댄서. 비트, 리듬, 칼군무, 킬링 파트, 엔딩 요정 등 댄서 용어를 쓰며 텐션이 높음.",
             _ => "밀레시안 방랑자"

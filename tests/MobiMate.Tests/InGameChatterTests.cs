@@ -12,8 +12,9 @@ public class InGameChatterTests
         var testContexts = new[]
         {
             new ChatterContext("류트", "전사", 80, 50000, "벌목 작업 중", "벌목 캠프", "가방: 450/1000", "50,000 골드"),
-            new ChatterContext("만돌린", "궁수", 95, 85000, "마을 휴식", "티르코네일", "가방 무게 95% 초과!", "0 골드 (부족)"),
-            new ChatterContext("하프", "격투가", 100, 120000, "어비스 보스 전투 중", "글라스기브넨", "가방: 300/1000", "1,000,000 골드")
+            new ChatterContext("만돌린", "궁수", 95, 85000, "마을 휴식", "티르코네일", "가방 무게 105% 초과!", "0 골드 (부족)"),
+            new ChatterContext("하프", "격투가", 100, 120000, "어비스 보스 전투 중", "글라스기브넨", "가방: 300/1000", "1,000,000 골드"),
+            new ChatterContext("골렘", "마법사", 60, 40000, "광장 휴식", "던바튼", "정상 (50%)", "200,000 골드")
         };
 
         var personas = new[]
@@ -53,7 +54,7 @@ public class InGameChatterTests
         var sLine = PersonaTemplates.GetRandomTemplate(ChatterPersona.Scrooge, ctx);
         Assert.False(string.IsNullOrWhiteSpace(sLine));
 
-        // 모닝이야: 모닝, 닝 등
+        // 모닝이야: 모닝, 닝, 안녕하닝, 형들 등 유튜버 특유 말투
         var mLine = PersonaTemplates.GetRandomTemplate(ChatterPersona.MorningSpirit, ctx);
         Assert.Contains("닝", mLine);
 
@@ -64,6 +65,57 @@ public class InGameChatterTests
         // 아이돌 댄서: 비트, 댄스, 무대 등
         var iLine = PersonaTemplates.GetRandomTemplate(ChatterPersona.IdolDancer, ctx);
         Assert.False(string.IsNullOrWhiteSpace(iLine));
+    }
+
+    [Fact]
+    public void PersonaTemplates_WeightCategory_OnlyTriggersWhen100PercentOrAbove()
+    {
+        // 1. 100% 미만: 가방무거움 카테고리로 판정되지 않아야 함
+        var underContexts = new[]
+        {
+            new ChatterContext("류트", "전사", 50, 30000, "휴식", "티르코네일", "가방 무게 80%", "10000"),
+            new ChatterContext("류트", "전사", 50, 30000, "휴식", "티르코네일", "가방 무게 95%", "10000"),
+            new ChatterContext("류트", "전사", 50, 30000, "휴식", "티르코네일", "가방: 450/1000", "10000"),
+            new ChatterContext("류트", "전사", 50, 30000, "휴식", "티르코네일", "정상 (48kg)", "10000")
+        };
+
+        foreach (var ctx in underContexts)
+        {
+            var line = PersonaTemplates.GetRandomTemplate(ChatterPersona.Villainess, ctx);
+            // 악덕영애의 가방무거움 대사는 "짐꾼", "짐더미", "걸을 수가 없사와요", "터질 지경" 포함
+            Assert.DoesNotContain("짐꾼", line);
+            Assert.DoesNotContain("짐더미", line);
+            Assert.DoesNotContain("터질 지경", line);
+        }
+
+        // 2. 100% 이상/초과: 정상적으로 가방무거움 대사 트리거
+        var overContexts = new[]
+        {
+            new ChatterContext("류트", "전사", 50, 30000, "휴식", "티르코네일", "가방 무게 100%", "10000"),
+            new ChatterContext("류트", "전사", 50, 30000, "휴식", "티르코네일", "가방 무게 105%", "10000"),
+            new ChatterContext("류트", "전사", 50, 30000, "휴식", "티르코네일", "100% 초과", "10000")
+        };
+
+        foreach (var ctx in overContexts)
+        {
+            var line = PersonaTemplates.GetRandomTemplate(ChatterPersona.MorningSpirit, ctx);
+            // 모닝이의 100% 초과 가방 대사는 "100%", "기어다니닝", "다이어트" 포함
+            Assert.True(line.Contains("100%") || line.Contains("기어다니닝") || line.Contains("다이어트"));
+        }
+    }
+
+    [Fact]
+    public void PersonaTemplates_MorningSpirit_ReflectsYoutuberPersona()
+    {
+        var generalCtx = new ChatterContext("류트", "전사", 50, 30000, "휴식", "티르코네일", "정상", "50000");
+        var gatherCtx = new ChatterContext("류트", "전사", 50, 30000, "채집 중", "티르코네일", "정상", "50000");
+
+        var gLine = PersonaTemplates.GetRandomTemplate(ChatterPersona.MorningSpirit, generalCtx);
+        var cLine = PersonaTemplates.GetRandomTemplate(ChatterPersona.MorningSpirit, gatherCtx);
+
+        Assert.Contains("닝", gLine);
+        Assert.Contains("닝", cLine);
+        Assert.True(cLine.Contains("쌀먹") || cLine.Contains("형들") || cLine.Contains("꿀팁") || cLine.Contains("대성공"));
     }
 
     [Theory]

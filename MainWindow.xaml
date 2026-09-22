@@ -834,8 +834,8 @@
                                                 <ColumnDefinition Width="Auto"/>
                                                 <ColumnDefinition Width="*"/>
                                             </Grid.ColumnDefinitions>
-                                            <TextBlock Grid.Column="0" Text="{Binding Timestamp}" Foreground="{StaticResource TextSecondary}" FontSize="13" Margin="0,0,12,0"/>
-                                            <TextBlock Grid.Column="1" Text="{Binding Message}" Foreground="{StaticResource TextPrimary}" FontSize="15" FontWeight="SemiBold"/>
+                                            <TextBlock Grid.Column="0" Text="{Binding Timestamp}" Foreground="{StaticResource TextSecondary}" FontSize="13" Margin="0,0,12,0" VerticalAlignment="Top"/>
+                                            <TextBlock Grid.Column="1" Text="{Binding Message}" Foreground="{StaticResource TextPrimary}" FontSize="15" FontWeight="SemiBold" TextWrapping="Wrap" LineHeight="20"/>
                                         </Grid>
                                     </Border>
                                 </DataTemplate>
@@ -843,7 +843,8 @@
                         </ItemsControl>
                     </ScrollViewer>
 
-                    <Grid Grid.Row="2">
+                    <!-- ⌨️ 인게임 채팅 입력부 (Row 3 정상 배치) -->
+                    <Grid Grid.Row="3">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
