@@ -1,0 +1,45 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{407EC34C-5141-460E-8AC3-8269BD549D1F}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MobiMate.Core", "src\MobiMate.Core\MobiMate.Core.csproj", "{0BE8A5B7-DBF2-4811-8BDD-29D9F5DDF9CA}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tools", "tools", "{7AD3C572-9F49-4F3C-B940-5AC79E66747C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FakeCli", "tools\FakeCli\FakeCli.csproj", "{90B16CBD-3C5C-4A8C-8DF2-B1EDE17C33F3}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{639E7771-5D18-4D99-9086-AAFBE86196B1}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MobiMate.Core.Tests", "tests\MobiMate.Core.Tests\MobiMate.Core.Tests.csproj", "{473A0F04-A894-425C-B363-1E2ED167F931}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{0BE8A5B7-DBF2-4811-8BDD-29D9F5DDF9CA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0BE8A5B7-DBF2-4811-8BDD-29D9F5DDF9CA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0BE8A5B7-DBF2-4811-8BDD-29D9F5DDF9CA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0BE8A5B7-DBF2-4811-8BDD-29D9F5DDF9CA}.Release|Any CPU.Build.0 = Release|Any CPU
+		{90B16CBD-3C5C-4A8C-8DF2-B1EDE17C33F3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{90B16CBD-3C5C-4A8C-8DF2-B1EDE17C33F3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{90B16CBD-3C5C-4A8C-8DF2-B1EDE17C33F3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{90B16CBD-3C5C-4A8C-8DF2-B1EDE17C33F3}.Release|Any CPU.Build.0 = Release|Any CPU
+		{473A0F04-A894-425C-B363-1E2ED167F931}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{473A0F04-A894-425C-B363-1E2ED167F931}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{473A0F04-A894-425C-B363-1E2ED167F931}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{473A0F04-A894-425C-B363-1E2ED167F931}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{0BE8A5B7-DBF2-4811-8BDD-29D9F5DDF9CA} = {407EC34C-5141-460E-8AC3-8269BD549D1F}
+		{90B16CBD-3C5C-4A8C-8DF2-B1EDE17C33F3} = {7AD3C572-9F49-4F3C-B940-5AC79E66747C}
+		{473A0F04-A894-425C-B363-1E2ED167F931} = {639E7771-5D18-4D99-9086-AAFBE86196B1}
+	EndGlobalSection
+EndGlobal

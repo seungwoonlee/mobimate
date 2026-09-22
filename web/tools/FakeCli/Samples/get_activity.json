@@ -1,0 +1,20 @@
+{
+  "IsAutoPlaying": false,
+  "CanStartAutoPlay": false,
+  "AutoPlayTarget": null,
+  "AutoPlayTargetDisplayName": null,
+  "IsAutoTraveling": false,
+  "AutoTravelDestination": null,
+  "IsInCombat": false,
+  "IsDead": false,
+  "IsTalking": false,
+  "IsGathering": false,
+  "IsAltering": false,
+  "IsCrafting": false,
+  "IsPlayingInstrument": false,
+  "IsCarrying": false,
+  "IsSitting": false,
+  "IsOverweight": false,
+  "CurrentAction": "Idle",
+  "CanStopCurrentAction": false
+}

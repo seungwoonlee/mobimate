@@ -81,11 +81,10 @@ public sealed record CliResult(bool Ok, string Stdout, string? Error, TimeSpan Q
 ```csharp
 public sealed class JsonFileStore
 {
-    // 읽기: 파싱 실패 시 원본을 *.corrupt-<yyyyMMddHHmmss> 로 옮기고 기본값 반환 (WPF판 동작 이식)
-    public T Load<T>(string file, Func<T> fallback);
-    // 쓰기: 같은 폴더의 임시 파일에 기록 → 대상이 있으면 File.Replace(원자적 교체, 백업 *.bak 1개 유지),
-    //       없으면(첫 저장) File.Move(temp, target)
-    public void Save<T>(string file, T value);
+    // 읽기: 없으면 null. 0바이트·손상 파일은 *.corrupted.yyyyMMdd_HHmmss.bak 으로 격리하고 null (WPF판 이름 규칙 유지)
+    public T? Load<T>(string path) where T : class;
+    // 쓰기: 같은 폴더 임시 파일 → 대상이 있으면 File.Replace(백업 *.bak 1개), 없으면 File.Move. 실패하면 false
+    public bool Save<T>(string path, T value);
 }
 ```
 
@@ -521,7 +520,7 @@ sequenceDiagram
 
 | 대상 | 방법 |
 |---|---|
-| Core 이관 | WPF 테스트 5개 파일을 복사한다. `InGameChatterTests`의 `TriggerChatterAsync`·`IntervalSeconds` 테스트 3건은 `ChatterLineService` 테스트로 대체하고 사유를 주석으로 남긴다 (TST-01) |
+| Core 이관 | WPF 테스트 5개 파일을 복사한다. `InGameChatterTests`의 `TriggerChatterAsync`·`IntervalSeconds` 테스트 2건은 `ChatterLineService` 테스트로 대체하고 사유를 주석으로 남긴다 (TST-01) |
 | 신규 Core | `ChatText`(이모지·서러게이트 경계), `CommandIntentParser`(오탐 표: "정지 기능 알려줘", "사과 파이 채집" 등), `JsonFileStore`(손상 격리·원자적 교체), `CliLanes`(가짜 CLI로 채집 중 정지 1초 이내) |
 | 가짜 CLI | `tools/FakeCli`: 명령별로 `API_SPEC_SAMPLES.md` 응답을 재생한다. 환경변수로 동작을 바꾼다: `FAKECLI_DELAY_<CMD>=ms`, `FAKECLI_FAIL_<CMD>=exit`, `FAKECLI_STATE=disconnected`. 호출 기록을 `FAKECLI_LOG` 파일에 남겨 테스트가 검증한다 |
 | API | `WebApplicationFactory` + 가짜 CLI. 보안 행렬(Host·Origin·CSRF·세션·루프백)을 표 기반 테스트로 검증 (TST-03) |

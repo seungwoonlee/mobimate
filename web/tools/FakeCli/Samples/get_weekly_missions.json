@@ -1,0 +1,137 @@
+[
+  {
+    "Title": "심층 탐험가",
+    "Description": "심층 던전 10회 토벌",
+    "CurrentCount": 4,
+    "GoalCount": 10,
+    "IsCompleted": false,
+    "IsRewardReceived": false,
+    "HasShortcut": true
+  },
+  {
+    "Title": "부지런한 채집가",
+    "Description": "채집 30회",
+    "CurrentCount": 18,
+    "GoalCount": 30,
+    "IsCompleted": false,
+    "IsRewardReceived": false,
+    "HasShortcut": true
+  },
+  {
+    "Title": "레이드 원정",
+    "Description": "레이드 3회 참여",
+    "CurrentCount": 1,
+    "GoalCount": 3,
+    "IsCompleted": false,
+    "IsRewardReceived": false,
+    "HasShortcut": true
+  },
+  {
+    "Title": "에린의 요리사",
+    "Description": "요리 5회",
+    "CurrentCount": 2,
+    "GoalCount": 5,
+    "IsCompleted": false,
+    "IsRewardReceived": false,
+    "HasShortcut": true
+  },
+  {
+    "Title": "음유시인의 하루",
+    "Description": "연주 3회",
+    "CurrentCount": 0,
+    "GoalCount": 3,
+    "IsCompleted": false,
+    "IsRewardReceived": false,
+    "HasShortcut": true
+  },
+  {
+    "Title": "길드의 일원",
+    "Description": "길드 기부 1회",
+    "CurrentCount": 0,
+    "GoalCount": 1,
+    "IsCompleted": false,
+    "IsRewardReceived": false,
+    "HasShortcut": true
+  },
+  {
+    "Title": "주간 목표 1",
+    "Description": "주간 활동",
+    "CurrentCount": 1,
+    "GoalCount": 1,
+    "IsCompleted": true,
+    "IsRewardReceived": true,
+    "HasShortcut": true
+  },
+  {
+    "Title": "주간 목표 2",
+    "Description": "주간 활동",
+    "CurrentCount": 1,
+    "GoalCount": 1,
+    "IsCompleted": true,
+    "IsRewardReceived": true,
+    "HasShortcut": true
+  },
+  {
+    "Title": "주간 목표 3",
+    "Description": "주간 활동",
+    "CurrentCount": 1,
+    "GoalCount": 1,
+    "IsCompleted": true,
+    "IsRewardReceived": true,
+    "HasShortcut": true
+  },
+  {
+    "Title": "주간 목표 4",
+    "Description": "주간 활동",
+    "CurrentCount": 1,
+    "GoalCount": 1,
+    "IsCompleted": true,
+    "IsRewardReceived": true,
+    "HasShortcut": true
+  },
+  {
+    "Title": "주간 목표 5",
+    "Description": "주간 활동",
+    "CurrentCount": 1,
+    "GoalCount": 1,
+    "IsCompleted": true,
+    "IsRewardReceived": true,
+    "HasShortcut": true
+  },
+  {
+    "Title": "주간 목표 6",
+    "Description": "주간 활동",
+    "CurrentCount": 1,
+    "GoalCount": 1,
+    "IsCompleted": true,
+    "IsRewardReceived": true,
+    "HasShortcut": true
+  },
+  {
+    "Title": "주간 목표 7",
+    "Description": "주간 활동",
+    "CurrentCount": 1,
+    "GoalCount": 1,
+    "IsCompleted": true,
+    "IsRewardReceived": true,
+    "HasShortcut": true
+  },
+  {
+    "Title": "주간 목표 8",
+    "Description": "주간 활동",
+    "CurrentCount": 1,
+    "GoalCount": 1,
+    "IsCompleted": true,
+    "IsRewardReceived": true,
+    "HasShortcut": true
+  },
+  {
+    "Title": "주간 목표 9",
+    "Description": "주간 활동",
+    "CurrentCount": 1,
+    "GoalCount": 1,
+    "IsCompleted": true,
+    "IsRewardReceived": true,
+    "HasShortcut": true
+  }
+]

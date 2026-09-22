@@ -1,0 +1,33 @@
+{
+  "completedCount": 2,
+  "works": [
+    {
+      "DisplayName": "질긴 가죽",
+      "FacilityName": "가죽 작업대",
+      "State": "Completed",
+      "IsCompleted": true,
+      "RemainingSeconds": 0
+    },
+    {
+      "DisplayName": "고급 옷감",
+      "FacilityName": "베틀",
+      "State": "Completed",
+      "IsCompleted": true,
+      "RemainingSeconds": 0
+    },
+    {
+      "DisplayName": "최고급 실크",
+      "FacilityName": "베틀",
+      "State": "InProgress",
+      "IsCompleted": false,
+      "RemainingSeconds": 145
+    },
+    {
+      "DisplayName": "철괴",
+      "FacilityName": "제련로",
+      "State": "InProgress",
+      "IsCompleted": false,
+      "RemainingSeconds": 1260
+    }
+  ]
+}
