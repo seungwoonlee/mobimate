@@ -1,0 +1,12 @@
+[
+  {
+    "Name": "류트",
+    "Durability": 100,
+    "IsEquipped": true
+  },
+  {
+    "Name": "플루트",
+    "Durability": 85,
+    "IsEquipped": false
+  }
+]

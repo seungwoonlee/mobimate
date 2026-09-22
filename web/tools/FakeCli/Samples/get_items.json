@@ -1,0 +1,106 @@
+[
+  {
+    "Location": "Bag",
+    "DisplayName": "나무 장작",
+    "Category": "Material",
+    "CategoryDisplayName": "재료",
+    "Count": 15,
+    "IsLocked": false
+  },
+  {
+    "Location": "Bag",
+    "DisplayName": "사과",
+    "Category": "Food",
+    "CategoryDisplayName": "음식",
+    "Count": 8,
+    "IsLocked": false
+  },
+  {
+    "Location": "Bag",
+    "DisplayName": "철광석",
+    "Category": "Material",
+    "CategoryDisplayName": "재료",
+    "Count": 28,
+    "IsLocked": false
+  },
+  {
+    "Location": "Bag",
+    "DisplayName": "철광석",
+    "Category": "Material",
+    "CategoryDisplayName": "재료",
+    "Count": 34,
+    "IsLocked": false
+  },
+  {
+    "Location": "Bag",
+    "DisplayName": "양털",
+    "Category": "Material",
+    "CategoryDisplayName": "재료",
+    "Count": 25,
+    "IsLocked": false
+  },
+  {
+    "Location": "Bag",
+    "DisplayName": "거미줄",
+    "Category": "Material",
+    "CategoryDisplayName": "재료",
+    "Count": 30,
+    "IsLocked": false
+  },
+  {
+    "Location": "Bag",
+    "DisplayName": "체력 포션",
+    "Category": "Consumable",
+    "CategoryDisplayName": "소모품",
+    "Count": 44,
+    "IsLocked": true
+  },
+  {
+    "Location": "Bag",
+    "DisplayName": "질긴 가죽",
+    "Category": "Material",
+    "CategoryDisplayName": "재료",
+    "Count": 11,
+    "IsLocked": false
+  },
+  {
+    "Location": "AccountStorage",
+    "DisplayName": "철괴",
+    "Category": "Material",
+    "CategoryDisplayName": "재료",
+    "Count": 200,
+    "IsLocked": true
+  },
+  {
+    "Location": "AccountStorage",
+    "DisplayName": "실크",
+    "Category": "Material",
+    "CategoryDisplayName": "재료",
+    "Count": 58,
+    "IsLocked": false
+  },
+  {
+    "Location": "AccountStorage",
+    "DisplayName": "조각난 룬",
+    "Category": "Material",
+    "CategoryDisplayName": "재료",
+    "Count": 17,
+    "IsLocked": true
+  },
+  {
+    "Location": "CharacterStorage",
+    "DisplayName": "낡은 류트",
+    "Category": "Instrument",
+    "CategoryDisplayName": "악기",
+    "Count": 1,
+    "IsLocked": true
+  },
+  {
+    "Location": "CharacterStorage",
+    "DisplayName": "요리 재료 상자",
+    "Category": "Consumable",
+    "CategoryDisplayName": "소모품",
+    "Count": 3,
+    "IsLocked": false
+  }
+]

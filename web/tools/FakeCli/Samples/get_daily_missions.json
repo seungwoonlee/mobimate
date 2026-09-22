@@ -1,0 +1,101 @@
+[
+  {
+    "Title": "에린에 돌아왔습니다",
+    "Description": "접속하기",
+    "CurrentCount": 1,
+    "GoalCount": 1,
+    "IsCompleted": true,
+    "IsRewardReceived": true,
+    "HasShortcut": true
+  },
+  {
+    "Title": "오늘도 던전 한 바퀴",
+    "Description": "던전 3회 토벌",
+    "CurrentCount": 3,
+    "GoalCount": 3,
+    "IsCompleted": true,
+    "IsRewardReceived": true,
+    "HasShortcut": true
+  },
+  {
+    "Title": "자급자족의 삶",
+    "Description": "재료 아이템 3회 채집",
+    "CurrentCount": 1,
+    "GoalCount": 3,
+    "IsCompleted": false,
+    "IsRewardReceived": false,
+    "HasShortcut": true
+  },
+  {
+    "Title": "가공의 달인",
+    "Description": "가공 작업 2회",
+    "CurrentCount": 0,
+    "GoalCount": 2,
+    "IsCompleted": false,
+    "IsRewardReceived": false,
+    "HasShortcut": true
+  },
+  {
+    "Title": "모닥불 곁에서",
+    "Description": "모닥불에서 휴식 1회",
+    "CurrentCount": 0,
+    "GoalCount": 1,
+    "IsCompleted": false,
+    "IsRewardReceived": false,
+    "HasShortcut": true
+  },
+  {
+    "Title": "몬스터 사냥꾼",
+    "Description": "몬스터 30마리 처치",
+    "CurrentCount": 30,
+    "GoalCount": 30,
+    "IsCompleted": true,
+    "IsRewardReceived": true,
+    "HasShortcut": true
+  },
+  {
+    "Title": "부지런한 손길",
+    "Description": "제작 1회",
+    "CurrentCount": 1,
+    "GoalCount": 1,
+    "IsCompleted": true,
+    "IsRewardReceived": true,
+    "HasShortcut": true
+  },
+  {
+    "Title": "에린 산책",
+    "Description": "필드 이동 3회",
+    "CurrentCount": 3,
+    "GoalCount": 3,
+    "IsCompleted": true,
+    "IsRewardReceived": true,
+    "HasShortcut": true
+  },
+  {
+    "Title": "오늘의 요리",
+    "Description": "요리 1회",
+    "CurrentCount": 1,
+    "GoalCount": 1,
+    "IsCompleted": true,
+    "IsRewardReceived": true,
+    "HasShortcut": true
+  },
+  {
+    "Title": "친구와 함께",
+    "Description": "파티 플레이 1회",
+    "CurrentCount": 1,
+    "GoalCount": 1,
+    "IsCompleted": true,
+    "IsRewardReceived": true,
+    "HasShortcut": true
+  },
+  {
+    "Title": "일일 기부",
+    "Description": "길드 기부 1회",
+    "CurrentCount": 1,
+    "GoalCount": 1,
+    "IsCompleted": true,
+    "IsRewardReceived": true,
+    "HasShortcut": true
+  }
+]
