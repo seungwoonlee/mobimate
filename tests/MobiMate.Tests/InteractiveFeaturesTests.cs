@@ -186,5 +186,82 @@ public class InteractiveFeaturesTests
         var woodBagTotal = items.Where(i => IsBag(i.Location) && i.DisplayName == "나무 장작").Sum(i => i.Count);
         Assert.Equal(70, woodBagTotal);
     }
+
+    [Fact]
+    public void AdaptiveRefreshController_DefaultState_Is15Seconds()
+    {
+        var controller = new AdaptiveRefreshController();
+        Assert.Equal(15, controller.CurrentIntervalSec);
+        Assert.False(controller.HasUserActivity);
+    }
+
+    [Fact]
+    public void AdaptiveRefreshController_IncrementsBy15_WhenIdle_UpToMaxLimit()
+    {
+        var controller = new AdaptiveRefreshController();
+        Assert.Equal(15, controller.CurrentIntervalSec);
+
+        // 1st tick: 15 -> 30
+        var t1 = controller.OnTick();
+        Assert.Equal(30, t1);
+        Assert.Equal(30, controller.CurrentIntervalSec);
+
+        // 2nd tick: 30 -> 45
+        var t2 = controller.OnTick();
+        Assert.Equal(45, t2);
+
+        // 3rd tick: 45 -> 60
+        var t3 = controller.OnTick();
+        Assert.Equal(60, t3);
+
+        // Continuously tick up to max 300
+        for (int i = 0; i < 30; i++)
+        {
+            controller.OnTick();
+        }
+        Assert.Equal(300, controller.CurrentIntervalSec);
+
+        // Does not exceed 300
+        var next = controller.OnTick();
+        Assert.Equal(300, next);
+        Assert.Equal(300, controller.CurrentIntervalSec);
+    }
+
+    [Fact]
+    public void AdaptiveRefreshController_ResetsTo15_ImmediatelyOnUserActivity()
+    {
+        var controller = new AdaptiveRefreshController();
+        controller.OnTick(); // 30
+        controller.OnTick(); // 45
+        controller.OnTick(); // 60
+        Assert.Equal(60, controller.CurrentIntervalSec);
+
+        // User interacts (keyboard or mouse)
+        controller.RecordUserActivity();
+        Assert.True(controller.HasUserActivity);
+        Assert.Equal(15, controller.CurrentIntervalSec);
+
+        // Tick after user activity keeps 15 and consumes activity flag
+        var nextInterval = controller.OnTick();
+        Assert.Equal(15, nextInterval);
+        Assert.False(controller.HasUserActivity);
+
+        // Next tick without activity increments to 30
+        var idleInterval = controller.OnTick();
+        Assert.Equal(30, idleInterval);
+    }
+
+    [Fact]
+    public void AdaptiveRefreshController_Reset_RestoresInitialState()
+    {
+        var controller = new AdaptiveRefreshController();
+        controller.OnTick();
+        controller.OnTick();
+        controller.RecordUserActivity();
+
+        controller.Reset();
+        Assert.Equal(15, controller.CurrentIntervalSec);
+        Assert.False(controller.HasUserActivity);
+    }
 }
 
