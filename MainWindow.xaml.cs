@@ -227,6 +227,7 @@ public partial class MainWindow : Window
     {
         TxtStatusIcon.Text = "🔴";
         TxtCharTitle.Text = "게임 미연결";
+        BubbleNickGuide.Visibility = Visibility.Collapsed;
         TxtCombatScore.Text = "⚔️ 전투력 -";
         TxtActivity.Text = "연결 끊김";
         TxtLocation.Text = "게임을 실행하고 MM AI 에이전트 설정을 켜주세요.";
@@ -245,21 +246,11 @@ public partial class MainWindow : Window
         TxtCustomNickInput.SelectAll();
     }
 
-    private void BtnCancelNick_Click(object sender, RoutedEventArgs e)
-    {
-        PopupNickName.IsOpen = false;
-    }
-
-    private void BtnSaveNick_Click(object sender, RoutedEventArgs e)
-    {
-        SaveCustomNick();
-    }
-
     private void TxtCustomNickInput_KeyDown(object sender, KeyEventArgs e)
     {
         if (e.Key == Key.Enter)
         {
-            SaveCustomNick();
+            BtnSaveNick_Click(sender, e);
         }
         else if (e.Key == Key.Escape)
         {
@@ -267,7 +258,12 @@ public partial class MainWindow : Window
         }
     }
 
-    private void SaveCustomNick()
+    private void BtnCancelNick_Click(object sender, RoutedEventArgs e)
+    {
+        PopupNickName.IsOpen = false;
+    }
+
+    private void BtnSaveNick_Click(object sender, RoutedEventArgs e)
     {
         if (_lastCharInfo == null)
         {
@@ -285,11 +281,13 @@ public partial class MainWindow : Window
         if (!string.IsNullOrWhiteSpace(nick))
         {
             TxtCharTitle.Text = $"[{realm}] {nick} ({job} Lv.{_lastCharInfo.Level})";
+            BubbleNickGuide.Visibility = Visibility.Collapsed;
             ShowToast($"🏷️ 캐릭터 별칭이 '{nick}'(으)로 저장되었습니다.", true);
         }
         else
         {
             TxtCharTitle.Text = $"[{realm}] {job} Lv.{_lastCharInfo.Level}";
+            BubbleNickGuide.Visibility = Visibility.Visible;
             ShowToast("🏷️ 캐릭터 별칭이 기본값으로 초기화되었습니다.", true);
         }
     }
@@ -308,10 +306,12 @@ public partial class MainWindow : Window
             if (profile != null && !string.IsNullOrWhiteSpace(profile.CustomName))
             {
                 TxtCharTitle.Text = $"[{realm}] {profile.CustomName} ({job} Lv.{ch.Level})";
+                BubbleNickGuide.Visibility = Visibility.Collapsed;
             }
             else
             {
                 TxtCharTitle.Text = $"[{realm}] {job} Lv.{ch.Level}";
+                BubbleNickGuide.Visibility = Visibility.Visible;
             }
 
             if (ch.CombatScore != null)
@@ -394,22 +394,25 @@ public partial class MainWindow : Window
         ProgWeightTab.Value = Math.Min(100, pct);
         TxtWeightSummary.Text = $"{curW:F1} / {maxW:F1} ({pct:F1}%)";
 
-        if (pct >= 90)
+        if (pct >= 100.0)
         {
             ProgWeightTab.Foreground = (Brush)FindResource("AccentRed");
-            TxtWeightStatus.Text = "🚨 가방이 거의 꽉 찼습니다! 아이템 정리가 시급합니다.";
+            TxtWeightSummary.Foreground = (Brush)FindResource("AccentRed");
+            TxtWeightStatus.Text = "🚨 가방 무게 100% 초과 (과적 페널티 상태)! 비잠금 잡템 정리가 시급합니다.";
             TxtWeightStatus.Foreground = (Brush)FindResource("AccentRed");
         }
-        else if (pct >= 80)
+        else if (pct >= 95.0)
         {
             ProgWeightTab.Foreground = (Brush)FindResource("AccentYellow");
-            TxtWeightStatus.Text = "⚠️ 여유 공간이 부족합니다.";
+            TxtWeightSummary.Foreground = (Brush)FindResource("AccentYellow");
+            TxtWeightStatus.Text = "⚠️ 가방 무게 95% 이상 (주의 필요). 무거운 잡템 다이어트를 권장합니다.";
             TxtWeightStatus.Foreground = (Brush)FindResource("AccentYellow");
         }
         else
         {
             ProgWeightTab.Foreground = (Brush)FindResource("AccentGreen");
-            TxtWeightStatus.Text = "✓ 여유 공간이 충분합니다.";
+            TxtWeightSummary.Foreground = (Brush)FindResource("AccentGreen");
+            TxtWeightStatus.Text = "✓ 가방 무게 정상 (95% 미만). 활동에 지장이 없습니다.";
             TxtWeightStatus.Foreground = (Brush)FindResource("AccentGreen");
         }
     }
@@ -513,14 +516,49 @@ public partial class MainWindow : Window
         FilterItems();
     }
 
+    private void UpdateItemFilterButtons()
+    {
+        if (_allItems == null) return;
+
+        var allCount = _allItems.Count;
+        var bagCount = _allItems.Count(i => i.Location.Equals("Bag", StringComparison.OrdinalIgnoreCase));
+        var accCount = _allItems.Count(i => i.Location.Equals("AccountStorage", StringComparison.OrdinalIgnoreCase));
+        var charCount = _allItems.Count(i => i.Location.Equals("CharacterStorage", StringComparison.OrdinalIgnoreCase));
+
+        BtnFilterAll.Content = $"전체 ({allCount})";
+        BtnFilterBag.Content = $"🎒 가방 ({bagCount})";
+        BtnFilterAccount.Content = $"🏛️ 계정 창고 ({accCount})";
+        BtnFilterChar.Content = $"📦 캐릭터 창고 ({charCount})";
+
+        // 활성 탭 하이라이트
+        var activeBrush = (Brush)FindResource("AccentBlue");
+        var normalBrush = (Brush)FindResource("BgCard");
+        var activeDietBg = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#5D4020"));
+        var normalDietBg = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#3A2818"));
+
+        BtnFilterAll.Background = _currentItemLocationFilter == "All" ? activeBrush : normalBrush;
+        BtnFilterBag.Background = _currentItemLocationFilter == "Bag" ? activeBrush : normalBrush;
+        BtnFilterAccount.Background = _currentItemLocationFilter == "AccountStorage" ? activeBrush : normalBrush;
+        BtnFilterChar.Background = _currentItemLocationFilter == "CharacterStorage" ? activeBrush : normalBrush;
+        BtnFilterDiet.Background = _currentItemLocationFilter == "Diet" ? activeDietBg : normalDietBg;
+    }
+
     private void FilterItems()
     {
         if (_allItems == null) return;
 
+        UpdateItemFilterButtons();
+
         var query = TxtItemSearch.Text.Trim();
         IEnumerable<ItemData> filtered = _allItems;
 
-        if (_currentItemLocationFilter != "All")
+        if (_currentItemLocationFilter == "Diet")
+        {
+            // 가방에 있으면서 잠금 해제된 무거운 잡템/재료 우선 필터링 및 수량 내림차순 정렬
+            filtered = filtered.Where(i => i.Location.Equals("Bag", StringComparison.OrdinalIgnoreCase) && !i.IsLocked);
+            filtered = filtered.OrderByDescending(i => i.Count);
+        }
+        else if (_currentItemLocationFilter != "All")
         {
             filtered = filtered.Where(i => i.Location.Equals(_currentItemLocationFilter, StringComparison.OrdinalIgnoreCase));
         }
@@ -533,7 +571,8 @@ public partial class MainWindow : Window
 
         var list = filtered.ToList();
         ListItemView.ItemsSource = list;
-        TxtItemCountLabel.Text = $"표시: {list.Count}개 / 전체: {_allItems.Count}개";
+        var filterLabel = _currentItemLocationFilter == "Diet" ? "⚖️ 다이어트: " : "표시: ";
+        TxtItemCountLabel.Text = $"{filterLabel}{list.Count}개 / 전체: {_allItems.Count}개";
     }
 
     private void TxtItemSearch_TextChanged(object sender, TextChangedEventArgs e)
@@ -643,19 +682,79 @@ public partial class MainWindow : Window
         }
     }
 
-    private async Task StartGatherAsync(string itemName)
+    private async Task StartGatherAsync(string itemName, int count = 5)
     {
-        ShowToast($"'{itemName}' 채집 이동 및 작업을 요청했습니다...", true);
+        ShowToast($"'{itemName}' ({count}회) 채집 이동 및 작업을 요청했습니다...", true);
 
-        var body = $"{{\"displayName\":\"{itemName}\",\"count\":5}}";
+        var body = $"{{\"displayName\":\"{itemName}\",\"count\":{count}}}";
         var (ok, _, err) = await _cli.RunRawAsync("execute_gathering", stdinJson: body, timeoutSeconds: 6);
         if (ok)
         {
-            ShowToast($"'{itemName}' 채집을 성공적으로 시작했습니다!", true);
+            ShowToast($"'{itemName}' ({count}회) 채집을 성공적으로 시작했습니다!", true);
         }
         else
         {
             ShowToast($"채집 요청 실패: {err}", false);
+        }
+    }
+
+    // ================= 5-1. 실동작 매크로 & 인터랙티브 액션 핸들러 =================
+    private async void BtnActionGather_Click(object sender, RoutedEventArgs e)
+    {
+        var item = (CmbGatherItem.SelectedItem as ComboBoxItem)?.Tag as string ?? "사과";
+        var countStr = (CmbGatherCount.SelectedItem as ComboBoxItem)?.Tag as string ?? "5";
+        int.TryParse(countStr, out var count);
+        if (count <= 0) count = 5;
+
+        await StartGatherAsync(item, count);
+    }
+
+    private void BtnActionDailyMissions_Click(object sender, RoutedEventArgs e)
+    {
+        TabMissions.IsSelected = true;
+        if (_lastDailyMissions != null && _lastDailyMissions.Count > 0)
+        {
+            var pending = _lastDailyMissions.Where(m => !m.IsCompleted).ToList();
+            if (pending.Count > 0)
+            {
+                var summary = string.Join(", ", pending.Take(2).Select(m => m.Title));
+                ShowToast($"📋 미완료 일일 숙제 {pending.Count}건 남음: {summary}...", true);
+            }
+            else
+            {
+                ShowToast("🎉 오늘의 모든 일일 숙제를 완료했습니다!", true);
+            }
+        }
+        else
+        {
+            ShowToast("📋 일일 미션 탭으로 이동했습니다. 갱신을 확인하세요.", true);
+        }
+    }
+
+    private void BtnActionDiet_Click(object sender, RoutedEventArgs e)
+    {
+        TabInventory.IsSelected = true;
+        _currentItemLocationFilter = "Diet";
+        FilterItems();
+        ShowToast("⚖️ 무게 다이어트 필터 활성화: 가방 내 비잠금 잡템을 우선 정렬했습니다.", true);
+    }
+
+    private void BtnActionCollectWorks_Click(object sender, RoutedEventArgs e)
+    {
+        BtnCollectWorks_Click(sender, e);
+    }
+
+    private async void BtnActionStop_Click(object sender, RoutedEventArgs e)
+    {
+        ShowToast("🛑 긴급 행동 정지를 요청했습니다...", true);
+        var (ok, _, err) = await _cli.RunRawAsync("stop_action", timeoutSeconds: 3);
+        if (ok)
+        {
+            ShowToast("🛑 캐릭터의 모든 행동/채집을 즉시 중단했습니다.", true);
+        }
+        else
+        {
+            ShowToast($"행동 정지 실패: {err}", false);
         }
     }
 
@@ -778,18 +877,6 @@ public partial class MainWindow : Window
         return new ChatterContext(realm, job, level, combatScore, activity, location, weightInfo, goldInfo);
     }
 
-    private void TglChatterEnable_Click(object sender, RoutedEventArgs e)
-    {
-        if (_chatterService == null) return;
-        var isEnabled = TglChatterEnable.IsChecked == true;
-        _chatterService.IsEnabled = isEnabled;
-        TxtChatterStatus.Text = isEnabled ? "아무말 ON" : "아무말 OFF";
-        TxtChatterStatus.Foreground = isEnabled ? (Brush)FindResource("AccentGreen") : (Brush)FindResource("TextSecondary");
-        BtnTriggerChatterNow.IsEnabled = isEnabled;
-
-        ShowToast(isEnabled ? "🗣️ 아무말 기능이 켜졌습니다. ('한마디' 클릭 시 대사 생성)" : "🗣️ 아무말 기능이 꺼졌습니다.", true);
-    }
-
     private void CmbPersona_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (!_isWindowLoaded || _chatterService == null) return;
@@ -806,14 +893,6 @@ public partial class MainWindow : Window
             };
             ShowToast($"페르소나가 '{item.Content}'(으)로 변경되었습니다.", true);
         }
-    }
-
-    private void ChkSendToGameDirectly_CheckChanged(object sender, RoutedEventArgs e)
-    {
-        if (_chatterService == null) return;
-        var directly = ChkSendToGameDirectly.IsChecked == true;
-        _chatterService.SendToGameDirectly = directly;
-        ShowToast(directly ? "인게임 전송 활성화" : "앱 내 시뮬레이션 모드 전환", true);
     }
 
     private async void BtnTriggerChatterNow_Click(object sender, RoutedEventArgs e)
@@ -840,7 +919,7 @@ public partial class MainWindow : Window
         }
         finally
         {
-            BtnTriggerChatterNow.IsEnabled = TglChatterEnable.IsChecked == true;
+            BtnTriggerChatterNow.IsEnabled = true;
             BtnTriggerChatterNow.Content = "💬 한마디";
         }
     }

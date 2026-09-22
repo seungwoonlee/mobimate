@@ -305,6 +305,13 @@
                             <TextBlock x:Name="TxtCharTitle" Text="[아이라] 격투가 Lv.100" FontWeight="Bold" FontSize="22" Foreground="{StaticResource TextPrimary}"
                                        Cursor="Hand" ToolTip="클릭하여 캐릭터 닉네임(별칭)을 설정하거나 변경할 수 있습니다." MouseLeftButtonUp="TxtCharTitle_MouseLeftButtonUp"/>
 
+                            <!-- 닉네임 미등록 온보딩 말풍선 (클릭 시 닉네임 설정 팝업 호출) -->
+                            <Border x:Name="BubbleNickGuide" Background="#3B2A14" BorderBrush="#E5A93C" BorderThickness="1" CornerRadius="10" Padding="8,3" Margin="8,0,0,0" Cursor="Hand" MouseLeftButtonUp="TxtCharTitle_MouseLeftButtonUp" Visibility="Collapsed" VerticalAlignment="Center">
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <TextBlock Text="💬 클릭해서 닉네임 등록!" FontSize="12" Foreground="#F5D061" FontWeight="Bold"/>
+                                </StackPanel>
+                            </Border>
+
                             <!-- 닉네임 설정 인라인 팝업 -->
                             <Popup x:Name="PopupNickName" PlacementTarget="{Binding ElementName=TxtCharTitle}" Placement="Bottom" StaysOpen="False" AllowsTransparency="True">
                                 <Border Background="#202226" BorderBrush="{StaticResource AccentBlue}" BorderThickness="1" CornerRadius="8" Padding="12" Margin="0,4,0,0">
@@ -415,8 +422,8 @@
                     </ControlTemplate>
                 </TabControl.Template>
 
-                <!-- [1] 📊 캐릭터 & 스탯 탭 -->
-                <TabItem Header="  📊 캐릭터 &amp; 스탯  ">
+                <!-- [1] 📊 스탯 탭 -->
+                <TabItem x:Name="TabCharStats" Header="  📊 스탯  ">
                     <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="20">
                         <StackPanel>
                             <TextBlock Text="🏆 캐릭터 종합 4대 점수" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" FontSize="18" Margin="0,0,0,10"/>
@@ -477,8 +484,8 @@
                     </ScrollViewer>
                 </TabItem>
 
-                <!-- [2] 🎒 가방 & 아이템 탭 -->
-                <TabItem Header="  🎒 가방 &amp; 소지품 (600여종)  ">
+                <!-- [2] 🎒 가방 & 창고 탭 -->
+                <TabItem x:Name="TabInventory" Header="  🎒 가방 &amp; 창고  ">
                     <Grid Margin="16">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
@@ -493,16 +500,16 @@
                                         <TextBlock Text="🎒 인벤토리 소지 무게" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" FontSize="16"/>
                                         <TextBlock x:Name="TxtWeightDelta" Text=" (-12.5 ▼)" FontSize="15" Foreground="{StaticResource AccentGreen}" FontWeight="Bold" Margin="8,0,0,0" Visibility="Collapsed"/>
                                     </StackPanel>
-                                    <TextBlock x:Name="TxtWeightSummary" HorizontalAlignment="Right" Text="854.6 / 1030.0 (83.0%)" FontWeight="Bold" Foreground="{StaticResource AccentYellow}" FontSize="16"/>
+                                    <TextBlock x:Name="TxtWeightSummary" HorizontalAlignment="Right" Text="854.6 / 1030.0 (83.0%)" FontWeight="Bold" Foreground="{StaticResource AccentGreen}" FontSize="16"/>
                                 </Grid>
-                                <ProgressBar x:Name="ProgWeightTab" Style="{StaticResource BigProgress}" Value="83" Foreground="{StaticResource AccentYellow}" Margin="0,0,0,6"/>
-                                <TextBlock x:Name="TxtWeightStatus" Text="⚠️ 여유 공간이 얼마 남지 않았습니다." FontSize="14" Foreground="{StaticResource AccentYellow}"/>
+                                <ProgressBar x:Name="ProgWeightTab" Style="{StaticResource BigProgress}" Value="83" Foreground="{StaticResource AccentGreen}" Margin="0,0,0,6"/>
+                                <TextBlock x:Name="TxtWeightStatus" Text="✓ 가방 무게 정상 (95% 미만). 활동에 지장이 없습니다." FontSize="14" Foreground="{StaticResource AccentGreen}"/>
                             </StackPanel>
                         </Border>
 
                         <Grid Grid.Row="1" Margin="0,0,0,12">
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="320"/>
+                                <ColumnDefinition Width="280"/>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
@@ -517,11 +524,12 @@
                                 </TextBox.Resources>
                             </TextBox>
 
-                            <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="16,0,0,0">
-                                <Button Content="전체" Click="BtnItemFilter_Click" Tag="All" Background="{StaticResource AccentBlue}" Foreground="White" FontWeight="Bold" Padding="14,8" BorderThickness="0" Margin="0,0,6,0" Cursor="Hand"/>
-                                <Button Content="🎒 가방" Click="BtnItemFilter_Click" Tag="Bag" Background="{StaticResource BgCard}" Foreground="{StaticResource TextPrimary}" FontWeight="Bold" Padding="14,8" BorderThickness="0" Margin="0,0,6,0" Cursor="Hand"/>
-                                <Button Content="🏛️ 계정 창고" Click="BtnItemFilter_Click" Tag="AccountStorage" Background="{StaticResource BgCard}" Foreground="{StaticResource TextPrimary}" FontWeight="Bold" Padding="14,8" BorderThickness="0" Margin="0,0,6,0" Cursor="Hand"/>
-                                <Button Content="📦 캐릭터 창고" Click="BtnItemFilter_Click" Tag="CharacterStorage" Background="{StaticResource BgCard}" Foreground="{StaticResource TextPrimary}" FontWeight="Bold" Padding="14,8" BorderThickness="0" Margin="0,0,6,0" Cursor="Hand"/>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="12,0,0,0">
+                                <Button x:Name="BtnFilterAll" Content="전체" Click="BtnItemFilter_Click" Tag="All" Background="{StaticResource AccentBlue}" Foreground="White" FontWeight="Bold" Padding="12,8" BorderThickness="0" Margin="0,0,6,0" Cursor="Hand"/>
+                                <Button x:Name="BtnFilterBag" Content="🎒 가방" Click="BtnItemFilter_Click" Tag="Bag" Background="{StaticResource BgCard}" Foreground="{StaticResource TextPrimary}" FontWeight="Bold" Padding="12,8" BorderThickness="0" Margin="0,0,6,0" Cursor="Hand"/>
+                                <Button x:Name="BtnFilterAccount" Content="🏛️ 계정 창고" Click="BtnItemFilter_Click" Tag="AccountStorage" Background="{StaticResource BgCard}" Foreground="{StaticResource TextPrimary}" FontWeight="Bold" Padding="12,8" BorderThickness="0" Margin="0,0,6,0" Cursor="Hand"/>
+                                <Button x:Name="BtnFilterChar" Content="📦 캐릭터 창고" Click="BtnItemFilter_Click" Tag="CharacterStorage" Background="{StaticResource BgCard}" Foreground="{StaticResource TextPrimary}" FontWeight="Bold" Padding="12,8" BorderThickness="0" Margin="0,0,6,0" Cursor="Hand"/>
+                                <Button x:Name="BtnFilterDiet" Content="⚖️ 무게 다이어트" Click="BtnItemFilter_Click" Tag="Diet" Background="#3A2818" Foreground="#F5CBA7" FontWeight="Bold" Padding="12,8" BorderThickness="1" BorderBrush="#5D4020" Margin="6,0,6,0" Cursor="Hand" ToolTip="가방 내 비잠금 무거운 잡템/재료를 수량순으로 우선 정렬합니다."/>
                             </StackPanel>
 
                             <TextBlock x:Name="TxtItemCountLabel" Grid.Column="2" Text="총 609개 아이템" Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center" FontSize="14"/>
@@ -542,8 +550,8 @@
                     </Grid>
                 </TabItem>
 
-                <!-- [3] 💰 재화 & 화폐 탭 (변화량 표시) -->
-                <TabItem Header="  💰 재화 &amp; 화폐 (28종)  ">
+                <!-- [3] 💰 재화 탭 -->
+                <TabItem x:Name="TabCurrency" Header="  💰 재화  ">
                     <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="20">
                         <StackPanel>
                             <!-- 세션 누적 획득 요약 바 -->
@@ -578,8 +586,8 @@
                     </ScrollViewer>
                 </TabItem>
 
-                <!-- [4] 📜 미션 & 퀘스트 탭 -->
-                <TabItem Header="  📜 미션 &amp; 퀘스트  ">
+                <!-- [4] 📋 미션 탭 -->
+                <TabItem x:Name="TabMissions" Header="  📋 미션  ">
                     <Grid Margin="16">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
@@ -668,8 +676,8 @@
                     </Grid>
                 </TabItem>
 
-                <!-- [5] 🌿 생활 & 생산 탭 -->
-                <TabItem Header="  🌿 생활 &amp; 생산 (가공·채집)  ">
+                <!-- [5] 🌿 생활 탭 -->
+                <TabItem x:Name="TabLife" Header="  🌿 생활  ">
                     <Grid Margin="16">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
@@ -746,8 +754,8 @@
                     </Grid>
                 </TabItem>
 
-                <!-- [6] 👥 주변 레이더 탭 -->
-                <TabItem Header="  👥 주변 레이더 (22명)  ">
+                <!-- [6] 👥 레이더 탭 -->
+                <TabItem x:Name="TabRadar" Header="  👥 레이더  ">
                     <Grid Margin="16">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
@@ -820,33 +828,26 @@
                     </Border>
 
                     <!-- 🗣️ 아무말 대잔치 (페르소나 혼잣말) 컨트롤 패널 -->
-                    <Border Grid.Row="1" Background="#211A14" BorderBrush="#42301A" BorderThickness="1" CornerRadius="6" Padding="8,5" Margin="0,0,0,6">
-                        <WrapPanel Orientation="Horizontal" VerticalAlignment="Center">
-                            <!-- 모던 토글 스위치 -->
-                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,10,0">
-                                <ToggleButton x:Name="TglChatterEnable" Style="{StaticResource ModernSwitchToggle}" Click="TglChatterEnable_Click" ToolTip="아무말(페르소나) 기능 On/Off 스위치"/>
-                                <TextBlock x:Name="TxtChatterStatus" Text="아무말 OFF" Foreground="{StaticResource TextSecondary}" FontSize="12" FontWeight="Bold" VerticalAlignment="Center" Margin="6,0,0,0"/>
+                    <Border Grid.Row="1" Background="#211A14" BorderBrush="#42301A" BorderThickness="1" CornerRadius="6" Padding="10,6" Margin="0,0,0,6">
+                        <Grid>
+                            <!-- 좌측: 제목 라벨 & 페르소나 선택 -->
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Left">
+                                <TextBlock Text="🗣️ 아무말 대잔치" FontWeight="Bold" Foreground="#F0B27A" FontSize="13" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                                <TextBlock Text="페르소나:" Foreground="{StaticResource TextSecondary}" FontSize="12" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                <ComboBox x:Name="CmbPersona" Style="{StaticResource DarkComboBox}" SelectionChanged="CmbPersona_SelectionChanged" Width="190" FontSize="12">
+                                    <ComboBoxItem Content="🌹 악덕영애 스타일" Tag="Villainess" IsSelected="True"/>
+                                    <ComboBoxItem Content="💰 구두쇠 영감 스타일" Tag="Scrooge"/>
+                                    <ComboBoxItem Content="☀️ 안녕하닝 모닝이야" Tag="MorningSpirit"/>
+                                    <ComboBoxItem Content="🌊 갱상도 아재 스타일" Tag="GyeongsangAhjussi"/>
+                                    <ComboBoxItem Content="✨ 아이돌 댄서 스타일" Tag="IdolDancer"/>
+                                </ComboBox>
                             </StackPanel>
 
-                            <!-- 페르소나 선택 -->
-                            <TextBlock Text="페르소나:" Foreground="{StaticResource TextSecondary}" FontSize="12" VerticalAlignment="Center" Margin="0,0,4,0"/>
-                            <ComboBox x:Name="CmbPersona" Style="{StaticResource DarkComboBox}" SelectionChanged="CmbPersona_SelectionChanged" Width="145" Margin="0,0,8,0" FontSize="12">
-                                <ComboBoxItem Content="🌹 악덕영애 스타일" Tag="Villainess" IsSelected="True"/>
-                                <ComboBoxItem Content="💰 구두쇠 영감 스타일" Tag="Scrooge"/>
-                                <ComboBoxItem Content="☀️ 안녕하닝 모닝이야" Tag="MorningSpirit"/>
-                                <ComboBoxItem Content="🌊 갱상도 아재 스타일" Tag="GyeongsangAhjussi"/>
-                                <ComboBoxItem Content="✨ 아이돌 댄서 스타일" Tag="IdolDancer"/>
-                            </ComboBox>
-
-                            <!-- 인게임 발송 체크박스 -->
-                            <CheckBox x:Name="ChkSendToGameDirectly" Content="인게임 전송" IsChecked="True" Checked="ChkSendToGameDirectly_CheckChanged" Unchecked="ChkSendToGameDirectly_CheckChanged"
-                                      Foreground="{StaticResource TextPrimary}" FontSize="12" VerticalAlignment="Center" Margin="0,0,8,0" ToolTip="체크 시 실제 인게임 전체 채팅으로 발송되며, 해제 시 앱 내 시뮬레이션으로만 동작합니다."/>
-
-                            <!-- 한마디 대사 자동 채우기 버튼 -->
+                            <!-- 우측: 한마디 대사 자동 채우기 버튼 -->
                             <Button x:Name="BtnTriggerChatterNow" Content="💬 한마디" Click="BtnTriggerChatterNow_Click" ToolTip="현재 상황에 맞춘 페르소나 대사를 생성하여 아래 입력창에 채워넣습니다."
-                                    IsEnabled="{Binding IsChecked, ElementName=TglChatterEnable}"
+                                    HorizontalAlignment="Right" VerticalAlignment="Center"
                                     Background="#3A2B18" Foreground="#F5CBA7" FontWeight="Bold" FontSize="12"
-                                    Padding="10,4" BorderThickness="1" BorderBrush="#5D4324" Cursor="Hand">
+                                    Padding="14,5" BorderThickness="1" BorderBrush="#5D4324" Cursor="Hand">
                                 <Button.Template>
                                     <ControlTemplate TargetType="Button">
                                         <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="4" Padding="{TemplateBinding Padding}">
@@ -855,7 +856,7 @@
                                     </ControlTemplate>
                                 </Button.Template>
                             </Button>
-                        </WrapPanel>
+                        </Grid>
                     </Border>
 
                     <ScrollViewer Grid.Row="2" x:Name="ScrollGameChatLog" VerticalScrollBarVisibility="Auto" Margin="0,0,0,8">
@@ -1010,45 +1011,57 @@
                             <RowDefinition Height="Auto"/> <!-- 입력부 -->
                         </Grid.RowDefinitions>
 
-                        <!-- 6대 완성형 문장 가이드 (가로 스크롤바 없는 2열 균등 배치) -->
-                        <UniformGrid Grid.Row="0" x:Name="GuideShelfGrid" Columns="2" Margin="0,0,0,6" Visibility="Visible">
-                            <Button Style="{StaticResource GuideSentenceCard}" Tag="전투력" Click="BtnGuideSentence_Click" Margin="0,0,4,4">
-                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                    <TextBlock Text="⚔️" FontSize="13" Margin="0,0,4,0" VerticalAlignment="Center"/>
-                                    <TextBlock Text="1티어 룬 세팅 &amp; 무기 각인 공략" FontSize="12" VerticalAlignment="Center"/>
-                                </StackPanel>
-                            </Button>
-                            <Button Style="{StaticResource GuideSentenceCard}" Tag="골드" Click="BtnGuideSentence_Click" Margin="0,0,0,4">
-                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                    <TextBlock Text="💰" FontSize="13" Margin="0,0,4,0" VerticalAlignment="Center"/>
-                                    <TextBlock Text="일일 미션 &amp; 요일 던전 골드 모으기" FontSize="12" VerticalAlignment="Center"/>
-                                </StackPanel>
-                            </Button>
-                            <Button Style="{StaticResource GuideSentenceCard}" Tag="채집" Click="BtnGuideSentence_Click" Margin="0,0,4,4">
-                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                    <TextBlock Text="🌿" FontSize="13" Margin="0,0,4,0" VerticalAlignment="Center"/>
-                                    <TextBlock Text="가공 쿨타임 &amp; 채집 명당 가이드" FontSize="12" VerticalAlignment="Center"/>
-                                </StackPanel>
-                            </Button>
-                            <Button Style="{StaticResource GuideSentenceCard}" Tag="던전" Click="BtnGuideSentence_Click" Margin="0,0,0,4">
-                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                    <TextBlock Text="🛡️" FontSize="13" Margin="0,0,4,0" VerticalAlignment="Center"/>
-                                    <TextBlock Text="보스 브레이크 &amp; 장판 회피 요령" FontSize="12" VerticalAlignment="Center"/>
-                                </StackPanel>
-                            </Button>
-                            <Button Style="{StaticResource GuideSentenceCard}" Tag="진단" Click="BtnGuideSentence_Click" Margin="0,0,4,0">
-                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                    <TextBlock Text="📊" FontSize="13" Margin="0,0,4,0" VerticalAlignment="Center"/>
-                                    <TextBlock Text="실시간 스탯·전투력·가방 정밀 진단" FontSize="12" VerticalAlignment="Center"/>
-                                </StackPanel>
-                            </Button>
-                            <Button Style="{StaticResource GuideSentenceCard}" Tag="창고" Click="BtnGuideSentence_Click" Margin="0,0,0,0">
-                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                    <TextBlock Text="🎒" FontSize="13" Margin="0,0,4,0" VerticalAlignment="Center"/>
-                                    <TextBlock Text="가방 무게 관리 &amp; 창고 정리법" FontSize="12" VerticalAlignment="Center"/>
-                                </StackPanel>
-                            </Button>
-                        </UniformGrid>
+                        <!-- 🎯 기본 모드 실동작 액션 & 매크로 패널 (캐릭터가 직접 행동) -->
+                        <Border Grid.Row="0" x:Name="GuideShelfGrid" Background="#151A24" BorderBrush="#253555" BorderThickness="1" CornerRadius="6" Padding="10,8" Margin="0,0,0,6" Visibility="Visible">
+                            <StackPanel>
+                                <!-- 1행: 재료 채집 매크로 (수량 선택식 자동 채집) -->
+                                <Grid Margin="0,0,0,6">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <TextBlock Grid.Column="0" Text="🌾 재료 채집:" Foreground="#58A6FF" FontWeight="Bold" FontSize="13" VerticalAlignment="Center" Margin="0,0,8,0"/>
+
+                                    <!-- 아이템 선택 -->
+                                    <ComboBox x:Name="CmbGatherItem" Grid.Column="1" Style="{StaticResource DarkComboBox}" Width="120" FontSize="12" Margin="0,0,6,0">
+                                        <ComboBoxItem Content="🍎 사과" Tag="사과" IsSelected="True"/>
+                                        <ComboBoxItem Content="🪵 나무 장작" Tag="나무 장작"/>
+                                        <ComboBoxItem Content="🥚 달걀" Tag="달걀"/>
+                                        <ComboBoxItem Content="⛏️ 철광석" Tag="철광석"/>
+                                        <ComboBoxItem Content="🐑 양털" Tag="양털"/>
+                                    </ComboBox>
+
+                                    <!-- 수량 선택 -->
+                                    <ComboBox x:Name="CmbGatherCount" Grid.Column="2" Style="{StaticResource DarkComboBox}" Width="75" FontSize="12" Margin="0,0,8,0">
+                                        <ComboBoxItem Content="1개" Tag="1"/>
+                                        <ComboBoxItem Content="3개" Tag="3"/>
+                                        <ComboBoxItem Content="5개" Tag="5" IsSelected="True"/>
+                                        <ComboBoxItem Content="10개" Tag="10"/>
+                                    </ComboBox>
+
+                                    <!-- 채집 실행 버튼 -->
+                                    <Button x:Name="BtnActionGather" Grid.Column="3" Content="채집 시작 ▶" Click="BtnActionGather_Click"
+                                            Background="{StaticResource AccentGreen}" Foreground="White" FontWeight="Bold" FontSize="12"
+                                            Padding="12,5" BorderThickness="0" Cursor="Hand" ToolTip="선택한 재료와 수량만큼 게임 내 채집지로 이동하여 자동 채집합니다."/>
+                                </Grid>
+
+                                <!-- 2행: 핵심 실용 액션 버튼 4종 -->
+                                <UniformGrid Columns="4">
+                                    <Button x:Name="BtnActionDailyMissions" Content="📋 일일 숙제 점검" Click="BtnActionDailyMissions_Click"
+                                            Background="#212738" Foreground="#79B8FF" FontWeight="Bold" FontSize="12" Padding="6,6" Margin="0,0,4,0" BorderThickness="1" BorderBrush="#35466A" Cursor="Hand" ToolTip="미완료된 일일 퀘스트를 즉시 확인하고 미션 탭으로 이동합니다."/>
+                                    <Button x:Name="BtnActionDiet" Content="⚖️ 가방 다이어트" Click="BtnActionDiet_Click"
+                                            Background="#2D2319" Foreground="#F5CBA7" FontWeight="Bold" FontSize="12" Padding="6,6" Margin="2,0,4,0" BorderThickness="1" BorderBrush="#5D4324" Cursor="Hand" ToolTip="소지품 탭으로 이동하여 비잠금 무거운 잡템을 즉시 정리합니다."/>
+                                    <Button x:Name="BtnActionCollectWorks" Content="📥 작업대 수거" Click="BtnActionCollectWorks_Click"
+                                            Background="#1B2F23" Foreground="#7EE787" FontWeight="Bold" FontSize="12" Padding="6,6" Margin="2,0,4,0" BorderThickness="1" BorderBrush="#2EA043" Cursor="Hand" ToolTip="완료된 가공 시설 대기열 아이템을 즉시 수거합니다."/>
+                                    <Button x:Name="BtnActionStop" Content="🛑 긴급 행동 정지" Click="BtnActionStop_Click"
+                                            Background="#381D1D" Foreground="#FFA198" FontWeight="Bold" FontSize="12" Padding="6,6" Margin="2,0,0,0" BorderThickness="1" BorderBrush="#A42727" Cursor="Hand" ToolTip="진행 중인 모든 채집 및 이동 동작을 즉시 중단합니다."/>
+                                </UniformGrid>
+                            </StackPanel>
+                        </Border>
 
                         <Grid Grid.Row="1">
                             <Grid.ColumnDefinitions>

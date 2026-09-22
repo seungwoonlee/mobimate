@@ -24,7 +24,28 @@ public class AiEngineManager
     {
         _engines.Clear();
 
-        // 1. [Tier 1] 로컬 무료 Ollama 프로빙 (타임아웃 1.5초)
+        // 1. [기본값] 내장 마비 가이드 엔진 (상시 1순위 등록, 기본값: AI 사용하지 않음)
+        var builtInGuide = new BuiltInGuideEngine();
+        _engines.Add(builtInGuide);
+
+        // 2. [유료 AI 후보] 시스템 설치형 CLI 에이전트 프로빙 (Claude, Codex, Antigravity 등)
+        var cliCandidates = new[]
+        {
+            ("claude", "🟣 Claude Code CLI (유료)"),
+            ("codex", "🟢 OpenAI Codex CLI (유료)"),
+            ("agy", "🤖 Antigravity CLI (유료)")
+        };
+
+        foreach (var (cmd, friendlyName) in cliCandidates)
+        {
+            var path = await ProbeCliAsync(cmd, ct);
+            if (!string.IsNullOrEmpty(path))
+            {
+                _engines.Add(new CliAgentEngine(cmd, path, friendlyName));
+            }
+        }
+
+        // 3. [무료 AI] 로컬 Ollama 모델 프로빙 (타임아웃 1.5초)
         try
         {
             using var ollamaCts = new CancellationTokenSource(TimeSpan.FromSeconds(1.5));
@@ -38,28 +59,7 @@ public class AiEngineManager
         }
         catch { }
 
-        // 2. [Tier 3] 내장 마비 가이드 엔진 (상시 등록, 100% 무료 오프라인 Zero-Config)
-        var builtInGuide = new BuiltInGuideEngine();
-        _engines.Add(builtInGuide);
-
-        // 3. [Tier 2] 시스템 설치형 CLI 에이전트 프로빙 (수동 선택용)
-        var cliCandidates = new[]
-        {
-            ("agy", "🤖 Antigravity CLI"),
-            ("claude", "🟣 Claude Code CLI"),
-            ("codex", "🟢 OpenAI Codex CLI")
-        };
-
-        foreach (var (cmd, friendlyName) in cliCandidates)
-        {
-            var path = await ProbeCliAsync(cmd, ct);
-            if (!string.IsNullOrEmpty(path))
-            {
-                _engines.Add(new CliAgentEngine(cmd, path, friendlyName));
-            }
-        }
-
-        // 4. 기본 엔진 자동 선정 정책: AI 설치 여부와 무관하게 [무료/내장] 마비 가이드를 최우선 기본값으로 고정
+        // 4. 기본 엔진 자동 선정: AI 설치 여부와 무관하게 [기본값: AI 사용하지 않음] 고정
         _currentEngine = builtInGuide;
 
         return _engines;
