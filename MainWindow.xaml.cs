@@ -41,6 +41,9 @@ public partial class MainWindow : Window
     private CancellationTokenSource? _tabCts;
     private DispatcherTimer? _searchDebounceTimer;
     private DispatcherTimer? _toastTimer;
+    private DispatcherTimer? _autoRefreshTimer;
+    private readonly AdaptiveRefreshController _adaptiveRefresh = new();
+    private bool _isAutoRefreshing = false;
     private bool _isWindowLoaded;
 
     public ICommand EmergencyStopCommand { get; }
@@ -70,6 +73,10 @@ public partial class MainWindow : Window
         };
         _chatterService.OnToastRequested += (msg, success) => ShowToast(msg, success);
 
+        // 유저 인터랙션 감지 (키보드 입력, 마우스 클릭 시 자동 새로고침 주기 15초로 즉시 리셋)
+        PreviewKeyDown += (s, e) => ResetRefreshIntervalOnUserActivity();
+        PreviewMouseDown += (s, e) => ResetRefreshIntervalOnUserActivity();
+
         Loaded += async (s, e) =>
         {
             _isWindowLoaded = true;
@@ -77,6 +84,13 @@ public partial class MainWindow : Window
             await LoadAiEnginesAsync();
             await RefreshHeaderOnlyAsync();
             await RefreshCurrentTabAsync();
+
+            InitAutoRefreshTimer();
+        };
+
+        Closed += (s, e) =>
+        {
+            _autoRefreshTimer?.Stop();
         };
     }
 
@@ -124,8 +138,56 @@ public partial class MainWindow : Window
         Topmost = BtnTopmost.IsChecked == true;
     }
 
+    private void InitAutoRefreshTimer()
+    {
+        _autoRefreshTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromSeconds(AdaptiveRefreshController.BaseIntervalSec)
+        };
+        _autoRefreshTimer.Tick += async (s, e) => await AutoRefreshTimer_Tick();
+        _autoRefreshTimer.Start();
+    }
+
+    private void ResetRefreshIntervalOnUserActivity()
+    {
+        _adaptiveRefresh.RecordUserActivity();
+        if (_autoRefreshTimer != null && _autoRefreshTimer.Interval.TotalSeconds > AdaptiveRefreshController.BaseIntervalSec)
+        {
+            _autoRefreshTimer.Interval = TimeSpan.FromSeconds(AdaptiveRefreshController.BaseIntervalSec);
+        }
+    }
+
+    private async Task AutoRefreshTimer_Tick()
+    {
+        if (!_isWindowLoaded || _isAutoRefreshing) return;
+
+        _isAutoRefreshing = true;
+        try
+        {
+            await RefreshHeaderOnlyAsync();
+            await RefreshCurrentTabAsync();
+        }
+        catch
+        {
+            // 백그라운드 자동 갱신 예외 방어
+        }
+        finally
+        {
+            _isAutoRefreshing = false;
+        }
+
+        var nextInterval = _adaptiveRefresh.OnTick();
+        if (_autoRefreshTimer != null)
+        {
+            _autoRefreshTimer.Interval = TimeSpan.FromSeconds(nextInterval);
+        }
+    }
+
     private async void BtnRefreshCurrentTab_Click(object sender, RoutedEventArgs e)
     {
+        ResetRefreshIntervalOnUserActivity();
+        _autoRefreshTimer?.Stop();
+        _autoRefreshTimer?.Start();
         await RefreshCurrentTabAsync();
     }
 
@@ -133,6 +195,9 @@ public partial class MainWindow : Window
     {
         if (e.Source is TabControl)
         {
+            ResetRefreshIntervalOnUserActivity();
+            _autoRefreshTimer?.Stop();
+            _autoRefreshTimer?.Start();
             await RefreshCurrentTabAsync();
         }
     }
