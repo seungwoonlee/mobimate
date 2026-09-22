@@ -136,3 +136,30 @@ public record NearPcItem(
 // 10. 로그 및 메시지
 public record ChatLogEntry(string Timestamp, string Message, bool IsSuccess, string? ErrorDetail = null);
 public record AiMessageEntry(string Sender, string Text, bool IsUser);
+
+// 11. UI 바인딩용 뷰모델
+public class ItemViewItem
+{
+    public string Location { get; set; } = "";
+    public string DisplayName { get; set; } = "";
+    public string CategoryName { get; set; } = "";
+    public int Count { get; set; }
+    public bool IsLocked { get; set; }
+    public int InitialCount { get; set; }
+    public int DeltaCount => Math.Max(0, Count - InitialCount);
+    public bool HasDelta => DeltaCount > 0;
+    public string DeltaBadge => HasDelta ? $"(+{DeltaCount:N0}개 급증 ▲)" : "";
+}
+
+public class GatherableDisplayItem
+{
+    public string DisplayName { get; set; } = "";
+    public string Category { get; set; } = "채집";
+    public bool ToolOk { get; set; }
+    public int CurrentBagCount { get; set; }
+    public int TargetCount { get; set; }
+    public int NeededCount => Math.Max(0, TargetCount - CurrentBagCount);
+    public string ProgressText => $"보유 {CurrentBagCount} / 목표 {TargetCount} (부족 {NeededCount}개)";
+    public bool IsTargetReached => NeededCount == 0;
+}
+
