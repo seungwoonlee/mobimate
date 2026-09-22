@@ -25,9 +25,13 @@ public partial class MainWindow : Window
 
     private List<ItemData> _allItems = new();
     private string _currentItemLocationFilter = "All";
+    private readonly Dictionary<string, int> _initialBagItemCounts = new(StringComparer.OrdinalIgnoreCase);
+    private bool _hasBagBaseline = false;
 
     private List<GatherableItem> _allGatherables = new();
     private List<AlteringWorkItem> _allAlteringWorks = new();
+    private string _currentGatherCategory = "All";
+    private int _targetGatherCount = 100;
 
     public ObservableCollection<ChatLogEntry> GameChatLogs { get; } = new();
     public ObservableCollection<AiMessageEntry> AiMessages { get; } = new();
@@ -513,6 +517,25 @@ public partial class MainWindow : Window
     {
         if (items == null) return;
         _allItems = items;
+
+        // 세션 시작(로그인 최초 수신 시) 가방 아이템 수량을 베이스라인으로 1회 기록
+        if (!_hasBagBaseline && _allItems.Count > 0)
+        {
+            _initialBagItemCounts.Clear();
+            foreach (var item in _allItems.Where(i => i.Location.Equals("Bag", StringComparison.OrdinalIgnoreCase)))
+            {
+                if (_initialBagItemCounts.TryGetValue(item.DisplayName, out var existing))
+                {
+                    _initialBagItemCounts[item.DisplayName] = existing + item.Count;
+                }
+                else
+                {
+                    _initialBagItemCounts[item.DisplayName] = item.Count;
+                }
+            }
+            _hasBagBaseline = true;
+        }
+
         FilterItems();
     }
 
@@ -550,28 +573,49 @@ public partial class MainWindow : Window
         UpdateItemFilterButtons();
 
         var query = TxtItemSearch.Text.Trim();
-        IEnumerable<ItemData> filtered = _allItems;
 
+        // 1. 뷰모델 변환 (세션 시작 대비 수량 델타 계산)
+        var viewItems = _allItems.Select(i =>
+        {
+            _initialBagItemCounts.TryGetValue(i.DisplayName, out var initial);
+            return new ItemViewItem
+            {
+                Location = i.Location,
+                DisplayName = i.DisplayName,
+                CategoryName = i.CategoryName,
+                Count = i.Count,
+                IsLocked = i.IsLocked,
+                InitialCount = initial
+            };
+        });
+
+        // 2. 위치 및 다이어트 필터링
         if (_currentItemLocationFilter == "Diet")
         {
-            // 가방에 있으면서 잠금 해제된 무거운 잡템/재료 우선 필터링 및 수량 내림차순 정렬
-            filtered = filtered.Where(i => i.Location.Equals("Bag", StringComparison.OrdinalIgnoreCase) && !i.IsLocked);
-            filtered = filtered.OrderByDescending(i => i.Count);
+            // 가방에 있으면서 잠금 해제된 아이템 중:
+            // 1순위: 이번 접속 세션에서 수량이 급격히 늘어난 아이템 (DeltaCount > 0, 증가량 내림차순)
+            // 2순위: 기존 대량 소지 잡템 (Count 내림차순)
+            viewItems = viewItems
+                .Where(i => i.Location.Equals("Bag", StringComparison.OrdinalIgnoreCase) && !i.IsLocked)
+                .OrderByDescending(i => i.DeltaCount > 0)
+                .ThenByDescending(i => i.DeltaCount)
+                .ThenByDescending(i => i.Count);
         }
         else if (_currentItemLocationFilter != "All")
         {
-            filtered = filtered.Where(i => i.Location.Equals(_currentItemLocationFilter, StringComparison.OrdinalIgnoreCase));
+            viewItems = viewItems.Where(i => i.Location.Equals(_currentItemLocationFilter, StringComparison.OrdinalIgnoreCase));
         }
 
+        // 3. 텍스트 검색 필터링
         if (!string.IsNullOrEmpty(query))
         {
-            filtered = filtered.Where(i => i.DisplayName.Contains(query, StringComparison.OrdinalIgnoreCase) ||
-                                           i.CategoryName.Contains(query, StringComparison.OrdinalIgnoreCase));
+            viewItems = viewItems.Where(i => i.DisplayName.Contains(query, StringComparison.OrdinalIgnoreCase) ||
+                                             i.CategoryName.Contains(query, StringComparison.OrdinalIgnoreCase));
         }
 
-        var list = filtered.ToList();
+        var list = viewItems.ToList();
         ListItemView.ItemsSource = list;
-        var filterLabel = _currentItemLocationFilter == "Diet" ? "⚖️ 다이어트: " : "표시: ";
+        var filterLabel = _currentItemLocationFilter == "Diet" ? "⚖️ 급증 다이어트: " : "표시: ";
         TxtItemCountLabel.Text = $"{filterLabel}{list.Count}개 / 전체: {_allItems.Count}개";
     }
 
@@ -609,22 +653,38 @@ public partial class MainWindow : Window
         UpdateDeltas();
     }
 
-    // ================= 4. 미션 & 퀘스트 탭 =================
+    // ================= 4. 미션 & 퀘스트 탭 (완료 미션 완전 제외, 잔여 미션만 노출) =================
     private void UpdateMissions(List<MissionItem>? daily, List<MissionItem>? weekly)
     {
         if (daily != null)
         {
             _lastDailyMissions = daily;
-            var completed = daily.Count(d => d.IsCompleted);
+            var completed = daily.Count(d => d.IsCompleted || d.CurrentCount >= d.GoalCount);
             ProgDailyMissions.Value = daily.Count > 0 ? (double)completed / daily.Count * 100 : 0;
-            ListDailyMissionsFull.ItemsSource = daily.OrderBy(d => d.IsCompleted).ToList();
+
+            // 완료된 미션(3/3, 2/2 등)은 완전 제외하고 남은 미션만 필터링
+            var remainingDaily = daily.Where(d => !d.IsCompleted && d.CurrentCount < d.GoalCount).ToList();
+            ListDailyMissionsFull.ItemsSource = remainingDaily;
+            TxtDailyMissionHeader.Text = $"📅 오늘의 잔여 일일 미션 ({remainingDaily.Count}개)";
+
+            var allDailyDone = remainingDaily.Count == 0 && daily.Count > 0;
+            TxtDailyAllDoneBanner.Visibility = allDailyDone ? Visibility.Visible : Visibility.Collapsed;
+            ScrollDailyMissions.Visibility = allDailyDone ? Visibility.Collapsed : Visibility.Visible;
         }
 
         if (weekly != null)
         {
-            var completed = weekly.Count(w => w.IsCompleted);
+            var completed = weekly.Count(w => w.IsCompleted || w.CurrentCount >= w.GoalCount);
             ProgWeeklyMissions.Value = weekly.Count > 0 ? (double)completed / weekly.Count * 100 : 0;
-            ListWeeklyMissionsFull.ItemsSource = weekly.OrderBy(w => w.IsCompleted).ToList();
+
+            // 완료된 미션은 완전 제외하고 남은 미션만 필터링
+            var remainingWeekly = weekly.Where(w => !w.IsCompleted && w.CurrentCount < w.GoalCount).ToList();
+            ListWeeklyMissionsFull.ItemsSource = remainingWeekly;
+            TxtWeeklyMissionHeader.Text = $"📆 이번 주 잔여 주간 미션 ({remainingWeekly.Count}개)";
+
+            var allWeeklyDone = remainingWeekly.Count == 0 && weekly.Count > 0;
+            TxtWeeklyAllDoneBanner.Visibility = allWeeklyDone ? Visibility.Visible : Visibility.Collapsed;
+            ScrollWeeklyMissions.Visibility = allWeeklyDone ? Visibility.Collapsed : Visibility.Visible;
         }
 
         UpdateDeltas();
@@ -646,19 +706,109 @@ public partial class MainWindow : Window
         }
     }
 
+    private static string ClassifyGatherCategory(string name)
+    {
+        if (name.Contains("장작") || name.Contains("나무") || name.Contains("가지") || name.Contains("통나무"))
+            return "벌목";
+        if (name.Contains("광석") || name.Contains("철") || name.Contains("구리") || name.Contains("은") || name.Contains("금") || name.Contains("보석") || name.Contains("석영") || name.Contains("유황") || name.Contains("돌멩이"))
+            return "채광";
+        if (name.Contains("사과") || name.Contains("달걀") || name.Contains("양털") || name.Contains("우유") || name.Contains("감자") || name.Contains("옥수수") || name.Contains("보리") || name.Contains("밀"))
+            return "농축산";
+        if (name.Contains("초") || name.Contains("풀") || name.Contains("꽃") || name.Contains("버섯") || name.Contains("클로버"))
+            return "약초";
+        return "기타";
+    }
+
+    private void UpdateGatherCategoryButtons()
+    {
+        var activeBrush = (Brush)FindResource("AccentBlue");
+        var normalBrush = new SolidColorBrush(Color.FromRgb(0x2A, 0x2D, 0x35));
+
+        BtnGatherCatAll.Background = _currentGatherCategory == "All" ? activeBrush : normalBrush;
+        BtnGatherCatLogging.Background = _currentGatherCategory == "벌목" ? activeBrush : normalBrush;
+        BtnGatherCatMining.Background = _currentGatherCategory == "채광" ? activeBrush : normalBrush;
+        BtnGatherCatFarm.Background = _currentGatherCategory == "농축산" ? activeBrush : normalBrush;
+        BtnGatherCatHerb.Background = _currentGatherCategory == "약초" ? activeBrush : normalBrush;
+        BtnGatherCatEtc.Background = _currentGatherCategory == "기타" ? activeBrush : normalBrush;
+    }
+
     private void FilterGatherablesFull()
     {
         if (_allGatherables == null) return;
+
+        UpdateGatherCategoryButtons();
+
         var q = TxtGatherSearchFull.Text.Trim();
 
-        IEnumerable<GatherableItem> filtered = _allGatherables;
-        if (!string.IsNullOrEmpty(q))
+        // 1. 카테고리 및 아이템 뷰모델 생성 (가방 내 현재 소지수 및 목표 대비 부족 수량 연산)
+        var list = _allGatherables.Select(g =>
         {
-            filtered = filtered.Where(g => g.DisplayName.Contains(q, StringComparison.OrdinalIgnoreCase));
+            var cat = ClassifyGatherCategory(g.DisplayName);
+            var bagItem = _allItems.FirstOrDefault(i => i.Location.Equals("Bag", StringComparison.OrdinalIgnoreCase) &&
+                                                        i.DisplayName.Equals(g.DisplayName, StringComparison.OrdinalIgnoreCase));
+            var currentBag = bagItem?.Count ?? 0;
+
+            return new GatherableDisplayItem
+            {
+                DisplayName = g.DisplayName,
+                Category = cat,
+                ToolOk = g.ToolOk,
+                CurrentBagCount = currentBag,
+                TargetCount = _targetGatherCount
+            };
+        });
+
+        // 2. 카테고리 필터링
+        if (_currentGatherCategory != "All")
+        {
+            list = list.Where(g => g.Category == _currentGatherCategory);
         }
 
-        // 전체 150종 스크롤 브라우징 (가상화 리스트뷰)
-        ListGatherablesView.ItemsSource = filtered.ToList();
+        // 3. 검색어 필터링
+        if (!string.IsNullOrEmpty(q))
+        {
+            list = list.Where(g => g.DisplayName.Contains(q, StringComparison.OrdinalIgnoreCase));
+        }
+
+        ListGatherablesView.ItemsSource = list.ToList();
+    }
+
+    private void BtnGatherCategory_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button btn && btn.Tag is string cat)
+        {
+            _currentGatherCategory = cat;
+            FilterGatherablesFull();
+        }
+    }
+
+    private void BtnTargetPreset_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button btn && btn.Tag is string tag && int.TryParse(tag, out var preset))
+        {
+            _targetGatherCount = Math.Max(1, preset);
+            TxtTargetGatherCount.Text = _targetGatherCount.ToString();
+            FilterGatherablesFull();
+        }
+    }
+
+    private void BtnAdjustTarget_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button btn && btn.Tag is string tag && int.TryParse(tag, out var delta))
+        {
+            _targetGatherCount = Math.Clamp(_targetGatherCount + delta, 1, 9999);
+            TxtTargetGatherCount.Text = _targetGatherCount.ToString();
+            FilterGatherablesFull();
+        }
+    }
+
+    private void TxtTargetGatherCount_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (int.TryParse(TxtTargetGatherCount.Text, out var val) && val > 0)
+        {
+            _targetGatherCount = val;
+            FilterGatherablesFull();
+        }
     }
 
     private void TxtGatherSearchFull_TextChanged(object sender, TextChangedEventArgs e)
@@ -666,19 +816,23 @@ public partial class MainWindow : Window
         FilterGatherablesFull();
     }
 
-    private async void ChipGather_Click(object sender, RoutedEventArgs e)
+    private async void BtnStartGatherTarget_Click(object sender, RoutedEventArgs e)
     {
-        if (sender is Button btn && btn.Tag is string name)
+        if (sender is Button btn && btn.Tag is string itemName)
         {
-            await StartGatherAsync(name);
-        }
-    }
+            var bagItem = _allItems.FirstOrDefault(i => i.Location.Equals("Bag", StringComparison.OrdinalIgnoreCase) &&
+                                                        i.DisplayName.Equals(itemName, StringComparison.OrdinalIgnoreCase));
+            var current = bagItem?.Count ?? 0;
+            var needed = _targetGatherCount - current;
 
-    private async void BtnStartGather_Click(object sender, RoutedEventArgs e)
-    {
-        if (sender is Button btn && btn.Tag is string name)
-        {
-            await StartGatherAsync(name);
+            if (needed <= 0)
+            {
+                ShowToast($"'{itemName}'은(는) 이미 목표 수량({_targetGatherCount}개) 이상 소지하고 있습니다! (현재: {current}개)", true);
+                return;
+            }
+
+            ShowToast($"'{itemName}' 목표 {_targetGatherCount}개 달성을 위해 {needed}회 채집을 시작합니다... (현재 소지: {current}개)", true);
+            await StartGatherAsync(itemName, needed);
         }
     }
 
@@ -698,23 +852,12 @@ public partial class MainWindow : Window
         }
     }
 
-    // ================= 5-1. 실동작 매크로 & 인터랙티브 액션 핸들러 =================
-    private async void BtnActionGather_Click(object sender, RoutedEventArgs e)
-    {
-        var item = (CmbGatherItem.SelectedItem as ComboBoxItem)?.Tag as string ?? "사과";
-        var countStr = (CmbGatherCount.SelectedItem as ComboBoxItem)?.Tag as string ?? "5";
-        int.TryParse(countStr, out var count);
-        if (count <= 0) count = 5;
-
-        await StartGatherAsync(item, count);
-    }
-
     private void BtnActionDailyMissions_Click(object sender, RoutedEventArgs e)
     {
         TabMissions.IsSelected = true;
         if (_lastDailyMissions != null && _lastDailyMissions.Count > 0)
         {
-            var pending = _lastDailyMissions.Where(m => !m.IsCompleted).ToList();
+            var pending = _lastDailyMissions.Where(m => !m.IsCompleted && m.CurrentCount < m.GoalCount).ToList();
             if (pending.Count > 0)
             {
                 var summary = string.Join(", ", pending.Take(2).Select(m => m.Title));

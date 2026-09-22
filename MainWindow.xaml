@@ -16,6 +16,9 @@
     </Window.InputBindings>
 
     <Window.Resources>
+        <!-- 불리언 가시성 컨버터 -->
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
+
         <!-- 프리미엄 게이밍 다크 & 고대비 일러스트 색상 팔레트 -->
         <SolidColorBrush x:Key="BgPrimary" Color="#0F1012"/>
         <SolidColorBrush x:Key="BgSecondary" Color="#181A1E"/>
@@ -539,10 +542,17 @@
                                   VirtualizingStackPanel.IsVirtualizing="True" VirtualizingStackPanel.VirtualizationMode="Recycling">
                             <ListView.View>
                                 <GridView>
-                                    <GridViewColumn Header="보관 위치" Width="140" DisplayMemberBinding="{Binding Location}"/>
-                                    <GridViewColumn Header="카테고리" Width="150" DisplayMemberBinding="{Binding CategoryName}"/>
-                                    <GridViewColumn Header="아이템 명" Width="380" DisplayMemberBinding="{Binding DisplayName}"/>
-                                    <GridViewColumn Header="수량" Width="90" DisplayMemberBinding="{Binding Count}"/>
+                                    <GridViewColumn Header="보관 위치" Width="130" DisplayMemberBinding="{Binding Location}"/>
+                                    <GridViewColumn Header="카테고리" Width="140" DisplayMemberBinding="{Binding CategoryName}"/>
+                                    <GridViewColumn Header="아이템 명" Width="360" DisplayMemberBinding="{Binding DisplayName}"/>
+                                    <GridViewColumn Header="보유 수량" Width="100" DisplayMemberBinding="{Binding Count}"/>
+                                    <GridViewColumn Header="이번 접속 증가량 (다이어트)" Width="190">
+                                        <GridViewColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="{Binding DeltaBadge}" Foreground="{StaticResource AccentYellow}" FontWeight="Bold" FontSize="13" VerticalAlignment="Center"/>
+                                            </DataTemplate>
+                                        </GridViewColumn.CellTemplate>
+                                    </GridViewColumn>
                                     <GridViewColumn Header="잠금 상태" Width="90" DisplayMemberBinding="{Binding IsLocked}"/>
                                 </GridView>
                             </ListView.View>
@@ -603,38 +613,41 @@
                                 </Grid.RowDefinitions>
                                 <Grid Grid.Row="0" Margin="0,0,0,8">
                                     <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="📅 오늘의 일일 미션 (11개)" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" FontSize="17"/>
+                                        <TextBlock x:Name="TxtDailyMissionHeader" Text="📅 오늘의 잔여 일일 미션" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" FontSize="17"/>
                                         <TextBlock x:Name="TxtMissionDelta" Text=" (+2 완료 ▲)" FontSize="15" Foreground="{StaticResource AccentGreen}" FontWeight="Bold" Margin="8,0,0,0" Visibility="Collapsed"/>
                                     </StackPanel>
                                 </Grid>
                                 <ProgressBar x:Name="ProgDailyMissions" Grid.Row="1" Style="{StaticResource BigProgress}" Value="100" Foreground="{StaticResource AccentGreen}" Margin="0,0,0,12"/>
-                                <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
-                                    <ItemsControl x:Name="ListDailyMissionsFull">
-                                        <ItemsControl.ItemTemplate>
-                                            <DataTemplate>
-                                                <Border Background="{StaticResource BgCardSub}" CornerRadius="6" Padding="12,10" Margin="0,0,0,8">
-                                                    <Grid>
-                                                        <StackPanel>
-                                                            <StackPanel Orientation="Horizontal">
-                                                                <TextBlock Text="✅ " Foreground="{StaticResource AccentGreen}" FontSize="15"/>
-                                                                <TextBlock Text="{Binding Title}" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" FontSize="15"/>
+                                <Grid Grid.Row="2">
+                                    <TextBlock x:Name="TxtDailyAllDoneBanner" Text="🎉 오늘의 모든 일일 숙제를 완료했습니다!" Foreground="{StaticResource AccentGreen}" FontWeight="Bold" FontSize="15" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed"/>
+                                    <ScrollViewer x:Name="ScrollDailyMissions" VerticalScrollBarVisibility="Auto">
+                                        <ItemsControl x:Name="ListDailyMissionsFull">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Border Background="{StaticResource BgCardSub}" CornerRadius="6" Padding="12,10" Margin="0,0,0,8">
+                                                        <Grid>
+                                                            <StackPanel>
+                                                                <StackPanel Orientation="Horizontal">
+                                                                    <TextBlock Text="📌 " Foreground="{StaticResource AccentYellow}" FontSize="15"/>
+                                                                    <TextBlock Text="{Binding Title}" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" FontSize="15"/>
+                                                                </StackPanel>
+                                                                <TextBlock Text="{Binding Description}" Foreground="{StaticResource TextSecondary}" FontSize="13" Margin="22,4,0,0"/>
                                                             </StackPanel>
-                                                            <TextBlock Text="{Binding Description}" Foreground="{StaticResource TextSecondary}" FontSize="13" Margin="22,4,0,0"/>
-                                                        </StackPanel>
-                                                        <TextBlock HorizontalAlignment="Right" VerticalAlignment="Center" Foreground="{StaticResource AccentYellow}" FontWeight="Bold" FontSize="14">
-                                                            <TextBlock.Text>
-                                                                <MultiBinding StringFormat="{}{0} / {1}">
-                                                                    <Binding Path="CurrentCount"/>
-                                                                    <Binding Path="GoalCount"/>
-                                                                </MultiBinding>
-                                                            </TextBlock.Text>
-                                                        </TextBlock>
-                                                    </Grid>
-                                                </Border>
-                                            </DataTemplate>
-                                        </ItemsControl.ItemTemplate>
-                                    </ItemsControl>
-                                </ScrollViewer>
+                                                            <TextBlock HorizontalAlignment="Right" VerticalAlignment="Center" Foreground="{StaticResource AccentYellow}" FontWeight="Bold" FontSize="14">
+                                                                <TextBlock.Text>
+                                                                    <MultiBinding StringFormat="{}{0} / {1}">
+                                                                        <Binding Path="CurrentCount"/>
+                                                                        <Binding Path="GoalCount"/>
+                                                                    </MultiBinding>
+                                                                </TextBlock.Text>
+                                                            </TextBlock>
+                                                        </Grid>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </ScrollViewer>
+                                </Grid>
                             </Grid>
                         </Border>
 
@@ -645,10 +658,12 @@
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="*"/>
                                 </Grid.RowDefinitions>
-                                <TextBlock Grid.Row="0" Text="📆 이번 주 주간 미션 (15개)" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" FontSize="17" Margin="0,0,0,8"/>
+                                <TextBlock x:Name="TxtWeeklyMissionHeader" Grid.Row="0" Text="📆 이번 주 잔여 주간 미션" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" FontSize="17" Margin="0,0,0,8"/>
                                 <ProgressBar x:Name="ProgWeeklyMissions" Grid.Row="1" Style="{StaticResource BigProgress}" Value="70" Foreground="{StaticResource AccentBlue}" Margin="0,0,0,12"/>
-                                <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
-                                    <ItemsControl x:Name="ListWeeklyMissionsFull">
+                                <Grid Grid.Row="2">
+                                    <TextBlock x:Name="TxtWeeklyAllDoneBanner" Text="🎉 이번 주의 모든 주간 미션을 완료했습니다!" Foreground="{StaticResource AccentBlue}" FontWeight="Bold" FontSize="15" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed"/>
+                                    <ScrollViewer x:Name="ScrollWeeklyMissions" VerticalScrollBarVisibility="Auto">
+                                        <ItemsControl x:Name="ListWeeklyMissionsFull">
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate>
                                                 <Border Background="{StaticResource BgCardSub}" CornerRadius="6" Padding="12,10" Margin="0,0,0,8">
@@ -671,6 +686,7 @@
                                         </ItemsControl.ItemTemplate>
                                     </ItemsControl>
                                 </ScrollViewer>
+                                </Grid>
                             </Grid>
                         </Border>
                     </Grid>
@@ -717,35 +733,108 @@
                         <Border Grid.Column="1" Style="{StaticResource VisualCard}" Margin="8,0,0,0">
                             <Grid>
                                 <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="*"/>
+                                    <RowDefinition Height="Auto"/> <!-- 타이틀 -->
+                                    <RowDefinition Height="Auto"/> <!-- 카테고리 필터 바 -->
+                                    <RowDefinition Height="Auto"/> <!-- 목표 수량 설정 바 (프리셋 + 세밀조절) -->
+                                    <RowDefinition Height="Auto"/> <!-- 검색창 -->
+                                    <RowDefinition Height="*"/>    <!-- 채집 가능 아이템 목록 -->
                                 </Grid.RowDefinitions>
-                                <TextBlock Grid.Row="0" Text="🌾 150종 스마트 채집 도우미" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" FontSize="17" Margin="0,0,0,10"/>
 
-                                <WrapPanel Grid.Row="1" Margin="0,0,0,10">
-                                    <Button Content="🍎 사과" Click="ChipGather_Click" Tag="사과" Background="#35373C" Foreground="White" FontWeight="Bold" FontSize="14" BorderThickness="0" Padding="12,6" Margin="0,0,6,6" Cursor="Hand"/>
-                                    <Button Content="🪵 장작" Click="ChipGather_Click" Tag="나무 장작" Background="#35373C" Foreground="White" FontWeight="Bold" FontSize="14" BorderThickness="0" Padding="12,6" Margin="0,0,6,6" Cursor="Hand"/>
-                                    <Button Content="🥚 달걀" Click="ChipGather_Click" Tag="달걀" Background="#35373C" Foreground="White" FontWeight="Bold" FontSize="14" BorderThickness="0" Padding="12,6" Margin="0,0,6,6" Cursor="Hand"/>
-                                    <Button Content="🐑 양털" Click="ChipGather_Click" Tag="양털" Background="#35373C" Foreground="White" FontWeight="Bold" FontSize="14" BorderThickness="0" Padding="12,6" Margin="0,0,6,6" Cursor="Hand"/>
-                                    <Button Content="⛏️ 철광석" Click="ChipGather_Click" Tag="철광석" Background="#35373C" Foreground="White" FontWeight="Bold" FontSize="14" BorderThickness="0" Padding="12,6" Margin="0,0,6,6" Cursor="Hand"/>
+                                <!-- 0. 타이틀 -->
+                                <TextBlock Grid.Row="0" Text="🌾 스마트 채집 도우미 (목표 달성형 수집)" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" FontSize="17" Margin="0,0,0,8"/>
+
+                                <!-- 1. 카테고리 필터 바 -->
+                                <WrapPanel Grid.Row="1" Margin="0,0,0,8">
+                                    <Button x:Name="BtnGatherCatAll" Content="전체" Click="BtnGatherCategory_Click" Tag="All" Background="{StaticResource AccentBlue}" Foreground="White" FontWeight="Bold" FontSize="13" BorderThickness="0" Padding="10,5" Margin="0,0,5,5" Cursor="Hand"/>
+                                    <Button x:Name="BtnGatherCatLogging" Content="🪵 벌목" Click="BtnGatherCategory_Click" Tag="벌목" Background="#2A2D35" Foreground="{StaticResource TextPrimary}" FontWeight="Bold" FontSize="13" BorderThickness="0" Padding="10,5" Margin="0,0,5,5" Cursor="Hand"/>
+                                    <Button x:Name="BtnGatherCatMining" Content="⛏️ 채광" Click="BtnGatherCategory_Click" Tag="채광" Background="#2A2D35" Foreground="{StaticResource TextPrimary}" FontWeight="Bold" FontSize="13" BorderThickness="0" Padding="10,5" Margin="0,0,5,5" Cursor="Hand"/>
+                                    <Button x:Name="BtnGatherCatFarm" Content="🌾 농축산" Click="BtnGatherCategory_Click" Tag="농축산" Background="#2A2D35" Foreground="{StaticResource TextPrimary}" FontWeight="Bold" FontSize="13" BorderThickness="0" Padding="10,5" Margin="0,0,5,5" Cursor="Hand"/>
+                                    <Button x:Name="BtnGatherCatHerb" Content="🌿 약초" Click="BtnGatherCategory_Click" Tag="약초" Background="#2A2D35" Foreground="{StaticResource TextPrimary}" FontWeight="Bold" FontSize="13" BorderThickness="0" Padding="10,5" Margin="0,0,5,5" Cursor="Hand"/>
+                                    <Button x:Name="BtnGatherCatEtc" Content="📦 기타" Click="BtnGatherCategory_Click" Tag="기타" Background="#2A2D35" Foreground="{StaticResource TextPrimary}" FontWeight="Bold" FontSize="13" BorderThickness="0" Padding="10,5" Margin="0,0,5,5" Cursor="Hand"/>
                                 </WrapPanel>
 
-                                <TextBox x:Name="TxtGatherSearchFull" Grid.Row="2" TextChanged="TxtGatherSearchFull_TextChanged"
-                                         Background="{StaticResource BgCardSub}" Foreground="{StaticResource TextPrimary}" BorderThickness="0"
-                                         Padding="12,10" FontSize="14" Margin="0,0,0,10"/>
+                                <!-- 2. 목표 수량 설정 바 (프리셋 5, 50, 100, 200, 300 + 세밀조절 -1/+1) -->
+                                <Border Grid.Row="2" Background="#181B20" BorderBrush="#2D323E" BorderThickness="1" CornerRadius="6" Padding="10,8" Margin="0,0,0,8">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
 
-                                <ListView x:Name="ListGatherablesView" Grid.Row="3" Background="{StaticResource BgCardSub}" BorderThickness="0" Foreground="{StaticResource TextPrimary}"
+                                        <!-- 좌측 프리셋 버튼군 -->
+                                        <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                            <TextBlock Text="🎯 목표치:" Foreground="{StaticResource TextSecondary}" FontSize="13" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                            <Button Content="5개" Click="BtnTargetPreset_Click" Tag="5" Background="#2C303B" Foreground="White" FontSize="12" FontWeight="Bold" Padding="8,4" Margin="0,0,4,0" BorderThickness="0" Cursor="Hand"/>
+                                            <Button Content="50개" Click="BtnTargetPreset_Click" Tag="50" Background="#2C303B" Foreground="White" FontSize="12" FontWeight="Bold" Padding="8,4" Margin="0,0,4,0" BorderThickness="0" Cursor="Hand"/>
+                                            <Button Content="100개" Click="BtnTargetPreset_Click" Tag="100" Background="{StaticResource AccentBlue}" Foreground="White" FontSize="12" FontWeight="Bold" Padding="8,4" Margin="0,0,4,0" BorderThickness="0" Cursor="Hand"/>
+                                            <Button Content="200개" Click="BtnTargetPreset_Click" Tag="200" Background="#2C303B" Foreground="White" FontSize="12" FontWeight="Bold" Padding="8,4" Margin="0,0,4,0" BorderThickness="0" Cursor="Hand"/>
+                                            <Button Content="300개" Click="BtnTargetPreset_Click" Tag="300" Background="#2C303B" Foreground="White" FontSize="12" FontWeight="Bold" Padding="8,4" Margin="0,0,10,0" BorderThickness="0" Cursor="Hand"/>
+                                        </StackPanel>
+
+                                        <!-- 세밀 조절부 -->
+                                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                            <Button Content="-5" Click="BtnAdjustTarget_Click" Tag="-5" Background="#353945" Foreground="White" FontSize="12" FontWeight="Bold" Padding="6,3" Margin="0,0,3,0" BorderThickness="0" Cursor="Hand"/>
+                                            <Button Content="-1" Click="BtnAdjustTarget_Click" Tag="-1" Background="#353945" Foreground="White" FontSize="12" FontWeight="Bold" Padding="6,3" Margin="0,0,4,0" BorderThickness="0" Cursor="Hand"/>
+                                            <TextBox x:Name="TxtTargetGatherCount" Text="100" TextChanged="TxtTargetGatherCount_TextChanged"
+                                                     Width="54" Height="26" TextAlignment="Center" FontWeight="Bold" FontSize="13"
+                                                     Background="#101216" Foreground="{StaticResource AccentYellow}" BorderBrush="#3A4050" BorderThickness="1" VerticalContentAlignment="Center"/>
+                                            <Button Content="+1" Click="BtnAdjustTarget_Click" Tag="1" Background="#353945" Foreground="White" FontSize="12" FontWeight="Bold" Padding="6,3" Margin="4,0,3,0" BorderThickness="0" Cursor="Hand"/>
+                                            <Button Content="+5" Click="BtnAdjustTarget_Click" Tag="5" Background="#353945" Foreground="White" FontSize="12" FontWeight="Bold" Padding="6,3" Margin="0,0,0,0" BorderThickness="0" Cursor="Hand"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+
+                                <!-- 3. 검색창 -->
+                                <TextBox x:Name="TxtGatherSearchFull" Grid.Row="3" TextChanged="TxtGatherSearchFull_TextChanged"
+                                         Background="{StaticResource BgCardSub}" Foreground="{StaticResource TextPrimary}" BorderThickness="0"
+                                         Padding="12,8" FontSize="14" Margin="0,0,0,8">
+                                    <TextBox.Resources>
+                                        <Style TargetType="{x:Type Border}">
+                                            <Setter Property="CornerRadius" Value="6"/>
+                                        </Style>
+                                    </TextBox.Resources>
+                                </TextBox>
+
+                                <!-- 4. 채집 가능 전체 아이템 목록 -->
+                                <ListView x:Name="ListGatherablesView" Grid.Row="4" Background="{StaticResource BgCardSub}" BorderThickness="0" Foreground="{StaticResource TextPrimary}"
                                           VirtualizingStackPanel.IsVirtualizing="True" VirtualizingStackPanel.VirtualizationMode="Recycling">
                                     <ListView.ItemTemplate>
                                         <DataTemplate>
-                                            <Grid Margin="6,4">
-                                                <TextBlock Text="{Binding DisplayName}" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" FontSize="15" VerticalAlignment="Center"/>
-                                                <Button Content="채집 시작" Click="BtnStartGather_Click" Tag="{Binding DisplayName}"
-                                                        HorizontalAlignment="Right" Background="{StaticResource AccentGreen}" Foreground="White"
-                                                        FontWeight="Bold" FontSize="13" Padding="12,5" BorderThickness="0" Cursor="Hand"/>
-                                            </Grid>
+                                            <Border Background="#20232A" CornerRadius="6" Padding="12,10" Margin="0,0,0,6">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                    </Grid.ColumnDefinitions>
+
+                                                    <StackPanel Grid.Column="0">
+                                                        <StackPanel Orientation="Horizontal">
+                                                            <TextBlock Text="{Binding DisplayName}" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" FontSize="15" VerticalAlignment="Center"/>
+                                                            <Border Background="#2C3240" CornerRadius="4" Padding="6,2" Margin="8,0,0,0" VerticalAlignment="Center">
+                                                                <TextBlock Text="{Binding Category}" Foreground="#79B8FF" FontSize="11" FontWeight="SemiBold"/>
+                                                            </Border>
+                                                        </StackPanel>
+                                                        <TextBlock Text="{Binding ProgressText}" Foreground="{StaticResource AccentYellow}" FontSize="13" Margin="0,4,0,0"/>
+                                                    </StackPanel>
+
+                                                    <Button Grid.Column="1" Click="BtnStartGatherTarget_Click" Tag="{Binding DisplayName}"
+                                                            Background="{StaticResource AccentGreen}" Foreground="White" FontWeight="Bold" FontSize="13" Padding="14,6" BorderThickness="0" Cursor="Hand" VerticalAlignment="Center">
+                                                        <Button.Style>
+                                                            <Style TargetType="Button">
+                                                                <Setter Property="Content" Value="수집 시작 ▶"/>
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding IsTargetReached}" Value="True">
+                                                                        <Setter Property="Background" Value="#2E3440"/>
+                                                                        <Setter Property="Foreground" Value="{StaticResource TextSecondary}"/>
+                                                                        <Setter Property="Content" Value="목표 달성 ✓"/>
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </Button.Style>
+                                                    </Button>
+                                                </Grid>
+                                            </Border>
                                         </DataTemplate>
                                     </ListView.ItemTemplate>
                                 </ListView>
@@ -1011,56 +1100,18 @@
                             <RowDefinition Height="Auto"/> <!-- 입력부 -->
                         </Grid.RowDefinitions>
 
-                        <!-- 🎯 기본 모드 실동작 액션 & 매크로 패널 (캐릭터가 직접 행동) -->
-                        <Border Grid.Row="0" x:Name="GuideShelfGrid" Background="#151A24" BorderBrush="#253555" BorderThickness="1" CornerRadius="6" Padding="10,8" Margin="0,0,0,6" Visibility="Visible">
-                            <StackPanel>
-                                <!-- 1행: 재료 채집 매크로 (수량 선택식 자동 채집) -->
-                                <Grid Margin="0,0,0,6">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                        <ColumnDefinition Width="*"/>
-                                    </Grid.ColumnDefinitions>
-
-                                    <TextBlock Grid.Column="0" Text="🌾 재료 채집:" Foreground="#58A6FF" FontWeight="Bold" FontSize="13" VerticalAlignment="Center" Margin="0,0,8,0"/>
-
-                                    <!-- 아이템 선택 -->
-                                    <ComboBox x:Name="CmbGatherItem" Grid.Column="1" Style="{StaticResource DarkComboBox}" Width="120" FontSize="12" Margin="0,0,6,0">
-                                        <ComboBoxItem Content="🍎 사과" Tag="사과" IsSelected="True"/>
-                                        <ComboBoxItem Content="🪵 나무 장작" Tag="나무 장작"/>
-                                        <ComboBoxItem Content="🥚 달걀" Tag="달걀"/>
-                                        <ComboBoxItem Content="⛏️ 철광석" Tag="철광석"/>
-                                        <ComboBoxItem Content="🐑 양털" Tag="양털"/>
-                                    </ComboBox>
-
-                                    <!-- 수량 선택 -->
-                                    <ComboBox x:Name="CmbGatherCount" Grid.Column="2" Style="{StaticResource DarkComboBox}" Width="75" FontSize="12" Margin="0,0,8,0">
-                                        <ComboBoxItem Content="1개" Tag="1"/>
-                                        <ComboBoxItem Content="3개" Tag="3"/>
-                                        <ComboBoxItem Content="5개" Tag="5" IsSelected="True"/>
-                                        <ComboBoxItem Content="10개" Tag="10"/>
-                                    </ComboBox>
-
-                                    <!-- 채집 실행 버튼 -->
-                                    <Button x:Name="BtnActionGather" Grid.Column="3" Content="채집 시작 ▶" Click="BtnActionGather_Click"
-                                            Background="{StaticResource AccentGreen}" Foreground="White" FontWeight="Bold" FontSize="12"
-                                            Padding="12,5" BorderThickness="0" Cursor="Hand" ToolTip="선택한 재료와 수량만큼 게임 내 채집지로 이동하여 자동 채집합니다."/>
-                                </Grid>
-
-                                <!-- 2행: 핵심 실용 액션 버튼 4종 -->
-                                <UniformGrid Columns="4">
-                                    <Button x:Name="BtnActionDailyMissions" Content="📋 일일 숙제 점검" Click="BtnActionDailyMissions_Click"
-                                            Background="#212738" Foreground="#79B8FF" FontWeight="Bold" FontSize="12" Padding="6,6" Margin="0,0,4,0" BorderThickness="1" BorderBrush="#35466A" Cursor="Hand" ToolTip="미완료된 일일 퀘스트를 즉시 확인하고 미션 탭으로 이동합니다."/>
-                                    <Button x:Name="BtnActionDiet" Content="⚖️ 가방 다이어트" Click="BtnActionDiet_Click"
-                                            Background="#2D2319" Foreground="#F5CBA7" FontWeight="Bold" FontSize="12" Padding="6,6" Margin="2,0,4,0" BorderThickness="1" BorderBrush="#5D4324" Cursor="Hand" ToolTip="소지품 탭으로 이동하여 비잠금 무거운 잡템을 즉시 정리합니다."/>
-                                    <Button x:Name="BtnActionCollectWorks" Content="📥 작업대 수거" Click="BtnActionCollectWorks_Click"
-                                            Background="#1B2F23" Foreground="#7EE787" FontWeight="Bold" FontSize="12" Padding="6,6" Margin="2,0,4,0" BorderThickness="1" BorderBrush="#2EA043" Cursor="Hand" ToolTip="완료된 가공 시설 대기열 아이템을 즉시 수거합니다."/>
-                                    <Button x:Name="BtnActionStop" Content="🛑 긴급 행동 정지" Click="BtnActionStop_Click"
-                                            Background="#381D1D" Foreground="#FFA198" FontWeight="Bold" FontSize="12" Padding="6,6" Margin="2,0,0,0" BorderThickness="1" BorderBrush="#A42727" Cursor="Hand" ToolTip="진행 중인 모든 채집 및 이동 동작을 즉시 중단합니다."/>
-                                </UniformGrid>
-                            </StackPanel>
+                        <!-- 🎯 기본 모드 4대 핵심 실용 액션 패널 -->
+                        <Border Grid.Row="0" x:Name="GuideShelfGrid" Background="#151A24" BorderBrush="#253555" BorderThickness="1" CornerRadius="6" Padding="8,6" Margin="0,0,0,6" Visibility="Visible">
+                            <UniformGrid Columns="4">
+                                <Button x:Name="BtnActionDailyMissions" Content="📋 일일 숙제 점검" Click="BtnActionDailyMissions_Click"
+                                        Background="#212738" Foreground="#79B8FF" FontWeight="Bold" FontSize="12" Padding="6,6" Margin="0,0,4,0" BorderThickness="1" BorderBrush="#35466A" Cursor="Hand" ToolTip="미완료된 일일 퀘스트를 즉시 확인하고 미션 탭으로 이동합니다."/>
+                                <Button x:Name="BtnActionDiet" Content="⚖️ 가방 다이어트" Click="BtnActionDiet_Click"
+                                        Background="#2D2319" Foreground="#F5CBA7" FontWeight="Bold" FontSize="12" Padding="6,6" Margin="2,0,4,0" BorderThickness="1" BorderBrush="#5D4324" Cursor="Hand" ToolTip="소지품 탭으로 이동하여 최근 급증한 무거운 잡템을 즉시 정리합니다."/>
+                                <Button x:Name="BtnActionCollectWorks" Content="📥 작업대 수거" Click="BtnActionCollectWorks_Click"
+                                        Background="#1B2F23" Foreground="#7EE787" FontWeight="Bold" FontSize="12" Padding="6,6" Margin="2,0,4,0" BorderThickness="1" BorderBrush="#2EA043" Cursor="Hand" ToolTip="완료된 가공 시설 대기열 아이템을 즉시 수거합니다."/>
+                                <Button x:Name="BtnActionStop" Content="🛑 긴급 행동 정지" Click="BtnActionStop_Click"
+                                        Background="#381D1D" Foreground="#FFA198" FontWeight="Bold" FontSize="12" Padding="6,6" Margin="2,0,0,0" BorderThickness="1" BorderBrush="#A42727" Cursor="Hand" ToolTip="진행 중인 모든 채집 및 이동 동작을 즉시 중단합니다."/>
+                            </UniformGrid>
                         </Border>
 
                         <Grid Grid.Row="1">
