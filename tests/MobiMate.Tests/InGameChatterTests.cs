@@ -183,4 +183,110 @@ public class InGameChatterTests
         service.IntervalSeconds = 1;
         Assert.Equal(3, service.IntervalSeconds);
     }
+
+    [Theory]
+    [InlineData("2959-5-19 22:45", "에린 시간 5월 19일 22:45 🌙 (밤)")]
+    [InlineData("2959-4-23 15:51", "에린 시간 4월 23일 15:51 ☀️ (낮)")]
+    [InlineData("5-19 04:02", "에린 시간 5월 19일 04:02 🌙 (밤)")]
+    [InlineData("2959-10-05 11:30", "에린 시간 10월 5일 11:30 ☀️ (낮)")]
+    public void InGameChatterService_FormatErinnTime_RemovesYearAndShowsDayNight(string input, string expected)
+    {
+        var formatted = InGameChatterService.FormatErinnTime(input);
+        Assert.Equal(expected, formatted);
+    }
+
+    [Fact]
+    public async Task InGameChatterService_GenerateChatterLineAsync_ReturnsValidLineUnder50Chars()
+    {
+        var cli = new GameCliService();
+        var aiManager = new AiEngineManager();
+        var dummyCtx = new ChatterContext("아이라", "빙결술사", 100, 99000, "휴식 중", "던바튼", "가방: 400/1000", "5,000,000 골드");
+
+        var service = new InGameChatterService(cli, aiManager, () => dummyCtx)
+        {
+            CurrentPersona = ChatterPersona.MorningSpirit
+        };
+
+        var line = await service.GenerateChatterLineAsync();
+        Assert.False(string.IsNullOrWhiteSpace(line));
+        Assert.True(line.Length <= 50);
+        Assert.Contains("닝", line);
+    }
+
+    [Fact]
+    public void SnapshotManager_CharacterProfile_And_History_CumulativeTracking()
+    {
+        var sm = new SnapshotManager();
+        var uniqueRealm = "테스트_" + Guid.NewGuid().ToString("N")[..8];
+
+        var ch1 = new CharacterInfo(
+            Title: "용사",
+            RealmName: uniqueRealm,
+            Level: 100,
+            JobName: "테스트직업",
+            CombatScore: new ScoreVal("전투력", 80000),
+            LivingScore: null,
+            AttractivenessScore: null,
+            DecorScore: null,
+            HealthMax: null,
+            AttackPower: null,
+            DefencePower: null,
+            ArcaneResistance: null,
+            STR: null,
+            DEX: null,
+            INT: null,
+            LUCK: null,
+            WILL: null,
+            PaladinStats: null,
+            Vitals: new VitalsInfo(1000, 1000, 500.0, 1000.0, 100, 100, 0)
+        );
+
+        var currencies1 = new List<CurrencyItem>
+        {
+            new("골드", 1000000),
+            new("정령의 날개", 500)
+        };
+
+        // 1. 첫 번째 스냅샷 업데이트
+        sm.UpdateSnapshot(ch1, currencies1, null);
+
+        var profile = sm.GetProfile(uniqueRealm, "테스트직업");
+        Assert.NotNull(profile);
+        Assert.Equal($"{uniqueRealm}_테스트직업", profile.CharacterKey);
+        Assert.Single(profile.History);
+        Assert.Equal(80000, profile.History[0].CombatScore);
+        Assert.Equal(1000000, profile.History[0].Gold);
+
+        // 2. 별칭(CustomName) 설정 및 표시명 확인
+        sm.SetCustomName(uniqueRealm, "테스트직업", "나의본캐");
+        Assert.Equal("나의본캐", profile.CustomName);
+        Assert.Equal($"[{uniqueRealm}] 나의본캐 (테스트직업)", profile.DisplayName);
+
+        // 3. 수치 변동 발생 시 누적 히스토리 레코드 추가 확인 (전투력 상승)
+        var ch2 = new CharacterInfo(
+            Title: "용사",
+            RealmName: uniqueRealm,
+            Level: 100,
+            JobName: "테스트직업",
+            CombatScore: new ScoreVal("전투력", 85000), // +5000
+            LivingScore: null,
+            AttractivenessScore: null,
+            DecorScore: null,
+            HealthMax: null,
+            AttackPower: null,
+            DefencePower: null,
+            ArcaneResistance: null,
+            STR: null,
+            DEX: null,
+            INT: null,
+            LUCK: null,
+            WILL: null,
+            PaladinStats: null,
+            Vitals: new VitalsInfo(1000, 1000, 500.0, 1000.0, 100, 100, 0)
+        );
+
+        sm.UpdateSnapshot(ch2, currencies1, null);
+        Assert.Equal(2, profile.History.Count);
+        Assert.Equal(85000, profile.History[1].CombatScore);
+    }
 }

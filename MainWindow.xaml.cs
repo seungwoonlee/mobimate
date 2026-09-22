@@ -232,6 +232,68 @@ public partial class MainWindow : Window
         TxtLocation.Text = "게임을 실행하고 MM AI 에이전트 설정을 켜주세요.";
     }
 
+    private void TxtCharTitle_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        if (_lastCharInfo == null) return;
+        var realm = string.IsNullOrEmpty(_lastCharInfo.RealmName) ? "에린" : _lastCharInfo.RealmName;
+        var job = string.IsNullOrEmpty(_lastCharInfo.JobName) ? "밀레시안" : _lastCharInfo.JobName;
+        var profile = _snapshotManager.GetProfile(realm, job);
+
+        TxtCustomNickInput.Text = profile?.CustomName ?? "";
+        PopupNickName.IsOpen = true;
+        TxtCustomNickInput.Focus();
+        TxtCustomNickInput.SelectAll();
+    }
+
+    private void BtnCancelNick_Click(object sender, RoutedEventArgs e)
+    {
+        PopupNickName.IsOpen = false;
+    }
+
+    private void BtnSaveNick_Click(object sender, RoutedEventArgs e)
+    {
+        SaveCustomNick();
+    }
+
+    private void TxtCustomNickInput_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Enter)
+        {
+            SaveCustomNick();
+        }
+        else if (e.Key == Key.Escape)
+        {
+            PopupNickName.IsOpen = false;
+        }
+    }
+
+    private void SaveCustomNick()
+    {
+        if (_lastCharInfo == null)
+        {
+            PopupNickName.IsOpen = false;
+            return;
+        }
+
+        var realm = string.IsNullOrEmpty(_lastCharInfo.RealmName) ? "에린" : _lastCharInfo.RealmName;
+        var job = string.IsNullOrEmpty(_lastCharInfo.JobName) ? "밀레시안" : _lastCharInfo.JobName;
+        var nick = TxtCustomNickInput.Text.Trim();
+
+        _snapshotManager.SetCustomName(realm, job, nick);
+        PopupNickName.IsOpen = false;
+
+        if (!string.IsNullOrWhiteSpace(nick))
+        {
+            TxtCharTitle.Text = $"[{realm}] {nick} ({job} Lv.{_lastCharInfo.Level})";
+            ShowToast($"🏷️ 캐릭터 별칭이 '{nick}'(으)로 저장되었습니다.", true);
+        }
+        else
+        {
+            TxtCharTitle.Text = $"[{realm}] {job} Lv.{_lastCharInfo.Level}";
+            ShowToast("🏷️ 캐릭터 별칭이 기본값으로 초기화되었습니다.", true);
+        }
+    }
+
     // ================= 1. 캐릭터 & 스탯 탭 =================
     private void UpdateHeaderAndStats(CharacterInfo? ch, ActivityInfo? act, EnvironmentInfo? env)
     {
@@ -242,7 +304,15 @@ public partial class MainWindow : Window
 
             var realm = string.IsNullOrEmpty(ch.RealmName) ? "에린" : ch.RealmName;
             var job = string.IsNullOrEmpty(ch.JobName) ? "밀레시안" : ch.JobName;
-            TxtCharTitle.Text = $"[{realm}] {job} Lv.{ch.Level}";
+            var profile = _snapshotManager.GetProfile(realm, job);
+            if (profile != null && !string.IsNullOrWhiteSpace(profile.CustomName))
+            {
+                TxtCharTitle.Text = $"[{realm}] {profile.CustomName} ({job} Lv.{ch.Level})";
+            }
+            else
+            {
+                TxtCharTitle.Text = $"[{realm}] {job} Lv.{ch.Level}";
+            }
 
             if (ch.CombatScore != null)
             {
@@ -309,7 +379,8 @@ public partial class MainWindow : Window
         {
             var loc = string.IsNullOrEmpty(env.ChannelName) ? "필드" : env.ChannelName;
             var weather = string.IsNullOrEmpty(env.Weather) ? "맑음" : env.Weather;
-            var erinn = string.IsNullOrEmpty(env.ErinnNow) ? "" : $"  |  에린 시간 {env.ErinnNow}";
+            var erinnFormatted = InGameChatterService.FormatErinnTime(env.ErinnNow);
+            var erinn = string.IsNullOrEmpty(erinnFormatted) ? "" : $"  |  {erinnFormatted}";
             TxtLocation.Text = $"📍 {loc} ({weather} ☀️){erinn}";
         }
     }
@@ -712,15 +783,11 @@ public partial class MainWindow : Window
         if (_chatterService == null) return;
         var isEnabled = TglChatterEnable.IsChecked == true;
         _chatterService.IsEnabled = isEnabled;
+        TxtChatterStatus.Text = isEnabled ? "아무말 ON" : "아무말 OFF";
+        TxtChatterStatus.Foreground = isEnabled ? (Brush)FindResource("AccentGreen") : (Brush)FindResource("TextSecondary");
+        BtnTriggerChatterNow.IsEnabled = isEnabled;
 
-        if (isEnabled)
-        {
-            ShowToast($"🗣️ 아무말 대잔치가 켜졌습니다. ({_chatterService.IntervalSeconds}초 주기)", true);
-        }
-        else
-        {
-            ShowToast("🗣️ 아무말 대잔치가 꺼졌습니다.", true);
-        }
+        ShowToast(isEnabled ? "🗣️ 아무말 기능이 켜졌습니다. ('한마디' 클릭 시 대사 생성)" : "🗣️ 아무말 기능이 꺼졌습니다.", true);
     }
 
     private void CmbPersona_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -741,22 +808,12 @@ public partial class MainWindow : Window
         }
     }
 
-    private void CmbChatterInterval_SelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (!_isWindowLoaded || _chatterService == null) return;
-        if (CmbChatterInterval.SelectedItem is ComboBoxItem item && int.TryParse(item.Tag as string, out var sec))
-        {
-            _chatterService.IntervalSeconds = sec;
-            ShowToast($"아무말 주기가 {sec}초로 변경되었습니다.", true);
-        }
-    }
-
     private void ChkSendToGameDirectly_CheckChanged(object sender, RoutedEventArgs e)
     {
         if (_chatterService == null) return;
         var directly = ChkSendToGameDirectly.IsChecked == true;
         _chatterService.SendToGameDirectly = directly;
-        ShowToast(directly ? "아무말 인게임 전송 활성화" : "아무말 앱 내 시뮬레이션 모드 전환", true);
+        ShowToast(directly ? "인게임 전송 활성화" : "앱 내 시뮬레이션 모드 전환", true);
     }
 
     private async void BtnTriggerChatterNow_Click(object sender, RoutedEventArgs e)
@@ -768,13 +825,22 @@ public partial class MainWindow : Window
 
         try
         {
-            await _chatterService.TriggerChatterAsync(isManual: true);
+            var line = await _chatterService.GenerateChatterLineAsync();
+            if (!string.IsNullOrWhiteSpace(line))
+            {
+                TxtGameChatInput.Text = line;
+                TxtGameChatInput.Focus();
+                TxtGameChatInput.CaretIndex = TxtGameChatInput.Text.Length;
+                ShowToast("💬 대사가 생성되어 입력창에 채워졌습니다. '게임 전송'을 누르면 발송됩니다.", true);
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowToast($"대사 생성 실패: {ex.Message}", false);
         }
         finally
         {
-            // 연타 방지 쿨타임 2초
-            await Task.Delay(2000);
-            BtnTriggerChatterNow.IsEnabled = true;
+            BtnTriggerChatterNow.IsEnabled = TglChatterEnable.IsChecked == true;
             BtnTriggerChatterNow.Content = "💬 한마디";
         }
     }
@@ -787,9 +853,13 @@ public partial class MainWindow : Window
 
         foreach (var engine in engines)
         {
+            var displayName = engine.Info.Type == AiEngineType.BuiltInGuide
+                ? "기본값 : AI 사용하지 않음"
+                : engine.Info.DisplayName;
+
             CmbAiEngine.Items.Add(new ComboBoxItem
             {
-                Content = engine.Info.DisplayName,
+                Content = displayName,
                 Tag = engine.Info.Id,
                 ToolTip = engine.Info.Description
             });
@@ -820,11 +890,7 @@ public partial class MainWindow : Window
         var hasOllama = engines.Any(e => e.Info.Type == AiEngineType.Ollama);
         if (hasOllama)
         {
-            ShowToast($"💡 무료 로컬 AI(Ollama) 감지 완료 (엔진 {engines.Count}개 준비)", true);
-        }
-        else
-        {
-            ShowToast("💡 완전 무료 내장 마비 가이드로 자동 동작합니다. (0원, 무설치)", true);
+            ShowToast($"🤖 로컬 AI(Ollama) 감지 완료 (엔진 {engines.Count}개 준비)", true);
         }
     }
 
@@ -860,11 +926,11 @@ public partial class MainWindow : Window
     private void UpdateEngineBannerAndShelf(IAiEngine? engine)
     {
         var isBuiltIn = engine?.Info.Type == AiEngineType.BuiltInGuide;
-        ScrollGuideShelf.Visibility = isBuiltIn ? Visibility.Visible : Visibility.Collapsed;
+        GuideShelfGrid.Visibility = isBuiltIn ? Visibility.Visible : Visibility.Collapsed;
 
         if (isBuiltIn)
         {
-            TxtBannerEngineStatus.Text = "💡 무료 내장 가이드 모드 | 🤖 PC에 Ollama·CLI 설치 시 드롭다운에서 자유 대화 가능";
+            TxtBannerEngineStatus.Text = "기본값 : AI 사용하지 않음 (로컬 AI 연동 시 자유 대화 가능)";
             TxtBannerEngineStatus.Foreground = (Brush)FindResource("AccentCyan");
             BannerEngineStatus.Background = new SolidColorBrush(Color.FromRgb(0x13, 0x1A, 0x26));
             BannerEngineStatus.BorderBrush = new SolidColorBrush(Color.FromRgb(0x20, 0x2D, 0x42));
