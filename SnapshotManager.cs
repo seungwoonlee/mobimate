@@ -80,72 +80,163 @@ public class SessionDelta
 
 public class SnapshotManager
 {
-    private static readonly string StorageFile = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "character_snapshots.json");
-    private static readonly string DbStorageFile = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "character_history_db.json");
+    private readonly string _storageDir;
+    private readonly string _storageFile;
+    private readonly string _dbStorageFile;
+    private readonly string _legacyStorageFile;
+    private readonly string _legacyDbStorageFile;
+
     private readonly Dictionary<string, CharacterSnapshot> _savedSnapshots = new();
     private readonly Dictionary<string, CharacterProfile> _characterDb = new();
     private readonly Dictionary<string, CharacterSnapshot> _sessionBaselines = new();
     private readonly object _lock = new();
 
-    public SnapshotManager()
+    public string StorageDirectory => _storageDir;
+    public string SnapshotsFilePath => _storageFile;
+    public string CharacterDbFilePath => _dbStorageFile;
+
+    public SnapshotManager(string? customStorageDir = null)
     {
+        _storageDir = !string.IsNullOrWhiteSpace(customStorageDir)
+            ? customStorageDir
+            : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "MobiMate");
+
+        _storageFile = Path.Combine(_storageDir, "character_snapshots.json");
+        _dbStorageFile = Path.Combine(_storageDir, "character_history_db.json");
+        _legacyStorageFile = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "character_snapshots.json");
+        _legacyDbStorageFile = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "character_history_db.json");
+
+        EnsureStorageDirectoryAndMigrate();
         LoadSnapshots();
         LoadCharacterDb();
     }
 
-    private void LoadSnapshots()
+    private void EnsureStorageDirectoryAndMigrate()
     {
         try
         {
-            if (File.Exists(StorageFile))
+            if (!Directory.Exists(_storageDir))
             {
-                var json = File.ReadAllText(StorageFile);
-                var list = JsonSerializer.Deserialize<List<CharacterSnapshot>>(json);
-                if (list != null)
-                {
-                    lock (_lock)
-                    {
-                        foreach (var s in list)
-                        {
-                            _savedSnapshots[s.GetKey()] = s;
-                        }
-                    }
-                }
+                Directory.CreateDirectory(_storageDir);
+            }
+
+            // 기존 레거시 디렉터리에 파일이 남아있고 새 스토리지에 없으면 자동 복사 이전
+            if (!File.Exists(_storageFile) && File.Exists(_legacyStorageFile))
+            {
+                try { File.Copy(_legacyStorageFile, _storageFile, overwrite: false); } catch { }
+            }
+            if (!File.Exists(_dbStorageFile) && File.Exists(_legacyDbStorageFile))
+            {
+                try { File.Copy(_legacyDbStorageFile, _dbStorageFile, overwrite: false); } catch { }
             }
         }
         catch
         {
-            // 손상된 파일 등의 경우 기본값 유지
+            // 디렉터리 생성 및 마이그레이션 실패 시 무해 처리
+        }
+    }
+
+    private void LoadSnapshots()
+    {
+        lock (_lock)
+        {
+            _savedSnapshots.Clear();
+        }
+
+        try
+        {
+            if (!File.Exists(_storageFile)) return;
+
+            var fi = new FileInfo(_storageFile);
+            if (fi.Length == 0)
+            {
+                QuarantineCorruptedFile(_storageFile);
+                return;
+            }
+
+            var json = File.ReadAllText(_storageFile);
+            var list = JsonSerializer.Deserialize<List<CharacterSnapshot>>(json);
+            if (list != null)
+            {
+                lock (_lock)
+                {
+                    foreach (var s in list)
+                    {
+                        _savedSnapshots[s.GetKey()] = s;
+                    }
+                }
+            }
+        }
+        catch (JsonException)
+        {
+            // JSON 손상 시 안전하게 격리 후 빈 상태로 신규 복구
+            QuarantineCorruptedFile(_storageFile);
+        }
+        catch
+        {
+            // 기타 I/O 오류 무해 처리 (인메모리 모드로 안전 가동)
         }
     }
 
     private void LoadCharacterDb()
     {
+        lock (_lock)
+        {
+            _characterDb.Clear();
+        }
+
         try
         {
-            if (File.Exists(DbStorageFile))
+            if (!File.Exists(_dbStorageFile)) return;
+
+            var fi = new FileInfo(_dbStorageFile);
+            if (fi.Length == 0)
             {
-                var json = File.ReadAllText(DbStorageFile);
-                var list = JsonSerializer.Deserialize<List<CharacterProfile>>(json);
-                if (list != null)
+                QuarantineCorruptedFile(_dbStorageFile);
+                return;
+            }
+
+            var json = File.ReadAllText(_dbStorageFile);
+            var list = JsonSerializer.Deserialize<List<CharacterProfile>>(json);
+            if (list != null)
+            {
+                lock (_lock)
                 {
-                    lock (_lock)
+                    foreach (var p in list)
                     {
-                        foreach (var p in list)
-                        {
-                            _characterDb[p.CharacterKey] = p;
-                        }
+                        _characterDb[p.CharacterKey] = p;
                     }
                 }
             }
         }
+        catch (JsonException)
+        {
+            // JSON 손상 시 안전하게 격리 후 빈 상태로 신규 복구
+            QuarantineCorruptedFile(_dbStorageFile);
+        }
         catch
         {
-            // 손상된 파일 등의 경우 기본값 유지
+            // 기타 I/O 오류 무해 처리
         }
     }
 
-    public void SaveSnapshotsAsync()
+    private static void QuarantineCorruptedFile(string filePath)
+    {
+        try
+        {
+            if (File.Exists(filePath))
+            {
+                var bak = $"{filePath}.corrupted.{DateTime.Now:yyyyMMdd_HHmmss}.bak";
+                File.Move(filePath, bak, overwrite: true);
+            }
+        }
+        catch
+        {
+            // 격리 이동 실패 시에도 크래시를 방지하고 계속 진행
+        }
+    }
+
+    public void SaveSnapshotsNow()
     {
         List<CharacterSnapshot> toSave;
         List<CharacterProfile> dbToSave;
@@ -164,25 +255,32 @@ public class SnapshotManager
             }).ToList();
         }
 
-        Task.Run(() =>
+        try
         {
-            try
+            if (!Directory.Exists(_storageDir))
             {
-                var json = JsonSerializer.Serialize(toSave, new JsonSerializerOptions { WriteIndented = true });
-                var tempFile = StorageFile + ".tmp";
-                File.WriteAllText(tempFile, json);
-                File.Move(tempFile, StorageFile, overwrite: true);
+                Directory.CreateDirectory(_storageDir);
+            }
 
-                var dbJson = JsonSerializer.Serialize(dbToSave, new JsonSerializerOptions { WriteIndented = true });
-                var dbTempFile = DbStorageFile + ".tmp";
-                File.WriteAllText(dbTempFile, dbJson);
-                File.Move(dbTempFile, DbStorageFile, overwrite: true);
-            }
-            catch
-            {
-                // 백그라운드 I/O 예외 무해 처리
-            }
-        });
+            var json = JsonSerializer.Serialize(toSave, new JsonSerializerOptions { WriteIndented = true });
+            var tempFile = _storageFile + $".tmp.{Guid.NewGuid():N}";
+            File.WriteAllText(tempFile, json);
+            File.Move(tempFile, _storageFile, overwrite: true);
+
+            var dbJson = JsonSerializer.Serialize(dbToSave, new JsonSerializerOptions { WriteIndented = true });
+            var dbTempFile = _dbStorageFile + $".tmp.{Guid.NewGuid():N}";
+            File.WriteAllText(dbTempFile, dbJson);
+            File.Move(dbTempFile, _dbStorageFile, overwrite: true);
+        }
+        catch
+        {
+            // I/O 예외 무해 처리
+        }
+    }
+
+    public void SaveSnapshotsAsync()
+    {
+        Task.Run(SaveSnapshotsNow);
     }
 
     public CharacterProfile? GetProfile(string realm, string job)
@@ -199,11 +297,20 @@ public class SnapshotManager
         var key = $"{realm}_{job}";
         lock (_lock)
         {
-            if (_characterDb.TryGetValue(key, out var p))
+            if (!_characterDb.TryGetValue(key, out var p))
             {
-                p.CustomName = customName.Trim();
-                SaveSnapshotsAsync();
+                p = new CharacterProfile
+                {
+                    CharacterKey = key,
+                    RealmName = realm,
+                    JobName = job,
+                    FirstSeen = DateTime.Now,
+                    LastSeen = DateTime.Now
+                };
+                _characterDb[key] = p;
             }
+            p.CustomName = customName.Trim();
+            SaveSnapshotsAsync();
         }
     }
 

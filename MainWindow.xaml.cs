@@ -541,7 +541,8 @@ public partial class MainWindow : Window
 
     private void UpdateItemFilterButtons()
     {
-        if (_allItems == null) return;
+        if (!_isWindowLoaded || _allItems == null || BtnFilterAll == null || BtnFilterBag == null ||
+            BtnFilterAccount == null || BtnFilterChar == null || BtnFilterDiet == null) return;
 
         var allCount = _allItems.Count;
         var bagCount = _allItems.Count(i => i.Location.Equals("Bag", StringComparison.OrdinalIgnoreCase));
@@ -551,12 +552,12 @@ public partial class MainWindow : Window
         BtnFilterAll.Content = $"전체 ({allCount})";
         BtnFilterBag.Content = $"🎒 가방 ({bagCount})";
         BtnFilterAccount.Content = $"🏛️ 계정 창고 ({accCount})";
-        BtnFilterChar.Content = $"📦 캐릭터 창고 ({charCount})";
+        BtnFilterChar.Content = $"👤 캐릭터 창고 ({charCount})";
 
         // 활성 탭 하이라이트
         var activeBrush = (Brush)FindResource("AccentBlue");
         var normalBrush = (Brush)FindResource("BgCard");
-        var activeDietBg = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#5D4020"));
+        var activeDietBg = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#5A3A1A"));
         var normalDietBg = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#3A2818"));
 
         BtnFilterAll.Background = _currentItemLocationFilter == "All" ? activeBrush : normalBrush;
@@ -568,11 +569,11 @@ public partial class MainWindow : Window
 
     private void FilterItems()
     {
-        if (_allItems == null) return;
+        if (!_isWindowLoaded || _allItems == null || TxtItemSearch == null || ListItemView == null || TxtItemCountLabel == null) return;
 
         UpdateItemFilterButtons();
 
-        var query = TxtItemSearch.Text.Trim();
+        var query = TxtItemSearch.Text?.Trim() ?? "";
 
         // 1. 뷰모델 변환 (세션 시작 대비 수량 델타 계산)
         var viewItems = _allItems.Select(i =>
@@ -721,6 +722,9 @@ public partial class MainWindow : Window
 
     private void UpdateGatherCategoryButtons()
     {
+        if (!_isWindowLoaded || BtnGatherCatAll == null || BtnGatherCatLogging == null || BtnGatherCatMining == null ||
+            BtnGatherCatFarm == null || BtnGatherCatHerb == null || BtnGatherCatEtc == null) return;
+
         var activeBrush = (Brush)FindResource("AccentBlue");
         var normalBrush = new SolidColorBrush(Color.FromRgb(0x2A, 0x2D, 0x35));
 
@@ -734,11 +738,11 @@ public partial class MainWindow : Window
 
     private void FilterGatherablesFull()
     {
-        if (_allGatherables == null) return;
+        if (!_isWindowLoaded || _allGatherables == null || TxtGatherSearchFull == null || ListGatherablesView == null) return;
 
         UpdateGatherCategoryButtons();
 
-        var q = TxtGatherSearchFull.Text.Trim();
+        var q = TxtGatherSearchFull.Text?.Trim() ?? "";
 
         // 1. 카테고리 및 아이템 뷰모델 생성 (가방 내 현재 소지수 및 목표 대비 부족 수량 연산)
         var list = _allGatherables.Select(g =>
@@ -787,7 +791,10 @@ public partial class MainWindow : Window
         if (sender is Button btn && btn.Tag is string tag && int.TryParse(tag, out var preset))
         {
             _targetGatherCount = Math.Max(1, preset);
-            TxtTargetGatherCount.Text = _targetGatherCount.ToString();
+            if (TxtTargetGatherCount != null)
+            {
+                TxtTargetGatherCount.Text = _targetGatherCount.ToString();
+            }
             FilterGatherablesFull();
         }
     }
@@ -797,13 +804,17 @@ public partial class MainWindow : Window
         if (sender is Button btn && btn.Tag is string tag && int.TryParse(tag, out var delta))
         {
             _targetGatherCount = Math.Clamp(_targetGatherCount + delta, 1, 9999);
-            TxtTargetGatherCount.Text = _targetGatherCount.ToString();
+            if (TxtTargetGatherCount != null)
+            {
+                TxtTargetGatherCount.Text = _targetGatherCount.ToString();
+            }
             FilterGatherablesFull();
         }
     }
 
     private void TxtTargetGatherCount_TextChanged(object sender, TextChangedEventArgs e)
     {
+        if (!_isWindowLoaded || TxtTargetGatherCount == null) return;
         if (int.TryParse(TxtTargetGatherCount.Text, out var val) && val > 0)
         {
             _targetGatherCount = val;
@@ -813,6 +824,7 @@ public partial class MainWindow : Window
 
     private void TxtGatherSearchFull_TextChanged(object sender, TextChangedEventArgs e)
     {
+        if (!_isWindowLoaded) return;
         FilterGatherablesFull();
     }
 
