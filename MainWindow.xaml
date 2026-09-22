@@ -798,17 +798,32 @@
 
                                 <!-- 4. 채집 가능 전체 아이템 목록 -->
                                 <ListView x:Name="ListGatherablesView" Grid.Row="4" Background="{StaticResource BgCardSub}" BorderThickness="0" Foreground="{StaticResource TextPrimary}"
-                                          VirtualizingStackPanel.IsVirtualizing="True" VirtualizingStackPanel.VirtualizationMode="Recycling">
+                                          VirtualizingStackPanel.IsVirtualizing="True" VirtualizingStackPanel.VirtualizationMode="Recycling"
+                                          HorizontalContentAlignment="Stretch">
+                                    <ListView.ItemContainerStyle>
+                                        <Style TargetType="ListViewItem">
+                                            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                                            <Setter Property="Padding" Value="0"/>
+                                            <Setter Property="Margin" Value="0,0,0,6"/>
+                                            <Setter Property="Template">
+                                                <Setter.Value>
+                                                    <ControlTemplate TargetType="ListViewItem">
+                                                        <ContentPresenter HorizontalAlignment="Stretch"/>
+                                                    </ControlTemplate>
+                                                </Setter.Value>
+                                            </Setter>
+                                        </Style>
+                                    </ListView.ItemContainerStyle>
                                     <ListView.ItemTemplate>
                                         <DataTemplate>
-                                            <Border Background="#20232A" CornerRadius="6" Padding="12,10" Margin="0,0,0,6">
+                                            <Border Background="#20232A" CornerRadius="6" Padding="14,10" HorizontalAlignment="Stretch">
                                                 <Grid>
                                                     <Grid.ColumnDefinitions>
                                                         <ColumnDefinition Width="*"/>
                                                         <ColumnDefinition Width="Auto"/>
                                                     </Grid.ColumnDefinitions>
 
-                                                    <StackPanel Grid.Column="0">
+                                                    <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,12,0">
                                                         <StackPanel Orientation="Horizontal">
                                                             <TextBlock Text="{Binding DisplayName}" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" FontSize="15" VerticalAlignment="Center"/>
                                                             <Border Background="#2C3240" CornerRadius="4" Padding="6,2" Margin="8,0,0,0" VerticalAlignment="Center">
@@ -819,7 +834,7 @@
                                                     </StackPanel>
 
                                                     <Button Grid.Column="1" Click="BtnStartGatherTarget_Click" Tag="{Binding DisplayName}"
-                                                            Background="{StaticResource AccentGreen}" Foreground="White" FontWeight="Bold" FontSize="13" Padding="14,6" BorderThickness="0" Cursor="Hand" VerticalAlignment="Center">
+                                                            Background="{StaticResource AccentGreen}" Foreground="White" FontWeight="Bold" FontSize="13" Padding="14,8" MinWidth="104" BorderThickness="0" Cursor="Hand" VerticalAlignment="Center" HorizontalAlignment="Right">
                                                         <Button.Style>
                                                             <Style TargetType="Button">
                                                                 <Setter Property="Content" Value="수집 시작 ▶"/>

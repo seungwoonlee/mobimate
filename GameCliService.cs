@@ -56,7 +56,7 @@ public class GameCliService
                 proc = new Process();
                 proc.StartInfo.FileName = CliPath;
                 proc.StartInfo.UseShellExecute = false;
-                proc.StartInfo.RedirectStandardInput = stdinJson != null;
+                proc.StartInfo.RedirectStandardInput = false;
                 proc.StartInfo.RedirectStandardOutput = true;
                 proc.StartInfo.RedirectStandardError = true;
                 proc.StartInfo.StandardOutputEncoding = Encoding.UTF8;
@@ -73,13 +73,13 @@ public class GameCliService
                     }
                 }
 
-                proc.Start();
-
-                if (stdinJson != null)
+                // CLI는 본문(JSON)을 커맨드라인 아규먼트로 수신함
+                if (!string.IsNullOrEmpty(stdinJson))
                 {
-                    await proc.StandardInput.WriteAsync(stdinJson.AsMemory(), linkedCts.Token);
-                    proc.StandardInput.Close();
+                    proc.StartInfo.ArgumentList.Add(stdinJson);
                 }
+
+                proc.Start();
 
                 var stdoutTask = proc.StandardOutput.ReadToEndAsync(linkedCts.Token);
                 var stderrTask = proc.StandardError.ReadToEndAsync(linkedCts.Token);
