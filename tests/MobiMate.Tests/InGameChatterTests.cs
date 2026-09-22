@@ -103,9 +103,7 @@ public class InGameChatterTests
             Assert.Equal("가방_과적", category);
 
             var line = PersonaTemplates.GetRandomTemplate(ChatterPersona.MorningSpirit, ctx);
-            Assert.True(line.Contains("가방") || line.Contains("무게") || line.Contains("100%") ||
-                        line.Contains("기어다니닝") || line.Contains("다이어트") || line.Contains("창고") ||
-                        line.Contains("잡템") || line.Contains("천근만근") || line.Contains("정리"));
+            Assert.Contains(line, PersonaTemplatesData.MorningLines["가방_과적"]);
         }
     }
 
@@ -122,10 +120,7 @@ public class InGameChatterTests
 
         Assert.Contains("닝", gLine);
         Assert.Contains("닝", cLine);
-        Assert.True(cLine.Contains("채집") || cLine.Contains("쌀먹") || cLine.Contains("형들") ||
-                    cLine.Contains("꿀팁") || cLine.Contains("대성공") || cLine.Contains("재료") ||
-                    cLine.Contains("도구") || cLine.Contains("사과") || cLine.Contains("광석") ||
-                    cLine.Contains("곡괭이") || cLine.Contains("루트"));
+        Assert.Contains(cLine, PersonaTemplatesData.MorningLines["채집_자연"]);
     }
 
     [Theory]
