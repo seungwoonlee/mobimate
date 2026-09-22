@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Threading.Tasks;
 using Xunit;
 
@@ -98,9 +99,13 @@ public class InGameChatterTests
 
         foreach (var ctx in overContexts)
         {
+            var category = PersonaTemplates.DetermineCategory(ctx);
+            Assert.Equal("가방_과적", category);
+
             var line = PersonaTemplates.GetRandomTemplate(ChatterPersona.MorningSpirit, ctx);
-            // 모닝이의 100% 초과 가방 대사는 "100%", "기어다니닝", "다이어트" 포함
-            Assert.True(line.Contains("100%") || line.Contains("기어다니닝") || line.Contains("다이어트"));
+            Assert.True(line.Contains("가방") || line.Contains("무게") || line.Contains("100%") ||
+                        line.Contains("기어다니닝") || line.Contains("다이어트") || line.Contains("창고") ||
+                        line.Contains("잡템") || line.Contains("천근만근") || line.Contains("정리"));
         }
     }
 
@@ -110,12 +115,17 @@ public class InGameChatterTests
         var generalCtx = new ChatterContext("류트", "전사", 50, 30000, "휴식", "티르코네일", "정상", "50000");
         var gatherCtx = new ChatterContext("류트", "전사", 50, 30000, "채집 중", "티르코네일", "정상", "50000");
 
+        Assert.Equal("채집_자연", PersonaTemplates.DetermineCategory(gatherCtx));
+
         var gLine = PersonaTemplates.GetRandomTemplate(ChatterPersona.MorningSpirit, generalCtx);
         var cLine = PersonaTemplates.GetRandomTemplate(ChatterPersona.MorningSpirit, gatherCtx);
 
         Assert.Contains("닝", gLine);
         Assert.Contains("닝", cLine);
-        Assert.True(cLine.Contains("쌀먹") || cLine.Contains("형들") || cLine.Contains("꿀팁") || cLine.Contains("대성공"));
+        Assert.True(cLine.Contains("채집") || cLine.Contains("쌀먹") || cLine.Contains("형들") ||
+                    cLine.Contains("꿀팁") || cLine.Contains("대성공") || cLine.Contains("재료") ||
+                    cLine.Contains("도구") || cLine.Contains("사과") || cLine.Contains("광석") ||
+                    cLine.Contains("곡괭이") || cLine.Contains("루트"));
     }
 
     [Theory]
@@ -288,5 +298,116 @@ public class InGameChatterTests
         sm.UpdateSnapshot(ch2, currencies1, null);
         Assert.Equal(2, profile.History.Count);
         Assert.Equal(85000, profile.History[1].CombatScore);
+    }
+
+    [Fact]
+    public void PersonaTemplates_TotalCount_Exceeds_800()
+    {
+        // 5대 페르소나의 전체 대사 총합 계산
+        var pools = new[]
+        {
+            PersonaTemplatesData.VillainessLines,
+            PersonaTemplatesData.ScroogeLines,
+            PersonaTemplatesData.MorningLines,
+            PersonaTemplatesData.GyeongsangLines,
+            PersonaTemplatesData.IdolDancerLines
+        };
+
+        var total = 0;
+        foreach (var pool in pools)
+        {
+            Assert.True(pool.Count == 12); // 12대 카테고리 전수 구비 확인
+            foreach (var kvp in pool)
+            {
+                total += kvp.Value.Length;
+                // 각 문장이 50자 이내 규칙 준수하는지 전수 검증
+                foreach (var line in kvp.Value)
+                {
+                    Assert.True(line.Length <= 45, $"문장 길이 초과 ({line.Length}자): {line}");
+                }
+            }
+        }
+
+        Assert.True(total >= 800, $"템플릿 총합({total}개)이 800개 이상이어야 합니다.");
+    }
+
+    [Fact]
+    public void PersonaTemplates_12Categories_Routing()
+    {
+        // 1. 가방 과적 (100%+)
+        var ctxOver = new ChatterContext("류트", "전사", 50, 10000, "전투", "던전", "가방 무게 100%", "10000");
+        Assert.Equal("가방_과적", PersonaTemplates.DetermineCategory(ctxOver));
+
+        // 2. 보스 레이드
+        var ctxBoss = new ChatterContext("류트", "전사", 50, 10000, "글라스기브넨 보스 레이드", "어비스", "정상", "10000");
+        Assert.Equal("전투_보스레이드", PersonaTemplates.DetermineCategory(ctxBoss));
+
+        // 3. 일반 전투
+        var ctxCombat = new ChatterContext("류트", "전사", 50, 10000, "필드 몬스터 사냥 중", "가이레흐", "정상", "10000");
+        Assert.Equal("전투_일반", PersonaTemplates.DetermineCategory(ctxCombat));
+
+        // 4. 낚시
+        var ctxFish = new ChatterContext("류트", "전사", 50, 10000, "낚시 중", "이멘마하 호수", "정상", "10000");
+        Assert.Equal("낚시", PersonaTemplates.DetermineCategory(ctxFish));
+
+        // 5. 생산 가공
+        var ctxCraft = new ChatterContext("류트", "전사", 50, 10000, "가공 시설 작업 중", "작업대", "정상", "10000");
+        Assert.Equal("생산_가공", PersonaTemplates.DetermineCategory(ctxCraft));
+
+        // 6. 자연 채집
+        var ctxGather = new ChatterContext("류트", "전사", 50, 10000, "벌목 작업 중", "벌목 캠프", "정상", "10000");
+        Assert.Equal("채집_자연", PersonaTemplates.DetermineCategory(ctxGather));
+
+        // 7. 골드 부족
+        var ctxNoGold = new ChatterContext("류트", "전사", 50, 10000, "휴식", "티르코네일", "정상", "0 골드 (부족)");
+        Assert.Equal("골드_부족", PersonaTemplates.DetermineCategory(ctxNoGold));
+
+        // 8. 골드 부자 (500만 골드 이상)
+        var ctxRich = new ChatterContext("류트", "전사", 50, 10000, "휴식", "티르코네일", "정상", "10,000,000 골드");
+        Assert.Equal("골드_부자", PersonaTemplates.DetermineCategory(ctxRich));
+
+        // 9. 마을 휴식
+        var ctxTown = new ChatterContext("류트", "전사", 50, 10000, "마을 휴식 중", "던바튼 광장", "정상", "100,000 골드");
+        Assert.Equal("마을_휴식", PersonaTemplates.DetermineCategory(ctxTown));
+    }
+
+    [Fact]
+    public void CustomPersona_Save_Load_Delete()
+    {
+        var tempDir = Path.Combine(Path.GetTempPath(), "MobiMateTest_Persona_" + Guid.NewGuid().ToString("N"));
+        var sm = new SnapshotManager(tempDir);
+
+        try
+        {
+            // 1. 초기 상태 빈 목록
+            var initial = sm.LoadCustomPersonas();
+            Assert.Empty(initial);
+
+            // 2. 저장
+            var cp = new CustomPersona
+            {
+                Name = "츤데레 메이드",
+                TagEmoji = "🎀",
+                SystemPrompt = "도도하지만 주인을 챙기는 메이드. 어미로 '~라구요!' 사용."
+            };
+            sm.SaveCustomPersona(cp);
+
+            // 3. 파일에서 재로드 확인
+            var reloaded = sm.LoadCustomPersonas();
+            Assert.Single(reloaded);
+            Assert.Equal("츤데레 메이드", reloaded[0].Name);
+            Assert.Equal("🎀 츤데레 메이드", reloaded[0].DisplayName);
+            Assert.Equal("도도하지만 주인을 챙기는 메이드. 어미로 '~라구요!' 사용.", reloaded[0].SystemPrompt);
+
+            // 4. 삭제 확인
+            var deleted = sm.DeleteCustomPersona(cp.Id);
+            Assert.True(deleted);
+            var afterDelete = sm.LoadCustomPersonas();
+            Assert.Empty(afterDelete);
+        }
+        finally
+        {
+            if (Directory.Exists(tempDir)) Directory.Delete(tempDir, true);
+        }
     }
 }

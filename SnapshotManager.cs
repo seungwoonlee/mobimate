@@ -83,6 +83,7 @@ public class SnapshotManager
     private readonly string _storageDir;
     private readonly string _storageFile;
     private readonly string _dbStorageFile;
+    private readonly string _customPersonasFile;
     private readonly string _legacyStorageFile;
     private readonly string _legacyDbStorageFile;
 
@@ -94,6 +95,7 @@ public class SnapshotManager
     public string StorageDirectory => _storageDir;
     public string SnapshotsFilePath => _storageFile;
     public string CharacterDbFilePath => _dbStorageFile;
+    public string CustomPersonasFilePath => _customPersonasFile;
 
     public SnapshotManager(string? customStorageDir = null)
     {
@@ -103,6 +105,7 @@ public class SnapshotManager
 
         _storageFile = Path.Combine(_storageDir, "character_snapshots.json");
         _dbStorageFile = Path.Combine(_storageDir, "character_history_db.json");
+        _customPersonasFile = Path.Combine(_storageDir, "custom_personas.json");
         _legacyStorageFile = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "character_snapshots.json");
         _legacyDbStorageFile = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "character_history_db.json");
 
@@ -488,4 +491,77 @@ public class SnapshotManager
         var arrow = diff > 0 ? "▲" : "▼";
         return $"{sign}{diff:F1} {arrow}";
     }
+
+    // ================= 4. 커스텀 페르소나 영구 저장 (custom_personas.json) =================
+    public List<CustomPersona> LoadCustomPersonas()
+    {
+        lock (_lock)
+        {
+            try
+            {
+                if (File.Exists(_customPersonasFile))
+                {
+                    var json = File.ReadAllText(_customPersonasFile);
+                    var list = JsonSerializer.Deserialize<List<CustomPersona>>(json);
+                    return list ?? new List<CustomPersona>();
+                }
+            }
+            catch { }
+            return new List<CustomPersona>();
+        }
+    }
+
+    public void SaveCustomPersona(CustomPersona persona)
+    {
+        if (persona == null || string.IsNullOrWhiteSpace(persona.Name)) return;
+
+        lock (_lock)
+        {
+            try
+            {
+                var list = LoadCustomPersonas();
+                var idx = list.FindIndex(p => p.Id == persona.Id);
+                if (idx >= 0)
+                {
+                    list[idx] = persona;
+                }
+                else
+                {
+                    list.Add(persona);
+                }
+
+                if (!Directory.Exists(_storageDir))
+                {
+                    Directory.CreateDirectory(_storageDir);
+                }
+
+                var json = JsonSerializer.Serialize(list, new JsonSerializerOptions { WriteIndented = true });
+                File.WriteAllText(_customPersonasFile, json);
+            }
+            catch { }
+        }
+    }
+
+    public bool DeleteCustomPersona(string personaId)
+    {
+        if (string.IsNullOrWhiteSpace(personaId)) return false;
+
+        lock (_lock)
+        {
+            try
+            {
+                var list = LoadCustomPersonas();
+                var removed = list.RemoveAll(p => p.Id == personaId);
+                if (removed > 0)
+                {
+                    var json = JsonSerializer.Serialize(list, new JsonSerializerOptions { WriteIndented = true });
+                    File.WriteAllText(_customPersonasFile, json);
+                    return true;
+                }
+            }
+            catch { }
+            return false;
+        }
+    }
 }
+
