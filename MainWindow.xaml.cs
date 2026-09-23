@@ -1118,12 +1118,7 @@ public partial class MainWindow : Window
         var viewItems = pcs
             .OrderByDescending(p => p.CombatScore)
             .ThenBy(p => p.Distance)
-            .Select(p => new NearPcViewItem
-            {
-                Raw = p,
-                JobIcon = GetJobIcon(p.JobName),
-                IsStronger = myCombatScore > 0 && p.CombatScore > myCombatScore
-            })
+            .Select(p => NearPcViewItem.FromRaw(p, GetJobIcon(p.JobName), myCombatScore > 0 && p.CombatScore > myCombatScore))
             .ToList();
 
         ListNearPcsView.ItemsSource = viewItems;

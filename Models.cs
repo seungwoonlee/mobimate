@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
+using System.Windows.Media;
 
 namespace MobiMate;
 
@@ -101,6 +102,21 @@ public record AlteringWorksResponse(
     [property: JsonPropertyName("works")] List<AlteringWorkItem>? Works
 );
 
+public static class BrushHelper
+{
+    public static readonly SolidColorBrush Red = CreateFrozenBrush(0xFF, 0x6B, 0x6B);
+    public static readonly SolidColorBrush Gold = CreateFrozenBrush(0xF5, 0xD0, 0x61);
+    public static readonly SolidColorBrush Green = CreateFrozenBrush(0x4E, 0xBA, 0x6F);
+    public static readonly SolidColorBrush Gray = CreateFrozenBrush(0x8E, 0x92, 0x97);
+
+    private static SolidColorBrush CreateFrozenBrush(byte r, byte g, byte b)
+    {
+        var brush = new SolidColorBrush(Color.FromRgb(r, g, b));
+        brush.Freeze();
+        return brush;
+    }
+}
+
 public record AlteringWorkItem(
     [property: JsonPropertyName("DisplayName")] string DisplayName,
     [property: JsonPropertyName("FacilityName")] string FacilityName,
@@ -112,6 +128,7 @@ public record AlteringWorkItem(
     public bool IsDone => IsCompleted || RemainingSeconds == 0;
     public string StatusText => IsDone ? "수거 대기 ✅" : $"{RemainingSeconds:N0}초 남음 ⏳";
     public string StatusColor => IsDone ? "#4EBA6F" : "#F5D061";
+    public Brush StatusBrush => IsDone ? BrushHelper.Green : BrushHelper.Gold;
 }
 
 // 8. 채집 (get_gatherable_items)
@@ -170,21 +187,53 @@ public class GatherableDisplayItem
 
 public class NearPcViewItem
 {
-    public NearPcItem Raw { get; set; } = null!;
-    public double Distance => Raw.Distance;
-    public int Level => Raw.Level;
-    public string JobName => Raw.JobName;
+    private NearPcItem _raw = null!;
+    public NearPcItem Raw
+    {
+        get => _raw;
+        set
+        {
+            _raw = value;
+            if (value != null)
+            {
+                Distance = value.Distance;
+                Level = value.Level;
+                JobName = value.JobName;
+                CombatScore = value.CombatScore;
+                RealmName = value.RealmName;
+                Title = value.Title;
+                IsSameGuild = value.IsSameGuild;
+            }
+        }
+    }
+
+    public double Distance { get; set; }
+    public int Level { get; set; }
+    public string JobName { get; set; } = "";
     public string JobIcon { get; set; } = "⭐";
-    public long CombatScore => Raw.CombatScore;
-    public string RealmName => Raw.RealmName;
-    public string? Title => Raw.Title;
-    public bool IsSameGuild => Raw.IsSameGuild;
+    public long CombatScore { get; set; }
+    public string RealmName { get; set; } = "";
+    public string? Title { get; set; }
+    public bool IsSameGuild { get; set; }
     public bool IsStronger { get; set; }
     public string GuildBadge => IsSameGuild ? "🛡️ 우리 길드원" : "";
     public string GuildBadgeColor => IsSameGuild ? "#4EBA6F" : "#8E9297";
+    public Brush GuildBadgeBrush => IsSameGuild ? BrushHelper.Green : BrushHelper.Gray;
     public string StrongerBadge => IsStronger ? "⚔️ 강력 (나보다 높음)" : "";
     public string CombatScoreColor => IsStronger ? "#FF6B6B" : "#F5D061";
+    public Brush CombatScoreBrush => IsStronger ? BrushHelper.Red : BrushHelper.Gold;
     public string TitleWithRealm => string.IsNullOrEmpty(Title) ? $"[{RealmName}]" : $"[{Title}] ({RealmName})";
+    public string JobWithLevel => $"{JobIcon} {JobName} Lv.{Level}";
+
+    public static NearPcViewItem FromRaw(NearPcItem p, string jobIcon, bool isStronger)
+    {
+        return new NearPcViewItem
+        {
+            Raw = p,
+            JobIcon = jobIcon,
+            IsStronger = isStronger
+        };
+    }
 }
 
 public class CurrencyCategoryGroup

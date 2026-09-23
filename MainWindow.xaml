@@ -736,14 +736,14 @@
                                                     <Grid>
                                                         <StackPanel>
                                                             <StackPanel Orientation="Horizontal">
-                                                                <TextBlock Text="{Binding DisplayName}" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" FontSize="16"/>
+                                                                <TextBlock Text="{Binding DisplayName, Mode=OneWay}" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" FontSize="16"/>
                                                                 <Border Background="#1C3829" CornerRadius="4" Padding="6,2" Margin="8,0,0,0" VerticalAlignment="Center">
-                                                                    <TextBlock Text="{Binding StatusText}" FontSize="11" Foreground="{Binding StatusColor}" FontWeight="Bold"/>
+                                                                    <TextBlock Text="{Binding StatusText, Mode=OneWay}" FontSize="11" Foreground="{Binding StatusBrush, Mode=OneWay}" FontWeight="Bold"/>
                                                                 </Border>
                                                             </StackPanel>
-                                                            <TextBlock Text="{Binding FacilityName, StringFormat='작업 시설: {0}'}" Foreground="{StaticResource TextSecondary}" FontSize="13" Margin="0,4,0,0"/>
+                                                            <TextBlock Text="{Binding FacilityName, Mode=OneWay, StringFormat='작업 시설: {0}'}" Foreground="{StaticResource TextSecondary}" FontSize="13" Margin="0,4,0,0"/>
                                                         </StackPanel>
-                                                        <TextBlock HorizontalAlignment="Right" VerticalAlignment="Center" Text="{Binding RemainingSeconds, StringFormat='남은 시간: {0}초'}" Foreground="{Binding StatusColor}" FontWeight="Bold" FontSize="14"/>
+                                                        <TextBlock HorizontalAlignment="Right" VerticalAlignment="Center" Text="{Binding RemainingSeconds, Mode=OneWay, StringFormat='남은 시간: {0}초'}" Foreground="{Binding StatusBrush, Mode=OneWay}" FontWeight="Bold" FontSize="14"/>
                                                     </Grid>
                                                 </Border>
                                             </DataTemplate>
@@ -897,8 +897,8 @@
                                         <GridViewColumn.CellTemplate>
                                             <DataTemplate>
                                                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                                    <TextBlock Text="{Binding CombatScore, StringFormat='{}{0:N0}'}" FontWeight="Bold" FontSize="15" Foreground="{Binding CombatScoreColor}"/>
-                                                    <TextBlock Text="{Binding StrongerBadge}" FontWeight="Bold" FontSize="12" Foreground="#FF6B6B" Margin="8,0,0,0" VerticalAlignment="Center"/>
+                                                    <TextBlock Text="{Binding CombatScore, Mode=OneWay, StringFormat='{}{0:N0}'}" FontWeight="Bold" FontSize="15" Foreground="{Binding CombatScoreBrush, Mode=OneWay}"/>
+                                                    <TextBlock Text="{Binding StrongerBadge, Mode=OneWay}" FontWeight="Bold" FontSize="12" Foreground="{Binding CombatScoreBrush, Mode=OneWay}" Margin="8,0,0,0" VerticalAlignment="Center"/>
                                                 </StackPanel>
                                             </DataTemplate>
                                         </GridViewColumn.CellTemplate>
@@ -906,28 +906,22 @@
                                     <GridViewColumn Header="직업 및 레벨" Width="190">
                                         <GridViewColumn.CellTemplate>
                                             <DataTemplate>
-                                                <TextBlock VerticalAlignment="Center">
-                                                    <Run Text="{Binding JobIcon}" FontSize="15"/>
-                                                    <Run Text=" "/>
-                                                    <Run Text="{Binding JobName}" FontWeight="Bold"/>
-                                                    <Run Text=" Lv."/>
-                                                    <Run Text="{Binding Level}"/>
-                                                </TextBlock>
+                                                <TextBlock Text="{Binding JobWithLevel, Mode=OneWay}" FontWeight="Bold" VerticalAlignment="Center"/>
                                             </DataTemplate>
                                         </GridViewColumn.CellTemplate>
                                     </GridViewColumn>
                                     <GridViewColumn Header="길드 소속" Width="140">
                                         <GridViewColumn.CellTemplate>
                                             <DataTemplate>
-                                                <TextBlock Text="{Binding GuildBadge}" FontWeight="Bold" Foreground="{Binding GuildBadgeColor}" VerticalAlignment="Center"/>
+                                                <TextBlock Text="{Binding GuildBadge, Mode=OneWay}" FontWeight="Bold" Foreground="{Binding GuildBadgeBrush, Mode=OneWay}" VerticalAlignment="Center"/>
                                             </DataTemplate>
                                         </GridViewColumn.CellTemplate>
                                     </GridViewColumn>
-                                    <GridViewColumn Header="거리 (m)" Width="90" DisplayMemberBinding="{Binding Distance, StringFormat='{}{0:F1}m'}"/>
+                                    <GridViewColumn Header="거리 (m)" Width="90" DisplayMemberBinding="{Binding Distance, Mode=OneWay, StringFormat='{}{0:F1}m'}"/>
                                     <GridViewColumn Header="칭호 / 서버" Width="220">
                                         <GridViewColumn.CellTemplate>
                                             <DataTemplate>
-                                                <TextBlock Text="{Binding TitleWithRealm}" Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center"/>
+                                                <TextBlock Text="{Binding TitleWithRealm, Mode=OneWay}" Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center"/>
                                             </DataTemplate>
                                         </GridViewColumn.CellTemplate>
                                     </GridViewColumn>

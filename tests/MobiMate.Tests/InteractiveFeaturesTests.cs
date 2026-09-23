@@ -395,12 +395,7 @@ public class InteractiveFeaturesTests
         var viewItems = pcs
             .OrderByDescending(p => p.CombatScore)
             .ThenBy(p => p.Distance)
-            .Select(p => new NearPcViewItem
-            {
-                Raw = p,
-                JobIcon = MainWindow.GetJobIcon(p.JobName),
-                IsStronger = myCombatScore > 0 && p.CombatScore > myCombatScore
-            })
+            .Select(p => NearPcViewItem.FromRaw(p, MainWindow.GetJobIcon(p.JobName), myCombatScore > 0 && p.CombatScore > myCombatScore))
             .ToList();
 
         // 1위: 95,000 (대검전사)
@@ -411,18 +406,27 @@ public class InteractiveFeaturesTests
         Assert.True(viewItems[0].IsSameGuild);
         Assert.Equal("🛡️ 우리 길드원", viewItems[0].GuildBadge);
         Assert.Equal("⚔️", viewItems[0].JobIcon);
+        Assert.Equal("⚔️ 대검전사 Lv.100", viewItems[0].JobWithLevel);
+        Assert.Equal(BrushHelper.Red, viewItems[0].CombatScoreBrush);
+        Assert.Equal(BrushHelper.Green, viewItems[0].GuildBadgeBrush);
 
         // 2위: 85,000 (원소술사)
         Assert.Equal("원소술사", viewItems[1].JobName);
         Assert.True(viewItems[1].IsStronger);
         Assert.False(viewItems[1].IsSameGuild);
         Assert.Equal("🔮", viewItems[1].JobIcon);
+        Assert.Equal("🔮 원소술사 Lv.90", viewItems[1].JobWithLevel);
+        Assert.Equal(BrushHelper.Red, viewItems[1].CombatScoreBrush);
+        Assert.Equal(BrushHelper.Gray, viewItems[1].GuildBadgeBrush);
 
         // 3위: 70,000 (궁수)
         Assert.Equal("궁수", viewItems[2].JobName);
         Assert.False(viewItems[2].IsStronger);
         Assert.Empty(viewItems[2].StrongerBadge);
         Assert.Equal("🏹", viewItems[2].JobIcon);
+        Assert.Equal("🏹 궁수 Lv.50", viewItems[2].JobWithLevel);
+        Assert.Equal(BrushHelper.Gold, viewItems[2].CombatScoreBrush);
+        Assert.Equal(BrushHelper.Gray, viewItems[2].GuildBadgeBrush);
     }
 
     [Fact]
@@ -432,11 +436,13 @@ public class InteractiveFeaturesTests
         Assert.True(doneWork.IsDone);
         Assert.Equal("수거 대기 ✅", doneWork.StatusText);
         Assert.Equal("#4EBA6F", doneWork.StatusColor);
+        Assert.Equal(BrushHelper.Green, doneWork.StatusBrush);
 
         var ongoingWork = new AlteringWorkItem("철괴", "용광로", "Working", false, 45);
         Assert.False(ongoingWork.IsDone);
         Assert.Equal("45초 남음 ⏳", ongoingWork.StatusText);
         Assert.Equal("#F5D061", ongoingWork.StatusColor);
+        Assert.Equal(BrushHelper.Gold, ongoingWork.StatusBrush);
     }
 }
 
