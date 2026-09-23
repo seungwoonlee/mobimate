@@ -87,24 +87,8 @@ public sealed class ChatterLineService
         return ChatText.Truncate(clean, MaxLineLength);
     }
 
-    /// <summary>에린 시간 포맷: 가상 연도(2959년)를 빼고 월/일/시각과 낮/밤 아이콘으로 정돈한다.</summary>
-    public static string FormatErinnTime(string? erinnNow)
-    {
-        if (string.IsNullOrWhiteSpace(erinnNow)) return "";
-
-        var match = Regex.Match(erinnNow, @"(?:(\d+)-)?(\d{1,2})-(\d{1,2})\s+(\d{1,2}):(\d{2})");
-        if (match.Success)
-        {
-            var month = int.Parse(match.Groups[2].Value);
-            var day = int.Parse(match.Groups[3].Value);
-            var hour = int.Parse(match.Groups[4].Value);
-            var minute = match.Groups[5].Value;
-            var isDay = hour >= 6 && hour < 18;
-            return $"에린 시간 {month}월 {day}일 {hour:D2}:{minute} {(isDay ? "☀️" : "🌙")} ({(isDay ? "낮" : "밤")})";
-        }
-
-        return $"에린 시간 {erinnNow}";
-    }
+    /// <summary>에린 시간 포맷. 형식은 DisplayFormat.ErinnTime(연도 포함, v1.1.0)을 따른다.</summary>
+    public static string FormatErinnTime(string? erinnNow) => DisplayFormat.ErinnTime(erinnNow);
 
     public static string GetPersonaDisplayName(ChatterPersona persona, CustomPersona? custom = null) => persona switch
     {

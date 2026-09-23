@@ -42,7 +42,7 @@ public class SnapshotManagerTests : IDisposable
     }
 
     [Fact]
-    public void ImportFromIfEmpty_CopiesWpfFilesOnce_AndNeverTouchesSource()
+    public void ImportMissingFrom_CopiesOnlyMissingFiles_AndNeverTouchesSource()
     {
         var wpfDir = Path.Combine(_testDir, "wpf");
         var webDir = Path.Combine(_testDir, "web");
@@ -53,11 +53,11 @@ public class SnapshotManagerTests : IDisposable
         var before = Directory.GetFiles(wpfDir).ToDictionary(f => f, File.ReadAllText);
 
         var web = new SnapshotManager(webDir);
-        Assert.True(web.ImportFromIfEmpty(wpfDir) >= 1);
+        Assert.True(web.ImportMissingFrom(wpfDir) >= 1);
         Assert.Equal("별명", web.GetProfile("아이라", "격투가")?.CustomName);
 
-        // 이미 기록이 있으면 다시 가져오지 않는다
-        Assert.Equal(0, web.ImportFromIfEmpty(wpfDir));
+        // 이미 있는 파일은 다시 가져오지 않는다 (파일별 규칙)
+        Assert.Equal(0, web.ImportMissingFrom(wpfDir));
 
         // 원본은 바뀌지 않는다
         web.SetCustomName("아이라", "격투가", "웹에서 바꿈");

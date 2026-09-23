@@ -117,8 +117,8 @@
     "HasShortcut": true
   },
   {
-    "Title": "주간 목표 8",
-    "Description": "주간 활동",
+    "Title": "선장님, 출정합니다!",
+    "Description": "레이드 1회 토벌",
     "CurrentCount": 1,
     "GoalCount": 1,
     "IsCompleted": true,
@@ -126,8 +126,8 @@
     "HasShortcut": true
   },
   {
-    "Title": "주간 목표 9",
-    "Description": "주간 활동",
+    "Title": "안 돼, 다시 돌아가",
+    "Description": "소환결계 1회 파괴",
     "CurrentCount": 1,
     "GoalCount": 1,
     "IsCompleted": true,

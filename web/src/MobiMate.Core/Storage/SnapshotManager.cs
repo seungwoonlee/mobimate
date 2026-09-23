@@ -102,7 +102,7 @@ public class SnapshotManager
     public static string DefaultStorageDirectory =>
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "MobiMateWeb");
 
-    /// <summary>WPF판 저장 폴더. 웹앱은 여기에 절대 쓰지 않고, ImportFromIfEmpty로 읽어서 복사만 한다.</summary>
+    /// <summary>WPF판 저장 폴더. 웹앱은 여기에 절대 쓰지 않고, ImportMissingFrom으로 읽어서 복사만 한다.</summary>
     public static string WpfStorageDirectory =>
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "MobiMate");
 
@@ -238,10 +238,11 @@ public class SnapshotManager
     }
 
     /// <summary>
-    /// 이 저장소가 비어 있을 때만 다른 폴더(보통 WPF판)의 기록 파일을 복사해 온다 (NFR-13).
+    /// 다른 폴더(보통 WPF판)의 기록 파일 중 이 저장소에 **없는 파일만** 복사해 온다 (NFR-13, 파일별 규칙).
     /// 원본 폴더에는 쓰지 않는다. 가져온 파일 수를 돌려준다. 가져온 뒤 메모리 상태를 다시 읽는다.
+    /// (숙제 기록은 형식 변환이 필요해 HomeworkStore.ImportFromWpfIfMissing이 따로 가져온다.)
     /// </summary>
-    public int ImportFromIfEmpty(string sourceDir)
+    public int ImportMissingFrom(string sourceDir)
     {
         if (string.IsNullOrWhiteSpace(sourceDir) ||
             Path.GetFullPath(sourceDir).TrimEnd('\\', '/').Equals(Path.GetFullPath(_storageDir).TrimEnd('\\', '/'), StringComparison.OrdinalIgnoreCase))
@@ -250,7 +251,6 @@ public class SnapshotManager
         }
 
         var targets = new[] { _storageFile, _dbStorageFile, _customPersonasFile };
-        if (targets.Any(File.Exists)) return 0;
 
         var copied = 0;
         foreach (var target in targets)
@@ -258,7 +258,7 @@ public class SnapshotManager
             var source = Path.Combine(sourceDir, Path.GetFileName(target));
             try
             {
-                if (!File.Exists(source)) continue;
+                if (File.Exists(target) || !File.Exists(source)) continue;
                 Directory.CreateDirectory(_storageDir);
                 File.Copy(source, target, overwrite: false);
                 copied++;

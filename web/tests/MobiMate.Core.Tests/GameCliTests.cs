@@ -166,6 +166,36 @@ public class GameCliTests
         Assert.Equal("안녕하세요 반가워요 😊", call.Args);
     }
 
+    [Fact]
+    public async Task FakeCliSamples_ThroughHomeworkEvaluation_ProduceNoFalsePositives()
+    {
+        // 실측과 같은 조건: 계정 도전과제 "레이드 1회 1/1", 목표 일부만 끝난 뱅가드 퀘스트(태그 포함), 이벤트 퀘스트가 슬롯 점유
+        using var env = new FakeCliEnv();
+        var cli = env.CreateCli();
+        var (okD, daily, _) = await cli.RunJsonAsync<List<MissionItem>>("get_daily_missions");
+        var (okW, weekly, _) = await cli.RunJsonAsync<List<MissionItem>>("get_weekly_missions");
+        var (okQ, quests, errQ) = await cli.RunJsonAsync<List<QuestItem>>("get_quests");
+        var (okA, act, _) = await cli.RunJsonAsync<ActivityInfo>("get_activity");
+        var (okE, envInfo, _) = await cli.RunJsonAsync<EnvironmentInfo>("get_current_environment");
+        Assert.True(okD && okW && okQ && okA && okE, errQ);
+        Assert.Contains(quests!, q => q.QuestTitle!.Contains("<color="));
+        Assert.Equal("페카 고분 심층 2층 3구역", envInfo!.GameSpaceDisplayName);
+
+        var dir = Path.Combine(env.Dir, "hw");
+        var svc = new HomeworkService(HomeworkCatalog.LoadEmbedded(), new HomeworkStore(dir), () => DateTimeOffset.UtcNow);
+        svc.Evaluate("아이라_격투가", new HomeworkObservation(daily, weekly, quests, act, envInfo));
+        var board = svc.GetBoard("아이라_격투가");
+
+        HomeworkCardStatus S(string id) => board.Cards.Single(c => c.Id == id).Status;
+        Assert.Equal(HomeworkCardStatus.Pending, S("raid_cavrak"));
+        Assert.Equal(HomeworkCardStatus.Pending, S("weekly_barrier_1_7"));
+        Assert.Equal(HomeworkCardStatus.Pending, S("weekly_vanguard_breach"));
+        Assert.Equal(HomeworkCardStatus.Pending, S("daily_day_dungeon"));
+        Assert.Equal(HomeworkCardStatus.AutoDone, S("daily_connect"));      // "에린에 돌아왔습니다" 1/1
+        Assert.Equal(HomeworkCardStatus.AutoDone, S("daily_dungeon_3"));    // "오늘도 던전 한 바퀴" 3/3
+        Assert.Equal(HomeworkCardStatus.Pending, S("daily_gather_3"));     // "자급자족의 삶" 1/3
+    }
+
     [Theory]
     [InlineData("execute_gathering", CliLane.LongRunning)]
     [InlineData("stop_action", CliLane.Priority)]
