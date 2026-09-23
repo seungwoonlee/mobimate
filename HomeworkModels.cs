@@ -79,6 +79,7 @@ namespace MobiMate
         public int GoalCount { get; set; } = 1;
         public DateTime? CompletedAt { get; set; }
         public bool IsAutoDetected { get; set; }
+        public bool ManualOverride { get; set; }
         public DateTime LastUpdated { get; set; } = DateTime.Now;
     }
 

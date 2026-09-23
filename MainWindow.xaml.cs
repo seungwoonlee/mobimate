@@ -974,6 +974,17 @@ public partial class MainWindow : Window
         }
     }
 
+    private void BtnResetHomeworkChecks_Click(object sender, RoutedEventArgs e)
+    {
+        var charKey = _lastCharInfo != null
+            ? $"{_lastCharInfo.RealmName}_{_lastCharInfo.JobName}"
+            : "Default_Player";
+
+        _homeworkService.ResetAllManual(charKey, DateTime.Now);
+        RefreshHomeworkUi();
+        ShowToast("현재 캐릭터의 모든 숙제 체크를 초기화했습니다.", true);
+    }
+
     // ================= 5. 생활 & 생산 탭 (150종 전체 스크롤 지원) =================
     private void UpdateLifeAndCraft(AlteringWorksResponse? alter, GatherableResponse? gather)
     {

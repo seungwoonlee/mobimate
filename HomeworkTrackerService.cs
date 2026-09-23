@@ -51,14 +51,19 @@ namespace MobiMate
                 if (!record.Items.TryGetValue(def.Id, out var state))
                     continue;
 
+                // 유저가 수동으로 오버라이드한 경우 자동 감지가 덮어쓰지 않음
+                if (state.ManualOverride)
+                    continue;
+
                 // 이미 완료 상태인 경우 (상태 영속화/Latch 보존)
                 if (state.IsCompleted)
                     continue;
 
                 bool newlyDone = false;
 
-                // Layer 1: 공식 미션 카운터 (Ground Truth - 완료 시 사라지는 퀘스트 문제 완벽 해결)
-                if (CheckLayer1OfficialMissions(def, ctx, out int missionCur, out int missionGoal, out bool missionDone))
+                // Layer 1: 오직 1:1 직결 미션 카운터(daily_missions_all, weekly_missions_all)만 공식 미션 카운터 직결
+                if (def.AutoMode == AutoDetectMode.DirectMission &&
+                    CheckLayer1OfficialMissions(def, ctx, out int missionCur, out int missionGoal, out bool missionDone))
                 {
                     state.CurrentCount = missionCur;
                     state.GoalCount = missionGoal;
@@ -129,6 +134,7 @@ namespace MobiMate
                 {
                     sibState.IsCompleted = isCompleted;
                     sibState.IsAutoDetected = isAuto;
+                    sibState.ManualOverride = !isAuto;
                     sibState.CompletedAt = isCompleted ? now : null;
                     sibState.CurrentCount = isCompleted ? sibState.GoalCount : 0;
                     sibState.LastUpdated = now;
@@ -137,7 +143,8 @@ namespace MobiMate
         }
 
         /// <summary>
-        /// Layer 1: 공식 미션 시스템(get_weekly_missions, get_daily_missions) 기반 확정 판정
+        /// Layer 1: 공식 미션 시스템(get_weekly_missions, get_daily_missions) 기반 전체 카운트 전용 판정
+        /// 주의: 계정 도전과제(레이드 1회, 소환결계 1회 등)는 특정 캐릭터의 주간 숙제와 1:1 대응되지 않으므로 개별 숙제를 임의 완료 처리하지 않음(오탐 방지).
         /// </summary>
         private bool CheckLayer1OfficialMissions(HomeworkDefinition def, HomeworkEvaluationContext ctx, out int currentCount, out int goalCount, out bool isDone)
         {
@@ -172,88 +179,27 @@ namespace MobiMate
                 return true;
             }
 
-            // 3. 필드 보스 공유 풀 (주간 미션: "필드 보스 1회 토벌" / "필드 보스 2회 토벌")
-            if (def.SharedPoolId == "field_boss_weekly")
+            // 3. AutoMode가 DirectMission으로 명시된 개별 미션 1:1 매칭 (daily_connect, daily_dungeon_3 등)
+            if (def.AutoMode == AutoDetectMode.DirectMission)
             {
-                var fbMission = missions.FirstOrDefault(m =>
-                    (m.Title != null && m.Title.Contains("필드 보스", StringComparison.OrdinalIgnoreCase)) ||
-                    (m.Description != null && m.Description.Contains("필드 보스", StringComparison.OrdinalIgnoreCase)));
-
-                if (fbMission != null)
+                foreach (var m in missions)
                 {
-                    currentCount = Math.Min(1, fbMission.CurrentCount);
-                    goalCount = 1;
-                    isDone = fbMission.IsCompleted || fbMission.CurrentCount >= 1;
-                    return true;
-                }
-            }
+                    var cleanTitle = (m.Title ?? "").Replace(" ", "");
+                    var cleanDesc = (m.Description ?? "").Replace(" ", "");
 
-            // 4. 레이드 3종 (주간 미션: "선장님, 출정합니다!" - "레이드 1회 토벌")
-            if (def.Category == HomeworkCategory.Raid)
-            {
-                var raidMission = missions.FirstOrDefault(m =>
-                    (m.Title != null && m.Title.Contains("레이드", StringComparison.OrdinalIgnoreCase)) ||
-                    (m.Description != null && m.Description.Contains("레이드", StringComparison.OrdinalIgnoreCase)));
-
-                if (raidMission != null && (raidMission.IsCompleted || raidMission.CurrentCount >= 1))
-                {
-                    currentCount = 1;
-                    goalCount = 1;
-                    isDone = true;
-                    return true;
-                }
-            }
-
-            // 5. 어비스 3종 (주간 미션: "심연이 나를 부른다" - "어비스 1회 토벌")
-            if (def.Category == HomeworkCategory.Abyss)
-            {
-                var abyssMission = missions.FirstOrDefault(m =>
-                    (m.Title != null && m.Title.Contains("어비스", StringComparison.OrdinalIgnoreCase)) ||
-                    (m.Description != null && m.Description.Contains("어비스", StringComparison.OrdinalIgnoreCase)));
-
-                if (abyssMission != null && (abyssMission.IsCompleted || abyssMission.CurrentCount >= 1))
-                {
-                    currentCount = 1;
-                    goalCount = 1;
-                    isDone = true;
-                    return true;
-                }
-            }
-
-            // 6. 뱅가드 브리치 (주간 미션: "우리 집에 왜 왔니?" - "뱅가드 브리치 3회 토벌")
-            if (def.Id == "weekly_vanguard_breach")
-            {
-                var vbMission = missions.FirstOrDefault(m =>
-                    (m.Title != null && m.Title.Contains("뱅가드", StringComparison.OrdinalIgnoreCase)) ||
-                    (m.Description != null && m.Description.Contains("뱅가드", StringComparison.OrdinalIgnoreCase)));
-
-                if (vbMission != null)
-                {
-                    currentCount = vbMission.CurrentCount;
-                    goalCount = vbMission.GoalCount > 0 ? vbMission.GoalCount : 3;
-                    isDone = vbMission.IsCompleted || currentCount >= goalCount;
-                    return true;
-                }
-            }
-
-            // 7. 일반 키워드 매칭 (공백 정규화 지원)
-            foreach (var m in missions)
-            {
-                var cleanTitle = (m.Title ?? "").Replace(" ", "");
-                var cleanDesc = (m.Description ?? "").Replace(" ", "");
-
-                foreach (var kw in def.MatchKeywords)
-                {
-                    var cleanKw = (kw ?? "").Replace(" ", "");
-                    if (string.IsNullOrEmpty(cleanKw)) continue;
-
-                    if (cleanTitle.Contains(cleanKw, StringComparison.OrdinalIgnoreCase) ||
-                        cleanDesc.Contains(cleanKw, StringComparison.OrdinalIgnoreCase))
+                    foreach (var kw in def.MatchKeywords)
                     {
-                        currentCount = m.CurrentCount;
-                        goalCount = m.GoalCount > 0 ? m.GoalCount : def.GoalCount;
-                        isDone = m.IsCompleted || currentCount >= goalCount;
-                        return true;
+                        var cleanKw = (kw ?? "").Replace(" ", "");
+                        if (string.IsNullOrEmpty(cleanKw)) continue;
+
+                        if (cleanTitle.Contains(cleanKw, StringComparison.OrdinalIgnoreCase) ||
+                            cleanDesc.Contains(cleanKw, StringComparison.OrdinalIgnoreCase))
+                        {
+                            currentCount = m.CurrentCount;
+                            goalCount = m.GoalCount > 0 ? m.GoalCount : def.GoalCount;
+                            isDone = m.IsCompleted || currentCount >= goalCount;
+                            return true;
+                        }
                     }
                 }
             }
@@ -373,6 +319,7 @@ namespace MobiMate
                 {
                     state.IsCompleted = nextCompleted;
                     state.IsAutoDetected = false; // 수동 조작
+                    state.ManualOverride = true;  // 유저 수동 조작 우선
                     state.CompletedAt = state.IsCompleted ? now : null;
                     state.CurrentCount = state.IsCompleted ? state.GoalCount : 0;
                     state.LastUpdated = now;
@@ -380,6 +327,11 @@ namespace MobiMate
 
                 _repository.SaveRecord(record);
             }
+        }
+
+        public HomeworkCharacterRecord ResetAllManual(string characterKey, DateTime now)
+        {
+            return _repository.ResetRecord(characterKey, now);
         }
 
         public List<HomeworkItemViewItem> GetViewItems(string characterKey, HomeworkCategory filterCategory, DateTime now)
