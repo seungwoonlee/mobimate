@@ -57,9 +57,12 @@ public partial class MainWindow : Window
 
     public MainWindow()
     {
+        App.LogTrace("MainWindow.ctor enter");
         EmergencyStopCommand = new RelayCommand(async _ => await EmergencyStopInternalAsync());
 
+        App.LogTrace("MainWindow.ctor calling InitializeComponent");
         InitializeComponent();
+        App.LogTrace("MainWindow.ctor InitializeComponent finished");
 
         DataContext = this;
         ListGameChatLogs.ItemsSource = GameChatLogs;
@@ -86,20 +89,26 @@ public partial class MainWindow : Window
 
         Loaded += async (s, e) =>
         {
+            App.LogTrace("MainWindow.Loaded enter");
             _isWindowLoaded = true;
             RefreshHomeworkUi();
             LoadCustomPersonasToUi();
+            App.LogTrace("MainWindow.Loaded calling LoadAiEnginesAsync");
             await LoadAiEnginesAsync();
+            App.LogTrace("MainWindow.Loaded calling RefreshHeaderOnlyAsync");
             await RefreshHeaderOnlyAsync();
+            App.LogTrace("MainWindow.Loaded calling RefreshCurrentTabAsync");
             await RefreshCurrentTabAsync();
 
             InitAutoRefreshTimer();
+            App.LogTrace("MainWindow.Loaded exit");
         };
 
         Closed += (s, e) =>
         {
             _autoRefreshTimer?.Stop();
         };
+        App.LogTrace("MainWindow.ctor exit");
     }
 
     // ================= 0. 인앱 비동기 토스트 알림 (MessageBox 완전 대체) =================

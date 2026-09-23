@@ -12,10 +12,32 @@ public partial class App : Application
 {
     protected override void OnStartup(StartupEventArgs e)
     {
+        LogTrace("App.OnStartup enter");
         base.OnStartup(e);
 
         DispatcherUnhandledException += App_DispatcherUnhandledException;
         AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
+        LogTrace("App.OnStartup exit");
+    }
+
+    public static void LogTrace(string msg)
+    {
+        try
+        {
+            var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+            var dir = Path.Combine(appData, "MobiMate");
+            Directory.CreateDirectory(dir);
+            var path = Path.Combine(dir, "startup_trace.log");
+
+            // 50KB 초과 시 정리하여 디스크 낭비 방지
+            if (File.Exists(path) && new FileInfo(path).Length > 50 * 1024)
+            {
+                File.Delete(path);
+            }
+
+            File.AppendAllText(path, $"[{DateTime.Now:HH:mm:ss.fff}] {msg}{Environment.NewLine}");
+        }
+        catch { }
     }
 
     private void App_DispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
