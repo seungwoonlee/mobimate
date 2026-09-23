@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Text.RegularExpressions;
 
 namespace MobiMate;
@@ -69,10 +70,10 @@ public static class PersonaTemplates
     {
         // 1. 긴급 상태: 가방 무게 100% 초과 판정
         var weight = ctx.WeightSummary ?? "";
-        var match = Regex.Match(weight, @"(\d+)%");
-        if (match.Success && int.TryParse(match.Groups[1].Value, out var pct))
+        var match = Regex.Match(weight, @"(\d+(?:\.\d+)?)\s*%");
+        if (match.Success && double.TryParse(match.Groups[1].Value, NumberStyles.Float, CultureInfo.InvariantCulture, out var pct))
         {
-            if (pct >= 100) return "가방_과적";
+            if (pct >= 100.0) return "가방_과적";
         }
         else if (weight.Contains("100% 초과") || weight.Contains("무게 초과") || weight.Contains("한도 초과"))
         {
