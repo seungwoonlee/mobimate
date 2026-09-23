@@ -882,7 +882,8 @@ public partial class MainWindow : Window
 
     private void RefreshHomeworkUi()
     {
-        if (!_isWindowLoaded || ListHomeworkCards == null || ProgHomeworkDaily == null || ProgHomeworkWeekly == null)
+        if (!_isWindowLoaded || ListHomeworkCards == null || ProgHomeworkDaily == null || ProgHomeworkWeekly == null ||
+            TxtHomeworkDailyStats == null || TxtHomeworkWeeklyStats == null || TxtHomeworkResetInfo == null)
             return;
 
         var charKey = _lastCharInfo != null
