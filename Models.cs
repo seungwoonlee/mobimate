@@ -117,6 +117,18 @@ public static class BrushHelper
     }
 }
 
+public static class TimeFormatHelper
+{
+    public static string FormatRemainingTime(int totalSeconds)
+    {
+        if (totalSeconds <= 0) return "수거 대기 ✅";
+        var t = TimeSpan.FromSeconds(totalSeconds);
+        if (t.TotalHours >= 1) return $"{(int)t.TotalHours}시간 {t.Minutes}분 {t.Seconds}초";
+        if (t.TotalMinutes >= 1) return $"{t.Minutes}분 {t.Seconds}초";
+        return $"{t.Seconds}초";
+    }
+}
+
 public record AlteringWorkItem(
     [property: JsonPropertyName("DisplayName")] string DisplayName,
     [property: JsonPropertyName("FacilityName")] string FacilityName,
@@ -126,7 +138,8 @@ public record AlteringWorkItem(
 )
 {
     public bool IsDone => IsCompleted || RemainingSeconds == 0;
-    public string StatusText => IsDone ? "수거 대기 ✅" : $"{RemainingSeconds:N0}초 남음 ⏳";
+    public string RemainingFormatted => TimeFormatHelper.FormatRemainingTime(RemainingSeconds);
+    public string StatusText => IsDone ? "수거 대기 ✅" : $"{RemainingFormatted} 남음 ⏳";
     public string StatusColor => IsDone ? "#4EBA6F" : "#F5D061";
     public Brush StatusBrush => IsDone ? BrushHelper.Green : BrushHelper.Gold;
 }
@@ -149,6 +162,7 @@ public record NearPcItem(
     [property: JsonPropertyName("Level")] int Level,
     [property: JsonPropertyName("EnabledCombatJobDisplayName")] string JobName,
     [property: JsonPropertyName("CombatScore")] long CombatScore,
+    [property: JsonPropertyName("HasGuild")] bool HasGuild,
     [property: JsonPropertyName("IsSameGuild")] bool IsSameGuild,
     [property: JsonPropertyName("IsInParty")] bool IsInParty,
     [property: JsonPropertyName("IsFriend")] bool IsFriend,
@@ -202,7 +216,11 @@ public class NearPcViewItem
                 CombatScore = value.CombatScore;
                 RealmName = value.RealmName;
                 Title = value.Title;
+                HasGuild = value.HasGuild;
                 IsSameGuild = value.IsSameGuild;
+                IsInParty = value.IsInParty;
+                IsFriend = value.IsFriend;
+                IsInCombat = value.IsInCombat;
             }
         }
     }
@@ -214,18 +232,39 @@ public class NearPcViewItem
     public long CombatScore { get; set; }
     public string RealmName { get; set; } = "";
     public string? Title { get; set; }
+    public bool HasGuild { get; set; }
     public bool IsSameGuild { get; set; }
+    public bool IsInParty { get; set; }
+    public bool IsFriend { get; set; }
+    public bool IsInCombat { get; set; }
     public bool IsStronger { get; set; }
+
+    public string JobDisplay => $"{JobIcon} {JobName}";
+    public string JobWithLevel => $"{JobIcon} {JobName} Lv.{Level}";
+
+    public string LevelWithGuild
+    {
+        get
+        {
+            var baseText = $"Lv.{Level}";
+            if (IsInParty) return $"{baseText} [파티원 👥]";
+            if (IsFriend) return $"{baseText} [친구 💖]";
+            if (IsSameGuild) return $"{baseText} [우리 길드원 🛡️]";
+            if (!HasGuild) return $"{baseText} (길드 없음)";
+            return baseText;
+        }
+    }
+
+    public string CombatScoreFormatted => IsInCombat ? $"{CombatScore:N0} (전투 중 ⚔️)" : $"{CombatScore:N0}";
     public string GuildBadge => IsSameGuild ? "🛡️ 우리 길드원" : "";
     public string GuildBadgeColor => IsSameGuild ? "#4EBA6F" : "#8E9297";
     public Brush GuildBadgeBrush => IsSameGuild ? BrushHelper.Green : BrushHelper.Gray;
     public string StrongerBadge => IsStronger ? "⚔️ 강력 (나보다 높음)" : "";
-    public string CombatScoreColor => IsStronger ? "#FF6B6B" : "#F5D061";
-    public Brush CombatScoreBrush => IsStronger ? BrushHelper.Red : BrushHelper.Gold;
+    public string CombatScoreColor => IsInCombat ? "#FF6B6B" : (IsStronger ? "#FF6B6B" : "#F5D061");
+    public Brush CombatScoreBrush => IsInCombat ? BrushHelper.Red : (IsStronger ? BrushHelper.Red : BrushHelper.Gold);
     public string TitleWithRealm => string.IsNullOrEmpty(Title) ? $"[{RealmName}]" : $"[{Title}] ({RealmName})";
-    public string JobWithLevel => $"{JobIcon} {JobName} Lv.{Level}";
 
-    public static NearPcViewItem FromRaw(NearPcItem p, string jobIcon, bool isStronger)
+    public static NearPcViewItem FromRaw(NearPcItem p, string jobIcon, bool isStronger = false)
     {
         return new NearPcViewItem
         {
@@ -241,4 +280,17 @@ public class CurrencyCategoryGroup
     public string CategoryName { get; set; } = "";
     public List<CurrencyItem> Items { get; set; } = new();
 }
+
+// 12. 퀘스트 (get_quests)
+public record QuestObjective(
+    [property: JsonPropertyName("Description")] string Description,
+    [property: JsonPropertyName("IsCompleted")] bool IsCompleted
+);
+
+public record QuestItem(
+    [property: JsonPropertyName("QuestTitle")] string QuestTitle,
+    [property: JsonPropertyName("Source")] string Source,
+    [property: JsonPropertyName("SourceDisplayName")] string SourceDisplayName,
+    [property: JsonPropertyName("Objectives")] List<QuestObjective> Objectives
+);
 

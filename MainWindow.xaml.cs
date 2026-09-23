@@ -1115,13 +1115,27 @@ public partial class MainWindow : Window
         if (pcs == null) return;
         var myCombatScore = _lastCharInfo?.CombatScore?.Value ?? 0L;
 
+        // 우선순위: 1) 파티원(0), 2) 친구(1), 3) 같은 길드원(2), 4) 일반 유저(3)
+        static int GetPriority(NearPcItem p)
+        {
+            if (p.IsInParty) return 0;
+            if (p.IsFriend) return 1;
+            if (p.IsSameGuild) return 2;
+            return 3;
+        }
+
         var viewItems = pcs
-            .OrderByDescending(p => p.CombatScore)
+            .OrderBy(GetPriority)
+            .ThenByDescending(p => p.CombatScore)
             .ThenBy(p => p.Distance)
             .Select(p => NearPcViewItem.FromRaw(p, GetJobIcon(p.JobName), myCombatScore > 0 && p.CombatScore > myCombatScore))
             .ToList();
 
         ListNearPcsView.ItemsSource = viewItems;
+        if (TxtRadarHeader != null)
+        {
+            TxtRadarHeader.Text = $"📡 내 주변 플레이어 실시간 레이더 ({viewItems.Count}명)";
+        }
     }
 
     // ================= 7. 하단 인게임 전체 채팅 (이모티콘 & 소셜 액션 연동) =================

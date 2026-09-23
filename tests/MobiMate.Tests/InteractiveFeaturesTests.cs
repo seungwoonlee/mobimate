@@ -387,46 +387,71 @@ public class InteractiveFeaturesTests
         long myCombatScore = 80000;
         var pcs = new List<NearPcItem>
         {
-            new("아이라", "초보", 10.0, 50, "궁수", 70000, false, false, false, false),
-            new("아이라", "영웅", 15.0, 100, "대검전사", 95000, true, false, false, false),
-            new("아이라", "달인", 5.0, 90, "원소술사", 85000, false, false, false, false)
+            // 1) 일반 유저 (전투력 99,000, 길드 있음, 전투 중)
+            new("아이라", "지존", 20.0, 100, "대검전사", 99000, true, false, false, false, true),
+            // 2) 일반 유저 (전투력 70,000, 길드 없음)
+            new("아이라", "초보", 10.0, 50, "궁수", 70000, false, false, false, false, false),
+            // 3) 같은 길드원 (전투력 85,000, 길드 있음)
+            new("아이라", "영웅", 15.0, 95, "격투가", 85000, true, true, false, false, false),
+            // 4) 파티원 (전투력 60,000, 길드 없음)
+            new("아이라", "친구", 5.0, 60, "원소술사", 60000, false, false, true, false, false)
         };
 
+        // 우선순위 정렬: 1) 파티원, 2) 친구, 3) 같은 길드원, 4) 일반 유저(전투력순)
+        static int GetPriority(NearPcItem p)
+        {
+            if (p.IsInParty) return 0;
+            if (p.IsFriend) return 1;
+            if (p.IsSameGuild) return 2;
+            return 3;
+        }
+
         var viewItems = pcs
-            .OrderByDescending(p => p.CombatScore)
+            .OrderBy(GetPriority)
+            .ThenByDescending(p => p.CombatScore)
             .ThenBy(p => p.Distance)
             .Select(p => NearPcViewItem.FromRaw(p, MainWindow.GetJobIcon(p.JobName), myCombatScore > 0 && p.CombatScore > myCombatScore))
             .ToList();
 
-        // 1위: 95,000 (대검전사)
-        Assert.Equal("대검전사", viewItems[0].JobName);
-        Assert.Equal(95000, viewItems[0].CombatScore);
-        Assert.True(viewItems[0].IsStronger);
-        Assert.Equal("⚔️ 강력 (나보다 높음)", viewItems[0].StrongerBadge);
-        Assert.True(viewItems[0].IsSameGuild);
-        Assert.Equal("🛡️ 우리 길드원", viewItems[0].GuildBadge);
-        Assert.Equal("⚔️", viewItems[0].JobIcon);
-        Assert.Equal("⚔️ 대검전사 Lv.100", viewItems[0].JobWithLevel);
-        Assert.Equal(BrushHelper.Red, viewItems[0].CombatScoreBrush);
-        Assert.Equal(BrushHelper.Green, viewItems[0].GuildBadgeBrush);
+        // 1위: 파티원 (전투력 60,000이지만 최상단 배치)
+        Assert.Equal("원소술사", viewItems[0].JobName);
+        Assert.True(viewItems[0].IsInParty);
+        Assert.Equal("Lv.60 [파티원 👥]", viewItems[0].LevelWithGuild);
+        Assert.Equal("🔮 원소술사", viewItems[0].JobDisplay);
 
-        // 2위: 85,000 (원소술사)
-        Assert.Equal("원소술사", viewItems[1].JobName);
-        Assert.True(viewItems[1].IsStronger);
-        Assert.False(viewItems[1].IsSameGuild);
-        Assert.Equal("🔮", viewItems[1].JobIcon);
-        Assert.Equal("🔮 원소술사 Lv.90", viewItems[1].JobWithLevel);
-        Assert.Equal(BrushHelper.Red, viewItems[1].CombatScoreBrush);
-        Assert.Equal(BrushHelper.Gray, viewItems[1].GuildBadgeBrush);
+        // 2위: 같은 길드원 (전투력 85,000)
+        Assert.Equal("격투가", viewItems[1].JobName);
+        Assert.True(viewItems[1].IsSameGuild);
+        Assert.Equal("Lv.95 [우리 길드원 🛡️]", viewItems[1].LevelWithGuild);
+        Assert.Equal("🗡️ 격투가", viewItems[1].JobDisplay);
 
-        // 3위: 70,000 (궁수)
-        Assert.Equal("궁수", viewItems[2].JobName);
-        Assert.False(viewItems[2].IsStronger);
-        Assert.Empty(viewItems[2].StrongerBadge);
-        Assert.Equal("🏹", viewItems[2].JobIcon);
-        Assert.Equal("🏹 궁수 Lv.50", viewItems[2].JobWithLevel);
-        Assert.Equal(BrushHelper.Gold, viewItems[2].CombatScoreBrush);
-        Assert.Equal(BrushHelper.Gray, viewItems[2].GuildBadgeBrush);
+        // 3위: 일반 유저 중 최고 전투력 (99,000, 전투 중)
+        Assert.Equal("대검전사", viewItems[2].JobName);
+        Assert.False(viewItems[2].IsSameGuild);
+        Assert.Equal("99,000 (전투 중 ⚔️)", viewItems[2].CombatScoreFormatted);
+        Assert.Equal(BrushHelper.Red, viewItems[2].CombatScoreBrush);
+        Assert.Equal("Lv.100", viewItems[2].LevelWithGuild); // 길드 있으나 우리 길드는 아님
+
+        // 4위: 일반 유저 (길드 없음)
+        Assert.Equal("궁수", viewItems[3].JobName);
+        Assert.False(viewItems[3].HasGuild);
+        Assert.Equal("Lv.50 (길드 없음)", viewItems[3].LevelWithGuild);
+        Assert.Equal("70,000", viewItems[3].CombatScoreFormatted);
+        Assert.Equal(BrushHelper.Gold, viewItems[3].CombatScoreBrush);
+    }
+
+    [Theory]
+    [InlineData(10995, "3시간 3분 15초")]
+    [InlineData(3600, "1시간 0분 0초")]
+    [InlineData(195, "3분 15초")]
+    [InlineData(60, "1분 0초")]
+    [InlineData(45, "45초")]
+    [InlineData(0, "수거 대기 ✅")]
+    [InlineData(-5, "수거 대기 ✅")]
+    public void TimeFormatHelper_FormatRemainingTime_ClassifiesCorrectly(int seconds, string expectedText)
+    {
+        var result = TimeFormatHelper.FormatRemainingTime(seconds);
+        Assert.Equal(expectedText, result);
     }
 
     [Fact]
@@ -435,12 +460,14 @@ public class InteractiveFeaturesTests
         var doneWork = new AlteringWorkItem("최고급 가죽", "방직기", "Completed", true, 0);
         Assert.True(doneWork.IsDone);
         Assert.Equal("수거 대기 ✅", doneWork.StatusText);
+        Assert.Equal("수거 대기 ✅", doneWork.RemainingFormatted);
         Assert.Equal("#4EBA6F", doneWork.StatusColor);
         Assert.Equal(BrushHelper.Green, doneWork.StatusBrush);
 
-        var ongoingWork = new AlteringWorkItem("철괴", "용광로", "Working", false, 45);
+        var ongoingWork = new AlteringWorkItem("철괴", "용광로", "Working", false, 10995);
         Assert.False(ongoingWork.IsDone);
-        Assert.Equal("45초 남음 ⏳", ongoingWork.StatusText);
+        Assert.Equal("3시간 3분 15초 남음 ⏳", ongoingWork.StatusText);
+        Assert.Equal("3시간 3분 15초", ongoingWork.RemainingFormatted);
         Assert.Equal("#F5D061", ongoingWork.StatusColor);
         Assert.Equal(BrushHelper.Gold, ongoingWork.StatusBrush);
     }

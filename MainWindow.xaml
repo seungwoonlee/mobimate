@@ -743,7 +743,7 @@
                                                             </StackPanel>
                                                             <TextBlock Text="{Binding FacilityName, Mode=OneWay, StringFormat='작업 시설: {0}'}" Foreground="{StaticResource TextSecondary}" FontSize="13" Margin="0,4,0,0"/>
                                                         </StackPanel>
-                                                        <TextBlock HorizontalAlignment="Right" VerticalAlignment="Center" Text="{Binding RemainingSeconds, Mode=OneWay, StringFormat='남은 시간: {0}초'}" Foreground="{Binding StatusBrush, Mode=OneWay}" FontWeight="Bold" FontSize="14"/>
+                                                        <TextBlock HorizontalAlignment="Right" VerticalAlignment="Center" Text="{Binding RemainingFormatted, Mode=OneWay, StringFormat='남은 시간: {0}'}" Foreground="{Binding StatusBrush, Mode=OneWay}" FontWeight="Bold" FontSize="14"/>
                                                     </Grid>
                                                 </Border>
                                             </DataTemplate>
@@ -756,18 +756,27 @@
                         <Border Grid.Column="1" Style="{StaticResource VisualCard}" Margin="8,0,0,0">
                             <Grid>
                                 <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto"/> <!-- 타이틀 -->
-                                    <RowDefinition Height="Auto"/> <!-- 카테고리 필터 바 -->
-                                    <RowDefinition Height="Auto"/> <!-- 목표 수량 설정 바 (프리셋 + 세밀조절) -->
-                                    <RowDefinition Height="Auto"/> <!-- 검색창 -->
-                                    <RowDefinition Height="*"/>    <!-- 채집 가능 아이템 목록 -->
+                                    <RowDefinition Height="Auto"/> <!-- 0. 타이틀 -->
+                                    <RowDefinition Height="Auto"/> <!-- 1. 카테고리 필터 + 검색 바 -->
+                                    <RowDefinition Height="Auto"/> <!-- 2. 목표 수량 설정 바 -->
+                                    <RowDefinition Height="*"/>    <!-- 3. 채집 가능 아이템 목록 -->
                                 </Grid.RowDefinitions>
 
                                 <!-- 0. 타이틀 -->
                                 <TextBlock Grid.Row="0" Text="🌾 스마트 채집 도우미 (목표 달성형 수집)" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" FontSize="17" Margin="0,0,0,8"/>
 
-                                <!-- 1. 카테고리 필터 바 -->
-                                <WrapPanel Grid.Row="1" Margin="0,0,0,8">
+                                <!-- 1. 카테고리 필터 바 및 검색창 (검색창이 가장 앞 라인에 배치) -->
+                                <WrapPanel Grid.Row="1" Margin="0,0,0,8" VerticalAlignment="Center">
+                                    <!-- 🔍 검색창 (가장 앞 배치) -->
+                                    <Border Background="#181B20" BorderBrush="#2D323E" BorderThickness="1" CornerRadius="6" Padding="6,2" Margin="0,0,8,5" VerticalAlignment="Center" Height="28">
+                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                            <TextBlock Text="🔍" FontSize="12" Foreground="{StaticResource TextSecondary}" Margin="2,0,4,0" VerticalAlignment="Center"/>
+                                            <TextBox x:Name="TxtGatherSearchFull" Width="140" Background="Transparent" Foreground="White" BorderThickness="0" FontSize="13"
+                                                     VerticalAlignment="Center" TextChanged="TxtGatherSearchFull_TextChanged"/>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <!-- 카테고리 필터 버튼군 -->
                                     <Button x:Name="BtnGatherCatAll" Content="전체" Click="BtnGatherCategory_Click" Tag="All" Background="{StaticResource AccentBlue}" Foreground="White" FontWeight="Bold" FontSize="13" BorderThickness="0" Padding="10,5" Margin="0,0,5,5" Cursor="Hand"/>
                                     <Button x:Name="BtnGatherCatLogging" Content="🪵 벌목" Click="BtnGatherCategory_Click" Tag="벌목" Background="#2A2D35" Foreground="{StaticResource TextPrimary}" FontWeight="Bold" FontSize="13" BorderThickness="0" Padding="10,5" Margin="0,0,5,5" Cursor="Hand"/>
                                     <Button x:Name="BtnGatherCatMining" Content="⛏️ 채광" Click="BtnGatherCategory_Click" Tag="채광" Background="#2A2D35" Foreground="{StaticResource TextPrimary}" FontWeight="Bold" FontSize="13" BorderThickness="0" Padding="10,5" Margin="0,0,5,5" Cursor="Hand"/>
@@ -808,19 +817,8 @@
                                     </Grid>
                                 </Border>
 
-                                <!-- 3. 검색창 -->
-                                <TextBox x:Name="TxtGatherSearchFull" Grid.Row="3" TextChanged="TxtGatherSearchFull_TextChanged"
-                                         Background="{StaticResource BgCardSub}" Foreground="{StaticResource TextPrimary}" BorderThickness="0"
-                                         Padding="12,8" FontSize="14" Margin="0,0,0,8">
-                                    <TextBox.Resources>
-                                        <Style TargetType="{x:Type Border}">
-                                            <Setter Property="CornerRadius" Value="6"/>
-                                        </Style>
-                                    </TextBox.Resources>
-                                </TextBox>
-
-                                <!-- 4. 채집 가능 전체 아이템 목록 -->
-                                <ListView x:Name="ListGatherablesView" Grid.Row="4" Background="{StaticResource BgCardSub}" BorderThickness="0" Foreground="{StaticResource TextPrimary}"
+                                <!-- 3. 채집 가능 전체 아이템 목록 -->
+                                <ListView x:Name="ListGatherablesView" Grid.Row="3" Background="{StaticResource BgCardSub}" BorderThickness="0" Foreground="{StaticResource TextPrimary}"
                                           VirtualizingStackPanel.IsVirtualizing="True" VirtualizingStackPanel.VirtualizationMode="Recycling"
                                           HorizontalContentAlignment="Stretch">
                                     <ListView.ItemContainerStyle>
@@ -888,43 +886,49 @@
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
-                        <TextBlock Grid.Row="0" Text="📡 내 주변 플레이어 실시간 레이더 (전투력 순 랭킹)" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" FontSize="17" Margin="0,0,0,12"/>
+                        <TextBlock x:Name="TxtRadarHeader" Grid.Row="0" Text="📡 내 주변 플레이어 실시간 레이더" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" FontSize="17" Margin="0,0,0,12"/>
                         <ListView x:Name="ListNearPcsView" Grid.Row="1" Background="{StaticResource BgCard}" BorderThickness="0" Foreground="{StaticResource TextPrimary}" FontSize="15"
                                   VirtualizingStackPanel.IsVirtualizing="True" VirtualizingStackPanel.VirtualizationMode="Recycling">
                             <ListView.View>
                                 <GridView>
-                                    <GridViewColumn Header="전투력" Width="210">
+                                    <!-- 1. 전투력 (전투 중 강조) -->
+                                    <GridViewColumn Header="전투력" Width="180">
                                         <GridViewColumn.CellTemplate>
                                             <DataTemplate>
-                                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                                    <TextBlock Text="{Binding CombatScore, Mode=OneWay, StringFormat='{}{0:N0}'}" FontWeight="Bold" FontSize="15" Foreground="{Binding CombatScoreBrush, Mode=OneWay}"/>
-                                                    <TextBlock Text="{Binding StrongerBadge, Mode=OneWay}" FontWeight="Bold" FontSize="12" Foreground="{Binding CombatScoreBrush, Mode=OneWay}" Margin="8,0,0,0" VerticalAlignment="Center"/>
-                                                </StackPanel>
+                                                <TextBlock Text="{Binding CombatScoreFormatted, Mode=OneWay}" FontWeight="Bold" FontSize="15" Foreground="{Binding CombatScoreBrush, Mode=OneWay}" VerticalAlignment="Center"/>
                                             </DataTemplate>
                                         </GridViewColumn.CellTemplate>
                                     </GridViewColumn>
-                                    <GridViewColumn Header="직업 및 레벨" Width="190">
+
+                                    <!-- 2. 직업 -->
+                                    <GridViewColumn Header="직업" Width="130">
                                         <GridViewColumn.CellTemplate>
                                             <DataTemplate>
-                                                <TextBlock Text="{Binding JobWithLevel, Mode=OneWay}" FontWeight="Bold" VerticalAlignment="Center"/>
+                                                <TextBlock Text="{Binding JobDisplay, Mode=OneWay}" FontWeight="Bold" FontSize="15" VerticalAlignment="Center"/>
                                             </DataTemplate>
                                         </GridViewColumn.CellTemplate>
                                     </GridViewColumn>
-                                    <GridViewColumn Header="길드 소속" Width="140">
+
+                                    <!-- 3. 레벨 (길드 없음 및 파티/친구/길드원 뱃지 표기) -->
+                                    <GridViewColumn Header="레벨" Width="160">
                                         <GridViewColumn.CellTemplate>
                                             <DataTemplate>
-                                                <TextBlock Text="{Binding GuildBadge, Mode=OneWay}" FontWeight="Bold" Foreground="{Binding GuildBadgeBrush, Mode=OneWay}" VerticalAlignment="Center"/>
+                                                <TextBlock Text="{Binding LevelWithGuild, Mode=OneWay}" FontWeight="Bold" FontSize="14" Foreground="{StaticResource TextPrimary}" VerticalAlignment="Center"/>
                                             </DataTemplate>
                                         </GridViewColumn.CellTemplate>
                                     </GridViewColumn>
-                                    <GridViewColumn Header="거리 (m)" Width="90" DisplayMemberBinding="{Binding Distance, Mode=OneWay, StringFormat='{}{0:F1}m'}"/>
-                                    <GridViewColumn Header="칭호 / 서버" Width="220">
+
+                                    <!-- 4. 칭호 / 서버 -->
+                                    <GridViewColumn Header="칭호 / 서버" Width="200">
                                         <GridViewColumn.CellTemplate>
                                             <DataTemplate>
                                                 <TextBlock Text="{Binding TitleWithRealm, Mode=OneWay}" Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center"/>
                                             </DataTemplate>
                                         </GridViewColumn.CellTemplate>
                                     </GridViewColumn>
+
+                                    <!-- 5. 거리 (맨 우측 배치) -->
+                                    <GridViewColumn Header="거리 (m)" Width="100" DisplayMemberBinding="{Binding Distance, Mode=OneWay, StringFormat='{}{0:F1}m'}"/>
                                 </GridView>
                             </ListView.View>
                         </ListView>
