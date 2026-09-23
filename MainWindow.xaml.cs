@@ -1484,8 +1484,11 @@ public partial class MainWindow : Window
         var currentEngine = _aiManager.CurrentEngine;
         var displayModelName = currentEngine?.Info.DisplayName ?? "AI 코파일럿";
 
-        // 1. 긴급 정지 키워드 즉각 처리
-        if (query.Contains("정지") || query.Contains("멈춰"))
+        var gatherNames = _allGatherables?.Select(g => g.DisplayName).ToList();
+        var intent = CommandIntentParser.Parse(query, gatherNames);
+
+        // 1. 긴급 정지 (W-04 엄격한 단독 명령 매칭)
+        if (intent.Kind == IntentKind.Stop)
         {
             _ = EmergencyStopInternalAsync();
             AiMessages.Add(new AiMessageEntry(displayModelName, "🛑 캐릭터의 진행 중인 행동(채집, 이동 등)을 즉시 긴급 정지시켰습니다!", false));
@@ -1493,8 +1496,15 @@ public partial class MainWindow : Window
             return;
         }
 
-        // 2. 일일 숙제 점검 키워드 처리
-        if (query.Contains("숙제") || query.Contains("일일 미션") || query.Contains("일일미션"))
+        // 2. AI 페르소나 자동 생성 및 영구 저장
+        if (intent.Kind == IntentKind.CreatePersona)
+        {
+            await HandleCreatePersonaIntentAsync(query, intent.PersonaConcept ?? "맞춤 스타일", currentEngine, displayModelName);
+            return;
+        }
+
+        // 3. 일일 숙제 점검 키워드 처리
+        if (intent.Kind == IntentKind.CheckDailyMissions)
         {
             BtnActionDailyMissions_Click(this, new RoutedEventArgs());
             AiMessages.Add(new AiMessageEntry(displayModelName, "📋 미션 탭으로 이동하여 잔여 일일 숙제 목록을 점검했습니다.", false));
@@ -1502,8 +1512,8 @@ public partial class MainWindow : Window
             return;
         }
 
-        // 3. 가방 다이어트 키워드 처리
-        if (query.Contains("다이어트") || query.Contains("가방 정리") || query.Contains("무게 줄여"))
+        // 4. 가방 다이어트 키워드 처리
+        if (intent.Kind == IntentKind.InventoryDiet)
         {
             BtnActionDiet_Click(this, new RoutedEventArgs());
             AiMessages.Add(new AiMessageEntry(displayModelName, "⚖️ 가방 다이어트 필터를 활성화하여 이번 세션에 급증한 잡템 및 무거운 물품을 우선 정렬했습니다.", false));
@@ -1511,8 +1521,8 @@ public partial class MainWindow : Window
             return;
         }
 
-        // 4. 가공 작업대 수거 키워드 처리
-        if (query.Contains("수거") || query.Contains("작업대") || query.Contains("가공물"))
+        // 5. 가공 작업대 수거 키워드 처리
+        if (intent.Kind == IntentKind.CollectWorks)
         {
             BtnActionCollectWorks_Click(this, new RoutedEventArgs());
             AiMessages.Add(new AiMessageEntry(displayModelName, "📥 완료된 가공 작업물 수거를 요청했습니다.", false));
@@ -1520,37 +1530,14 @@ public partial class MainWindow : Window
             return;
         }
 
-        // 5. 채집/낚시 자연어 명령 즉시 디스패치
-        var isGatherIntent = query.Contains("채집") || query.Contains("캐줘") || query.Contains("캐라") ||
-                             query.Contains("캐러") || query.Contains("모아줘") || query.Contains("수집") ||
-                             query.Contains("낚시") || query.Contains("낚아");
-
-        if (isGatherIntent)
+        // 6. 채집/낚시 자연어 명령 즉시 디스패치
+        if (intent.Kind == IntentKind.Gather && !string.IsNullOrWhiteSpace(intent.ItemName))
         {
-            if (_allGatherables == null || _allGatherables.Count == 0)
-            {
-                var (okG, gData, _) = await _cli.RunJsonAsync<GatherableResponse>("get_gatherable_items", timeoutSeconds: 4);
-                if (okG && gData?.Items != null)
-                {
-                    _allGatherables = gData.Items;
-                }
-            }
-
-            if (_allGatherables != null && _allGatherables.Count > 0)
-            {
-                // 질의문에서 채집 가능한 아이템 명칭 매칭 (긴 이름 우선 매칭)
-                var matched = _allGatherables
-                    .OrderByDescending(g => g.DisplayName.Length)
-                    .FirstOrDefault(g => query.Contains(g.DisplayName, StringComparison.OrdinalIgnoreCase));
-
-                if (matched != null)
-                {
-                    _ = StartGatherAsync(matched.DisplayName);
-                    AiMessages.Add(new AiMessageEntry(displayModelName, $"🌾 '{matched.DisplayName}' 채집을 즉시 시작합니다! 캐릭터가 채집 장소로 자동 이동합니다. (정령의 날개 5개 소모)", false));
-                    ScrollAiFeed.ScrollToBottom();
-                    return;
-                }
-            }
+            _ = StartGatherAsync(intent.ItemName, intent.Count ?? 0);
+            var countSuffix = intent.Count > 0 ? $" (목표 {intent.Count}개)" : "";
+            AiMessages.Add(new AiMessageEntry(displayModelName, $"🌾 '{intent.ItemName}' 채집을 즉시 시작합니다! 캐릭터가 채집 장소로 자동 이동합니다.{countSuffix} (정령의 날개 5개 소모)", false));
+            ScrollAiFeed.ScrollToBottom();
+            return;
         }
 
         // 현재 게임 상황을 정밀한 시스템 컨텍스트로 구성
@@ -1570,6 +1557,8 @@ public partial class MainWindow : Window
             $"- 전투력: {combatScore:N0}점\n" +
             $"- 현재 상태: {activity} / 위치: {location}\n" +
             $"- 가방 무게 현황: {weightInfo}\n\n" +
+            $"[MobiMate 내장 기능 안내]\n" +
+            $"- 사용자가 새로운 페르소나 생성을 요청하면 MobiMate가 이를 자동으로 프롬프트화하여 세이브 파일(custom_personas.json)에 영구 저장하고 즉시 등록합니다. 가짜 메뉴나 수동 조작 경로를 안내하지 마세요.\n\n" +
             $"플레이어의 질문에 대해 마비노기 모바일 게임 공략과 현재 캐릭터 상태에 맞추어 친절하고 간결하게 2~3문장 이내의 한국어로 답변해주세요.";
 
         BtnSendAi.IsEnabled = false;
@@ -1590,6 +1579,58 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             AiMessages.Add(new AiMessageEntry(displayModelName, $"⚠️ 오류 발생: {ex.Message}", false));
+        }
+        finally
+        {
+            BtnSendAi.IsEnabled = true;
+            BtnSendAi.Content = "AI 질문 ↵";
+            ScrollAiFeed.ScrollToBottom();
+        }
+    }
+
+    private async Task HandleCreatePersonaIntentAsync(string query, string concept, IAiEngine? currentEngine, string displayModelName)
+    {
+        BtnSendAi.IsEnabled = false;
+        BtnSendAi.Content = "페르소나 구상 중... 🎭";
+
+        try
+        {
+            var generator = new PersonaGeneratorService(currentEngine);
+            var persona = await generator.GeneratePersonaAsync(query, concept);
+
+            // 세이브 파일(custom_personas.json)에 영구 저장
+            _snapshotManager.SaveCustomPersona(persona);
+
+            // UI 즉시 동기화 및 콤보박스 선택
+            LoadCustomPersonasToUi();
+
+            for (int i = 0; i < CmbPersona.Items.Count; i++)
+            {
+                if (CmbPersona.Items[i] is ComboBoxItem item && (string)item.Tag == persona.Id)
+                {
+                    CmbPersona.SelectedIndex = i;
+                    break;
+                }
+            }
+
+            if (_chatterService != null)
+            {
+                _chatterService.CurrentPersona = ChatterPersona.Custom;
+                _chatterService.CurrentCustomPersona = persona;
+            }
+
+            var replyMsg =
+                $"✨ 새로운 페르소나 '{persona.DisplayName}' 생성이 완료되었습니다!\n\n" +
+                $"📋 [성격 및 말투 프롬프트]\n\"{persona.SystemPrompt}\"\n\n" +
+                $"💾 세이브 파일(custom_personas.json)에 프롬프트가 영구 저장되었습니다.\n" +
+                $"좌측 '🗣️ 아무말 대잔치'에 즉시 적용되었으며, 앱을 다시 시작해도 언제든 선택하여 즐기실 수 있습니다!";
+
+            AiMessages.Add(new AiMessageEntry(displayModelName, replyMsg, false));
+            ShowToast($"'{persona.DisplayName}' 페르소나가 저장 및 활성화되었습니다!", true);
+        }
+        catch (Exception ex)
+        {
+            AiMessages.Add(new AiMessageEntry(displayModelName, $"⚠️ 페르소나 생성 실패: {ex.Message}", false));
         }
         finally
         {

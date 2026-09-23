@@ -221,78 +221,89 @@ public class InGameChatterTests
     [Fact]
     public void SnapshotManager_CharacterProfile_And_History_CumulativeTracking()
     {
-        var sm = new SnapshotManager();
-        var uniqueRealm = "테스트_" + Guid.NewGuid().ToString("N")[..8];
-
-        var ch1 = new CharacterInfo(
-            Title: "용사",
-            RealmName: uniqueRealm,
-            Level: 100,
-            JobName: "테스트직업",
-            CombatScore: new ScoreVal("전투력", 80000),
-            LivingScore: null,
-            AttractivenessScore: null,
-            DecorScore: null,
-            HealthMax: null,
-            AttackPower: null,
-            DefencePower: null,
-            ArcaneResistance: null,
-            STR: null,
-            DEX: null,
-            INT: null,
-            LUCK: null,
-            WILL: null,
-            PaladinStats: null,
-            Vitals: new VitalsInfo(1000, 1000, 500.0, 1000.0, 100, 100, 0)
-        );
-
-        var currencies1 = new List<CurrencyItem>
+        var tempDir = Path.Combine(Path.GetTempPath(), "MobiMateTest_History_" + Guid.NewGuid().ToString("N"));
+        var sm = new SnapshotManager(tempDir);
+        try
         {
-            new("골드", 1000000),
-            new("정령의 날개", 500)
-        };
+            var uniqueRealm = "테스트_" + Guid.NewGuid().ToString("N")[..8];
 
-        // 1. 첫 번째 스냅샷 업데이트
-        sm.UpdateSnapshot(ch1, currencies1, null);
+            var ch1 = new CharacterInfo(
+                Title: "용사",
+                RealmName: uniqueRealm,
+                Level: 100,
+                JobName: "테스트직업",
+                CombatScore: new ScoreVal("전투력", 80000),
+                LivingScore: null,
+                AttractivenessScore: null,
+                DecorScore: null,
+                HealthMax: null,
+                AttackPower: null,
+                DefencePower: null,
+                ArcaneResistance: null,
+                STR: null,
+                DEX: null,
+                INT: null,
+                LUCK: null,
+                WILL: null,
+                PaladinStats: null,
+                Vitals: new VitalsInfo(1000, 1000, 500.0, 1000.0, 100, 100, 0)
+            );
 
-        var profile = sm.GetProfile(uniqueRealm, "테스트직업");
-        Assert.NotNull(profile);
-        Assert.Equal($"{uniqueRealm}_테스트직업", profile.CharacterKey);
-        Assert.Single(profile.History);
-        Assert.Equal(80000, profile.History[0].CombatScore);
-        Assert.Equal(1000000, profile.History[0].Gold);
+            var currencies1 = new List<CurrencyItem>
+            {
+                new("골드", 1000000),
+                new("정령의 날개", 500)
+            };
 
-        // 2. 별칭(CustomName) 설정 및 표시명 확인
-        sm.SetCustomName(uniqueRealm, "테스트직업", "나의본캐");
-        Assert.Equal("나의본캐", profile.CustomName);
-        Assert.Equal($"[{uniqueRealm}] 나의본캐 (테스트직업)", profile.DisplayName);
+            // 1. 첫 번째 스냅샷 업데이트
+            sm.UpdateSnapshot(ch1, currencies1, null);
 
-        // 3. 수치 변동 발생 시 누적 히스토리 레코드 추가 확인 (전투력 상승)
-        var ch2 = new CharacterInfo(
-            Title: "용사",
-            RealmName: uniqueRealm,
-            Level: 100,
-            JobName: "테스트직업",
-            CombatScore: new ScoreVal("전투력", 85000), // +5000
-            LivingScore: null,
-            AttractivenessScore: null,
-            DecorScore: null,
-            HealthMax: null,
-            AttackPower: null,
-            DefencePower: null,
-            ArcaneResistance: null,
-            STR: null,
-            DEX: null,
-            INT: null,
-            LUCK: null,
-            WILL: null,
-            PaladinStats: null,
-            Vitals: new VitalsInfo(1000, 1000, 500.0, 1000.0, 100, 100, 0)
-        );
+            var profile = sm.GetProfile(uniqueRealm, "테스트직업");
+            Assert.NotNull(profile);
+            Assert.Equal($"{uniqueRealm}_테스트직업", profile.CharacterKey);
+            Assert.Single(profile.History);
+            Assert.Equal(80000, profile.History[0].CombatScore);
+            Assert.Equal(1000000, profile.History[0].Gold);
 
-        sm.UpdateSnapshot(ch2, currencies1, null);
-        Assert.Equal(2, profile.History.Count);
-        Assert.Equal(85000, profile.History[1].CombatScore);
+            // 2. 별칭(CustomName) 설정 및 표시명 확인
+            sm.SetCustomName(uniqueRealm, "테스트직업", "나의본캐");
+            Assert.Equal("나의본캐", profile.CustomName);
+            Assert.Equal($"[{uniqueRealm}] 나의본캐 (테스트직업)", profile.DisplayName);
+
+            // 3. 수치 변동 발생 시 누적 히스토리 레코드 추가 확인 (전투력 상승)
+            var ch2 = new CharacterInfo(
+                Title: "용사",
+                RealmName: uniqueRealm,
+                Level: 100,
+                JobName: "테스트직업",
+                CombatScore: new ScoreVal("전투력", 85000), // +5000
+                LivingScore: null,
+                AttractivenessScore: null,
+                DecorScore: null,
+                HealthMax: null,
+                AttackPower: null,
+                DefencePower: null,
+                ArcaneResistance: null,
+                STR: null,
+                DEX: null,
+                INT: null,
+                LUCK: null,
+                WILL: null,
+                PaladinStats: null,
+                Vitals: new VitalsInfo(1000, 1000, 500.0, 1000.0, 100, 100, 0)
+            );
+
+            sm.UpdateSnapshot(ch2, currencies1, null);
+            Assert.Equal(2, profile.History.Count);
+            Assert.Equal(85000, profile.History[1].CombatScore);
+        }
+        finally
+        {
+            if (Directory.Exists(tempDir))
+            {
+                try { Directory.Delete(tempDir, true); } catch { }
+            }
+        }
     }
 
     [Fact]

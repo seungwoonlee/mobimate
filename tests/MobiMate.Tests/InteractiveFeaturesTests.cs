@@ -263,5 +263,87 @@ public class InteractiveFeaturesTests
         Assert.Equal(15, controller.CurrentIntervalSec);
         Assert.False(controller.HasUserActivity);
     }
+
+    [Theory]
+    [InlineData("1040.0 / 1030.0 (101.0%)", true)]   // 소수점 101.0% -> 과적
+    [InlineData("1030.0 / 1030.0 (100.0%)", true)]   // 정확히 100.0% -> 과적
+    [InlineData("105%", true)]                       // 정수형 105% -> 과적
+    [InlineData("1029.9 / 1030.0 (99.9%)", false)]   // 99.9% -> 과적 아님
+    [InlineData("850.0 / 1000.0 (85.0%)", false)]    // 85.0% -> 과적 아님
+    [InlineData("정상", false)]
+    public void DetermineCategory_BagOverload_MatchesDecimalPercentage_W01(string weightSummary, bool isOverload)
+    {
+        var ctx = new ChatterContext("류트", "전사", 50, 10000, "휴식", "티르코네일", weightSummary, "10000");
+        var category = PersonaTemplates.DetermineCategory(ctx);
+
+        if (isOverload)
+        {
+            Assert.Equal("가방_과적", category);
+        }
+        else
+        {
+            Assert.NotEqual("가방_과적", category);
+        }
+    }
+
+    [Theory]
+    [InlineData("정지", true)]
+    [InlineData("긴급 정지!", true)]
+    [InlineData("멈춰", true)]
+    [InlineData("스톱", true)]
+    [InlineData("그만해", true)]
+    [InlineData("그만해줘", true)]
+    [InlineData("정지 기능 알려줘", false)]          // 질문 형태는 정지가 아니어야 함 (W-04)
+    [InlineData("멈춰 있는 캐릭터는 어떻게 해?", false)]
+    [InlineData("자동 정지 설정이 있나요?", false)]
+    [InlineData("정지해선 안 돼", false)]
+    public void CommandIntentParser_StopCommand_StrictMatching_W04(string input, bool expectedStop)
+    {
+        var intent = CommandIntentParser.Parse(input);
+        Assert.Equal(expectedStop, intent.Kind == IntentKind.Stop);
+    }
+
+    [Theory]
+    [InlineData("공주기사 스타일 페르소나 추가해줘", true, "공주기사 스타일")]
+    [InlineData("츤데레 메이드 페르소나 만들어줘", true, "츤데레 메이드 스타일")]
+    [InlineData("열혈용사 페르소나 등록", true, "열혈용사 스타일")]
+    [InlineData("사과 10개 채집해줘", false, null)]
+    [InlineData("오늘 일일 숙제 뭐야?", false, null)]
+    public void CommandIntentParser_PersonaCreationIntent(string input, bool expectedCreate, string? expectedConcept)
+    {
+        var intent = CommandIntentParser.Parse(input);
+        Assert.Equal(expectedCreate, intent.Kind == IntentKind.CreatePersona);
+        if (expectedCreate && expectedConcept != null)
+        {
+            Assert.Equal(expectedConcept, intent.PersonaConcept);
+        }
+    }
+
+    [Fact]
+    public void PersonaGeneratorService_TryParseJson_ValidMarkdown()
+    {
+        var jsonText = "```json\n{\n  \"name\": \"공주기사 스타일\",\n  \"emoji\": \"🛡️\",\n  \"prompt\": \"기사도의 명예를 걸고 싸우는 당당한 공주기사.\"\n}\n```";
+        var parsed = PersonaGeneratorService.TryParseJsonPersona(jsonText);
+
+        Assert.NotNull(parsed);
+        Assert.Equal("공주기사 스타일", parsed.Name);
+        Assert.Equal("🛡️", parsed.TagEmoji);
+        Assert.Equal("🛡️ 공주기사 스타일", parsed.DisplayName);
+        Assert.Equal("기사도의 명예를 걸고 싸우는 당당한 공주기사.", parsed.SystemPrompt);
+    }
+
+    [Fact]
+    public void PersonaGeneratorService_Fallback_PicksAppropriateEmoji()
+    {
+        var p1 = PersonaGeneratorService.GenerateFallbackPersona("공주기사");
+        Assert.Equal("🛡️", p1.TagEmoji);
+        Assert.Contains("공주기사", p1.Name);
+
+        var p2 = PersonaGeneratorService.GenerateFallbackPersona("츤데레 메이드");
+        Assert.Equal("🎀", p2.TagEmoji);
+
+        var p3 = PersonaGeneratorService.GenerateFallbackPersona("대마법사");
+        Assert.Equal("🔮", p3.TagEmoji);
+    }
 }
 
