@@ -47,6 +47,8 @@ namespace MobiMate
                 if (state.IsCompleted)
                     continue;
 
+                bool newlyDone = false;
+
                 switch (def.AutoMode)
                 {
                     case AutoDetectMode.DirectMission:
@@ -60,6 +62,7 @@ namespace MobiMate
                                 state.IsAutoDetected = true;
                                 state.CompletedAt = now;
                                 changed = true;
+                                newlyDone = true;
                             }
                         }
                         break;
@@ -77,6 +80,7 @@ namespace MobiMate
                                 state.IsAutoDetected = true;
                                 state.CompletedAt = now;
                                 changed = true;
+                                newlyDone = true;
                             }
                         }
                         break;
@@ -90,6 +94,7 @@ namespace MobiMate
                             state.IsAutoDetected = true;
                             state.CompletedAt = now;
                             changed = true;
+                            newlyDone = true;
                         }
                         break;
 
@@ -102,8 +107,15 @@ namespace MobiMate
                             state.IsAutoDetected = true;
                             state.CompletedAt = now;
                             changed = true;
+                            newlyDone = true;
                         }
                         break;
+                }
+
+                // 공유 풀(SharedPoolId: 예 필드 보스 주간 1회 택1) 동기화
+                if (newlyDone && !string.IsNullOrEmpty(def.SharedPoolId))
+                {
+                    SyncSharedPool(record, def.SharedPoolId, true, true, now);
                 }
             }
 
@@ -113,6 +125,21 @@ namespace MobiMate
             }
 
             return record;
+        }
+
+        private void SyncSharedPool(HomeworkCharacterRecord record, string poolId, bool isCompleted, bool isAuto, DateTime now)
+        {
+            foreach (var sibling in _repository.MasterList.Where(m => m.SharedPoolId == poolId))
+            {
+                if (record.Items.TryGetValue(sibling.Id, out var sibState))
+                {
+                    sibState.IsCompleted = isCompleted;
+                    sibState.IsAutoDetected = isAuto;
+                    sibState.CompletedAt = isCompleted ? now : null;
+                    sibState.CurrentCount = isCompleted ? sibState.GoalCount : 0;
+                    sibState.LastUpdated = now;
+                }
+            }
         }
 
         private bool CheckDirectMission(HomeworkDefinition def, HomeworkEvaluationContext ctx, out int currentCount, out int goalCount, out bool isDone)
@@ -255,11 +282,21 @@ namespace MobiMate
             var record = _repository.GetOrCreateRecord(characterKey, now);
             if (record.Items.TryGetValue(homeworkId, out var state))
             {
-                state.IsCompleted = !state.IsCompleted;
-                state.IsAutoDetected = false; // 수동 조작
-                state.CompletedAt = state.IsCompleted ? now : null;
-                state.CurrentCount = state.IsCompleted ? state.GoalCount : 0;
-                state.LastUpdated = now;
+                var def = _repository.MasterList.FirstOrDefault(m => m.Id == homeworkId);
+                bool nextCompleted = !state.IsCompleted;
+
+                if (def != null && !string.IsNullOrEmpty(def.SharedPoolId))
+                {
+                    SyncSharedPool(record, def.SharedPoolId, nextCompleted, false, now);
+                }
+                else
+                {
+                    state.IsCompleted = nextCompleted;
+                    state.IsAutoDetected = false; // 수동 조작
+                    state.CompletedAt = state.IsCompleted ? now : null;
+                    state.CurrentCount = state.IsCompleted ? state.GoalCount : 0;
+                    state.LastUpdated = now;
+                }
 
                 _repository.SaveRecord(record);
             }
@@ -289,6 +326,7 @@ namespace MobiMate
                     CategoryDisplayName = def.CategoryDisplayName,
                     Period = def.Period,
                     PeriodDisplayName = def.PeriodDisplayName,
+                    SharedPoolId = def.SharedPoolId,
                     Title = def.Title,
                     Subtitle = def.Subtitle,
                     Icon = def.Icon,
@@ -310,20 +348,47 @@ namespace MobiMate
             int dailyDone = 0, dailyTotal = 0;
             int weeklyDone = 0, weeklyTotal = 0;
 
+            var countedPools = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
             foreach (var def in _repository.MasterList)
             {
-                record.Items.TryGetValue(def.Id, out var state);
-                bool done = state?.IsCompleted ?? false;
-
-                if (def.Period == HomeworkPeriod.Daily)
+                if (!string.IsNullOrEmpty(def.SharedPoolId))
                 {
-                    dailyTotal++;
-                    if (done) dailyDone++;
+                    if (countedPools.Contains(def.SharedPoolId))
+                        continue;
+
+                    countedPools.Add(def.SharedPoolId);
+
+                    // 풀 내에 완료된 항목이 하나라도 있으면 풀 완료
+                    var poolDefs = _repository.MasterList.Where(m => m.SharedPoolId == def.SharedPoolId).ToList();
+                    bool poolDone = poolDefs.Any(p => record.Items.TryGetValue(p.Id, out var s) && s.IsCompleted);
+
+                    if (def.Period == HomeworkPeriod.Daily)
+                    {
+                        dailyTotal++;
+                        if (poolDone) dailyDone++;
+                    }
+                    else
+                    {
+                        weeklyTotal++;
+                        if (poolDone) weeklyDone++;
+                    }
                 }
                 else
                 {
-                    weeklyTotal++;
-                    if (done) weeklyDone++;
+                    record.Items.TryGetValue(def.Id, out var state);
+                    bool done = state?.IsCompleted ?? false;
+
+                    if (def.Period == HomeworkPeriod.Daily)
+                    {
+                        dailyTotal++;
+                        if (done) dailyDone++;
+                    }
+                    else
+                    {
+                        weeklyTotal++;
+                        if (done) weeklyDone++;
+                    }
                 }
             }
 

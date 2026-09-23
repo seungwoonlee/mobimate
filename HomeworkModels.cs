@@ -49,13 +49,14 @@ namespace MobiMate
         public string Icon { get; set; } = "📋";
         public int GoalCount { get; set; } = 1;
         public string RewardSummary { get; set; } = string.Empty;
+        public string? SharedPoolId { get; set; }
         public List<string> MatchKeywords { get; set; } = new();
 
         public string CategoryDisplayName => Category switch
         {
-            HomeworkCategory.Daily => "일일숙제",
-            HomeworkCategory.Weekly => "주간숙제",
-            HomeworkCategory.FieldBoss => "필드보스",
+            HomeworkCategory.Daily => "일일 달성",
+            HomeworkCategory.Weekly => "주간 달성",
+            HomeworkCategory.FieldBoss => "필드 보스",
             HomeworkCategory.Abyss => "어비스",
             HomeworkCategory.Raid => "레이드",
             HomeworkCategory.Shop => "상점/교환",
@@ -96,6 +97,7 @@ namespace MobiMate
         public string CategoryDisplayName { get; set; } = string.Empty;
         public HomeworkPeriod Period { get; set; }
         public string PeriodDisplayName { get; set; } = string.Empty;
+        public string? SharedPoolId { get; set; }
         public string Title { get; set; } = string.Empty;
         public string Subtitle { get; set; } = string.Empty;
         public string Icon { get; set; } = "📋";
@@ -106,10 +108,10 @@ namespace MobiMate
         public bool IsAutoDetected { get; set; }
         public string DetectionBadge => IsCompleted
             ? (IsAutoDetected ? "⚡ 자동 감지 완료" : "✍️ 수동 완료")
-            : "진행 필요";
+            : (SharedPoolId == "field_boss_weekly" ? "주간 택1 미완료" : "진행 필요");
         public string DetectionBadgeBrush => IsCompleted
             ? (IsAutoDetected ? "#22C55E" : "#3B82F6")
-            : "#94A3B8";
+            : (SharedPoolId == "field_boss_weekly" ? "#F59E0B" : "#94A3B8");
         public string CardBackground => IsCompleted ? "#1E293B" : "#0F172A";
         public string CardOpacity => IsCompleted ? "0.6" : "1.0";
     }

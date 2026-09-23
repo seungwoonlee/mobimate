@@ -43,12 +43,31 @@ public class HomeworkTrackerTests : IDisposable
         Assert.Contains(_repo.MasterList, x => x.Category == HomeworkCategory.Raid);
         Assert.Contains(_repo.MasterList, x => x.Category == HomeworkCategory.Shop);
 
-        // 핵심 보스/레이드 항목 확인
-        Assert.Contains(_repo.MasterList, x => x.Id == "fieldboss_krama");
+        // 공식 콘텐츠 가이드 일일/주간 달성 확인
+        Assert.Contains(_repo.MasterList, x => x.Id == "daily_black_hole");
+        Assert.Contains(_repo.MasterList, x => x.Id == "daily_day_dungeon");
+        Assert.Contains(_repo.MasterList, x => x.Id == "daily_tower");
+        Assert.Contains(_repo.MasterList, x => x.Id == "weekly_barrier_1_7");
+        Assert.Contains(_repo.MasterList, x => x.Id == "weekly_vanguard_breach");
+
+        // 필드 보스 6종 확인
         Assert.Contains(_repo.MasterList, x => x.Id == "fieldboss_peri");
-        Assert.Contains(_repo.MasterList, x => x.Id == "abyss_gate_1");
+        Assert.Contains(_repo.MasterList, x => x.Id == "fieldboss_crabbach");
+        Assert.Contains(_repo.MasterList, x => x.Id == "fieldboss_krama");
+        Assert.Contains(_repo.MasterList, x => x.Id == "fieldboss_drochenem");
+        Assert.Contains(_repo.MasterList, x => x.Id == "fieldboss_tormog");
+        Assert.Contains(_repo.MasterList, x => x.Id == "fieldboss_angrbahan");
+
+        // 어비스 3종 확인
+        Assert.Contains(_repo.MasterList, x => x.Id == "abyss_illusory_anchorage");
+        Assert.Contains(_repo.MasterList, x => x.Id == "abyss_madness_cave");
+        Assert.Contains(_repo.MasterList, x => x.Id == "abyss_scattered_waterway");
+
+        // 레이드 3종 확인 및 구버전 타바르타스 미포함 확인
+        Assert.Contains(_repo.MasterList, x => x.Id == "raid_cavrak");
+        Assert.Contains(_repo.MasterList, x => x.Id == "raid_airel");
         Assert.Contains(_repo.MasterList, x => x.Id == "raid_white_succubus");
-        Assert.Contains(_repo.MasterList, x => x.Id == "daily_cash_free_fashion");
+        Assert.DoesNotContain(_repo.MasterList, x => x.Id == "raid_tabartas");
     }
 
     [Fact]
@@ -245,9 +264,34 @@ public class HomeworkTrackerTests : IDisposable
         var stats2 = _service.GetProgressStats(key, now);
         Assert.Equal(1, stats2.dailyDone);
 
-        // 1개 주간 숙제 수동 완료
+        // 1개 주간 숙제(필드 보스 - 공유 풀) 수동 완료
         _service.ToggleManual("fieldboss_peri", key, now);
         var stats3 = _service.GetProgressStats(key, now);
         Assert.Equal(1, stats3.weeklyDone);
+    }
+
+    [Fact]
+    public void FieldBoss_SharedPool_OneClearMarksAllSixAsCompleted()
+    {
+        var now = new DateTime(2026, 9, 24, 12, 0, 0);
+        string key = "Aira_Striker";
+
+        // 최초 상태: 6종 보스 모두 미완료
+        var bossItemsBefore = _service.GetViewItems(key, HomeworkCategory.FieldBoss, now);
+        Assert.Equal(6, bossItemsBefore.Count);
+        Assert.All(bossItemsBefore, b => Assert.False(b.IsCompleted));
+
+        // 크라마(krama) 1종만 수동 완료 토글
+        _service.ToggleManual("fieldboss_krama", key, now);
+
+        // 6종 보스 전체가 주간 1회 보상 풀 완료로 동기화되었는지 확인
+        var bossItemsAfter = _service.GetViewItems(key, HomeworkCategory.FieldBoss, now);
+        Assert.Equal(6, bossItemsAfter.Count);
+        Assert.All(bossItemsAfter, b => Assert.True(b.IsCompleted));
+
+        // 다시 토글 시 전체 미완료로 해제되는지 확인
+        _service.ToggleManual("fieldboss_peri", key, now);
+        var bossItemsReset = _service.GetViewItems(key, HomeworkCategory.FieldBoss, now);
+        Assert.All(bossItemsReset, b => Assert.False(b.IsCompleted));
     }
 }

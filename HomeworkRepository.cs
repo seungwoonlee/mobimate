@@ -33,7 +33,46 @@ namespace MobiMate
 
         private void InitializeMasterList()
         {
-            // 1. 일일 숙제 (Daily)
+            // 1. 일일 달성 (인게임 콘텐츠 가이드 & mabimobi.life 루틴)
+            MasterList.Add(new HomeworkDefinition
+            {
+                Id = "daily_black_hole",
+                Category = HomeworkCategory.Daily,
+                Period = HomeworkPeriod.Daily,
+                ShareType = HomeworkShareType.Character,
+                AutoMode = AutoDetectMode.DirectMission,
+                Title = "검은 구멍",
+                Subtitle = "콘텐츠 가이드 일일 검은 구멍 차원 정화",
+                Icon = "🕳️",
+                MatchKeywords = new() { "검은 구멍", "차원 정화" }
+            });
+
+            MasterList.Add(new HomeworkDefinition
+            {
+                Id = "daily_day_dungeon",
+                Category = HomeworkCategory.Daily,
+                Period = HomeworkPeriod.Daily,
+                ShareType = HomeworkShareType.Character,
+                AutoMode = AutoDetectMode.DirectMission,
+                Title = "요일 던전",
+                Subtitle = "콘텐츠 가이드 요일 던전 일일 클리어",
+                Icon = "⚔️",
+                MatchKeywords = new() { "요일 던전", "요일", "심층 던전", "던전" }
+            });
+
+            MasterList.Add(new HomeworkDefinition
+            {
+                Id = "daily_tower",
+                Category = HomeworkCategory.Daily,
+                Period = HomeworkPeriod.Daily,
+                ShareType = HomeworkShareType.Character,
+                AutoMode = AutoDetectMode.DirectMission,
+                Title = "망령의 탑",
+                Subtitle = "콘텐츠 가이드 망령의 탑 일일 도전",
+                Icon = "🗼",
+                MatchKeywords = new() { "망령의 탑", "망령" }
+            });
+
             MasterList.Add(new HomeworkDefinition
             {
                 Id = "daily_connect",
@@ -49,6 +88,19 @@ namespace MobiMate
 
             MasterList.Add(new HomeworkDefinition
             {
+                Id = "daily_missions_all",
+                Category = HomeworkCategory.Daily,
+                Period = HomeworkPeriod.Daily,
+                ShareType = HomeworkShareType.Character,
+                AutoMode = AutoDetectMode.DirectMission,
+                Title = "일일 미션 완수",
+                Subtitle = "오늘의 일일 미션 달성",
+                Icon = "📜",
+                MatchKeywords = new() { "일일 미션", "오늘의 미션" }
+            });
+
+            MasterList.Add(new HomeworkDefinition
+            {
                 Id = "daily_dungeon_3",
                 Category = HomeworkCategory.Daily,
                 Period = HomeworkPeriod.Daily,
@@ -56,7 +108,7 @@ namespace MobiMate
                 AutoMode = AutoDetectMode.DirectMission,
                 Title = "던전 3회 토벌",
                 Subtitle = "일반/심층 던전 3회 클리어",
-                Icon = "⚔️",
+                Icon = "🛡️",
                 GoalCount = 3,
                 MatchKeywords = new() { "오늘도 던전 한 바퀴", "던전 3회 토벌", "던전" }
             });
@@ -73,45 +125,6 @@ namespace MobiMate
                 Icon = "🍎",
                 GoalCount = 3,
                 MatchKeywords = new() { "자급자족의 삶", "재료 아이템 3회 채집", "채집" }
-            });
-
-            MasterList.Add(new HomeworkDefinition
-            {
-                Id = "daily_black_hole",
-                Category = HomeworkCategory.Daily,
-                Period = HomeworkPeriod.Daily,
-                ShareType = HomeworkShareType.Character,
-                AutoMode = AutoDetectMode.DirectMission,
-                Title = "검은 구멍 (일일)",
-                Subtitle = "일일 검은 구멍 차원 정화",
-                Icon = "🕳️",
-                MatchKeywords = new() { "검은 구멍", "차원 정화" }
-            });
-
-            MasterList.Add(new HomeworkDefinition
-            {
-                Id = "daily_barrier",
-                Category = HomeworkCategory.Daily,
-                Period = HomeworkPeriod.Daily,
-                ShareType = HomeworkShareType.Character,
-                AutoMode = AutoDetectMode.DirectMission,
-                Title = "소환의 결계 (일일)",
-                Subtitle = "일일 소환의 결계 방어",
-                Icon = "🔮",
-                MatchKeywords = new() { "소환의 결계", "결계" }
-            });
-
-            MasterList.Add(new HomeworkDefinition
-            {
-                Id = "daily_tower",
-                Category = HomeworkCategory.Daily,
-                Period = HomeworkPeriod.Daily,
-                ShareType = HomeworkShareType.Character,
-                AutoMode = AutoDetectMode.DirectMission,
-                Title = "망령의 탑",
-                Subtitle = "망령의 탑 일일 도전",
-                Icon = "🗼",
-                MatchKeywords = new() { "망령의 탑", "망령" }
             });
 
             MasterList.Add(new HomeworkDefinition
@@ -166,7 +179,48 @@ namespace MobiMate
                 MatchKeywords = new() { "은동전", "데카" }
             });
 
-            // 2. 주간 숙제 (Weekly)
+            // 2. 주간 달성 (인게임 콘텐츠 가이드 & mabimobi.life 루틴)
+            MasterList.Add(new HomeworkDefinition
+            {
+                Id = "weekly_barrier_1_7",
+                Category = HomeworkCategory.Weekly,
+                Period = HomeworkPeriod.Weekly,
+                ShareType = HomeworkShareType.Character,
+                AutoMode = AutoDetectMode.DirectMission,
+                Title = "소환의 결계",
+                Subtitle = "콘텐츠 가이드 주간 소환의 결계 (1~7단계)",
+                Icon = "🧿",
+                GoalCount = 7,
+                MatchKeywords = new() { "소환의 결계", "불길한 소환의 결계", "결계" }
+            });
+
+            MasterList.Add(new HomeworkDefinition
+            {
+                Id = "weekly_black_hole_1_7",
+                Category = HomeworkCategory.Weekly,
+                Period = HomeworkPeriod.Weekly,
+                ShareType = HomeworkShareType.Character,
+                AutoMode = AutoDetectMode.DirectMission,
+                Title = "검은 구멍 (주간)",
+                Subtitle = "콘텐츠 가이드 주간 검은 구멍 (1~7단계)",
+                Icon = "🌌",
+                GoalCount = 7,
+                MatchKeywords = new() { "검은 구멍", "주간 검은 구멍" }
+            });
+
+            MasterList.Add(new HomeworkDefinition
+            {
+                Id = "weekly_vanguard_breach",
+                Category = HomeworkCategory.Weekly,
+                Period = HomeworkPeriod.Weekly,
+                ShareType = HomeworkShareType.Character,
+                AutoMode = AutoDetectMode.QuestTracker,
+                Title = "뱅가드 브리치",
+                Subtitle = "콘텐츠 가이드 주간 결전 뱅가드 브리치 돌파",
+                Icon = "🚩",
+                MatchKeywords = new() { "뱅가드 브리치", "뱅가드", "브리치" }
+            });
+
             MasterList.Add(new HomeworkDefinition
             {
                 Id = "weekly_missions_all",
@@ -188,38 +242,10 @@ namespace MobiMate
                 Period = HomeworkPeriod.Weekly,
                 ShareType = HomeworkShareType.Character,
                 AutoMode = AutoDetectMode.DirectMission,
-                Title = "길드 미션 & 출석 기부",
+                Title = "길드 미션 & 기부",
                 Subtitle = "주간 길드 미션 및 골드 기부",
                 Icon = "🛡️",
                 MatchKeywords = new() { "길드", "기부", "길드 미션" }
-            });
-
-            MasterList.Add(new HomeworkDefinition
-            {
-                Id = "weekly_black_hole_1_7",
-                Category = HomeworkCategory.Weekly,
-                Period = HomeworkPeriod.Weekly,
-                ShareType = HomeworkShareType.Character,
-                AutoMode = AutoDetectMode.DirectMission,
-                Title = "검은 구멍 (주간 1~7단계)",
-                Subtitle = "주간 검은 구멍 7회 차원 정화",
-                Icon = "🌌",
-                GoalCount = 7,
-                MatchKeywords = new() { "검은 구멍", "주간 검은 구멍" }
-            });
-
-            MasterList.Add(new HomeworkDefinition
-            {
-                Id = "weekly_barrier_1_7",
-                Category = HomeworkCategory.Weekly,
-                Period = HomeworkPeriod.Weekly,
-                ShareType = HomeworkShareType.Character,
-                AutoMode = AutoDetectMode.DirectMission,
-                Title = "불길한 소환의 결계 (주간 1~7)",
-                Subtitle = "주간 소환의 결계 7회 정화",
-                Icon = "🧿",
-                GoalCount = 7,
-                MatchKeywords = new() { "불길한 소환의 결계", "결계" }
             });
 
             MasterList.Add(new HomeworkDefinition
@@ -261,7 +287,9 @@ namespace MobiMate
                 MatchKeywords = new() { "펫 티켓", "할인 티켓" }
             });
 
-            // 3. 필드 보스 (Field Boss - 주간)
+            // 3. 필드 보스 (주간 1회 보상 풀: 6종 중 택1 시 주간 완료)
+            const string FieldBossPool = "field_boss_weekly";
+
             MasterList.Add(new HomeworkDefinition
             {
                 Id = "fieldboss_peri",
@@ -269,8 +297,9 @@ namespace MobiMate
                 Period = HomeworkPeriod.Weekly,
                 ShareType = HomeworkShareType.Character,
                 AutoMode = AutoDetectMode.EnvironmentCombat,
+                SharedPoolId = FieldBossPool,
                 Title = "페리",
-                Subtitle = "창백한 산 필드 보스 페리 토벌",
+                Subtitle = "창백한 산 필드 보스 (주간 1회 택1)",
                 Icon = "🐺",
                 MatchKeywords = new() { "페리", "창백한 산" }
             });
@@ -282,8 +311,9 @@ namespace MobiMate
                 Period = HomeworkPeriod.Weekly,
                 ShareType = HomeworkShareType.Character,
                 AutoMode = AutoDetectMode.EnvironmentCombat,
+                SharedPoolId = FieldBossPool,
                 Title = "크라브바흐",
-                Subtitle = "센마이 평원 필드 보스 크라브바흐 토벌",
+                Subtitle = "센마이 평원 필드 보스 (주간 1회 택1)",
                 Icon = "🦀",
                 MatchKeywords = new() { "크라브바흐", "센마이" }
             });
@@ -295,10 +325,39 @@ namespace MobiMate
                 Period = HomeworkPeriod.Weekly,
                 ShareType = HomeworkShareType.Character,
                 AutoMode = AutoDetectMode.EnvironmentCombat,
+                SharedPoolId = FieldBossPool,
                 Title = "크라마",
-                Subtitle = "케오 섬 필드 보스 크라마 토벌",
+                Subtitle = "케오 섬 필드 보스 (주간 1회 택1)",
                 Icon = "🦎",
                 MatchKeywords = new() { "크라마", "케오" }
+            });
+
+            MasterList.Add(new HomeworkDefinition
+            {
+                Id = "fieldboss_drochenem",
+                Category = HomeworkCategory.FieldBoss,
+                Period = HomeworkPeriod.Weekly,
+                ShareType = HomeworkShareType.Character,
+                AutoMode = AutoDetectMode.EnvironmentCombat,
+                SharedPoolId = FieldBossPool,
+                Title = "드로흐에넴",
+                Subtitle = "필드 보스 드로흐에넴 (주간 1회 택1)",
+                Icon = "🐉",
+                MatchKeywords = new() { "드로흐에넴", "드로흐" }
+            });
+
+            MasterList.Add(new HomeworkDefinition
+            {
+                Id = "fieldboss_tormog",
+                Category = HomeworkCategory.FieldBoss,
+                Period = HomeworkPeriod.Weekly,
+                ShareType = HomeworkShareType.Character,
+                AutoMode = AutoDetectMode.EnvironmentCombat,
+                SharedPoolId = FieldBossPool,
+                Title = "토르모그",
+                Subtitle = "필드 보스 토르모그 (주간 1회 택1)",
+                Icon = "🧌",
+                MatchKeywords = new() { "토르모그" }
             });
 
             MasterList.Add(new HomeworkDefinition
@@ -308,90 +367,65 @@ namespace MobiMate
                 Period = HomeworkPeriod.Weekly,
                 ShareType = HomeworkShareType.Character,
                 AutoMode = AutoDetectMode.EnvironmentCombat,
+                SharedPoolId = FieldBossPool,
                 Title = "앙그르바한",
-                Subtitle = "바라프 계곡 필드 보스 앙그르바한 토벌",
+                Subtitle = "바라프 계곡 필드 보스 (주간 1회 택1)",
                 Icon = "👹",
                 MatchKeywords = new() { "앙그르바한", "앙그라바한", "바라프" }
             });
 
-            // 4. 어비스 (Abyss - 주간)
+            // 4. 어비스 (현재 운영 3종)
             MasterList.Add(new HomeworkDefinition
             {
-                Id = "abyss_gate_1",
+                Id = "abyss_illusory_anchorage",
                 Category = HomeworkCategory.Abyss,
                 Period = HomeworkPeriod.Weekly,
                 ShareType = HomeworkShareType.Character,
                 AutoMode = AutoDetectMode.EnvironmentCombat,
-                Title = "첫 번째 관문 (가라앉은 유적)",
-                Subtitle = "어비스 심층 1관문 토벌",
-                Icon = "🏛️",
-                MatchKeywords = new() { "가라앉은 유적", "첫 번째 관문", "어비스 1" }
+                Title = "허상의 정박지",
+                Subtitle = "어비스 심층 허상의 정박지 토벌",
+                Icon = "⚓",
+                MatchKeywords = new() { "허상의 정박지", "허상", "정박지", "가라앉은 유적", "첫 번째 관문" }
             });
 
             MasterList.Add(new HomeworkDefinition
             {
-                Id = "abyss_gate_2",
+                Id = "abyss_madness_cave",
                 Category = HomeworkCategory.Abyss,
                 Period = HomeworkPeriod.Weekly,
                 ShareType = HomeworkShareType.Character,
                 AutoMode = AutoDetectMode.EnvironmentCombat,
-                Title = "두 번째 관문 (무너진 제단)",
-                Subtitle = "어비스 심층 2관문 토벌",
-                Icon = "⛩️",
-                MatchKeywords = new() { "무너진 제단", "두 번째 관문", "어비스 2" }
+                Title = "광기의 동굴",
+                Subtitle = "어비스 심층 광기의 동굴 토벌",
+                Icon = "🦇",
+                MatchKeywords = new() { "광기의 동굴", "광기", "동굴", "무너진 제단", "두 번째 관문" }
             });
 
             MasterList.Add(new HomeworkDefinition
             {
-                Id = "abyss_gate_3",
+                Id = "abyss_scattered_waterway",
                 Category = HomeworkCategory.Abyss,
                 Period = HomeworkPeriod.Weekly,
                 ShareType = HomeworkShareType.Character,
                 AutoMode = AutoDetectMode.EnvironmentCombat,
-                Title = "세 번째 관문 (파멸의 전당)",
-                Subtitle = "어비스 심층 3관문 토벌",
-                Icon = "🔥",
-                MatchKeywords = new() { "파멸의 전당", "세 번째 관문", "어비스 3" }
+                Title = "흩어진 물길",
+                Subtitle = "어비스 심층 흩어진 물길 토벌",
+                Icon = "🌊",
+                MatchKeywords = new() { "흩어진 물길", "흩어진", "물길", "파멸의 전당", "세 번째 관문" }
             });
 
+            // 5. 레이드 (현재 운영 3종)
             MasterList.Add(new HomeworkDefinition
             {
-                Id = "abyss_gate_4",
-                Category = HomeworkCategory.Abyss,
-                Period = HomeworkPeriod.Weekly,
-                ShareType = HomeworkShareType.Character,
-                AutoMode = AutoDetectMode.EnvironmentCombat,
-                Title = "네 번째 관문 (심연의 중심)",
-                Subtitle = "어비스 심층 최종 관문 토벌",
-                Icon = "🌀",
-                MatchKeywords = new() { "네 번째 관문", "어비스 4", "심연의 중심" }
-            });
-
-            // 5. 레이드 (Raid - 주간)
-            MasterList.Add(new HomeworkDefinition
-            {
-                Id = "raid_white_succubus",
+                Id = "raid_cavrak",
                 Category = HomeworkCategory.Raid,
                 Period = HomeworkPeriod.Weekly,
                 ShareType = HomeworkShareType.Character,
                 AutoMode = AutoDetectMode.QuestTracker,
-                Title = "화이트 서큐버스",
-                Subtitle = "주간 레이드 화서큐 토벌",
-                Icon = "👑",
-                MatchKeywords = new() { "화이트 서큐버스", "화서큐", "서큐버스" }
-            });
-
-            MasterList.Add(new HomeworkDefinition
-            {
-                Id = "raid_tabartas",
-                Category = HomeworkCategory.Raid,
-                Period = HomeworkPeriod.Weekly,
-                ShareType = HomeworkShareType.Character,
-                AutoMode = AutoDetectMode.QuestTracker,
-                Title = "타바르타스",
-                Subtitle = "주간 레이드 거신 타바르타스 토벌",
-                Icon = "🗿",
-                MatchKeywords = new() { "타바르타스", "타르타로스", "골렘" }
+                Title = "카브락",
+                Subtitle = "주간 레이드 흑룡 카브락 토벌",
+                Icon = "🐲",
+                MatchKeywords = new() { "카브락", "카브라크", "흑룡" }
             });
 
             MasterList.Add(new HomeworkDefinition
@@ -409,28 +443,15 @@ namespace MobiMate
 
             MasterList.Add(new HomeworkDefinition
             {
-                Id = "raid_cavrak",
+                Id = "raid_white_succubus",
                 Category = HomeworkCategory.Raid,
                 Period = HomeworkPeriod.Weekly,
                 ShareType = HomeworkShareType.Character,
                 AutoMode = AutoDetectMode.QuestTracker,
-                Title = "카브락",
-                Subtitle = "주간 레이드 흑룡 카브락 토벌",
-                Icon = "🐲",
-                MatchKeywords = new() { "카브락", "카브라크", "카록" }
-            });
-
-            MasterList.Add(new HomeworkDefinition
-            {
-                Id = "raid_vanguard_breach",
-                Category = HomeworkCategory.Raid,
-                Period = HomeworkPeriod.Weekly,
-                ShareType = HomeworkShareType.Character,
-                AutoMode = AutoDetectMode.QuestTracker,
-                Title = "뱅가드 브리치",
-                Subtitle = "주간 결전 뱅가드 브리치 돌파",
-                Icon = "🚩",
-                MatchKeywords = new() { "뱅가드 브리치", "뱅가드", "브리치" }
+                Title = "화이트 서큐버스",
+                Subtitle = "주간 레이드 화서큐 토벌",
+                Icon = "👑",
+                MatchKeywords = new() { "화이트 서큐버스", "화서큐", "서큐버스" }
             });
         }
 
