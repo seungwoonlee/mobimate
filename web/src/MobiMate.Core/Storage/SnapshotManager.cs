@@ -98,11 +98,19 @@ public class SnapshotManager
     public string CharacterDbFilePath => _dbStorageFile;
     public string CustomPersonasFilePath => _customPersonasFile;
 
+    /// <summary>웹앱 전용 저장 폴더. WPF판(master)과 코드·데이터를 모두 분리한다.</summary>
+    public static string DefaultStorageDirectory =>
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "MobiMateWeb");
+
+    /// <summary>WPF판 저장 폴더. 웹앱은 여기에 절대 쓰지 않고, ImportFromIfEmpty로 읽어서 복사만 한다.</summary>
+    public static string WpfStorageDirectory =>
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "MobiMate");
+
     public SnapshotManager(string? customStorageDir = null)
     {
         _storageDir = !string.IsNullOrWhiteSpace(customStorageDir)
             ? customStorageDir
-            : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "MobiMate");
+            : DefaultStorageDirectory;
 
         _storageFile = Path.Combine(_storageDir, "character_snapshots.json");
         _dbStorageFile = Path.Combine(_storageDir, "character_history_db.json");
@@ -227,6 +235,46 @@ public class SnapshotManager
         {
             return _characterDb.Values.OrderByDescending(p => p.LastSeen).ToList();
         }
+    }
+
+    /// <summary>
+    /// 이 저장소가 비어 있을 때만 다른 폴더(보통 WPF판)의 기록 파일을 복사해 온다 (NFR-13).
+    /// 원본 폴더에는 쓰지 않는다. 가져온 파일 수를 돌려준다. 가져온 뒤 메모리 상태를 다시 읽는다.
+    /// </summary>
+    public int ImportFromIfEmpty(string sourceDir)
+    {
+        if (string.IsNullOrWhiteSpace(sourceDir) ||
+            Path.GetFullPath(sourceDir).TrimEnd('\\', '/').Equals(Path.GetFullPath(_storageDir).TrimEnd('\\', '/'), StringComparison.OrdinalIgnoreCase))
+        {
+            return 0;
+        }
+
+        var targets = new[] { _storageFile, _dbStorageFile, _customPersonasFile };
+        if (targets.Any(File.Exists)) return 0;
+
+        var copied = 0;
+        foreach (var target in targets)
+        {
+            var source = Path.Combine(sourceDir, Path.GetFileName(target));
+            try
+            {
+                if (!File.Exists(source)) continue;
+                Directory.CreateDirectory(_storageDir);
+                File.Copy(source, target, overwrite: false);
+                copied++;
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                // 복사 실패는 빈 저장소로 시작하는 것과 같다
+            }
+        }
+
+        if (copied > 0)
+        {
+            LoadSnapshots();
+            LoadCharacterDb();
+        }
+        return copied;
     }
 
     public SessionDelta UpdateSnapshot(

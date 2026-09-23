@@ -7,7 +7,8 @@ namespace MobiMate;
 /// JSON 파일 입출력 (NFR-13·NFR-14 프로세스 내 범위).
 /// 읽기: 0바이트·손상 파일은 "*.corrupted.yyyyMMdd_HHmmss.bak"으로 격리하고 기본값을 돌려준다 (WPF판과 같은 이름 규칙).
 /// 쓰기: 같은 폴더 임시 파일 → 대상이 있으면 File.Replace(백업 *.bak 1개 유지), 없으면 File.Move.
-/// 같은 파일에 대한 읽기·쓰기는 프로세스 안에서 파일 경로별 잠금으로 직렬화한다. 프로세스 간 병합은 S8에서 다룬다.
+/// 같은 파일에 대한 읽기·쓰기는 프로세스 안에서 파일 경로별 잠금으로 직렬화한다.
+/// 웹앱은 전용 폴더(%APPDATA%\\MobiMateWeb)를 쓰므로 WPF판과 같은 파일을 동시에 쓰지 않는다.
 /// </summary>
 public sealed class JsonFileStore
 {

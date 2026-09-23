@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <!-- WPF판(net8.0-windows)과 웹 서버가 함께 참조하는 공용 로직. UI 의존 0. -->
+  <!-- 웹앱 전용 로직. WPF판(master)과 코드를 공유하지 않는다(파일 복사로 출발, 이후 독립 발전). UI 의존 0. -->
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
