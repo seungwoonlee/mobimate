@@ -61,14 +61,16 @@ public record ActivityInfo(
     [property: JsonPropertyName("IsOverweight")] bool IsOverweight,
     [property: JsonPropertyName("CurrentAction")] string? CurrentAction,
     [property: JsonPropertyName("CanStopCurrentAction")] bool CanStopCurrentAction,
-    [property: JsonPropertyName("IsDead")] bool IsDead = false
+    [property: JsonPropertyName("IsDead")] bool IsDead = false,
+    [property: JsonPropertyName("AutoPlayTargetDisplayName")] string? AutoPlayTargetDisplayName = null
 );
 
 // 3. 환경 (get_current_environment)
 public record EnvironmentInfo(
     [property: JsonPropertyName("ChannelDisplayName")] string? ChannelName,
     [property: JsonPropertyName("Weather")] string? Weather,
-    [property: JsonPropertyName("ErinnNow")] string? ErinnNow
+    [property: JsonPropertyName("ErinnNow")] string? ErinnNow,
+    [property: JsonPropertyName("GameSpaceDisplayName")] string? GameSpaceDisplayName = null
 );
 
 // 4. 재화 (get_currencies)
@@ -131,7 +133,21 @@ public record NearPcItem(
     [property: JsonPropertyName("IsSameGuild")] bool IsSameGuild,
     [property: JsonPropertyName("IsInParty")] bool IsInParty,
     [property: JsonPropertyName("IsFriend")] bool IsFriend,
-    [property: JsonPropertyName("IsInCombat")] bool IsInCombat
+    [property: JsonPropertyName("IsInCombat")] bool IsInCombat,
+    [property: JsonPropertyName("HasGuild")] bool HasGuild = false
+);
+
+// 9-1. 퀘스트 트래커 (get_quests). 제목·목표 문구에 유니티 리치텍스트 태그가 섞여 온다 (K-04).
+public record QuestObjective(
+    [property: JsonPropertyName("Description")] string? Description,
+    [property: JsonPropertyName("IsCompleted")] bool IsCompleted
+);
+
+public record QuestItem(
+    [property: JsonPropertyName("QuestTitle")] string? QuestTitle,
+    [property: JsonPropertyName("Source")] string? Source,
+    [property: JsonPropertyName("SourceDisplayName")] string? SourceDisplayName,
+    [property: JsonPropertyName("Objectives")] List<QuestObjective>? Objectives
 );
 
 // 10. 로그 및 메시지

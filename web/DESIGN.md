@@ -89,7 +89,7 @@ public sealed class JsonFileStore
 ```
 
 - 저장 폴더는 `%APPDATA%\MobiMateWeb\`이다(WPF판과 분리). 웹 전용 파일은 `web_settings.json`, `devices.json`, `chat_log_session.json`(선택)이다.
-- 쓰기는 프로세스 안에서 파일별 `lock`으로 직렬화한다. 웹앱은 전용 폴더(`%APPDATA%\MobiMateWeb`)를 쓰므로 WPF판과 같은 파일을 동시에 쓰지 않는다. 서버는 기동할 때 `SnapshotManager.ImportFromIfEmpty(SnapshotManager.WpfStorageDirectory)`로 WPF판 기록을 한 번 복사해 온다.
+- 쓰기는 프로세스 안에서 파일별 `lock`으로 직렬화한다. 웹앱은 전용 폴더(`%APPDATA%\MobiMateWeb`)를 쓰므로 WPF판과 같은 파일을 동시에 쓰지 않는다. 서버는 기동할 때 `SnapshotManager.ImportMissingFrom(SnapshotManager.WpfStorageDirectory)`(없는 파일만 복사)와 `HomeworkStore.ImportFromWpfIfMissing`(형식 변환)으로 WPF판 기록을 가져온다.
 
 ### 2.4 채팅 글자 수 규칙 (FR-GC-02)
 
@@ -184,7 +184,9 @@ Homework/
 - **판정 방식은 항목당 하나**: 평가기는 카탈로그의 `mode`에 해당하는 규칙만 돈다(H-10). `ProgressSignal`은 어느 모드에도 덧붙일 수 있는 보조 신호다. 목표가 0개인 퀘스트는 `QuestAllObjectives` 근거가 되지 않는다.
 - **공유 풀**: 풀 완료 여부는 "풀 안 항목 중 하나라도 완료"로 계산한다. 형제 항목의 상태를 복사해 두지 않는다(WPF판의 형제 동기화 방식은 해제할 때 상태가 꼬인다).
 - **판정 근거**: 자동 완료 때 `Evidence` 문자열을 저장한다(FR-HW-13).
-- **가져오기**: 파일별로 웹앱 쪽 파일이 없을 때만 `%APPDATA%\MobiMate\homework_records.json`(WPF, 캐릭터 키 → 레코드)을 읽는다. 카탈로그에서 계정 공통인 항목은 가장 최근에 완료된 값을 계정 레코드로 옮긴다. 이번 주기에 해당하지 않는 완료 기록과 `Default_Player` 레코드는 버린다. `SnapshotManager.ImportFromIfEmpty`도 "폴더 전체가 비었을 때"에서 "파일별로 없을 때"로 바꾼다(S2.5).
+- **가공 수거 판정의 한계**: 조회 실패나 빈 응답은 판정 근거로 쓰지 않는다(오탐 방지). 그래서 마지막 완료 작업을 수거해 대기열이 **완전히 비면** 자동 완료되지 않는다. 앱에서 수거했거나 대기열에 다른 작업이 남아 있으면 자동 완료된다. 나머지 경우는 사용자가 한 번 눌러 완료한다.
+- **저장**: 기록은 메모리에 두고, 항목·리셋·가공 개수가 바뀌었을 때만 저장한다. 파일을 읽지 못하면 빈 기록으로 덮어쓰지 않는다(판정은 건너뛰고, 수동 조작은 오류로 알린다). 저장에 실패하면 메모리 변경을 버리고 다음 호출에서 다시 읽는다.
+- **가져오기**: 파일별로 웹앱 쪽 파일이 없을 때만 `%APPDATA%\MobiMate\homework_records.json`(WPF, 캐릭터 키 → 레코드)을 읽는다. 카탈로그에서 계정 공통인 항목은 가장 최근에 완료된 값을 계정 레코드로 옮긴다. 이번 주기에 해당하지 않는 완료 기록과 `Default_Player` 레코드는 버린다. `SnapshotManager.ImportMissingFrom`도 파일별 규칙이다. WPF판 자동 판정 완료는 오탐 가능성이 있어 가져오지 않고 수동 완료만 가져온다(자동 항목은 웹앱 규칙으로 재판정).
 
 ---
 

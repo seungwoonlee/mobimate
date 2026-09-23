@@ -170,10 +170,11 @@ public class InGameChatterTests
     }
 
     [Theory]
-    [InlineData("2959-5-19 22:45", "에린 시간 5월 19일 22:45 🌙 (밤)")]
-    [InlineData("2959-4-23 15:51", "에린 시간 4월 23일 15:51 ☀️ (낮)")]
+    // [TST-01 변경] WPF판 v1.1.0에서 연도 표시를 되살렸다 (요구사양서 §4 "에린 시간 연도 표시"). 연도가 없는 입력은 연도 없이 표시한다.
+    [InlineData("2959-5-19 22:45", "에린 시간 2959년 5월 19일 22:45 🌙 (밤)")]
+    [InlineData("2959-4-23 15:51", "에린 시간 2959년 4월 23일 15:51 ☀️ (낮)")]
     [InlineData("5-19 04:02", "에린 시간 5월 19일 04:02 🌙 (밤)")]
-    [InlineData("2959-10-05 11:30", "에린 시간 10월 5일 11:30 ☀️ (낮)")]
+    [InlineData("2959-10-05 11:30", "에린 시간 2959년 10월 5일 11:30 ☀️ (낮)")]
     public void InGameChatterService_FormatErinnTime_RemovesYearAndShowsDayNight(string input, string expected)
     {
         var formatted = ChatterLineService.FormatErinnTime(input);
