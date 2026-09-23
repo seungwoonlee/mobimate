@@ -8,15 +8,15 @@
 
 ## 0. 작업 전에 반드시 알아야 할 것
 
-1. **웹앱은 `webapp` 브랜치에서 따로 진행 중이다.** master의 `web/` 폴더는 건드리지 않는다. master에는 `web/`가 추적되지 않지만, 브랜치를 바꾸면 웹앱의 빌드 산출물(`web/**/bin`, `web/**/obj`)이 남는다.
-2. **그래서 `MobiMate.csproj`에 `web\**` 제외를 넣었다** (이 문서와 같은 커밋). 이 줄을 지우면 남아 있는 `web/**/obj/*.cs`가 WPF 빌드에 섞여 `CS0579 특성이 중복되었습니다` 오류가 난다. 지우지 않는다.
+1. **웹앱은 `webapp` 브랜치의 별개 프로젝트다.** 두 프로젝트는 요구사양 문서만 공유하고 코드·빌드·저장 데이터는 공유하지 않는다. 두 브랜치는 서로 병합하지 않는다. master 작업 폴더는 `V:\workspace\MobiMate`, webapp은 `V:\workspace\MobiMate-web`(git worktree)이다.
+2. **한 폴더에서 브랜치를 바꾸지 않는다.** 바꾸면 웹앱 빌드 산출물(`web/**/obj/*.cs`)이 남아 WPF 빌드가 `CS0579 특성이 중복되었습니다`로 깨진다. 안전장치로 `MobiMate.csproj`에 `web\**` 제외를 넣어 두었다. 지우지 않는다.
 3. **테스트가 실제 사용자 데이터를 오염시킨다** (§2 W-09). 테스트를 돌리기 전에 W-09부터 고친다. 2026-09-23에 오염된 기록을 한 번 정리했다. 백업: `%APPDATA%\MobiMate_backup_20260923_034009`.
 4. **고친 구현을 참고할 수 있다.** 같은 결함을 웹앱용 공용 로직(`MobiMate.Core`)에서 먼저 고쳤다. 코드는 `webapp` 브랜치에 있으며 다음처럼 볼 수 있다.
    ```bash
    git show webapp:web/src/MobiMate.Core/Cli/GameCli.cs
    git show webapp:web/src/MobiMate.Core/Intent/CommandIntentParser.cs
    ```
-   이 파일들을 master에 그대로 복사하지는 않는다. 네임스페이스와 API가 조금 다르다. 나중에 WPF판이 Core를 직접 참조하도록 바꾸는 작업(웹앱 계획의 S8)이 따로 있다.
+   **참고만 한다.** 이 파일들을 master에 복사하거나 참조하지 않는다(코드 분리 원칙). 네임스페이스와 API도 다르다. 같은 원리로 WPF판 코드에 맞게 직접 고친다.
 5. **프로젝트 규칙(`GEMINI.md`)은 그대로 적용된다**: 서브에이전트 리뷰 단계, 결론 우선 보고, master 직접 커밋 금지(작업 브랜치 → 병합).
 
 ---
