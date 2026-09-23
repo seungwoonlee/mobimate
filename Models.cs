@@ -54,6 +54,7 @@ public record ActivityInfo(
     [property: JsonPropertyName("IsAutoPlaying")] bool IsAutoPlaying,
     [property: JsonPropertyName("IsAutoTraveling")] bool IsAutoTraveling,
     [property: JsonPropertyName("IsInCombat")] bool IsInCombat,
+    [property: JsonPropertyName("AutoPlayTargetDisplayName")] string? AutoPlayTargetDisplayName,
     [property: JsonPropertyName("IsGathering")] bool IsGathering,
     [property: JsonPropertyName("IsAltering")] bool IsAltering,
     [property: JsonPropertyName("IsCrafting")] bool IsCrafting,
@@ -67,6 +68,7 @@ public record ActivityInfo(
 // 3. 환경 (get_current_environment)
 public record EnvironmentInfo(
     [property: JsonPropertyName("ChannelDisplayName")] string? ChannelName,
+    [property: JsonPropertyName("GameSpaceDisplayName")] string? GameSpaceDisplayName,
     [property: JsonPropertyName("Weather")] string? Weather,
     [property: JsonPropertyName("ErinnNow")] string? ErinnNow
 );

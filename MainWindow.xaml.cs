@@ -22,8 +22,15 @@ public partial class MainWindow : Window
 
     private CharacterInfo? _lastCharInfo;
     private EnvironmentInfo? _lastEnvInfo;
+    private ActivityInfo? _lastActivity;
     private List<CurrencyItem>? _lastCurrencies;
     private List<MissionItem>? _lastDailyMissions;
+    private List<MissionItem>? _lastWeeklyMissions;
+    private AlteringWorksResponse? _lastAlteringWorks;
+    private List<QuestItem>? _lastQuests;
+
+    private readonly HomeworkTrackerService _homeworkService = new();
+    private HomeworkCategory _currentHomeworkCategory = HomeworkCategory.All;
 
     private List<ItemData> _allItems = new();
     private string _currentItemLocationFilter = "All";
@@ -257,11 +264,12 @@ public partial class MainWindow : Window
                     UpdateCurrencies(tCurr.data);
                     break;
 
-                case 3: // 미션 & 퀘스트
+                case 3: // 미션 & 퀘스트 & 숙제
                     var tDaily = _cli.RunJsonAsync<List<MissionItem>>("get_daily_missions", timeoutSeconds: 4, ct: ct);
                     var tWeekly = _cli.RunJsonAsync<List<MissionItem>>("get_weekly_missions", timeoutSeconds: 4, ct: ct);
-                    await Task.WhenAll(tDaily, tWeekly);
-                    UpdateMissions((await tDaily).data, (await tWeekly).data);
+                    var tQuests = _cli.RunJsonAsync<List<QuestItem>>("get_quests", timeoutSeconds: 4, ct: ct);
+                    await Task.WhenAll(tDaily, tWeekly, tQuests);
+                    UpdateMissions((await tDaily).data, (await tWeekly).data, (await tQuests).data);
                     break;
 
                 case 4: // 생활 & 생산
@@ -443,6 +451,7 @@ public partial class MainWindow : Window
 
         if (act != null)
         {
+            _lastActivity = act;
             if (act.IsInCombat)
             {
                 TxtActivity.Text = "⚔️ 전투 중";
@@ -793,8 +802,8 @@ public partial class MainWindow : Window
         UpdateDeltas();
     }
 
-    // ================= 4. 미션 & 퀘스트 탭 (완료 미션 완전 제외, 잔여 미션만 노출) =================
-    private void UpdateMissions(List<MissionItem>? daily, List<MissionItem>? weekly)
+    // ================= 4. 미션 & 퀘스트 & 숙제 탭 =================
+    private void UpdateMissions(List<MissionItem>? daily, List<MissionItem>? weekly, List<QuestItem>? quests = null)
     {
         if (daily != null)
         {
@@ -814,6 +823,7 @@ public partial class MainWindow : Window
 
         if (weekly != null)
         {
+            _lastWeeklyMissions = weekly;
             var completed = weekly.Count(w => w.IsCompleted || w.CurrentCount >= w.GoalCount);
             ProgWeeklyMissions.Value = weekly.Count > 0 ? (double)completed / weekly.Count * 100 : 0;
 
@@ -827,12 +837,130 @@ public partial class MainWindow : Window
             ScrollWeeklyMissions.Visibility = allWeeklyDone ? Visibility.Collapsed : Visibility.Visible;
         }
 
+        if (quests != null)
+        {
+            _lastQuests = quests;
+        }
+
+        EvaluateHomeworkStatus();
+        RefreshHomeworkUi();
+
         UpdateDeltas();
+    }
+
+    private void EvaluateHomeworkStatus()
+    {
+        var charKey = _lastCharInfo != null
+            ? $"{_lastCharInfo.RealmName}_{_lastCharInfo.JobName}"
+            : "Default_Player";
+
+        var ctx = new HomeworkEvaluationContext
+        {
+            CharacterKey = charKey,
+            Character = _lastCharInfo,
+            Environment = _lastEnvInfo,
+            Activity = _lastActivity,
+            DailyMissions = _lastDailyMissions,
+            WeeklyMissions = _lastWeeklyMissions,
+            AlteringWorks = _lastAlteringWorks,
+            Quests = _lastQuests,
+            Currencies = _lastCurrencies
+        };
+
+        _homeworkService.EvaluateAndSync(ctx, DateTime.Now);
+    }
+
+    private void RefreshHomeworkUi()
+    {
+        var charKey = _lastCharInfo != null
+            ? $"{_lastCharInfo.RealmName}_{_lastCharInfo.JobName}"
+            : "Default_Player";
+
+        var now = DateTime.Now;
+        var items = _homeworkService.GetViewItems(charKey, _currentHomeworkCategory, now);
+        ListHomeworkCards.ItemsSource = items;
+
+        var stats = _homeworkService.GetProgressStats(charKey, now);
+
+        ProgHomeworkDaily.Value = stats.dailyTotal > 0 ? (double)stats.dailyDone / stats.dailyTotal * 100 : 0;
+        int dailyPct = stats.dailyTotal > 0 ? (stats.dailyDone * 100 / stats.dailyTotal) : 0;
+        TxtHomeworkDailyStats.Text = $"{stats.dailyDone}/{stats.dailyTotal} ({dailyPct}%)";
+
+        ProgHomeworkWeekly.Value = stats.weeklyTotal > 0 ? (double)stats.weeklyDone / stats.weeklyTotal * 100 : 0;
+        int weeklyPct = stats.weeklyTotal > 0 ? (stats.weeklyDone * 100 / stats.weeklyTotal) : 0;
+        TxtHomeworkWeeklyStats.Text = $"{stats.weeklyDone}/{stats.weeklyTotal} ({weeklyPct}%)";
+
+        // 리셋 카운트다운 타이머 계산
+        var nextDaily = HomeworkRepository.GetNextDailyResetTime(now);
+        var nextWeekly = HomeworkRepository.GetNextWeeklyResetTime(now);
+        var dailyRemain = nextDaily - now;
+        var weeklyRemain = nextWeekly - now;
+
+        string dailyRemainText = $"{(int)dailyRemain.TotalHours:D2}:{dailyRemain.Minutes:D2}:{dailyRemain.Seconds:D2}";
+        string weeklyRemainText = weeklyRemain.Days > 0
+            ? $"{weeklyRemain.Days}일 {weeklyRemain.Hours:D2}:{weeklyRemain.Minutes:D2}:{weeklyRemain.Seconds:D2}"
+            : $"{weeklyRemain.Hours:D2}:{weeklyRemain.Minutes:D2}:{weeklyRemain.Seconds:D2}";
+
+        TxtHomeworkResetInfo.Text = $"다음 일일 리셋: {dailyRemainText} | 주간 리셋 (목 06시): {weeklyRemainText}";
+    }
+
+    private void BtnViewHomeworkTracker_Click(object sender, RoutedEventArgs e)
+    {
+        PanelHomeworkTracker.Visibility = Visibility.Visible;
+        PanelInGameMissions.Visibility = Visibility.Collapsed;
+        BtnViewHomeworkTracker.Background = (Brush)FindResource("AccentYellow");
+        BtnViewHomeworkTracker.Foreground = (Brush)FindResource("BgApp");
+        BtnViewInGameMissions.Background = (Brush)FindResource("BgCard");
+        BtnViewInGameMissions.Foreground = (Brush)FindResource("TextSecondary");
+        RefreshHomeworkUi();
+    }
+
+    private void BtnViewInGameMissions_Click(object sender, RoutedEventArgs e)
+    {
+        PanelHomeworkTracker.Visibility = Visibility.Collapsed;
+        PanelInGameMissions.Visibility = Visibility.Visible;
+        BtnViewInGameMissions.Background = (Brush)FindResource("AccentYellow");
+        BtnViewInGameMissions.Foreground = (Brush)FindResource("BgApp");
+        BtnViewHomeworkTracker.Background = (Brush)FindResource("BgCard");
+        BtnViewHomeworkTracker.Foreground = (Brush)FindResource("TextSecondary");
+    }
+
+    private void RbHomeworkFilter_Checked(object sender, RoutedEventArgs e)
+    {
+        if (sender is not RadioButton rb) return;
+
+        _currentHomeworkCategory = rb.Name switch
+        {
+            "RbHwDaily" => HomeworkCategory.Daily,
+            "RbHwWeekly" => HomeworkCategory.Weekly,
+            "RbHwFieldBoss" => HomeworkCategory.FieldBoss,
+            "RbHwAbyss" => HomeworkCategory.Abyss,
+            "RbHwRaid" => HomeworkCategory.Raid,
+            "RbHwShop" => HomeworkCategory.Shop,
+            _ => HomeworkCategory.All
+        };
+
+        RefreshHomeworkUi();
+    }
+
+    private void BtnToggleHomework_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button { Tag: string homeworkId })
+        {
+            var charKey = _lastCharInfo != null
+                ? $"{_lastCharInfo.RealmName}_{_lastCharInfo.JobName}"
+                : "Default_Player";
+
+            _homeworkService.ToggleManual(homeworkId, charKey, DateTime.Now);
+            RefreshHomeworkUi();
+            ShowToast("숙제 완료 상태를 수동 변경했습니다.", true);
+        }
     }
 
     // ================= 5. 생활 & 생산 탭 (150종 전체 스크롤 지원) =================
     private void UpdateLifeAndCraft(AlteringWorksResponse? alter, GatherableResponse? gather)
     {
+        _lastAlteringWorks = alter;
         if (alter != null && alter.Works != null)
         {
             _allAlteringWorks = alter.Works.OrderBy(w => w.FacilityName).ThenBy(w => w.RemainingSeconds).ToList();
