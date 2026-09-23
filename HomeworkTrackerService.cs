@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 
 namespace MobiMate
 {
@@ -20,12 +21,19 @@ namespace MobiMate
     public class HomeworkTrackerService
     {
         private readonly HomeworkRepository _repository;
+        private static readonly Regex UnityTagRegex = new(@"<[^>]+>", RegexOptions.Compiled);
 
         public HomeworkRepository Repository => _repository;
 
         public HomeworkTrackerService(HomeworkRepository? repository = null)
         {
             _repository = repository ?? new HomeworkRepository();
+        }
+
+        private static string StripTags(string? text)
+        {
+            if (string.IsNullOrEmpty(text)) return string.Empty;
+            return UnityTagRegex.Replace(text, string.Empty).Trim();
         }
 
         public HomeworkCharacterRecord EvaluateAndSync(HomeworkEvaluationContext ctx, DateTime now)
@@ -43,73 +51,59 @@ namespace MobiMate
                 if (!record.Items.TryGetValue(def.Id, out var state))
                     continue;
 
-                // 이미 완료 상태인 경우
+                // 이미 완료 상태인 경우 (상태 영속화/Latch 보존)
                 if (state.IsCompleted)
                     continue;
 
                 bool newlyDone = false;
 
-                switch (def.AutoMode)
+                // Layer 1: 공식 미션 카운터 (Ground Truth - 완료 시 사라지는 퀘스트 문제 완벽 해결)
+                if (CheckLayer1OfficialMissions(def, ctx, out int missionCur, out int missionGoal, out bool missionDone))
                 {
-                    case AutoDetectMode.DirectMission:
-                        if (CheckDirectMission(def, ctx, out int currentCount, out int goalCount, out bool isDone))
-                        {
-                            state.CurrentCount = currentCount;
-                            state.GoalCount = goalCount;
-                            if (isDone)
-                            {
-                                state.IsCompleted = true;
-                                state.IsAutoDetected = true;
-                                state.CompletedAt = now;
-                                changed = true;
-                                newlyDone = true;
-                            }
-                        }
-                        break;
+                    state.CurrentCount = missionCur;
+                    state.GoalCount = missionGoal;
+                    if (missionDone)
+                    {
+                        state.IsCompleted = true;
+                        state.IsAutoDetected = true;
+                        state.CompletedAt = now;
+                        changed = true;
+                        newlyDone = true;
+                    }
+                }
 
-                    case AutoDetectMode.AlteringFacility:
-                        if (ctx.AlteringWorks != null)
-                        {
-                            // 완료된 가공물이 있거나 수거 가능한 상태
-                            if (ctx.AlteringWorks.CompletedCount > 0 ||
-                                (ctx.AlteringWorks.Works != null && ctx.AlteringWorks.Works.Any(w => w.IsDone)))
-                            {
-                                state.CurrentCount = 1;
-                                state.GoalCount = 1;
-                                state.IsCompleted = true;
-                                state.IsAutoDetected = true;
-                                state.CompletedAt = now;
-                                changed = true;
-                                newlyDone = true;
-                            }
-                        }
-                        break;
+                // Layer 2: 진행 중 퀘스트 트래커 (get_quests) 리치텍스트 태그 박리 및 세부 목표 매칭
+                if (!newlyDone && CheckLayer2QuestTracker(def, ctx))
+                {
+                    state.CurrentCount = state.GoalCount;
+                    state.IsCompleted = true;
+                    state.IsAutoDetected = true;
+                    state.CompletedAt = now;
+                    changed = true;
+                    newlyDone = true;
+                }
 
-                    case AutoDetectMode.EnvironmentCombat:
-                        if (CheckEnvironmentOrCombat(def, ctx))
-                        {
-                            state.CurrentCount = 1;
-                            state.GoalCount = 1;
-                            state.IsCompleted = true;
-                            state.IsAutoDetected = true;
-                            state.CompletedAt = now;
-                            changed = true;
-                            newlyDone = true;
-                        }
-                        break;
+                // Layer 3: 실시간 전투 및 던전 공간 감지 (get_activity + get_environment)
+                if (!newlyDone && CheckLayer3CombatOrSpace(def, ctx))
+                {
+                    state.CurrentCount = state.GoalCount;
+                    state.IsCompleted = true;
+                    state.IsAutoDetected = true;
+                    state.CompletedAt = now;
+                    changed = true;
+                    newlyDone = true;
+                }
 
-                    case AutoDetectMode.QuestTracker:
-                        if (CheckQuestTracker(def, ctx))
-                        {
-                            state.CurrentCount = 1;
-                            state.GoalCount = 1;
-                            state.IsCompleted = true;
-                            state.IsAutoDetected = true;
-                            state.CompletedAt = now;
-                            changed = true;
-                            newlyDone = true;
-                        }
-                        break;
+                // Layer 4: 생활/가공 시설 대기열 완료 수거 감지
+                if (!newlyDone && def.AutoMode == AutoDetectMode.AlteringFacility && CheckLayer4Altering(ctx))
+                {
+                    state.CurrentCount = 1;
+                    state.GoalCount = 1;
+                    state.IsCompleted = true;
+                    state.IsAutoDetected = true;
+                    state.CompletedAt = now;
+                    changed = true;
+                    newlyDone = true;
                 }
 
                 // 공유 풀(SharedPoolId: 예 필드 보스 주간 1회 택1) 동기화
@@ -142,7 +136,10 @@ namespace MobiMate
             }
         }
 
-        private bool CheckDirectMission(HomeworkDefinition def, HomeworkEvaluationContext ctx, out int currentCount, out int goalCount, out bool isDone)
+        /// <summary>
+        /// Layer 1: 공식 미션 시스템(get_weekly_missions, get_daily_missions) 기반 확정 판정
+        /// </summary>
+        private bool CheckLayer1OfficialMissions(HomeworkDefinition def, HomeworkEvaluationContext ctx, out int currentCount, out int goalCount, out bool isDone)
         {
             currentCount = 0;
             goalCount = def.GoalCount;
@@ -155,22 +152,103 @@ namespace MobiMate
             if (missions == null || missions.Count == 0)
                 return false;
 
-            // 주간 전체 미션 완수 특수 체크
+            // 1. 주간 전체 미션 완수 카운트
             if (def.Id == "weekly_missions_all")
             {
-                int completedMissions = missions.Count(m => m.IsCompleted || m.CurrentCount >= m.GoalCount);
-                currentCount = completedMissions;
+                int completed = missions.Count(m => m.IsCompleted || m.CurrentCount >= m.GoalCount);
+                currentCount = completed;
                 goalCount = Math.Max(15, missions.Count);
-                isDone = completedMissions >= goalCount;
+                isDone = completed >= goalCount;
                 return true;
             }
 
+            // 2. 일일 전체 미션 완수 카운트
+            if (def.Id == "daily_missions_all")
+            {
+                int completed = missions.Count(m => m.IsCompleted || m.CurrentCount >= m.GoalCount);
+                currentCount = completed;
+                goalCount = Math.Max(8, missions.Count);
+                isDone = completed >= goalCount;
+                return true;
+            }
+
+            // 3. 필드 보스 공유 풀 (주간 미션: "필드 보스 1회 토벌" / "필드 보스 2회 토벌")
+            if (def.SharedPoolId == "field_boss_weekly")
+            {
+                var fbMission = missions.FirstOrDefault(m =>
+                    (m.Title != null && m.Title.Contains("필드 보스", StringComparison.OrdinalIgnoreCase)) ||
+                    (m.Description != null && m.Description.Contains("필드 보스", StringComparison.OrdinalIgnoreCase)));
+
+                if (fbMission != null)
+                {
+                    currentCount = Math.Min(1, fbMission.CurrentCount);
+                    goalCount = 1;
+                    isDone = fbMission.IsCompleted || fbMission.CurrentCount >= 1;
+                    return true;
+                }
+            }
+
+            // 4. 레이드 3종 (주간 미션: "선장님, 출정합니다!" - "레이드 1회 토벌")
+            if (def.Category == HomeworkCategory.Raid)
+            {
+                var raidMission = missions.FirstOrDefault(m =>
+                    (m.Title != null && m.Title.Contains("레이드", StringComparison.OrdinalIgnoreCase)) ||
+                    (m.Description != null && m.Description.Contains("레이드", StringComparison.OrdinalIgnoreCase)));
+
+                if (raidMission != null && (raidMission.IsCompleted || raidMission.CurrentCount >= 1))
+                {
+                    currentCount = 1;
+                    goalCount = 1;
+                    isDone = true;
+                    return true;
+                }
+            }
+
+            // 5. 어비스 3종 (주간 미션: "심연이 나를 부른다" - "어비스 1회 토벌")
+            if (def.Category == HomeworkCategory.Abyss)
+            {
+                var abyssMission = missions.FirstOrDefault(m =>
+                    (m.Title != null && m.Title.Contains("어비스", StringComparison.OrdinalIgnoreCase)) ||
+                    (m.Description != null && m.Description.Contains("어비스", StringComparison.OrdinalIgnoreCase)));
+
+                if (abyssMission != null && (abyssMission.IsCompleted || abyssMission.CurrentCount >= 1))
+                {
+                    currentCount = 1;
+                    goalCount = 1;
+                    isDone = true;
+                    return true;
+                }
+            }
+
+            // 6. 뱅가드 브리치 (주간 미션: "우리 집에 왜 왔니?" - "뱅가드 브리치 3회 토벌")
+            if (def.Id == "weekly_vanguard_breach")
+            {
+                var vbMission = missions.FirstOrDefault(m =>
+                    (m.Title != null && m.Title.Contains("뱅가드", StringComparison.OrdinalIgnoreCase)) ||
+                    (m.Description != null && m.Description.Contains("뱅가드", StringComparison.OrdinalIgnoreCase)));
+
+                if (vbMission != null)
+                {
+                    currentCount = vbMission.CurrentCount;
+                    goalCount = vbMission.GoalCount > 0 ? vbMission.GoalCount : 3;
+                    isDone = vbMission.IsCompleted || currentCount >= goalCount;
+                    return true;
+                }
+            }
+
+            // 7. 일반 키워드 매칭 (공백 정규화 지원)
             foreach (var m in missions)
             {
+                var cleanTitle = (m.Title ?? "").Replace(" ", "");
+                var cleanDesc = (m.Description ?? "").Replace(" ", "");
+
                 foreach (var kw in def.MatchKeywords)
                 {
-                    if ((m.Title != null && m.Title.Contains(kw, StringComparison.OrdinalIgnoreCase)) ||
-                        (m.Description != null && m.Description.Contains(kw, StringComparison.OrdinalIgnoreCase)))
+                    var cleanKw = (kw ?? "").Replace(" ", "");
+                    if (string.IsNullOrEmpty(cleanKw)) continue;
+
+                    if (cleanTitle.Contains(cleanKw, StringComparison.OrdinalIgnoreCase) ||
+                        cleanDesc.Contains(cleanKw, StringComparison.OrdinalIgnoreCase))
                     {
                         currentCount = m.CurrentCount;
                         goalCount = m.GoalCount > 0 ? m.GoalCount : def.GoalCount;
@@ -183,44 +261,84 @@ namespace MobiMate
             return false;
         }
 
-        private bool CheckEnvironmentOrCombat(HomeworkDefinition def, HomeworkEvaluationContext ctx)
+        /// <summary>
+        /// Layer 2: 진행 중인 퀘스트 트래커(get_quests) 텍스트 정규화 및 목표 상태 매칭
+        /// </summary>
+        private bool CheckLayer2QuestTracker(HomeworkDefinition def, HomeworkEvaluationContext ctx)
         {
-            // 1. 주간 미션 중에 해당 보스/던전 처치 미션이 있는지 먼저 확인
-            if (ctx.WeeklyMissions != null)
+            if (ctx.Quests == null || ctx.Quests.Count == 0)
+                return false;
+
+            foreach (var q in ctx.Quests)
             {
-                foreach (var m in ctx.WeeklyMissions)
+                var cleanTitle = StripTags(q.QuestTitle).Replace(" ", "");
+
+                bool titleMatch = def.MatchKeywords.Any(kw =>
                 {
-                    foreach (var kw in def.MatchKeywords)
+                    var cleanKw = (kw ?? "").Replace(" ", "");
+                    return !string.IsNullOrEmpty(cleanKw) && cleanTitle.Contains(cleanKw, StringComparison.OrdinalIgnoreCase);
+                });
+
+                if (titleMatch)
+                {
+                    // 목표가 없거나 모두 완료된 경우, 또는 하나 이상의 목표가 완료된 경우
+                    if (q.Objectives == null || q.Objectives.Count == 0 || q.Objectives.All(o => o.IsCompleted) || q.Objectives.Any(o => o.IsCompleted))
+                        return true;
+                }
+
+                // 목표 텍스트 내용에서 키워드 매칭 검사
+                if (q.Objectives != null)
+                {
+                    foreach (var obj in q.Objectives)
                     {
-                        if ((m.Title != null && m.Title.Contains(kw, StringComparison.OrdinalIgnoreCase)) ||
-                            (m.Description != null && m.Description.Contains(kw, StringComparison.OrdinalIgnoreCase)))
+                        var cleanDesc = StripTags(obj.Description).Replace(" ", "");
+                        bool descMatch = def.MatchKeywords.Any(kw =>
                         {
-                            if (m.IsCompleted || m.CurrentCount >= m.GoalCount)
-                                return true;
-                        }
+                            var cleanKw = (kw ?? "").Replace(" ", "");
+                            return !string.IsNullOrEmpty(cleanKw) && cleanDesc.Contains(cleanKw, StringComparison.OrdinalIgnoreCase);
+                        });
+
+                        if (descMatch && obj.IsCompleted)
+                            return true;
                     }
                 }
             }
 
-            // 2. 현재 공간/채널 및 교전 타겟 감지
-            string spaceName = ctx.Environment?.GameSpaceDisplayName ?? "";
-            string channelName = ctx.Environment?.ChannelName ?? "";
-            string targetName = ctx.Activity?.AutoPlayTargetDisplayName ?? "";
+            return false;
+        }
 
-            bool spaceMatched = def.MatchKeywords.Any(kw =>
-                (!string.IsNullOrEmpty(spaceName) && spaceName.Contains(kw, StringComparison.OrdinalIgnoreCase)) ||
-                (!string.IsNullOrEmpty(channelName) && channelName.Contains(kw, StringComparison.OrdinalIgnoreCase)));
+        /// <summary>
+        /// Layer 3: 실시간 전투 및 던전 공간 감지 (get_activity + get_environment)
+        /// </summary>
+        private bool CheckLayer3CombatOrSpace(HomeworkDefinition def, HomeworkEvaluationContext ctx)
+        {
+            string spaceName = (ctx.Environment?.GameSpaceDisplayName ?? "").Replace(" ", "");
+            string channelName = (ctx.Environment?.ChannelName ?? "").Replace(" ", "");
+            string targetName = (ctx.Activity?.AutoPlayTargetDisplayName ?? "").Replace(" ", "");
 
             bool targetMatched = !string.IsNullOrEmpty(targetName) &&
-                def.MatchKeywords.Any(kw => targetName.Contains(kw, StringComparison.OrdinalIgnoreCase));
+                def.MatchKeywords.Any(kw =>
+                {
+                    var cleanKw = (kw ?? "").Replace(" ", "");
+                    return !string.IsNullOrEmpty(cleanKw) && targetName.Contains(cleanKw, StringComparison.OrdinalIgnoreCase);
+                });
 
-            // 보스와 교전 중이거나 해당 보스 전용 공간/채널에 진입하여 교전 중인 경우 감지
-            if (targetMatched && (ctx.Activity?.IsInCombat == true || ctx.Activity?.IsAutoPlaying == true))
+            bool spaceMatched = def.MatchKeywords.Any(kw =>
+            {
+                var cleanKw = (kw ?? "").Replace(" ", "");
+                if (string.IsNullOrEmpty(cleanKw)) return false;
+                return (!string.IsNullOrEmpty(spaceName) && spaceName.Contains(cleanKw, StringComparison.OrdinalIgnoreCase)) ||
+                       (!string.IsNullOrEmpty(channelName) && channelName.Contains(cleanKw, StringComparison.OrdinalIgnoreCase));
+            });
+
+            // 1. 타겟 보스와 교전 중이거나 자동 사냥/전투 진행 중
+            if (targetMatched && (ctx.Activity?.IsInCombat == true || ctx.Activity?.IsAutoPlaying == true || ctx.Activity?.CurrentAction?.Contains("Combat", StringComparison.OrdinalIgnoreCase) == true))
             {
                 return true;
             }
 
-            if (spaceMatched && ctx.Activity?.IsInCombat == true)
+            // 2. 해당 던전 공간 진입 및 전투 중
+            if (spaceMatched && (ctx.Activity?.IsInCombat == true || ctx.Activity?.IsAutoPlaying == true || ctx.Activity?.CurrentAction?.Contains("Combat", StringComparison.OrdinalIgnoreCase) == true))
             {
                 return true;
             }
@@ -228,53 +346,15 @@ namespace MobiMate
             return false;
         }
 
-        private bool CheckQuestTracker(HomeworkDefinition def, HomeworkEvaluationContext ctx)
+        /// <summary>
+        /// Layer 4: 생활/가공 시설 수거 상태 검사
+        /// </summary>
+        private static bool CheckLayer4Altering(HomeworkEvaluationContext ctx)
         {
-            // 1. 퀘스트 트래커(get_quests) 검사
-            if (ctx.Quests != null)
-            {
-                foreach (var q in ctx.Quests)
-                {
-                    bool titleMatch = def.MatchKeywords.Any(kw =>
-                        q.QuestTitle != null && q.QuestTitle.Contains(kw, StringComparison.OrdinalIgnoreCase));
+            if (ctx.AlteringWorks == null) return false;
 
-                    if (titleMatch)
-                    {
-                        // 모든 목표 완수 또는 퀘스트 완료
-                        if (q.Objectives == null || q.Objectives.Count == 0 || q.Objectives.All(o => o.IsCompleted))
-                            return true;
-                    }
-                }
-            }
-
-            // 2. 주간 미션 내 레이드 클리어 항목 확인
-            if (ctx.WeeklyMissions != null)
-            {
-                foreach (var m in ctx.WeeklyMissions)
-                {
-                    foreach (var kw in def.MatchKeywords)
-                    {
-                        if ((m.Title != null && m.Title.Contains(kw, StringComparison.OrdinalIgnoreCase)) ||
-                            (m.Description != null && m.Description.Contains(kw, StringComparison.OrdinalIgnoreCase)))
-                        {
-                            if (m.IsCompleted || m.CurrentCount >= m.GoalCount)
-                                return true;
-                        }
-                    }
-                }
-            }
-
-            // 3. 전투 타겟 및 공간 교차 검증
-            string targetName = ctx.Activity?.AutoPlayTargetDisplayName ?? "";
-
-            if (!string.IsNullOrEmpty(targetName) &&
-                def.MatchKeywords.Any(kw => targetName.Contains(kw, StringComparison.OrdinalIgnoreCase)) &&
-                (ctx.Activity?.IsInCombat == true || ctx.Activity?.IsAutoPlaying == true))
-            {
-                return true;
-            }
-
-            return false;
+            return ctx.AlteringWorks.CompletedCount > 0 ||
+                   (ctx.AlteringWorks.Works != null && ctx.AlteringWorks.Works.Any(w => w.IsDone));
         }
 
         public void ToggleManual(string homeworkId, string characterKey, DateTime now)

@@ -85,18 +85,28 @@ public class HomeworkTrackerTests : IDisposable
     }
 
     [Fact]
-    public void WeeklyResetTime_CalculatesThursday06()
+    public void WeeklyResetTime_CalculatesMonday06()
     {
-        // 2026-09-24는 목요일
-        // 2026-09-24 08:00 (목요일 아침) -> 마지막 리셋은 2026-09-24 06:00
-        var thursdayAfter = new DateTime(2026, 9, 24, 8, 0, 0);
-        var lastWeekly = HomeworkRepository.GetLastWeeklyResetTime(thursdayAfter);
-        Assert.Equal(new DateTime(2026, 9, 24, 6, 0, 0), lastWeekly);
+        // 2026-09-21은 월요일
+        // 2026-09-24 10:00 (목요일) -> 마지막 주간 리셋은 2026-09-21 06:00 (월요일)
+        var thursday = new DateTime(2026, 9, 24, 10, 0, 0);
+        var lastWeekly1 = HomeworkRepository.GetLastWeeklyResetTime(thursday);
+        Assert.Equal(new DateTime(2026, 9, 21, 6, 0, 0), lastWeekly1);
 
-        // 2026-09-24 04:00 (목요일 새벽) -> 마지막 리셋은 지난주 목요일 2026-09-17 06:00
-        var thursdayBefore = new DateTime(2026, 9, 24, 4, 0, 0);
-        var prevWeekly = HomeworkRepository.GetLastWeeklyResetTime(thursdayBefore);
-        Assert.Equal(new DateTime(2026, 9, 17, 6, 0, 0), prevWeekly);
+        // 2026-09-21 08:00 (월요일 아침) -> 마지막 리셋은 당일 2026-09-21 06:00
+        var mondayAfter = new DateTime(2026, 9, 21, 8, 0, 0);
+        var lastWeekly2 = HomeworkRepository.GetLastWeeklyResetTime(mondayAfter);
+        Assert.Equal(new DateTime(2026, 9, 21, 6, 0, 0), lastWeekly2);
+
+        // 2026-09-21 05:59 (월요일 새벽 06시 직전) -> 마지막 리셋은 지난주 월요일 2026-09-14 06:00
+        var mondayBefore = new DateTime(2026, 9, 21, 5, 59, 0);
+        var lastWeekly3 = HomeworkRepository.GetLastWeeklyResetTime(mondayBefore);
+        Assert.Equal(new DateTime(2026, 9, 14, 6, 0, 0), lastWeekly3);
+
+        // 2026-09-27 23:59 (일요일 밤) -> 마지막 리셋은 당주 월요일 2026-09-21 06:00
+        var sundayNight = new DateTime(2026, 9, 27, 23, 59, 59);
+        var lastWeekly4 = HomeworkRepository.GetLastWeeklyResetTime(sundayNight);
+        Assert.Equal(new DateTime(2026, 9, 21, 6, 0, 0), lastWeekly4);
     }
 
     [Fact]
@@ -293,5 +303,111 @@ public class HomeworkTrackerTests : IDisposable
         _service.ToggleManual("fieldboss_peri", key, now);
         var bossItemsReset = _service.GetViewItems(key, HomeworkCategory.FieldBoss, now);
         Assert.All(bossItemsReset, b => Assert.False(b.IsCompleted));
+    }
+
+    [Fact]
+    public void EvaluateAndSync_Layer1_OfficialWeeklyMissions_AutoDetects_RaidAndFieldBoss()
+    {
+        var now = new DateTime(2026, 9, 24, 12, 0, 0);
+        string key = "Aira_Striker";
+
+        // 인게임 실측 get_weekly_missions 데이터 모의
+        var ctx = new HomeworkEvaluationContext
+        {
+            CharacterKey = key,
+            WeeklyMissions = new List<MissionItem>
+            {
+                new("선장님, 출정합니다!", "레이드 1회 토벌", 1, 1, true, true),
+                new("이 구역은 내가 접수한다", "필드 보스 1회 토벌", 1, 1, true, true),
+                new("안 돼, 다시 돌아가", "소환결계 1회 파괴", 1, 1, true, true),
+                new("발 빠짐 주의!", "검은구멍 1회 정화", 1, 1, true, true),
+                new("심연이 나를 부른다", "어비스 1회 토벌", 0, 1, false, false)
+            },
+            Quests = new List<QuestItem>() // 퀘스트창에는 완료되어 아무것도 없는 상태
+        };
+
+        var record = _service.EvaluateAndSync(ctx, now);
+
+        // 1. 레이드: 주간 미션 기반 1차 팩트 판정으로 자동 완료
+        Assert.True(record.Items["raid_cavrak"].IsCompleted || record.Items["raid_white_succubus"].IsCompleted);
+
+        // 2. 필드 보스: 주간 미션 1회 토벌 완료 -> 6종 공유 풀 전체가 자동 완료
+        Assert.True(record.Items["fieldboss_peri"].IsCompleted);
+        Assert.True(record.Items["fieldboss_krama"].IsCompleted);
+        Assert.True(record.Items["fieldboss_peri"].IsAutoDetected);
+
+        // 3. 결계 및 검은구멍 완료
+        Assert.True(record.Items["weekly_barrier_1_7"].IsCompleted);
+        Assert.True(record.Items["weekly_black_hole_1_7"].IsCompleted);
+
+        // 4. 어비스는 0회이므로 미완료
+        Assert.False(record.Items["abyss_illusory_anchorage"].IsCompleted);
+    }
+
+    [Fact]
+    public void EvaluateAndSync_Layer2_QuestWithUnityColorTags_StripsAndMatches()
+    {
+        var now = new DateTime(2026, 9, 24, 12, 0, 0);
+        string key = "Aira_Striker";
+
+        // 인게임 실측 get_quests 데이터: <color=orange> 등 유니티 리치텍스트 태그 포함
+        var ctx = new HomeworkEvaluationContext
+        {
+            CharacterKey = key,
+            Quests = new List<QuestItem>
+            {
+                new(
+                    QuestTitle: "[긴급 의뢰] 뱅가드 브리치",
+                    Source: "auto_register_candidate_sub",
+                    SourceDisplayName: "사이드",
+                    Objectives: new List<QuestObjective>
+                    {
+                        new("<color=orange>작전 장소</color>로 이동 3/3", IsCompleted: true)
+                    }
+                )
+            }
+        };
+
+        var record = _service.EvaluateAndSync(ctx, now);
+
+        // 태그를 박리하고 [긴급 의뢰] 뱅가드 브리치가 정상 자동 감지 완료되는지 검증
+        Assert.True(record.Items["weekly_vanguard_breach"].IsCompleted);
+        Assert.True(record.Items["weekly_vanguard_breach"].IsAutoDetected);
+    }
+
+    [Fact]
+    public void CompletedStatus_Latches_EvenWhenQuestDisappearsFromActiveList()
+    {
+        var now1 = new DateTime(2026, 9, 24, 12, 0, 0);
+        string key = "Aira_Striker";
+
+        // 시점 1: 퀘스트 진행 중 완료 달성
+        var ctx1 = new HomeworkEvaluationContext
+        {
+            CharacterKey = key,
+            Quests = new List<QuestItem>
+            {
+                new("[긴급 의뢰] 뱅가드 브리치", "side", "사이드", new List<QuestObjective>
+                {
+                    new("클리어", true)
+                })
+            }
+        };
+        _service.EvaluateAndSync(ctx1, now1);
+        Assert.True(_repo.GetOrCreateRecord(key, now1).Items["weekly_vanguard_breach"].IsCompleted);
+
+        // 시점 2: 유저가 퀘스트 보상을 수령하여 get_quests 목록에서 아예 사라짐
+        var now2 = now1.AddMinutes(10);
+        var ctx2 = new HomeworkEvaluationContext
+        {
+            CharacterKey = key,
+            Quests = new List<QuestItem>() // 빈 목록
+        };
+        _service.EvaluateAndSync(ctx2, now2);
+
+        // 다음 주 리셋(월요일 06시) 전까지는 사라진 퀘스트여도 완료 상태가 영구 보존(Latch)되어야 함!
+        var recordAfter = _repo.GetOrCreateRecord(key, now2);
+        Assert.True(recordAfter.Items["weekly_vanguard_breach"].IsCompleted);
+        Assert.True(recordAfter.Items["weekly_vanguard_breach"].IsAutoDetected);
     }
 }

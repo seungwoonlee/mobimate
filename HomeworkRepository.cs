@@ -471,10 +471,10 @@ namespace MobiMate
 
         public static DateTime GetLastWeeklyResetTime(DateTime now)
         {
-            // 매주 목요일 오전 06:00
+            // 매주 월요일 오전 06:00
             // DayOfWeek: Sunday(0), Monday(1), Tuesday(2), Wednesday(3), Thursday(4), Friday(5), Saturday(6)
             var currentDay = new DateTime(now.Year, now.Month, now.Day, 6, 0, 0, now.Kind);
-            int diff = ((int)currentDay.DayOfWeek - (int)DayOfWeek.Thursday + 7) % 7;
+            int diff = ((int)currentDay.DayOfWeek - (int)DayOfWeek.Monday + 7) % 7;
             var candidateReset = currentDay.AddDays(-diff);
 
             if (now >= candidateReset)

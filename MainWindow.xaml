@@ -705,7 +705,7 @@
                                 <Button x:Name="BtnViewHomeworkTracker" Content="🎯 스마트 숙제 트래커" Style="{StaticResource ActionButton}" Padding="16,8" FontWeight="Bold" Background="{StaticResource AccentYellow}" Foreground="{StaticResource BgApp}" Click="BtnViewHomeworkTracker_Click"/>
                                 <Button x:Name="BtnViewInGameMissions" Content="📜 인게임 전체 미션" Style="{StaticResource ActionButton}" Padding="16,8" Margin="8,0,0,0" Background="{StaticResource BgCard}" Foreground="{StaticResource TextSecondary}" Click="BtnViewInGameMissions_Click"/>
                             </StackPanel>
-                            <TextBlock x:Name="TxtHomeworkResetInfo" HorizontalAlignment="Right" VerticalAlignment="Center" Foreground="{StaticResource TextSecondary}" FontSize="13" Text="다음 일일 리셋: 06:00:00 | 주간 리셋: 목요일 06:00"/>
+                            <TextBlock x:Name="TxtHomeworkResetInfo" HorizontalAlignment="Right" VerticalAlignment="Center" Foreground="{StaticResource TextSecondary}" FontSize="13" Text="다음 일일 리셋: 06:00:00 | 주간 리셋: 월요일 06:00"/>
                         </Grid>
 
                         <!-- [서브뷰 A] 스마트 숙제 트래커 패널 -->
