@@ -66,7 +66,7 @@ namespace MobiMate
         public string PeriodDisplayName => Period switch
         {
             HomeworkPeriod.Daily => "매일 06시 리셋",
-            HomeworkPeriod.Weekly => "매주 목 06시 리셋",
+            HomeworkPeriod.Weekly => "매주 월 06시 리셋",
             _ => ""
         };
     }

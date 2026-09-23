@@ -917,7 +917,7 @@ public partial class MainWindow : Window
 
         if (TxtHomeworkResetInfo != null)
         {
-            TxtHomeworkResetInfo.Text = $"다음 일일 리셋: {dailyRemainText} | 주간 리셋 (목 06시): {weeklyRemainText}";
+            TxtHomeworkResetInfo.Text = $"다음 일일 리셋: {dailyRemainText} | 주간 리셋 (월 06시): {weeklyRemainText}";
         }
     }
 
