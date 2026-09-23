@@ -1,7 +1,7 @@
 # MobiMate Web — 상세설계서 (S1, v1.0)
 
 > **입력**: [`REQUIREMENTS.md`](./REQUIREMENTS.md) v1.2 · **화면 시안**: [`design/mockup.html`](./design/mockup.html)
-> **범위**: S2~S6 구현에 필요한 구조·인터페이스·흐름·화면 규칙. S8(역병합)은 요구사양서 수준으로만 다룬다.
+> **범위**: S2~S6 구현에 필요한 구조·인터페이스·흐름·화면 규칙. WPF판(`master`)과는 코드를 공유하지 않는다 (요구사양서 Q2).
 > 요구사항 ID(FR-·NFR-·SEC-·TST-)는 요구사양서를 가리킨다.
 
 ---
@@ -30,7 +30,7 @@ web/
 | FakeCli | Core(모델만) | — |
 | client | — | `react-router`, `@tanstack/react-query`, `@tanstack/react-virtual`, `zustand`, `markdown-it`(HTML 비활성), `@fontsource/ibm-plex-sans-kr`·`@fontsource/barlow-semi-condensed`(폰트 번들) |
 
-- Core는 `net8.0`으로 둔다. 그래서 S8에서 WPF판(`net8.0-windows`)과 Web 양쪽이 그대로 참조할 수 있다.
+- Core는 `net8.0`으로 둔다. WPF판 파일을 복사해 출발했지만 WPF판과 코드를 공유하지 않으며, 이후 독립적으로 고친다.
 - 배포: `MobiMate.Web`을 `PublishSingleFile=true`, `SelfContained=false`로 게시한다. 클라이언트 빌드 결과(`client/dist`)는 **임베디드 리소스**로 넣고 `ManifestEmbeddedFileProvider`로 서빙한다. 산출물은 `MobiMateWeb.exe` + `MobiMateWeb.zip`이다. WPF판 `MobiMate.exe`와 이름이 겹치지 않게 한다.
 
 ---
@@ -88,8 +88,8 @@ public sealed class JsonFileStore
 }
 ```
 
-- 저장 폴더는 `%APPDATA%\MobiMate\`로 WPF판과 같다. 웹 전용 파일은 `web_settings.json`, `devices.json`, `chat_log_session.json`(선택)이다.
-- 쓰기는 프로세스 안에서 파일별 `lock`으로 직렬화한다. 프로세스 간 병합은 S8에서 다룬다.
+- 저장 폴더는 `%APPDATA%\MobiMateWeb\`이다(WPF판과 분리). 웹 전용 파일은 `web_settings.json`, `devices.json`, `chat_log_session.json`(선택)이다.
+- 쓰기는 프로세스 안에서 파일별 `lock`으로 직렬화한다. 웹앱은 전용 폴더(`%APPDATA%\MobiMateWeb`)를 쓰므로 WPF판과 같은 파일을 동시에 쓰지 않는다. 서버는 기동할 때 `SnapshotManager.ImportFromIfEmpty(SnapshotManager.WpfStorageDirectory)`로 WPF판 기록을 한 번 복사해 온다.
 
 ### 2.4 채팅 글자 수 규칙 (FR-GC-02)
 
