@@ -1,6 +1,6 @@
 # MobiMate Web — 상세설계서 (S1, v1.0)
 
-> **입력**: [`REQUIREMENTS.md`](./REQUIREMENTS.md) v1.2 · **화면 시안**: [`design/mockup.html`](./design/mockup.html)
+> **입력**: [`REQUIREMENTS.md`](./REQUIREMENTS.md) v1.3 (v1.3 반영분: §2.8 숙제 트래커, §3.8 API, §4.2 라우팅) · **화면 시안**: [`design/mockup.html`](./design/mockup.html)
 > **범위**: S2~S6 구현에 필요한 구조·인터페이스·흐름·화면 규칙. WPF판(`master`)과는 코드를 공유하지 않는다 (요구사양서 Q2).
 > 요구사항 ID(FR-·NFR-·SEC-·TST-)는 요구사양서를 가리킨다.
 
@@ -137,7 +137,7 @@ public static class CommandIntentParser
 | 의도 | 판정 | 결과 |
 |---|---|---|
 | Stop | 공백·문장부호 제거 후 정규식 `^(긴급)?(정지|멈춰|스톱|그만)(해|해줘|해라)?$` | 즉시 실행 (안전 기능) |
-| CheckDailyMissions | `숙제`, `일일 미션`, `일일미션` 포함 | 미션 화면 이동 + 요약 (부작용 없음) |
+| CheckDailyMissions | `숙제`, `일일 미션`, `일일미션` 포함 | 숙제 화면(`/homework`) 이동 + 남은 숙제 요약 (부작용 없음) |
 | InventoryDiet | `다이어트`, `가방 정리`, `무게 줄여` 포함 | 가방 화면 다이어트 필터 |
 | CollectWorks | `수거`, `작업대`, `가공물` 포함 | 수거 가능 목록 카드 (실행 안 함) |
 | Gather | 동사 키워드(채집·캐줘·캐라·캐러·모아줘·수집·낚시·낚아) + 채집 가능 이름(긴 이름 우선) | 확인 카드 (실행 안 함) |
@@ -153,6 +153,38 @@ public static class CommandIntentParser
 - `BuildChatterContext()`: `ChatterContext` (WPF `GetCurrentChatterContext`와 동일)
 
 AI 질의나 한마디 생성 때 캐시가 30초보다 오래됐으면 `header` 조회를 한 번 먼저 한다.
+
+### 2.8 스마트 숙제 트래커 (REQUIREMENTS §5.11, §4.3)
+
+```
+Homework/
+├─ homework_catalog.json      내장 리소스. 31종 정의 (FR-HW-01)
+├─ HomeworkCatalog.cs         카탈로그 로드·검증(TST-10), override 병합(P2)
+├─ KstClock.cs                KST 현재 시각, 마지막/다음 일일(06:00)·주간(월 06:00) 리셋
+├─ HomeworkStore.cs           homework_records.json (JsonFileStore), 캐릭터별 + 계정 공통 레코드, WPF 형식 변환
+└─ HomeworkEvaluator.cs       순수 함수: (카탈로그, 레코드, 관측 스냅샷, 시각) → (새 레코드, 변경 목록, 진행 신호)
+```
+
+- **KstClock**: 한국은 일광절약시간이 없으므로 OS 시간대 데이터에 의존하지 않고 `DateTimeOffset.UtcNow.ToOffset(TimeSpan.FromHours(9))` 고정 오프셋으로 계산한다. 저장은 UTC로 하고, 테스트는 시각 함수를 주입한다.
+- **리셋 적용**: 레코드에 `LastDailyReset`·`LastWeeklyReset`(KST)을 둔다. 평가 때마다 현재 KST 기준 마지막 리셋 시각과 비교해 지났으면 해당 주기 항목을 전부 초기화한다(H-5). 서버가 꺼져 있던 동안 밀린 리셋도 이 비교 한 번으로 처리된다.
+- **평가 규칙** (FR-HW-04~06):
+
+| 판정 방식 | 입력 | 결과 |
+|---|---|---|
+| `DirectMission` | 일일·주간 미션 목록에서 카탈로그의 `missionTitles`와 정규화 후 **정확히 일치**하는 항목 | 진행도 동기화, 목표 도달 시 자동 완료 |
+| `MissionTotal` | 일일·주간 미션 전체 완료 개수 | 진행도 동기화, 전부 완료 시 자동 완료 |
+| `QuestAllObjectives` | `questTitlePatterns`와 일치하는 퀘스트의 **모든 목표** 완료 | 자동 완료 |
+| `AlteringCollected` | 서버의 수거 성공 이벤트, 또는 같은 캐릭터 키의 연속 성공 조회 두 번에서 (시설, 작업명)별 완료 개수 감소 | 자동 완료 |
+| `ManualStepCounter` | — (사용자가 0~목표 단계 입력) + 진행 신호 | 목표 단계 도달 시 수동 완료 |
+| (보조) `ProgressSignal` | `bossNames`와 `AutoPlayTargetDisplayName` 일치 + 전투 중, 또는 `spaceNames`와 `GameSpaceDisplayName` 정확히 일치 + 전투 중 | "진행 중" 표시만 (완료 안 함) |
+| `ManualOnly` | — | 수동 체크만 |
+
+- **정규화**: `Regex.Replace(text, "<[^>]+>", "")` → 공백 제거 → 대소문자 무시.
+- **수동 우선**: 항목 상태에 `ManualOverride`를 두고, 설정되면 평가기가 그 항목을 건드리지 않는다. 리셋 때 해제된다.
+- **판정 방식은 항목당 하나**: 평가기는 카탈로그의 `mode`에 해당하는 규칙만 돈다(H-10). `ProgressSignal`은 어느 모드에도 덧붙일 수 있는 보조 신호다. 목표가 0개인 퀘스트는 `QuestAllObjectives` 근거가 되지 않는다.
+- **공유 풀**: 풀 완료 여부는 "풀 안 항목 중 하나라도 완료"로 계산한다. 형제 항목의 상태를 복사해 두지 않는다(WPF판의 형제 동기화 방식은 해제할 때 상태가 꼬인다).
+- **판정 근거**: 자동 완료 때 `Evidence` 문자열을 저장한다(FR-HW-13).
+- **가져오기**: 파일별로 웹앱 쪽 파일이 없을 때만 `%APPDATA%\MobiMate\homework_records.json`(WPF, 캐릭터 키 → 레코드)을 읽는다. 카탈로그에서 계정 공통인 항목은 가장 최근에 완료된 값을 계정 레코드로 옮긴다. 이번 주기에 해당하지 않는 완료 기록과 `Default_Player` 레코드는 버린다. `SnapshotManager.ImportFromIfEmpty`도 "폴더 전체가 비었을 때"에서 "파일별로 없을 때"로 바꾼다(S2.5).
 
 ---
 
@@ -245,6 +277,7 @@ public sealed class QueryCache
 | `gather` | `{ jobId, state: running|completed|stopped|failed, gained, item }` | 채집 작업 상태 변경 |
 | `chat.logged` | `ChatLogEntryDto` | 채팅 전송 로그 추가 |
 | `state.changed` | `{ keys: ["persona","engine","settings"] }` | FR-MB-15 공유 상태 변경 → 클라이언트가 재조회 |
+| `homework.changed` | `{ characterKey, ids: [...], reason: "auto" \| "manual" \| "reset" }` | 자동 판정·수동 설정·리셋으로 숙제 상태가 바뀜 → `['homework']`·`['overview']` 무효화 |
 | `ping` | — | 20초마다 (프록시·절전 감지용) |
 
 - 연결 끊김 감지: 쓰기 실패 시 제거. 클라이언트는 `ping`이 45초 동안 없으면 스스로 재연결한다.
@@ -297,7 +330,7 @@ client/src/
 ├─ layout/         AppShell, TopBar, NavRail, BottomTabs, Dock, Sheet, AlertStrip, StopFab
 ├─ components/     Card, Stat, Gauge, Ring, Badge, Chip, Segmented, Button, Toast, Skeleton, EmptyState
 ├─ features/
-│  ├─ overview/  character/  inventory/  currencies/  missions/  life/  nearby/
+│  ├─ overview/  character/  inventory/  currencies/  homework/(missions 탭 포함)  life/  nearby/
 │  ├─ chat/        GameChatPanel, ChatComposer, ChatLog, PersonaBar
 │  ├─ ai/          AiPanel, GuideShelf, EngineSelect, MessageList, IntentCard
 │  ├─ pairing/     PairingDialog(QR), PairLanding, OnboardingCard
@@ -311,9 +344,10 @@ client/src/
 |---|---|---|
 | `/` | 개요 | `1` |
 | `/stats` | 스탯 | `2` |
+| `/homework?tab=` | 숙제 (인게임 미션 탭 포함) | `5` |
 | `/inventory?loc=bag|account|character|diet&q=` | 가방·창고 | `3` |
 | `/currencies` | 재화 | `4` |
-| `/missions` | 미션 | `5` |
+| `/missions` | → `/homework?tab=missions`로 이동 (호환) | — |
 | `/life` | 생활 | `6` |
 | `/nearby` | 레이더 | `7` |
 | `/settings` | 설정 | — |
@@ -327,12 +361,13 @@ client/src/
 |---|---|---|
 | `['header']` | `/api/header` | 상단 바 (항상) |
 | `['overview']` | `/api/overview` | 개요 |
-| `['character']` … `['nearby']` | 각 상세 | 해당 화면 |
+| `['character']` … `['nearby']` | 각 상세 | 해당 화면 (미션은 숙제 화면의 탭) |
 | `['chatLog']` | `/api/chat/game/log` | 게임 채팅 |
+| `['homework', tab]` | `/api/homework?category=` | 숙제 |
 | `['personas']`, `['engines']`, `['settings']`, `['meta']` | — | 도크·설정 |
 
 - `staleTime: 2s`(서버 캐시 3초와 맞춤), `retry: 1`, `refetchOnWindowFocus: false`. 갱신은 적응형 훅이 책임진다.
-- SSE `state.changed`·`gather`·`chat.logged`를 받으면 해당 키를 `invalidateQueries`한다.
+- SSE `state.changed`·`gather`·`chat.logged`·`homework.changed`를 받으면 해당 키를 `invalidateQueries`한다.
 
 ### 4.4 적응형 갱신 훅 (FR-RF)
 
@@ -467,7 +502,8 @@ sequenceDiagram
 2. 서버: `CommandIntentParser.Parse`
    - `Stop` → 정지 실행 → `{"type":"action","kind":"stop","ok":true}`
    - `Gather`·`CollectWorks` → `{"type":"intent", ...카드 데이터}` (실행 안 함)
-   - `CheckDailyMissions`·`InventoryDiet` → `{"type":"navigate","to":"/missions"}` + 요약 텍스트
+   - `CheckDailyMissions` → `{"type":"navigate","to":"/homework?tab=daily"}` + 남은 숙제 요약
+   - `InventoryDiet` → `{"type":"navigate","to":"/inventory?loc=diet"}` + 요약 텍스트
    - `None` → 엔진 호출. `{"type":"token","t":"..."}` 반복 → `{"type":"done"}`
 3. 클라이언트는 `AbortController`로 중지한다(FR-AI-08). 서버는 `HttpContext.RequestAborted`로 엔진 호출을 취소한다.
 
@@ -495,7 +531,7 @@ sequenceDiagram
 | 내 화면 | 실제 뷰포트 | 상단에 CSS 폭·높이·배율·화면 구역 수·입력 방식 표시 → M8 실측에 사용 |
 
 화면별 핵심 배치:
-- **개요**: 경고 스트립 → 핵심 수치 카드(전투력·가방·골드) → 진행 카드(일일·주간·가공·주변) → 퀵 액션 4개.
+- **개요**: 경고 스트립 → 핵심 수치 카드(전투력·가방·골드) → 진행 카드(숙제 일일·주간 + 리셋 카운트다운·가공·주변) → 퀵 액션 4개.
 - **게임 채팅 도크**: 페르소나 바(선택 + 💬 한마디) → 로그 → 입력(카운터·미리보기·전송).
 - **AI 도크**: 엔진 선택(비용 배지) → 가이드 쉘프(내장 모드) → 대화 → 입력.
 
