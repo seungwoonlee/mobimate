@@ -73,4 +73,5 @@ dotnet publish -c Release -r win-x64 -o dist
 ## 3. 문서 및 참고자료
 - [`REQUIREMENTS.md`](./REQUIREMENTS.md): 사용자 요구사양서
 - [`02-상세설계-스냅샷변화량_AI선택_대형UI.md`](./02-상세설계-스냅샷변화량_AI선택_대형UI.md): 상세설계서 (v2)
+- [`08-분석보고-WPF판_결함목록_인수인계.md`](./08-분석보고-WPF판_결함목록_인수인계.md): WPF판 결함 12건과 인수인계 (작업 전 필독)
 - [`API_SPEC_SAMPLES.md`](./API_SPEC_SAMPLES.md): 마비노기 모바일 CLI 28종 API 실측 응답 스펙
