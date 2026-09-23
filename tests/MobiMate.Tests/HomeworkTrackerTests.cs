@@ -306,12 +306,12 @@ public class HomeworkTrackerTests : IDisposable
     }
 
     [Fact]
-    public void EvaluateAndSync_Layer1_OfficialWeeklyMissions_AutoDetects_RaidAndFieldBoss()
+    public void EvaluateAndSync_Layer1_GenericWeeklyMissions_DoNotCauseFalsePositivesForRaidAndBarrier()
     {
         var now = new DateTime(2026, 9, 24, 12, 0, 0);
         string key = "Aira_Striker";
 
-        // 인게임 실측 get_weekly_missions 데이터 모의
+        // 인게임 실측 get_weekly_missions 데이터: 계정 단위 주간 미션
         var ctx = new HomeworkEvaluationContext
         {
             CharacterKey = key,
@@ -328,20 +328,64 @@ public class HomeworkTrackerTests : IDisposable
 
         var record = _service.EvaluateAndSync(ctx, now);
 
-        // 1. 레이드: 주간 미션 기반 1차 팩트 판정으로 자동 완료
-        Assert.True(record.Items["raid_cavrak"].IsCompleted || record.Items["raid_white_succubus"].IsCompleted);
-
-        // 2. 필드 보스: 주간 미션 1회 토벌 완료 -> 6종 공유 풀 전체가 자동 완료
-        Assert.True(record.Items["fieldboss_peri"].IsCompleted);
-        Assert.True(record.Items["fieldboss_krama"].IsCompleted);
-        Assert.True(record.Items["fieldboss_peri"].IsAutoDetected);
-
-        // 3. 결계 및 검은구멍 완료
-        Assert.True(record.Items["weekly_barrier_1_7"].IsCompleted);
-        Assert.True(record.Items["weekly_black_hole_1_7"].IsCompleted);
-
-        // 4. 어비스는 0회이므로 미완료
+        // [오탐 방지 핵심 검증]: 계정 주간 도전과제 1회 완료만으로 캐릭터의 레이드나 소환의 결계가 완료 처리되지 않아야 함!
+        Assert.False(record.Items["raid_cavrak"].IsCompleted);
+        Assert.False(record.Items["raid_white_succubus"].IsCompleted);
+        Assert.False(record.Items["weekly_barrier_1_7"].IsCompleted);
         Assert.False(record.Items["abyss_illusory_anchorage"].IsCompleted);
+    }
+
+    [Fact]
+    public void ResetAllManual_ClearsAllCompletedHomeworksForCharacter()
+    {
+        var now = new DateTime(2026, 9, 24, 12, 0, 0);
+        string key = "Aira_Striker";
+
+        // 임의로 숙제 완료 처리
+        _service.ToggleManual("raid_cavrak", key, now);
+        _service.ToggleManual("weekly_barrier_1_7", key, now);
+        var recordBefore = _repo.GetOrCreateRecord(key, now);
+        Assert.True(recordBefore.Items["raid_cavrak"].IsCompleted);
+        Assert.True(recordBefore.Items["weekly_barrier_1_7"].IsCompleted);
+
+        // 초기화 실행
+        _service.ResetAllManual(key, now);
+
+        var recordAfter = _repo.GetOrCreateRecord(key, now);
+        Assert.False(recordAfter.Items["raid_cavrak"].IsCompleted);
+        Assert.False(recordAfter.Items["weekly_barrier_1_7"].IsCompleted);
+        Assert.False(recordAfter.Items["raid_cavrak"].ManualOverride);
+    }
+
+    [Fact]
+    public void ManualOverride_PreventsBackgroundAutoDetectFromOverwritingUserUncheck()
+    {
+        var now = new DateTime(2026, 9, 24, 12, 0, 0);
+        string key = "Aira_Striker";
+
+        // 유저가 수동으로 체크 해제 (ManualOverride = true)
+        _service.ToggleManual("weekly_vanguard_breach", key, now); // True
+        _service.ToggleManual("weekly_vanguard_breach", key, now); // False로 해제
+        var state = _repo.GetOrCreateRecord(key, now).Items["weekly_vanguard_breach"];
+        Assert.False(state.IsCompleted);
+        Assert.True(state.ManualOverride);
+
+        // 백그라운드에서 퀘스트 완료 데이터가 계속 들어와도 유저의 수동 해제 선택이 존중되어 덮어쓰지 않음
+        var ctx = new HomeworkEvaluationContext
+        {
+            CharacterKey = key,
+            Quests = new List<QuestItem>
+            {
+                new("[긴급 의뢰] 뱅가드 브리치", "side", "사이드", new List<QuestObjective>
+                {
+                    new("클리어", true)
+                })
+            }
+        };
+        _service.EvaluateAndSync(ctx, now);
+
+        var stateAfter = _repo.GetOrCreateRecord(key, now).Items["weekly_vanguard_breach"];
+        Assert.False(stateAfter.IsCompleted);
     }
 
     [Fact]

@@ -186,7 +186,7 @@ namespace MobiMate
                 Category = HomeworkCategory.Weekly,
                 Period = HomeworkPeriod.Weekly,
                 ShareType = HomeworkShareType.Character,
-                AutoMode = AutoDetectMode.DirectMission,
+                AutoMode = AutoDetectMode.QuestTracker,
                 Title = "소환의 결계",
                 Subtitle = "콘텐츠 가이드 주간 소환의 결계 (1~7단계)",
                 Icon = "🧿",
@@ -200,7 +200,7 @@ namespace MobiMate
                 Category = HomeworkCategory.Weekly,
                 Period = HomeworkPeriod.Weekly,
                 ShareType = HomeworkShareType.Character,
-                AutoMode = AutoDetectMode.DirectMission,
+                AutoMode = AutoDetectMode.QuestTracker,
                 Title = "검은 구멍 (주간)",
                 Subtitle = "콘텐츠 가이드 주간 검은 구멍 (1~7단계)",
                 Icon = "🌌",
@@ -559,6 +559,7 @@ namespace MobiMate
                         itemState.IsCompleted = false;
                         itemState.CurrentCount = 0;
                         itemState.IsAutoDetected = false;
+                        itemState.ManualOverride = false;
                         needsSave = true;
                     }
                     else if (def.Period == HomeworkPeriod.Weekly && itemState.CompletedAt.Value < lastWeekly)
@@ -566,6 +567,7 @@ namespace MobiMate
                         itemState.IsCompleted = false;
                         itemState.CurrentCount = 0;
                         itemState.IsAutoDetected = false;
+                        itemState.ManualOverride = false;
                         needsSave = true;
                     }
                 }
@@ -578,6 +580,34 @@ namespace MobiMate
             {
                 SaveRecord(record);
             }
+        }
+
+        public HomeworkCharacterRecord ResetRecord(string characterKey, DateTime now)
+        {
+            var record = new HomeworkCharacterRecord
+            {
+                CharacterKey = characterKey,
+                LastDailyReset = GetLastDailyResetTime(now),
+                LastWeeklyReset = GetLastWeeklyResetTime(now)
+            };
+
+            foreach (var def in MasterList)
+            {
+                record.Items[def.Id] = new HomeworkItemState
+                {
+                    Id = def.Id,
+                    GoalCount = def.GoalCount,
+                    CurrentCount = 0,
+                    IsCompleted = false,
+                    IsAutoDetected = false,
+                    ManualOverride = false,
+                    CompletedAt = null,
+                    LastUpdated = now
+                };
+            }
+
+            SaveRecord(record);
+            return record;
         }
 
         public void SaveRecord(HomeworkCharacterRecord record)
