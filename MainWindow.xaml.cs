@@ -87,6 +87,7 @@ public partial class MainWindow : Window
         Loaded += async (s, e) =>
         {
             _isWindowLoaded = true;
+            RefreshHomeworkUi();
             LoadCustomPersonasToUi();
             await LoadAiEnginesAsync();
             await RefreshHeaderOnlyAsync();
@@ -872,6 +873,9 @@ public partial class MainWindow : Window
 
     private void RefreshHomeworkUi()
     {
+        if (!_isWindowLoaded || ListHomeworkCards == null || ProgHomeworkDaily == null || ProgHomeworkWeekly == null)
+            return;
+
         var charKey = _lastCharInfo != null
             ? $"{_lastCharInfo.RealmName}_{_lastCharInfo.JobName}"
             : "Default_Player";
@@ -901,7 +905,10 @@ public partial class MainWindow : Window
             ? $"{weeklyRemain.Days}일 {weeklyRemain.Hours:D2}:{weeklyRemain.Minutes:D2}:{weeklyRemain.Seconds:D2}"
             : $"{weeklyRemain.Hours:D2}:{weeklyRemain.Minutes:D2}:{weeklyRemain.Seconds:D2}";
 
-        TxtHomeworkResetInfo.Text = $"다음 일일 리셋: {dailyRemainText} | 주간 리셋 (목 06시): {weeklyRemainText}";
+        if (TxtHomeworkResetInfo != null)
+        {
+            TxtHomeworkResetInfo.Text = $"다음 일일 리셋: {dailyRemainText} | 주간 리셋 (목 06시): {weeklyRemainText}";
+        }
     }
 
     private void BtnViewHomeworkTracker_Click(object sender, RoutedEventArgs e)
@@ -909,7 +916,7 @@ public partial class MainWindow : Window
         PanelHomeworkTracker.Visibility = Visibility.Visible;
         PanelInGameMissions.Visibility = Visibility.Collapsed;
         BtnViewHomeworkTracker.Background = (Brush)FindResource("AccentYellow");
-        BtnViewHomeworkTracker.Foreground = (Brush)FindResource("BgApp");
+        BtnViewHomeworkTracker.Foreground = (Brush)FindResource("BgPrimary");
         BtnViewInGameMissions.Background = (Brush)FindResource("BgCard");
         BtnViewInGameMissions.Foreground = (Brush)FindResource("TextSecondary");
         RefreshHomeworkUi();
@@ -920,14 +927,14 @@ public partial class MainWindow : Window
         PanelHomeworkTracker.Visibility = Visibility.Collapsed;
         PanelInGameMissions.Visibility = Visibility.Visible;
         BtnViewInGameMissions.Background = (Brush)FindResource("AccentYellow");
-        BtnViewInGameMissions.Foreground = (Brush)FindResource("BgApp");
+        BtnViewInGameMissions.Foreground = (Brush)FindResource("BgPrimary");
         BtnViewHomeworkTracker.Background = (Brush)FindResource("BgCard");
         BtnViewHomeworkTracker.Foreground = (Brush)FindResource("TextSecondary");
     }
 
     private void RbHomeworkFilter_Checked(object sender, RoutedEventArgs e)
     {
-        if (sender is not RadioButton rb) return;
+        if (!_isWindowLoaded || sender is not RadioButton rb) return;
 
         _currentHomeworkCategory = rb.Name switch
         {

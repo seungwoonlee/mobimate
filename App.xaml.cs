@@ -46,8 +46,20 @@ public partial class App : Application
             Directory.CreateDirectory(dir);
 
             var logPath = Path.Combine(dir, "crash_ui.log");
-            var content = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] [{source}] {ex.GetType().FullName}: {ex.Message}\n{ex.StackTrace}\n\n";
-            File.AppendAllText(logPath, content);
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] [{source}] {ex.GetType().FullName}: {ex.Message}");
+            sb.AppendLine(ex.StackTrace);
+
+            var inner = ex.InnerException;
+            while (inner != null)
+            {
+                sb.AppendLine($"  --> Inner: {inner.GetType().FullName}: {inner.Message}");
+                sb.AppendLine(inner.StackTrace);
+                inner = inner.InnerException;
+            }
+            sb.AppendLine();
+
+            File.AppendAllText(logPath, sb.ToString());
         }
         catch
         {
