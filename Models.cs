@@ -107,7 +107,12 @@ public record AlteringWorkItem(
     [property: JsonPropertyName("State")] string State,
     [property: JsonPropertyName("IsCompleted")] bool IsCompleted,
     [property: JsonPropertyName("RemainingSeconds")] int RemainingSeconds
-);
+)
+{
+    public bool IsDone => IsCompleted || RemainingSeconds == 0;
+    public string StatusText => IsDone ? "수거 대기 ✅" : $"{RemainingSeconds:N0}초 남음 ⏳";
+    public string StatusColor => IsDone ? "#4EBA6F" : "#F5D061";
+}
 
 // 8. 채집 (get_gatherable_items)
 public record GatherableItem(
@@ -161,5 +166,30 @@ public class GatherableDisplayItem
     public int NeededCount => Math.Max(0, TargetCount - CurrentBagCount);
     public string ProgressText => $"보유 {CurrentBagCount} / 목표 {TargetCount} (부족 {NeededCount}개)";
     public bool IsTargetReached => NeededCount == 0;
+}
+
+public class NearPcViewItem
+{
+    public NearPcItem Raw { get; set; } = null!;
+    public double Distance => Raw.Distance;
+    public int Level => Raw.Level;
+    public string JobName => Raw.JobName;
+    public string JobIcon { get; set; } = "⭐";
+    public long CombatScore => Raw.CombatScore;
+    public string RealmName => Raw.RealmName;
+    public string? Title => Raw.Title;
+    public bool IsSameGuild => Raw.IsSameGuild;
+    public bool IsStronger { get; set; }
+    public string GuildBadge => IsSameGuild ? "🛡️ 우리 길드원" : "";
+    public string GuildBadgeColor => IsSameGuild ? "#4EBA6F" : "#8E9297";
+    public string StrongerBadge => IsStronger ? "⚔️ 강력 (나보다 높음)" : "";
+    public string CombatScoreColor => IsStronger ? "#FF6B6B" : "#F5D061";
+    public string TitleWithRealm => string.IsNullOrEmpty(Title) ? $"[{RealmName}]" : $"[{Title}] ({RealmName})";
+}
+
+public class CurrencyCategoryGroup
+{
+    public string CategoryName { get; set; } = "";
+    public List<CurrencyItem> Items { get; set; } = new();
 }
 

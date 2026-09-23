@@ -83,6 +83,7 @@ public class InGameChatterService
         var match = Regex.Match(erinnNow, @"(?:(\d+)-)?(\d{1,2})-(\d{1,2})\s+(\d{1,2}):(\d{2})");
         if (match.Success)
         {
+            var year = match.Groups[1].Success ? match.Groups[1].Value : "2959";
             var month = int.Parse(match.Groups[2].Value);
             var day = int.Parse(match.Groups[3].Value);
             var hour = int.Parse(match.Groups[4].Value);
@@ -90,7 +91,7 @@ public class InGameChatterService
             var isDay = hour >= 6 && hour < 18;
             var icon = isDay ? "☀️" : "🌙";
             var period = isDay ? "낮" : "밤";
-            return $"에린 시간 {month}월 {day}일 {hour:D2}:{minute} {icon} ({period})";
+            return $"에린 시간 {year}년 {month}월 {day}일 {hour:D2}:{minute} {icon} ({period})";
         }
 
         return $"에린 시간 {erinnNow}";

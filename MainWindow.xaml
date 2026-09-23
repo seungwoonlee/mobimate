@@ -305,6 +305,11 @@
                     <TextBlock x:Name="TxtStatusIcon" Text="🟢" FontSize="28" Margin="0,0,14,0" VerticalAlignment="Center"/>
                     <StackPanel VerticalAlignment="Center">
                         <StackPanel Orientation="Horizontal">
+                            <!-- 직업 클래스 심볼 아이콘 뱃지 -->
+                            <Border x:Name="BadgeJobIcon" Background="#2A2D35" BorderBrush="#3E424D" BorderThickness="1" CornerRadius="8" Padding="6,2" Margin="0,0,8,0" VerticalAlignment="Center" ToolTip="캐릭터 직업 클래스">
+                                <TextBlock x:Name="TxtJobIcon" Text="⚔️" FontSize="18" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                            </Border>
+
                             <TextBlock x:Name="TxtCharTitle" Text="[아이라] 격투가 Lv.100" FontWeight="Bold" FontSize="22" Foreground="{StaticResource TextPrimary}"
                                        Cursor="Hand" ToolTip="클릭하여 캐릭터 닉네임(별칭)을 설정하거나 변경할 수 있습니다." MouseLeftButtonUp="TxtCharTitle_MouseLeftButtonUp"/>
 
@@ -362,7 +367,7 @@
 
                 <!-- 우측: 제어 버튼들 -->
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                    <Button Content="🛑 긴급 정지 (ESC)" Click="BtnEmergencyStop_Click" Background="{StaticResource AccentRed}" Foreground="White" FontWeight="Bold" FontSize="14" Padding="16,8" BorderThickness="0" Margin="0,0,10,0" Cursor="Hand">
+                    <Button Content="🛑 정지 (ESC)" Click="BtnEmergencyStop_Click" Background="{StaticResource AccentRed}" Foreground="White" FontWeight="Bold" FontSize="14" Padding="12,6" BorderThickness="0" Margin="0,0,8,0" Cursor="Hand">
                         <Button.Template>
                             <ControlTemplate TargetType="Button">
                                 <Border Background="{TemplateBinding Background}" CornerRadius="6" Padding="{TemplateBinding Padding}">
@@ -372,9 +377,21 @@
                         </Button.Template>
                     </Button>
 
-                    <ToggleButton x:Name="BtnTopmost" Content="📌 항상 위" Click="BtnTopmost_Click"
-                                  Background="#35373C" Foreground="{StaticResource TextPrimary}" FontWeight="Bold" FontSize="14"
-                                  Padding="14,8" BorderThickness="0" Margin="0,0,10,0" Cursor="Hand">
+                    <Button x:Name="BtnRefreshCurrentTab" Content="🔄 새로고침" Click="BtnRefreshCurrentTab_Click"
+                            Background="{StaticResource AccentBlue}" Foreground="White" FontWeight="Bold" FontSize="14"
+                            Padding="12,6" BorderThickness="0" Margin="0,0,8,0" Cursor="Hand">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border Background="{TemplateBinding Background}" CornerRadius="6" Padding="{TemplateBinding Padding}">
+                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                            </ControlTemplate>
+                        </Button.Template>
+                    </Button>
+
+                    <ToggleButton x:Name="BtnTopmost" Content="📌" Click="BtnTopmost_Click"
+                                  Background="#35373C" Foreground="{StaticResource TextPrimary}" FontWeight="Bold" FontSize="15"
+                                  Width="34" Height="34" Padding="0" BorderThickness="0" Cursor="Hand" ToolTip="항상 위 고정 토글">
                         <ToggleButton.Template>
                             <ControlTemplate TargetType="ToggleButton">
                                 <Border x:Name="bd" Background="{TemplateBinding Background}" CornerRadius="6" Padding="{TemplateBinding Padding}">
@@ -388,18 +405,6 @@
                             </ControlTemplate>
                         </ToggleButton.Template>
                     </ToggleButton>
-
-                    <Button x:Name="BtnRefreshCurrentTab" Content="🔄 탭 새로고침" Click="BtnRefreshCurrentTab_Click"
-                            Background="{StaticResource AccentBlue}" Foreground="White" FontWeight="Bold" FontSize="14"
-                            Padding="16,8" BorderThickness="0" Cursor="Hand">
-                        <Button.Template>
-                            <ControlTemplate TargetType="Button">
-                                <Border Background="{TemplateBinding Background}" CornerRadius="6" Padding="{TemplateBinding Padding}">
-                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                </Border>
-                            </ControlTemplate>
-                        </Button.Template>
-                    </Button>
                 </StackPanel>
             </Grid>
         </Border>
@@ -574,21 +579,34 @@
                                 </StackPanel>
                             </Border>
 
-                            <TextBlock Text="💎 전체 28종 보유 재화 및 레이드 증표" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" FontSize="18" Margin="0,0,0,12"/>
-                            <ItemsControl x:Name="ListAllCurrencies">
-                                <ItemsControl.ItemsPanel>
-                                    <ItemsPanelTemplate>
-                                        <UniformGrid Columns="3"/>
-                                    </ItemsPanelTemplate>
-                                </ItemsControl.ItemsPanel>
+                            <TextBlock Text="💎 전체 28종 보유 재화 및 레이드 증표 (카테고리별)" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" FontSize="18" Margin="0,0,0,8"/>
+
+                            <!-- 4대 카테고리별 그룹핑 뷰 -->
+                            <ItemsControl x:Name="ListCurrencyGroups">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <Border Background="{StaticResource BgCard}" CornerRadius="8" Padding="16,14" Margin="6">
-                                            <Grid>
-                                                <TextBlock Text="{Binding DisplayName}" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" FontSize="15" VerticalAlignment="Center"/>
-                                                <TextBlock Text="{Binding Amount, StringFormat='{}{0:N0}'}" HorizontalAlignment="Right" Foreground="{StaticResource AccentGold}" FontWeight="Bold" FontSize="18" VerticalAlignment="Center"/>
-                                            </Grid>
-                                        </Border>
+                                        <StackPanel Margin="0,0,0,16">
+                                            <Border Background="#252830" CornerRadius="6" Padding="12,6" Margin="0,0,0,8">
+                                                <TextBlock Text="{Binding CategoryName}" FontWeight="Bold" Foreground="{StaticResource AccentBlue}" FontSize="15"/>
+                                            </Border>
+                                            <ItemsControl ItemsSource="{Binding Items}">
+                                                <ItemsControl.ItemsPanel>
+                                                    <ItemsPanelTemplate>
+                                                        <UniformGrid Columns="3"/>
+                                                    </ItemsPanelTemplate>
+                                                </ItemsControl.ItemsPanel>
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Border Background="{StaticResource BgCard}" CornerRadius="8" Padding="16,14" Margin="6">
+                                                            <Grid>
+                                                                <TextBlock Text="{Binding DisplayName}" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" FontSize="15" VerticalAlignment="Center"/>
+                                                                <TextBlock Text="{Binding Amount, StringFormat='{}{0:N0}'}" HorizontalAlignment="Right" Foreground="{StaticResource AccentGold}" FontWeight="Bold" FontSize="18" VerticalAlignment="Center"/>
+                                                            </Grid>
+                                                        </Border>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </StackPanel>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
@@ -717,10 +735,15 @@
                                                 <Border Background="{StaticResource BgCardSub}" CornerRadius="6" Padding="14,12" Margin="0,0,0,10">
                                                     <Grid>
                                                         <StackPanel>
-                                                            <TextBlock Text="{Binding DisplayName}" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" FontSize="16"/>
+                                                            <StackPanel Orientation="Horizontal">
+                                                                <TextBlock Text="{Binding DisplayName}" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" FontSize="16"/>
+                                                                <Border Background="#1C3829" CornerRadius="4" Padding="6,2" Margin="8,0,0,0" VerticalAlignment="Center">
+                                                                    <TextBlock Text="{Binding StatusText}" FontSize="11" Foreground="{Binding StatusColor}" FontWeight="Bold"/>
+                                                                </Border>
+                                                            </StackPanel>
                                                             <TextBlock Text="{Binding FacilityName, StringFormat='작업 시설: {0}'}" Foreground="{StaticResource TextSecondary}" FontSize="13" Margin="0,4,0,0"/>
                                                         </StackPanel>
-                                                        <TextBlock HorizontalAlignment="Right" VerticalAlignment="Center" Text="{Binding RemainingSeconds, StringFormat='남은 시간: {0}초'}" Foreground="{StaticResource AccentYellow}" FontWeight="Bold" FontSize="14"/>
+                                                        <TextBlock HorizontalAlignment="Right" VerticalAlignment="Center" Text="{Binding RemainingSeconds, StringFormat='남은 시간: {0}초'}" Foreground="{Binding StatusColor}" FontWeight="Bold" FontSize="14"/>
                                                     </Grid>
                                                 </Border>
                                             </DataTemplate>
@@ -865,23 +888,27 @@
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
-                        <TextBlock Grid.Row="0" Text="📡 내 주변 플레이어 실시간 레이더 (거리순)" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" FontSize="17" Margin="0,0,0,12"/>
+                        <TextBlock Grid.Row="0" Text="📡 내 주변 플레이어 실시간 레이더 (전투력 순 랭킹)" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" FontSize="17" Margin="0,0,0,12"/>
                         <ListView x:Name="ListNearPcsView" Grid.Row="1" Background="{StaticResource BgCard}" BorderThickness="0" Foreground="{StaticResource TextPrimary}" FontSize="15"
                                   VirtualizingStackPanel.IsVirtualizing="True" VirtualizingStackPanel.VirtualizationMode="Recycling">
                             <ListView.View>
                                 <GridView>
-                                    <GridViewColumn Header="거리 (m)" Width="100" DisplayMemberBinding="{Binding Distance, StringFormat='{}{0:F1}m'}"/>
-                                    <GridViewColumn Header="길드 소속" Width="130">
+                                    <GridViewColumn Header="전투력" Width="210">
                                         <GridViewColumn.CellTemplate>
                                             <DataTemplate>
-                                                <TextBlock Text="{Binding IsSameGuild, StringFormat='길드원: {0}'}" FontWeight="Bold" Foreground="{StaticResource AccentGreen}"/>
+                                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                    <TextBlock Text="{Binding CombatScore, StringFormat='{}{0:N0}'}" FontWeight="Bold" FontSize="15" Foreground="{Binding CombatScoreColor}"/>
+                                                    <TextBlock Text="{Binding StrongerBadge}" FontWeight="Bold" FontSize="12" Foreground="#FF6B6B" Margin="8,0,0,0" VerticalAlignment="Center"/>
+                                                </StackPanel>
                                             </DataTemplate>
                                         </GridViewColumn.CellTemplate>
                                     </GridViewColumn>
-                                    <GridViewColumn Header="직업 및 레벨" Width="200">
+                                    <GridViewColumn Header="직업 및 레벨" Width="190">
                                         <GridViewColumn.CellTemplate>
                                             <DataTemplate>
-                                                <TextBlock>
+                                                <TextBlock VerticalAlignment="Center">
+                                                    <Run Text="{Binding JobIcon}" FontSize="15"/>
+                                                    <Run Text=" "/>
                                                     <Run Text="{Binding JobName}" FontWeight="Bold"/>
                                                     <Run Text=" Lv."/>
                                                     <Run Text="{Binding Level}"/>
@@ -889,11 +916,18 @@
                                             </DataTemplate>
                                         </GridViewColumn.CellTemplate>
                                     </GridViewColumn>
-                                    <GridViewColumn Header="전투력" Width="140" DisplayMemberBinding="{Binding CombatScore, StringFormat='{}{0:N0}'}"/>
+                                    <GridViewColumn Header="길드 소속" Width="140">
+                                        <GridViewColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="{Binding GuildBadge}" FontWeight="Bold" Foreground="{Binding GuildBadgeColor}" VerticalAlignment="Center"/>
+                                            </DataTemplate>
+                                        </GridViewColumn.CellTemplate>
+                                    </GridViewColumn>
+                                    <GridViewColumn Header="거리 (m)" Width="90" DisplayMemberBinding="{Binding Distance, StringFormat='{}{0:F1}m'}"/>
                                     <GridViewColumn Header="칭호 / 서버" Width="220">
                                         <GridViewColumn.CellTemplate>
                                             <DataTemplate>
-                                                <TextBlock Text="{Binding Title, StringFormat='[{0}]'}" Foreground="{StaticResource TextSecondary}"/>
+                                                <TextBlock Text="{Binding TitleWithRealm}" Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center"/>
                                             </DataTemplate>
                                         </GridViewColumn.CellTemplate>
                                     </GridViewColumn>

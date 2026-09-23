@@ -345,5 +345,98 @@ public class InteractiveFeaturesTests
         var p3 = PersonaGeneratorService.GenerateFallbackPersona("대마법사");
         Assert.Equal("🔮", p3.TagEmoji);
     }
+
+    [Theory]
+    [InlineData("대검전사", "⚔️")]
+    [InlineData("검방전사", "⚔️")]
+    [InlineData("장궁궁수", "🏹")]
+    [InlineData("원소술사", "🔮")]
+    [InlineData("사제", "✝️")]
+    [InlineData("격투가", "🗡️")]
+    [InlineData("암살자", "🗡️")]
+    [InlineData("음유시인", "🎵")]
+    [InlineData("미등록직업", "⭐")]
+    [InlineData("", "⭐")]
+    public void MainWindow_GetJobIcon_ReturnsAppropriateEmoji(string? jobName, string expectedIcon)
+    {
+        var icon = MainWindow.GetJobIcon(jobName);
+        Assert.Equal(expectedIcon, icon);
+    }
+
+    [Theory]
+    [InlineData("골드", "💰 기본 통화")]
+    [InlineData("M캐시", "💰 기본 통화")]
+    [InlineData("다이아몬드", "💰 기본 통화")]
+    [InlineData("정령의 날개", "⚔️ 성장 & 강화")]
+    [InlineData("환생석", "⚔️ 성장 & 강화")]
+    [InlineData("룬 조각", "⚔️ 성장 & 강화")]
+    [InlineData("데카", "⚔️ 성장 & 강화")]
+    [InlineData("냥 토큰", "🎫 토큰 & 교환")]
+    [InlineData("길드 토큰", "🎫 토큰 & 교환")]
+    [InlineData("레이드 증표", "🎫 토큰 & 교환")]
+    [InlineData("신비한 큐브", "📦 기타 재화")]
+    public void MainWindow_ClassifyCurrencyCategory_ClassifiesCorrectly(string currencyName, string expectedCategory)
+    {
+        var cat = MainWindow.ClassifyCurrencyCategory(currencyName);
+        Assert.Equal(expectedCategory, cat);
+    }
+
+    [Fact]
+    public void NearPcViewItem_SortingAndStrongerDetection()
+    {
+        long myCombatScore = 80000;
+        var pcs = new List<NearPcItem>
+        {
+            new("아이라", "초보", 10.0, 50, "궁수", 70000, false, false, false, false),
+            new("아이라", "영웅", 15.0, 100, "대검전사", 95000, true, false, false, false),
+            new("아이라", "달인", 5.0, 90, "원소술사", 85000, false, false, false, false)
+        };
+
+        var viewItems = pcs
+            .OrderByDescending(p => p.CombatScore)
+            .ThenBy(p => p.Distance)
+            .Select(p => new NearPcViewItem
+            {
+                Raw = p,
+                JobIcon = MainWindow.GetJobIcon(p.JobName),
+                IsStronger = myCombatScore > 0 && p.CombatScore > myCombatScore
+            })
+            .ToList();
+
+        // 1위: 95,000 (대검전사)
+        Assert.Equal("대검전사", viewItems[0].JobName);
+        Assert.Equal(95000, viewItems[0].CombatScore);
+        Assert.True(viewItems[0].IsStronger);
+        Assert.Equal("⚔️ 강력 (나보다 높음)", viewItems[0].StrongerBadge);
+        Assert.True(viewItems[0].IsSameGuild);
+        Assert.Equal("🛡️ 우리 길드원", viewItems[0].GuildBadge);
+        Assert.Equal("⚔️", viewItems[0].JobIcon);
+
+        // 2위: 85,000 (원소술사)
+        Assert.Equal("원소술사", viewItems[1].JobName);
+        Assert.True(viewItems[1].IsStronger);
+        Assert.False(viewItems[1].IsSameGuild);
+        Assert.Equal("🔮", viewItems[1].JobIcon);
+
+        // 3위: 70,000 (궁수)
+        Assert.Equal("궁수", viewItems[2].JobName);
+        Assert.False(viewItems[2].IsStronger);
+        Assert.Empty(viewItems[2].StrongerBadge);
+        Assert.Equal("🏹", viewItems[2].JobIcon);
+    }
+
+    [Fact]
+    public void AlteringWorkItem_ConvenienceProperties()
+    {
+        var doneWork = new AlteringWorkItem("최고급 가죽", "방직기", "Completed", true, 0);
+        Assert.True(doneWork.IsDone);
+        Assert.Equal("수거 대기 ✅", doneWork.StatusText);
+        Assert.Equal("#4EBA6F", doneWork.StatusColor);
+
+        var ongoingWork = new AlteringWorkItem("철괴", "용광로", "Working", false, 45);
+        Assert.False(ongoingWork.IsDone);
+        Assert.Equal("45초 남음 ⏳", ongoingWork.StatusText);
+        Assert.Equal("#F5D061", ongoingWork.StatusColor);
+    }
 }
 

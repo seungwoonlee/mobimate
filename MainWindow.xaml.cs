@@ -267,7 +267,9 @@ public partial class MainWindow : Window
                 case 4: // 생활 & 생산
                     var tAlter = _cli.RunJsonAsync<AlteringWorksResponse>("get_altering_works", timeoutSeconds: 4, ct: ct);
                     var tGather = _cli.RunJsonAsync<GatherableResponse>("get_gatherable_items", timeoutSeconds: 4, ct: ct);
-                    await Task.WhenAll(tAlter, tGather);
+                    var tLifeItems = _cli.RunJsonAsync<List<ItemData>>("get_items", timeoutSeconds: 5, ct: ct);
+                    await Task.WhenAll(tAlter, tGather, tLifeItems);
+                    if ((await tLifeItems).data is { } lifeItems) UpdateItems(lifeItems);
                     UpdateLifeAndCraft((await tAlter).data, (await tGather).data);
                     break;
 
@@ -364,6 +366,25 @@ public partial class MainWindow : Window
         }
     }
 
+    public static string GetJobIcon(string? jobName)
+    {
+        if (string.IsNullOrWhiteSpace(jobName)) return "⭐";
+        var j = jobName.ToLowerInvariant();
+        if (j.Contains("전사") || j.Contains("대검") || j.Contains("검방") || j.Contains("기사") || j.Contains("검사") || j.Contains("워리어") || j.Contains("나이트"))
+            return "⚔️";
+        if (j.Contains("궁수") || j.Contains("장궁") || j.Contains("석궁") || j.Contains("아처") || j.Contains("헌터") || j.Contains("스나이퍼"))
+            return "🏹";
+        if (j.Contains("마법") || j.Contains("원소") || j.Contains("메이지") || j.Contains("위자드") || j.Contains("소서러") || j.Contains("술사"))
+            return "🔮";
+        if (j.Contains("힐러") || j.Contains("사제") || j.Contains("프리스트") || j.Contains("클레릭") || j.Contains("치유"))
+            return "✝️";
+        if (j.Contains("도적") || j.Contains("암살") || j.Contains("로그") || j.Contains("어쌔신") || j.Contains("시프") || j.Contains("격투"))
+            return "🗡️";
+        if (j.Contains("음유") || j.Contains("바드") || j.Contains("악사") || j.Contains("음악"))
+            return "🎵";
+        return "⭐";
+    }
+
     // ================= 1. 캐릭터 & 스탯 탭 =================
     private void UpdateHeaderAndStats(CharacterInfo? ch, ActivityInfo? act, EnvironmentInfo? env)
     {
@@ -374,6 +395,7 @@ public partial class MainWindow : Window
 
             var realm = string.IsNullOrEmpty(ch.RealmName) ? "에린" : ch.RealmName;
             var job = string.IsNullOrEmpty(ch.JobName) ? "밀레시안" : ch.JobName;
+            TxtJobIcon.Text = GetJobIcon(job);
             var profile = _snapshotManager.GetProfile(realm, job);
             if (profile != null && !string.IsNullOrWhiteSpace(profile.CustomName))
             {
@@ -736,11 +758,38 @@ public partial class MainWindow : Window
     }
 
     // ================= 3. 재화 & 화폐 탭 =================
+    public static string ClassifyCurrencyCategory(string name)
+    {
+        if (name.Contains("골드") || name.Contains("캐시") || name.Contains("다이아") || name.Contains("마일리지") || name.Contains("돈"))
+            return "💰 기본 통화";
+        if (name.Contains("날개") || name.Contains("환생") || name.Contains("룬") || name.Contains("데카") || name.Contains("갱신") || name.Contains("승급") || name.Contains("강화") || name.Contains("성장") || name.Contains("추출"))
+            return "⚔️ 성장 & 강화";
+        if (name.Contains("토큰") || name.Contains("증표") || name.Contains("인장") || name.Contains("코인") || name.Contains("길드") || name.Contains("하트"))
+            return "🎫 토큰 & 교환";
+        return "📦 기타 재화";
+    }
+
     private void UpdateCurrencies(List<CurrencyItem>? list)
     {
         if (list == null) return;
         _lastCurrencies = list;
-        ListAllCurrencies.ItemsSource = list;
+
+        var groups = list.GroupBy(c => ClassifyCurrencyCategory(c.DisplayName))
+            .OrderBy(g => g.Key switch
+            {
+                "💰 기본 통화" => 1,
+                "⚔️ 성장 & 강화" => 2,
+                "🎫 토큰 & 교환" => 3,
+                _ => 4
+            })
+            .Select(g => new CurrencyCategoryGroup
+            {
+                CategoryName = g.Key,
+                Items = g.ToList()
+            })
+            .ToList();
+
+        ListCurrencyGroups.ItemsSource = groups;
         UpdateDeltas();
     }
 
@@ -786,7 +835,7 @@ public partial class MainWindow : Window
     {
         if (alter != null && alter.Works != null)
         {
-            _allAlteringWorks = alter.Works;
+            _allAlteringWorks = alter.Works.OrderBy(w => w.FacilityName).ThenBy(w => w.RemainingSeconds).ToList();
             ListAlteringWorks.ItemsSource = _allAlteringWorks;
         }
 
@@ -1046,11 +1095,12 @@ public partial class MainWindow : Window
             return;
         }
 
-        var body = $"{{\"displayName\":\"{completed.DisplayName}\"}}";
-        var (ok, _, err) = await _cli.RunRawAsync("complete_altering_work", stdinJson: body, timeoutSeconds: 6);
+        ShowToast($"⚗️ '{completed.DisplayName}' 수거 시설로 이동 중...", true);
+        var body = JsonSerializer.Serialize(new { displayName = completed.DisplayName });
+        var (ok, _, err) = await _cli.RunRawAsync("complete_altering_work", stdinJson: body, timeoutSeconds: 60);
         if (ok)
         {
-            ShowToast($"'{completed.DisplayName}' 가공물을 수거했습니다!", true);
+            ShowToast($"'{completed.DisplayName}' 가공물을 성공적으로 수거했습니다!", true);
             await RefreshCurrentTabAsync();
         }
         else
@@ -1063,7 +1113,20 @@ public partial class MainWindow : Window
     private void UpdateNearPcs(List<NearPcItem>? pcs)
     {
         if (pcs == null) return;
-        ListNearPcsView.ItemsSource = pcs.OrderBy(p => p.Distance).ToList();
+        var myCombatScore = _lastCharInfo?.CombatScore?.Value ?? 0L;
+
+        var viewItems = pcs
+            .OrderByDescending(p => p.CombatScore)
+            .ThenBy(p => p.Distance)
+            .Select(p => new NearPcViewItem
+            {
+                Raw = p,
+                JobIcon = GetJobIcon(p.JobName),
+                IsStronger = myCombatScore > 0 && p.CombatScore > myCombatScore
+            })
+            .ToList();
+
+        ListNearPcsView.ItemsSource = viewItems;
     }
 
     // ================= 7. 하단 인게임 전체 채팅 (이모티콘 & 소셜 액션 연동) =================
