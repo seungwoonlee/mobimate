@@ -59,7 +59,6 @@ public partial class MainWindow : Window
     private readonly AdaptiveRefreshController _adaptiveRefresh = new();
     private bool _isAutoRefreshing = false;
     private bool _isWindowLoaded;
-    private string _selectedDungeonFilter = "All";
 
     public ICommand EmergencyStopCommand { get; }
 
@@ -652,36 +651,16 @@ public partial class MainWindow : Window
         }
     }
 
-    private void RbDungeonFilter_Checked(object sender, RoutedEventArgs e)
-    {
-        if (!_isWindowLoaded || ListDungeonCards == null) return;
-
-        if (RbDungeonFilterAbyss?.IsChecked == true)
-        {
-            _selectedDungeonFilter = "Abyss";
-        }
-        else if (RbDungeonFilterRaid?.IsChecked == true)
-        {
-            _selectedDungeonFilter = "Raid";
-        }
-        else
-        {
-            _selectedDungeonFilter = "All";
-        }
-
-        RefreshDungeonCutoffUi(_lastCharInfo);
-    }
-
     private void RefreshDungeonCutoffUi(CharacterInfo? ch = null)
     {
-        if (!_isWindowLoaded || ListDungeonCards == null) return;
+        if (!_isWindowLoaded || ListContentCards == null) return;
 
         var charData = ch ?? _lastCharInfo;
         long combat = charData?.CombatScore?.Value ?? 0;
         long mdef = charData?.ArcaneResistance?.Value ?? 0;
 
-        var cards = DungeonCutoffService.BuildCardViewModels(combat, mdef, _selectedDungeonFilter);
-        ListDungeonCards.ItemsSource = cards;
+        var contents = DungeonCutoffService.EvaluateAllContents(combat, mdef);
+        ListContentCards.ItemsSource = contents;
     }
 
     private static bool IsBagLocation(string? loc) =>

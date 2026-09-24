@@ -6,79 +6,131 @@ namespace MobiMate.Tests;
 public class DungeonCutoffTests
 {
     [Fact]
-    public void MasterList_Contains_Abyss_And_Raids()
+    public void MasterContents_HasExactOfficialStructure()
     {
-        var list = DungeonCutoffService.MasterList;
-        Assert.NotEmpty(list);
-        Assert.Contains(list, d => d.Id == "abyss_runda");
-        Assert.Contains(list, d => d.Id == "raid_cavrak");
-        Assert.Contains(list, d => d.Id == "raid_airel");
-        Assert.Contains(list, d => d.Id == "raid_white_succubus");
+        var contents = DungeonCutoffService.MasterContents;
+        Assert.Equal(4, contents.Count);
+
+        // 1. 어비스: 6종 (입문, 어려움, 매어, 지옥 1, 지옥 2, 지옥 3)
+        var abyss = contents.First(c => c.Id == "abyss");
+        Assert.Equal(6, abyss.Tiers.Count);
+        Assert.Equal("입문", abyss.Tiers[0].TierName);
+        Assert.Equal("지옥 3", abyss.Tiers[5].TierName);
+        Assert.Equal(102500, abyss.Tiers[5].MinEntryCombat);
+        Assert.Equal(7200, abyss.Tiers[5].MinEntryMdef);
+        Assert.Equal(124000, abyss.Tiers[5].OverwhelmCombat);
+        Assert.Equal(7800, abyss.Tiers[5].OverwhelmMdef);
+
+        // 2. 화이트 서큐버스: 2종 (어려움, 매우 어려움)
+        var succubus = contents.First(c => c.Id == "white_succubus");
+        Assert.Equal(2, succubus.Tiers.Count);
+        Assert.Equal("어려움", succubus.Tiers[0].TierName);
+        Assert.Equal("매우 어려움", succubus.Tiers[1].TierName);
+        Assert.Equal(0, succubus.Tiers[0].MinEntryCombat);
+        Assert.Equal(50000, succubus.Tiers[1].MinEntryCombat);
+
+        // 3. 에이렐: 2종 (어려움, 매우 어려움)
+        var airel = contents.First(c => c.Id == "airel");
+        Assert.Equal(2, airel.Tiers.Count);
+        Assert.Equal("어려움", airel.Tiers[0].TierName);
+        Assert.Equal("매우 어려움", airel.Tiers[1].TierName);
+        Assert.Equal(43500, airel.Tiers[0].MinEntryCombat);
+        Assert.Equal(88500, airel.Tiers[1].MinEntryCombat);
+        Assert.Equal(3000, airel.Tiers[1].MinEntryMdef);
+
+        // 4. 카브락: 2종 (입문, 어려움)
+        var cavrak = contents.First(c => c.Id == "cavrak");
+        Assert.Equal(2, cavrak.Tiers.Count);
+        Assert.Equal("입문", cavrak.Tiers[0].TierName);
+        Assert.Equal("어려움", cavrak.Tiers[1].TierName);
+        Assert.Equal(65000, cavrak.Tiers[0].MinEntryCombat);
+        Assert.Equal(90000, cavrak.Tiers[1].MinEntryCombat);
+        Assert.Equal(3100, cavrak.Tiers[1].MinEntryMdef);
     }
 
     [Theory]
-    // 1. 카브락 입문 (투력 65000 / 마도저항 2000, 압도 2500)
-    // 투력 111161, 마도저항 6766인 경우 -> 압도 달성 (+40%)
-    [InlineData(111161, 6766, DungeonEntryStatus.Overwhelmed, "⚡ 압도 달성 (+40%)")]
-    // 투력 111161, 마도저항 2100인 경우 -> 입장 가능 (압도는 미달)
-    [InlineData(111161, 2100, DungeonEntryStatus.Ready, "✓ 입장 가능")]
-    // 투력 111161, 마도저항 1500인 경우 -> 페널티 주의 (투력은 충분하나 마도저항 미달)
-    [InlineData(111161, 1500, DungeonEntryStatus.Warning, "⚠️ 페널티 주의")]
-    // 투력 50000, 마도저항 6766인 경우 -> 입장 불가 (투력 미달)
-    [InlineData(50000, 6766, DungeonEntryStatus.Locked, "🔒 입장 불가")]
-    public void EvaluateTier_CavrakIntro_EvaluatesCorrectStatus(long combat, long mdef, DungeonEntryStatus expectedStatus, string expectedBadge)
+    // 어비스 지옥 1 (입장 87,500 / 저항 3,500)
+    // 투력 102,832, 저항 4,736 -> 둘 다 충족 -> 입장 가능 (True)
+    [InlineData(102832, 4736, 87500, 3500, true)]
+    // 투력 80,000, 저항 4,736 -> 투력 미달 -> 입장 불가 (False)
+    [InlineData(80000, 4736, 87500, 3500, false)]
+    // 투력 102,832, 저항 3,000 -> 마도저항 미달 -> 입장 불가 (False)
+    [InlineData(102832, 3000, 87500, 3500, false)]
+    // 어비스 지옥 2 (입장 95,000 / 저항 6,000)
+    // 투력 102,832, 저항 4,736 -> 투력은 되나 저항 4736 < 6000 미달 -> 입장 불가 (False)
+    [InlineData(102832, 4736, 95000, 6000, false)]
+    public void CanEnter_RequiresBothCombatAndMdef(long combat, long mdef, long reqCombat, long reqMdef, bool expectedCanEnter)
     {
-        var cavrakDef = DungeonCutoffService.MasterList.First(d => d.Id == "raid_cavrak");
-        var introTier = cavrakDef.Tiers.First(t => t.TierName == "입문");
-
-        var result = DungeonCutoffService.EvaluateTier(introTier, combat, mdef);
-
-        Assert.Equal(expectedStatus, result.Status);
-        Assert.Equal(expectedBadge, result.StatusBadgeText);
+        var tier = new DungeonCutoffTier("테스트", reqCombat, reqCombat + 5000, reqCombat + 15000, reqMdef, reqMdef + 1000);
+        Assert.Equal(expectedCanEnter, tier.CanEnter(combat, mdef));
     }
 
     [Fact]
-    public void EvaluateAll_Calculates_HighestCleared_And_NextTarget()
+    public void EvaluateBigCloud_ProducesAccurateRecommendations()
     {
-        // 承雲의 힐러 스펙: 투력 111161, 마도저항 6766
-        var results = DungeonCutoffService.EvaluateAll(111161, 6766);
-        Assert.NotEmpty(results);
+        // 承雲의 빅클라우드: 투력 102,832 / 마도저항 4,736
+        long combat = 102832;
+        long mdef = 4736;
 
-        var runda = results.First(r => r.Id == "abyss_runda");
-        // 지옥 2 (투력 110,000 / 마도저항 6000, 압도 6600)까지 지옥2 압도 달성!
-        Assert.NotNull(runda.HighestClearedTier);
-        Assert.Equal("지옥 2", runda.HighestClearedTier.TierName);
-        Assert.Equal(DungeonEntryStatus.Overwhelmed, runda.HighestClearedTier.Status);
+        var results = DungeonCutoffService.EvaluateAllContents(combat, mdef);
+        Assert.Equal(4, results.Count);
 
-        var cavrak = results.First(r => r.Id == "raid_cavrak");
-        // 카브락 매우 어려움(투력 110,000 / 마도저항 6000, 압도 6600)까지 압도 달성!
-        Assert.NotNull(cavrak.HighestClearedTier);
-        Assert.Equal("매우 어려움", cavrak.HighestClearedTier.TierName);
-        Assert.Equal(DungeonEntryStatus.Overwhelmed, cavrak.HighestClearedTier.Status);
+        // 1. 어비스:
+        // 지옥 1(입장 87,500 / 저항 3,500)은 입장 가능.
+        // 지옥 2(입장 95,000 / 저항 6,000)은 저항 4,736 미달로 입장 불가!
+        // 따라서 최고 입장 가능 난이도는 "지옥 1"이어야 함.
+        var abyss = results.First(c => c.ContentId == "abyss");
+        Assert.Equal("지옥 1", abyss.MaxEntryTier);
+        Assert.Equal("지옥 1", abyss.RecommendedTier);
+        // 압도치(105,000)에 102,832로 근접(부족 2,168)하므로 압도 근접 추천
+        Assert.Contains("압도 근접", abyss.RecommendedStatusBadge);
+        Assert.Contains("2,168", abyss.StatusDetailText);
+
+        // 2. 화이트 서큐버스:
+        // 매우 어려움(입장 50,000 / 압도 64,000)을 102,832로 압도 초과 달성!
+        var succubus = results.First(c => c.ContentId == "white_succubus");
+        Assert.Equal("매우 어려움", succubus.MaxEntryTier);
+        Assert.Equal("매우 어려움", succubus.RecommendedTier);
+        Assert.Contains("압도", succubus.RecommendedStatusBadge);
+
+        // 3. 에이렐:
+        // 매우 어려움(입장 88,500 / 저항 3,000) 충족 -> 최고 입장은 매우 어려움!
+        var airel = results.First(c => c.ContentId == "airel");
+        Assert.Equal("매우 어려움", airel.MaxEntryTier);
+        // 압도치(107,000)에 102,832로 부족 4,168이므로 압도 근접 추천
+        Assert.Contains("압도 근접", airel.RecommendedStatusBadge);
+        Assert.Contains("4,168", airel.StatusDetailText);
+
+        // 4. 카브락:
+        // 어려움(입장 90,000 / 저항 3,100) 충족 -> 최고 입장은 어려움!
+        var cavrak = results.First(c => c.ContentId == "cavrak");
+        Assert.Equal("어려움", cavrak.MaxEntryTier);
+        // 어려움 권장(95,000) 충족, 압도치(109,000)에 투력 -6,168 부족
+        Assert.Equal("어려움", cavrak.RecommendedTier);
     }
 
     [Fact]
-    public void BuildCardViewModels_AppliesFilter_Correctly()
+    public void LowSpecCharacter_ShowsLockedOrIntroAppropriately()
     {
-        // 1. 전체 카드
-        var allCards = DungeonCutoffService.BuildCardViewModels(102832, 4736, "All");
-        Assert.Equal(11, allCards.Count); // 어비스 5 + 서큐버스 1 + 에이렐 2 + 카브락 3 = 11
+        // 저스펙 캐릭터: 투력 40,000 / 마도저항 0
+        var results = DungeonCutoffService.EvaluateAllContents(40000, 0);
 
-        // 2. 어비스 필터
-        var abyssCards = DungeonCutoffService.BuildCardViewModels(102832, 4736, "Abyss");
-        Assert.Equal(5, abyssCards.Count);
-        Assert.All(abyssCards, c => Assert.Equal("Abyss", c.Category));
+        // 어비스: 입문 최소 50,000 미달 -> 입장 불가
+        var abyss = results.First(c => c.ContentId == "abyss");
+        Assert.Equal("입장 불가", abyss.MaxEntryTier);
+        Assert.Contains("부족", abyss.StatusDetailText);
 
-        // 3. 레이드 필터
-        var raidCards = DungeonCutoffService.BuildCardViewModels(102832, 4736, "Raid");
-        Assert.Equal(6, raidCards.Count);
-        Assert.All(raidCards, c => Assert.Equal("Raid", c.Category));
+        // 화서큐: 어려움(입장 0) -> 입장 가능 & 압도 달성
+        var succubus = results.First(c => c.ContentId == "white_succubus");
+        Assert.Equal("어려움", succubus.MaxEntryTier);
+        Assert.Equal("어려움", succubus.RecommendedTier);
 
-        // 4. 카드 속성 무결성 검증
-        var cavrakHard = raidCards.First(c => c.DisplayName.Contains("카브락") && c.DisplayName.Contains("어려움"));
-        Assert.Equal("[레이드]", cavrakHard.CategoryBadgeText);
-        Assert.Contains("4,736 / 4,400", cavrakHard.MdefProgressText); // 마도저항 4736, 필요치 4400 달성
-        Assert.Contains("95,000", cavrakHard.ReqCombatText); // 권장 전투력 95,000 충족
+        // 에이렐: 입문 어려움(43,500) 미달 -> 입장 불가
+        var airel = results.First(c => c.ContentId == "airel");
+        Assert.Equal("입장 불가", airel.MaxEntryTier);
+
+        // 카브락: 입문(65,000) 미달 -> 입장 불가
+        var cavrak = results.First(c => c.ContentId == "cavrak");
+        Assert.Equal("입장 불가", cavrak.MaxEntryTier);
     }
 }
-

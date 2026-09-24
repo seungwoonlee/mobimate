@@ -4,361 +4,375 @@ using System.Linq;
 
 namespace MobiMate;
 
-public enum DungeonEntryStatus
-{
-    Overwhelmed, // 마도저항 >= 압도치 (최종 피해량 +40% 증폭 버프)
-    Ready,       // 마도저항 >= 필요치 && 전투력 >= 권장치 (정상 입장 가능)
-    Warning,     // 전투력 >= 권장치이나 마도저항 미달 (피해 감소 & 피격 증가 페널티)
-    Locked       // 최소 입장 조건(전투력 또는 마도저항) 미달
-}
-
+/// <summary>
+/// 각 난이도별 상세 기준 스펙
+/// </summary>
 public class DungeonCutoffTier
 {
     public string TierName { get; set; } = "";
-    public long RequiredCombatScore { get; set; }
-    public long RequiredArcaneResistance { get; set; }
-    public long OverwhelmArcaneResistance { get; set; }
+    public long MinEntryCombat { get; set; }        // 입장 최소 전투력 (미달 시 입장 불가)
+    public long RecommendedCombat { get; set; }     // 권장 전투력
+    public long OverwhelmCombat { get; set; }       // 압도 전투력
+    public long MinEntryMdef { get; set; }          // 입장(요구) 마도저항 (미달 시 입장 불가)
+    public long OverwhelmMdef { get; set; }         // 압도 마도저항 (+40% 피해 버프)
     public string Description { get; set; } = "";
 
-    public DungeonCutoffTier(string tierName, long combat, long mdef, long overwhelm, string desc = "")
+    public DungeonCutoffTier(string tierName, long minCombat, long reqCombat, long overCombat, long minMdef, long overMdef, string desc = "")
     {
         TierName = tierName;
-        RequiredCombatScore = combat;
-        RequiredArcaneResistance = mdef;
-        OverwhelmArcaneResistance = overwhelm;
+        MinEntryCombat = minCombat;
+        RecommendedCombat = reqCombat;
+        OverwhelmCombat = overCombat;
+        MinEntryMdef = minMdef;
+        OverwhelmMdef = overMdef;
         Description = desc;
+    }
+
+    /// <summary>
+    /// 최소 입장 가능 여부 (전투력과 마도저항 둘 다 충족 필수)
+    /// </summary>
+    public bool CanEnter(long combat, long mdef) => combat >= MinEntryCombat && mdef >= MinEntryMdef;
+
+    /// <summary>
+    /// 완전 압도 달성 여부 (전투력과 마도저항 모두 압도치 도달)
+    /// </summary>
+    public bool IsOverwhelmed(long combat, long mdef) => combat >= OverwhelmCombat && (OverwhelmMdef == 0 || mdef >= OverwhelmMdef);
+
+    /// <summary>
+    /// 압도에 살짝 모자란 근접 상태 판정 (권장치 이상이며 압도 기준 92% 이상 또는 투력 5,000 / 저항 300 이내)
+    /// </summary>
+    public bool IsNearOverwhelm(long combat, long mdef, out long combatShortage, out long mdefShortage)
+    {
+        combatShortage = Math.Max(0, OverwhelmCombat - combat);
+        mdefShortage = OverwhelmMdef > 0 ? Math.Max(0, OverwhelmMdef - mdef) : 0;
+
+        if (IsOverwhelmed(combat, mdef)) return false;
+        if (!CanEnter(combat, mdef) || combat < RecommendedCombat) return false;
+
+        // 압도치까지 전투력 부족이 5,000 이내이거나 92% 이상 달성
+        bool combatNear = combatShortage <= 5000 || ((double)combat / OverwhelmCombat >= 0.92);
+        // 마도저항이 없거나, 부족분이 300 이내이거나 85% 이상 달성
+        bool mdefNear = OverwhelmMdef == 0 || mdefShortage <= 300 || ((double)mdef / OverwhelmMdef >= 0.85);
+
+        return combatNear && mdefNear;
     }
 }
 
-public class DungeonCutoffDefinition
+/// <summary>
+/// 4대 콘텐츠 정의 (어비스, 화서큐, 에이렐, 카브락)
+/// </summary>
+public class DungeonContentDefinition
 {
     public string Id { get; set; } = "";
-    public string Category { get; set; } = ""; // "어비스", "주간 레이드"
-    public string Title { get; set; } = "";
+    public string Name { get; set; } = "";
     public string Subtitle { get; set; } = "";
     public string Icon { get; set; } = "";
     public List<DungeonCutoffTier> Tiers { get; set; } = new();
 }
 
-public class DungeonTierEvaluation
+/// <summary>
+/// 세부 난이도 목록 표시용 뷰모델
+/// </summary>
+public class TierDetailViewModel
 {
     public string TierName { get; set; } = "";
-    public long RequiredCombatScore { get; set; }
-    public long RequiredArcaneResistance { get; set; }
-    public long OverwhelmArcaneResistance { get; set; }
-    public DungeonEntryStatus Status { get; set; }
-    public string StatusBadgeText { get; set; } = "";
-    public string StatusBadgeColorHex { get; set; } = "#5865F2";
-    public double CombatProgressPercent { get; set; }
-    public double MdefProgressPercent { get; set; }
-    public long CombatDelta { get; set; }
-    public long MdefDelta { get; set; }
-    public long OverwhelmDelta { get; set; }
+    public string EntryStatusText { get; set; } = "";
+    public string EntryStatusBg { get; set; } = "#1C3829";
+    public string EntryStatusFg { get; set; } = "#3FB950";
+    public string SpecRequirementText { get; set; } = "";
+    public string OverwhelmSpecText { get; set; } = "";
 }
 
-public class DungeonEvaluationResult
+/// <summary>
+/// 콘텐츠별 맞춤 추천 카드 뷰모델
+/// </summary>
+public class ContentRecommendationViewModel
 {
-    public string Id { get; set; } = "";
-    public string Category { get; set; } = "";
-    public string Title { get; set; } = "";
+    public string ContentId { get; set; } = "";
+    public string ContentName { get; set; } = "";
     public string Subtitle { get; set; } = "";
     public string Icon { get; set; } = "";
-    public List<DungeonTierEvaluation> Tiers { get; set; } = new();
-    public DungeonTierEvaluation? HighestClearedTier { get; set; }
-    public DungeonTierEvaluation? NextTargetTier { get; set; }
+
+    // 1. 최고 입장 가능 난이도
+    public string MaxEntryTier { get; set; } = "입장 불가";
+    public string MaxEntryTierBadgeBg { get; set; } = "#1C2E46";
+    public string MaxEntryTierBadgeFg { get; set; } = "#58A6FF";
+
+    // 2. 맞춤 추천 난이도 & 상태
+    public string RecommendedTier { get; set; } = "-";
+    public string RecommendedStatusBadge { get; set; } = "";
+    public string RecommendedStatusBg { get; set; } = "#2E1C48";
+    public string RecommendedStatusFg { get; set; } = "#D2A8FF";
+    public string RecommendedStatusBorder { get; set; } = "#9B59B6";
+
+    // 3. 상태 및 모자란 수치 상세 가이드
+    public string StatusDetailText { get; set; } = "";
+    public string StatusDetailFg { get; set; } = "#C9D1D9";
+
+    // 4. 전체 난이도 펼쳐보기 리스트
+    public List<TierDetailViewModel> TierDetails { get; set; } = new();
 }
 
 public static class DungeonCutoffService
 {
-    public static List<DungeonCutoffDefinition> MasterList { get; } = new()
+    /// <summary>
+    /// 承雲의 인게임 실측 데이터 100% 동기화 마스터 리스트
+    /// </summary>
+    public static List<DungeonContentDefinition> MasterContents { get; } = new()
     {
-        // 1. 룬다 어비스 (허상의 정박지, 광기의 동굴, 흩어진 물길 공통 규격)
-        new DungeonCutoffDefinition
+        // 1. 어비스 (허상의 정박지, 광기의 동굴, 흩어진 물길 공통) - 총 6단계
+        new DungeonContentDefinition
         {
-            Id = "abyss_runda",
-            Category = "어비스 던전",
-            Title = "심층 어비스 3종 (허상/광기/물길)",
+            Id = "abyss",
+            Name = "어비스",
             Subtitle = "허상의 정박지 · 광기의 동굴 · 흩어진 물길 (공통 규격)",
             Icon = "🌀",
             Tiers = new List<DungeonCutoffTier>
             {
-                new("입문", 50000, 0, 1000, "솔플 및 입문"),
-                new("어려움", 65000, 1000, 1600, "중급 장비 파밍"),
-                new("매우 어려움", 78000, 2200, 2700, "에픽 룬 각인"),
-                new("지옥 1", 92000, 3500, 4400, "시즌 2 최상위 엔드게임"),
-                new("지옥 2", 110000, 6000, 6600, "극악 지옥 난이도")
+                new("입문", 50000, 56000, 64500, 0, 1000, "솔플 및 입문"),
+                new("어려움", 63000, 66000, 75000, 1000, 1600, "중급 장비 파밍"),
+                new("매우 어려움", 76000, 80000, 92000, 2200, 2700, "에픽 룬 각인"),
+                new("지옥 1", 87500, 92000, 105000, 3500, 4400, "시즌 2 최상위 엔드게임"),
+                new("지옥 2", 95000, 100000, 115000, 6000, 6600, "극악 지옥 난이도"),
+                new("지옥 3", 102500, 108000, 124000, 7200, 7800, "현존 최종 종결 난이도")
             }
         },
 
-        // 2. 화이트 서큐버스 (시즌 1 레이드)
-        new DungeonCutoffDefinition
+        // 2. 화이트 서큐버스 - 총 2단계
+        new DungeonContentDefinition
         {
-            Id = "raid_white_succubus",
-            Category = "주간 레이드",
-            Title = "화이트 서큐버스",
-            Subtitle = "몽환의 라비 던전 4인 파티 레이드",
+            Id = "white_succubus",
+            Name = "화이트 서큐버스",
+            Subtitle = "몽환의 라비 4인 파티 주간 레이드",
             Icon = "👑",
             Tiers = new List<DungeonCutoffTier>
             {
-                new("일반", 27000, 0, 0, "기본 레이드 (부활 5회 제한)")
+                new("어려움", 0, 27000, 31100, 0, 0, "기본 레이드 (부활 5회 제한)"),
+                new("매우 어려움", 50000, 57500, 64000, 0, 0, "화서큐 종결 도전")
             }
         },
 
-        // 3. 얼음 여왕 에이렐 (시즌 2 4인 레이드)
-        new DungeonCutoffDefinition
+        // 3. 에이렐 - 총 2단계
+        new DungeonContentDefinition
         {
-            Id = "raid_airel",
-            Category = "주간 레이드",
-            Title = "얼음 여왕 에이렐",
-            Subtitle = "혹한의 성채 4인 기믹 & 리듬 레이드",
+            Id = "airel",
+            Name = "에이렐",
+            Subtitle = "혹한의 성채 4인 기믹 & 리듬 주간 레이드",
             Icon = "❄️",
             Tiers = new List<DungeonCutoffTier>
             {
-                new("어려움", 75000, 1600, 2200, "에이렐 입문 및 룬 파밍"),
-                new("매우 어려움", 88000, 3500, 4400, "엔드급 에이렐 장비 파밍")
+                new("어려움", 43500, 50000, 57500, 0, 0, "에이렐 입문 (마도저항 불필요)"),
+                new("매우 어려움", 88500, 93000, 107000, 3000, 3500, "에이렐 엔드 파밍 (마도저항 필수)")
             }
         },
 
-        // 4. 흑룡 카브락 (시즌 2 8인 대규모 레이드)
-        new DungeonCutoffDefinition
+        // 4. 카브락 - 총 2단계
+        new DungeonContentDefinition
         {
-            Id = "raid_cavrak",
-            Category = "주간 레이드",
-            Title = "흑룡 카브락",
-            Subtitle = "고대 사막 8인 대규모 연합 레이드",
+            Id = "cavrak",
+            Name = "카브락",
+            Subtitle = "고대 사막 8인 대규모 연합 주간 레이드",
             Icon = "🐲",
             Tiers = new List<DungeonCutoffTier>
             {
-                new("입문", 65000, 2000, 2500, "카브락 연합 입문"),
-                new("어려움", 95000, 4400, 5500, "숙련 8인 파티 토벌"),
-                new("매우 어려움", 110000, 6000, 6600, "최상위 카브락 종결 도전")
+                new("입문", 65000, 72000, 82500, 2000, 2500, "카브락 연합 입문"),
+                new("어려움", 90000, 95000, 109000, 3100, 3700, "숙련 8인 파티 토벌")
             }
         }
     };
 
-    public static DungeonTierEvaluation EvaluateTier(DungeonCutoffTier tier, long currentCombat, long currentMdef)
+    /// <summary>
+    /// 단일 콘텐츠에 대한 최고 입장 가능 난이도 및 맞춤 추천 평가
+    /// </summary>
+    public static ContentRecommendationViewModel EvaluateContent(DungeonContentDefinition content, long combat, long mdef)
     {
-        var status = DungeonEntryStatus.Locked;
-        string badgeText;
-        string badgeColor;
+        var vm = new ContentRecommendationViewModel
+        {
+            ContentId = content.Id,
+            ContentName = content.Name,
+            Subtitle = content.Subtitle,
+            Icon = content.Icon
+        };
 
-        bool hasCombat = currentCombat >= tier.RequiredCombatScore;
-        bool hasMdefReq = currentMdef >= tier.RequiredArcaneResistance;
-        bool hasOverwhelm = tier.OverwhelmArcaneResistance > 0 && currentMdef >= tier.OverwhelmArcaneResistance;
-
-        if (hasOverwhelm && hasCombat)
+        // 1. 최고 입장 가능 난이도 탐색 (뒤에서부터 검사하여 최고 단계 획득)
+        var maxEnterableTier = content.Tiers.LastOrDefault(t => t.CanEnter(combat, mdef));
+        if (maxEnterableTier != null)
         {
-            status = DungeonEntryStatus.Overwhelmed;
-            badgeText = "⚡ 압도 달성 (+40%)";
-            badgeColor = "#3FB950"; // 밝은 초록
-        }
-        else if (hasMdefReq && hasCombat)
-        {
-            status = DungeonEntryStatus.Ready;
-            badgeText = "✓ 입장 가능";
-            badgeColor = "#58A6FF"; // 블루
-        }
-        else if (hasCombat && !hasMdefReq)
-        {
-            status = DungeonEntryStatus.Warning;
-            badgeText = "⚠️ 페널티 주의";
-            badgeColor = "#D29922"; // 옐로우/오렌지
+            vm.MaxEntryTier = maxEnterableTier.TierName;
+            vm.MaxEntryTierBadgeBg = "#1C2E46";
+            vm.MaxEntryTierBadgeFg = "#58A6FF";
         }
         else
         {
-            status = DungeonEntryStatus.Locked;
-            badgeText = "🔒 입장 불가";
-            badgeColor = "#F85149"; // 레드
+            var firstTier = content.Tiers.First();
+            long cLack = Math.Max(0, firstTier.MinEntryCombat - combat);
+            long mLack = Math.Max(0, firstTier.MinEntryMdef - mdef);
+            vm.MaxEntryTier = "입장 불가";
+            vm.MaxEntryTierBadgeBg = "#2D1D24";
+            vm.MaxEntryTierBadgeFg = "#F85149";
+            vm.RecommendedTier = "입장 조건 미달";
+            vm.RecommendedStatusBadge = "🔒 입장 불가";
+            vm.RecommendedStatusBg = "#2D1D24";
+            vm.RecommendedStatusFg = "#F85149";
+            vm.RecommendedStatusBorder = "#DA3633";
+
+            var reasons = new List<string>();
+            if (cLack > 0) reasons.Add($"최소 투력 {cLack:N0} 부족");
+            if (mLack > 0) reasons.Add($"최소 저항 {mLack:N0} 부족");
+            vm.StatusDetailText = $"입문 기준 {string.Join(", ", reasons)}입니다.";
+            vm.StatusDetailFg = "#F85149";
+
+            vm.TierDetails = BuildTierDetails(content.Tiers, combat, mdef);
+            return vm;
         }
 
-        double combatPct = tier.RequiredCombatScore > 0
-            ? Math.Min(100.0, (double)currentCombat / tier.RequiredCombatScore * 100.0)
-            : 100.0;
+        // 2. 추천 난이도 탐색
+        // 우선순위 1: 완전 압도 달성 최고 난이도
+        var overwhelmedTier = content.Tiers.LastOrDefault(t => t.IsOverwhelmed(combat, mdef));
 
-        long mdefTarget = tier.OverwhelmArcaneResistance > 0 ? tier.OverwhelmArcaneResistance : tier.RequiredArcaneResistance;
-        double mdefPct = mdefTarget > 0
-            ? Math.Min(100.0, (double)currentMdef / mdefTarget * 100.0)
-            : 100.0;
+        // 우선순위 2: 압도 근접(살짝 모자란 상태) 최고 난이도
+        long nearCombatLack = 0, nearMdefLack = 0;
+        var nearOverwhelmTier = content.Tiers.LastOrDefault(t => t.IsNearOverwhelm(combat, mdef, out nearCombatLack, out nearMdefLack));
 
-        return new DungeonTierEvaluation
+        if (overwhelmedTier != null && (nearOverwhelmTier == null || content.Tiers.IndexOf(overwhelmedTier) >= content.Tiers.IndexOf(nearOverwhelmTier)))
         {
-            TierName = tier.TierName,
-            RequiredCombatScore = tier.RequiredCombatScore,
-            RequiredArcaneResistance = tier.RequiredArcaneResistance,
-            OverwhelmArcaneResistance = tier.OverwhelmArcaneResistance,
-            Status = status,
-            StatusBadgeText = badgeText,
-            StatusBadgeColorHex = badgeColor,
-            CombatProgressPercent = combatPct,
-            MdefProgressPercent = mdefPct,
-            CombatDelta = currentCombat - tier.RequiredCombatScore,
-            MdefDelta = currentMdef - tier.RequiredArcaneResistance,
-            OverwhelmDelta = tier.OverwhelmArcaneResistance > 0 ? currentMdef - tier.OverwhelmArcaneResistance : 0
-        };
-    }
+            // 완전 압도 달성 난이도 추천
+            vm.RecommendedTier = overwhelmedTier.TierName;
+            vm.RecommendedStatusBadge = "⚡ 압도";
+            vm.RecommendedStatusBg = "#2E1C48";
+            vm.RecommendedStatusFg = "#D2A8FF";
+            vm.RecommendedStatusBorder = "#9B59B6";
 
-    public static List<DungeonEvaluationResult> EvaluateAll(long currentCombat, long currentMdef)
-    {
-        var results = new List<DungeonEvaluationResult>();
-
-        foreach (var def in MasterList)
+            var desc = overwhelmedTier.OverwhelmMdef > 0 
+                ? $"압도 충족 (기준 투력 {overwhelmedTier.OverwhelmCombat:N0} / 저항 {overwhelmedTier.OverwhelmMdef:N0})"
+                : $"압도 충족 (기준 투력 {overwhelmedTier.OverwhelmCombat:N0})";
+            vm.StatusDetailText = desc;
+            vm.StatusDetailFg = "#D2A8FF";
+        }
+        else if (nearOverwhelmTier != null)
         {
-            var res = new DungeonEvaluationResult
-            {
-                Id = def.Id,
-                Category = def.Category,
-                Title = def.Title,
-                Subtitle = def.Subtitle,
-                Icon = def.Icon
-            };
+            // 살짝 모자란 압도 근접 난이도 추천!
+            nearOverwhelmTier.IsNearOverwhelm(combat, mdef, out nearCombatLack, out nearMdefLack);
+            vm.RecommendedTier = nearOverwhelmTier.TierName;
+            vm.RecommendedStatusBadge = "🔥 압도 근접";
+            vm.RecommendedStatusBg = "#3B2A14";
+            vm.RecommendedStatusFg = "#F5D061";
+            vm.RecommendedStatusBorder = "#E5A93C";
 
-            foreach (var tier in def.Tiers)
+            var lackParts = new List<string>();
+            if (nearCombatLack > 0) lackParts.Add($"투력 {nearCombatLack:N0} 부족");
+            if (nearMdefLack > 0) lackParts.Add($"저항 {nearMdefLack:N0} 부족");
+
+            vm.StatusDetailText = $"압도까지 {string.Join(", ", lackParts)}";
+            vm.StatusDetailFg = "#F5D061";
+        }
+        else
+        {
+            // 압도 근접도 안 되는 경우: 입장 가능한 최고 난이도 추천
+            var targetTier = maxEnterableTier;
+            vm.RecommendedTier = targetTier.TierName;
+
+            if (combat >= targetTier.RecommendedCombat)
             {
-                var eval = EvaluateTier(tier, currentCombat, currentMdef);
-                res.Tiers.Add(eval);
+                vm.RecommendedStatusBadge = "✓ 권장 충족";
+                vm.RecommendedStatusBg = "#1C3829";
+                vm.RecommendedStatusFg = "#3FB950";
+                vm.RecommendedStatusBorder = "#2EA043";
+
+                long cLack = Math.Max(0, targetTier.OverwhelmCombat - combat);
+                long mLack = targetTier.OverwhelmMdef > 0 ? Math.Max(0, targetTier.OverwhelmMdef - mdef) : 0;
+                var lackParts = new List<string>();
+                if (cLack > 0) lackParts.Add($"투력 {cLack:N0}");
+                if (mLack > 0) lackParts.Add($"저항 {mLack:N0}");
+
+                vm.StatusDetailText = lackParts.Count > 0 
+                    ? $"권장 충족 (압도까지 {string.Join(", ", lackParts)} 부족)"
+                    : "권장 충족";
+                vm.StatusDetailFg = "#3FB950";
             }
-
-            res.HighestClearedTier = res.Tiers.LastOrDefault(t => t.Status == DungeonEntryStatus.Overwhelmed || t.Status == DungeonEntryStatus.Ready);
-            res.NextTargetTier = res.Tiers.FirstOrDefault(t => t.Status != DungeonEntryStatus.Overwhelmed && t.Status != DungeonEntryStatus.Ready);
-
-            results.Add(res);
-        }
-
-        return results;
-    }
-
-    public static List<DungeonCardViewModel> BuildCardViewModels(long currentCombat, long currentMdef, string filter = "All")
-    {
-        var cards = new List<DungeonCardViewModel>();
-
-        foreach (var def in MasterList)
-        {
-            if (filter == "Abyss" && !def.Category.Contains("어비스")) continue;
-            if (filter == "Raid" && !def.Category.Contains("레이드")) continue;
-
-            bool isAbyss = def.Category.Contains("어비스");
-            string catBadge = isAbyss ? "[어비스]" : "[레이드]";
-            string catBg = isAbyss ? "#1C2E46" : "#3B2A14";
-            string catFg = isAbyss ? "#58A6FF" : "#E5A93C";
-
-            foreach (var tier in def.Tiers)
+            else
             {
-                var eval = EvaluateTier(tier, currentCombat, currentMdef);
-                var card = new DungeonCardViewModel
-                {
-                    Category = isAbyss ? "Abyss" : "Raid",
-                    DisplayName = $"{def.Title} - {tier.TierName}",
-                    CategoryBadgeText = catBadge,
-                    CategoryBadgeBg = catBg,
-                    CategoryBadgeFg = catFg,
-                    StatusBadgeText = eval.StatusBadgeText,
-                    ProgressMax = tier.OverwhelmArcaneResistance > 0 ? tier.OverwhelmArcaneResistance : (tier.RequiredArcaneResistance > 0 ? tier.RequiredArcaneResistance : 100),
-                    ProgressValue = Math.Min(currentMdef, tier.OverwhelmArcaneResistance > 0 ? tier.OverwhelmArcaneResistance : tier.RequiredArcaneResistance)
-                };
+                vm.RecommendedStatusBadge = "⚠️ 턱걸이 입장";
+                vm.RecommendedStatusBg = "#382914";
+                vm.RecommendedStatusFg = "#D29922";
+                vm.RecommendedStatusBorder = "#BB8009";
 
-                // 상태별 비주얼 테마 매핑
-                switch (eval.Status)
-                {
-                    case DungeonEntryStatus.Overwhelmed:
-                        card.StatusBadgeBg = "#2E1C48";
-                        card.StatusBadgeFg = "#D2A8FF";
-                        card.StatusBadgeBorder = "#9B59B6";
-                        card.CardBorderBrush = "#6E40C9";
-                        card.ProgressBrush = "#9B59B6"; // 보라색
-                        card.MdefTextBrush = "#D2A8FF";
-                        card.MdefProgressText = tier.OverwhelmArcaneResistance > 0 
-                            ? $"{currentMdef:N0} / {tier.OverwhelmArcaneResistance:N0} (압도 달성)" 
-                            : $"{currentMdef:N0} (달성)";
-                        card.EffectBoxBg = "#1F152E";
-                        card.EffectSummaryText = "⚡ 피해량 +40% 압도 증폭 버프 적용!";
-                        card.EffectSummaryBrush = "#D2A8FF";
-                        break;
-
-                    case DungeonEntryStatus.Ready:
-                        card.StatusBadgeBg = "#1C3829";
-                        card.StatusBadgeFg = "#3FB950";
-                        card.StatusBadgeBorder = "#2EA043";
-                        card.CardBorderBrush = "#238636";
-                        card.ProgressBrush = "#2EA043"; // 초록색
-                        card.MdefTextBrush = "#3FB950";
-                        card.MdefProgressText = tier.OverwhelmArcaneResistance > 0
-                            ? $"{currentMdef:N0} / {tier.RequiredArcaneResistance:N0} (압도까지 -{Math.Abs(eval.OverwhelmDelta):N0})"
-                            : $"{currentMdef:N0} / {tier.RequiredArcaneResistance:N0}";
-                        card.EffectBoxBg = "#122619";
-                        card.EffectSummaryText = "✓ 마도 압력 없음 (정상 피해 100%)";
-                        card.EffectSummaryBrush = "#3FB950";
-                        break;
-
-                    case DungeonEntryStatus.Warning:
-                        card.StatusBadgeBg = "#382914";
-                        card.StatusBadgeFg = "#D29922";
-                        card.StatusBadgeBorder = "#BB8009";
-                        card.CardBorderBrush = "#9E6A03";
-                        card.ProgressBrush = "#D29922"; // 주황색
-                        card.MdefTextBrush = "#D29922";
-                        card.MdefProgressText = $"{currentMdef:N0} / {tier.RequiredArcaneResistance:N0} (부족 -{Math.Abs(eval.MdefDelta):N0})";
-                        card.EffectBoxBg = "#2B1D0E";
-                        card.EffectSummaryText = "⚠️ 마도 압력 발생 (가하는 피해 감소 페널티)";
-                        card.EffectSummaryBrush = "#D29922";
-                        break;
-
-                    default: // Locked
-                        card.StatusBadgeBg = "#2D1D24";
-                        card.StatusBadgeFg = "#F85149";
-                        card.StatusBadgeBorder = "#DA3633";
-                        card.CardBorderBrush = "#30363D";
-                        card.ProgressBrush = "#484F58"; // 회색
-                        card.MdefTextBrush = "#8B949E";
-                        card.MdefProgressText = tier.RequiredArcaneResistance > 0
-                            ? $"{currentMdef:N0} / {tier.RequiredArcaneResistance:N0}"
-                            : "-";
-                        card.EffectBoxBg = "#161B22";
-                        card.EffectSummaryText = "🔒 입장 조건 미달 (전투력/마도저항 필요)";
-                        card.EffectSummaryBrush = "#8B949E";
-                        break;
-                }
-
-                // 권장 전투력 상태 텍스트
-                if (currentCombat >= tier.RequiredCombatScore)
-                {
-                    card.ReqCombatText = $"{tier.RequiredCombatScore:N0} (충족)";
-                    card.CombatStatusBrush = "#3FB950";
-                }
-                else
-                {
-                    long diff = tier.RequiredCombatScore - currentCombat;
-                    card.ReqCombatText = $"{tier.RequiredCombatScore:N0} (부족 -{diff:N0})";
-                    card.CombatStatusBrush = "#F85149";
-                }
-
-                cards.Add(card);
+                long reqLack = targetTier.RecommendedCombat - combat;
+                vm.StatusDetailText = $"권장 투력보다 {reqLack:N0} 부족";
+                vm.StatusDetailFg = "#D29922";
             }
         }
 
-        return cards;
+        // 전체 세부 난이도 리스트 구성
+        vm.TierDetails = BuildTierDetails(content.Tiers, combat, mdef);
+        return vm;
     }
-}
 
-public class DungeonCardViewModel
-{
-    public string Category { get; set; } = "";
-    public string DisplayName { get; set; } = "";
-    public string CategoryBadgeText { get; set; } = "";
-    public string CategoryBadgeBg { get; set; } = "#1C2E46";
-    public string CategoryBadgeFg { get; set; } = "#58A6FF";
-    public string StatusBadgeText { get; set; } = "";
-    public string StatusBadgeBg { get; set; } = "#1C3829";
-    public string StatusBadgeFg { get; set; } = "#3FB950";
-    public string StatusBadgeBorder { get; set; } = "#2EA043";
-    public string CardBorderBrush { get; set; } = "#2E3A52";
-    public string MdefProgressText { get; set; } = "";
-    public string MdefTextBrush { get; set; } = "#D2A8FF";
-    public double ProgressMax { get; set; } = 100;
-    public double ProgressValue { get; set; } = 0;
-    public string ProgressBrush { get; set; } = "#3FB950";
-    public string ReqCombatText { get; set; } = "";
-    public string CombatStatusBrush { get; set; } = "#E5A93C";
-    public string EffectBoxBg { get; set; } = "#161B22";
-    public string EffectSummaryText { get; set; } = "";
-    public string EffectSummaryBrush { get; set; } = "#8B949E";
+    private static List<TierDetailViewModel> BuildTierDetails(List<DungeonCutoffTier> tiers, long combat, long mdef)
+    {
+        var list = new List<TierDetailViewModel>();
+        foreach (var t in tiers)
+        {
+            string statusText;
+            string bg, fg;
+
+            if (t.IsOverwhelmed(combat, mdef))
+            {
+                statusText = "⚡ 압도 달성";
+                bg = "#2E1C48";
+                fg = "#D2A8FF";
+            }
+            else if (t.IsNearOverwhelm(combat, mdef, out var cL, out var mL))
+            {
+                statusText = "🔥 압도 근접";
+                bg = "#3B2A14";
+                fg = "#F5D061";
+            }
+            else if (combat >= t.RecommendedCombat && (t.MinEntryMdef == 0 || mdef >= t.MinEntryMdef))
+            {
+                statusText = "✓ 권장 충족";
+                bg = "#1C3829";
+                fg = "#3FB950";
+            }
+            else if (t.CanEnter(combat, mdef))
+            {
+                statusText = "⚠️ 턱걸이";
+                bg = "#382914";
+                fg = "#D29922";
+            }
+            else
+            {
+                statusText = "🔒 입장 불가";
+                bg = "#2D1D24";
+                fg = "#F85149";
+            }
+
+            var specText = t.MinEntryMdef > 0 
+                ? $"입장 투력 {t.MinEntryCombat:N0} / 저항 {t.MinEntryMdef:N0}" 
+                : $"입장 투력 {t.MinEntryCombat:N0}";
+
+            var overText = t.OverwhelmMdef > 0
+                ? $"압도 투력 {t.OverwhelmCombat:N0} / 저항 {t.OverwhelmMdef:N0}"
+                : $"압도 투력 {t.OverwhelmCombat:N0}";
+
+            list.Add(new TierDetailViewModel
+            {
+                TierName = t.TierName,
+                EntryStatusText = statusText,
+                EntryStatusBg = bg,
+                EntryStatusFg = fg,
+                SpecRequirementText = specText,
+                OverwhelmSpecText = overText
+            });
+        }
+        return list;
+    }
+
+    /// <summary>
+    /// 4대 핵심 콘텐츠 전체 평가
+    /// </summary>
+    public static List<ContentRecommendationViewModel> EvaluateAllContents(long combat, long mdef)
+    {
+        return MasterContents.Select(c => EvaluateContent(c, combat, mdef)).ToList();
+    }
 }
