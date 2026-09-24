@@ -2059,16 +2059,27 @@ public partial class MainWindow : Window
 
     private async Task<(bool success, string message)> ExecuteExcelSyncAsync()
     {
-        var charInfo = _lastCharInfo;
-        if (charInfo == null)
+        // 1. 최신 캐릭터 정보, 주간 미션, 재화, 퀘스트 병렬 조회
+        try
         {
-            var (ok, json, _) = await _cli.RunRawAsync("get_my_info", timeoutSeconds: 5);
-            if (ok && !string.IsNullOrWhiteSpace(json))
-            {
-                try { charInfo = JsonSerializer.Deserialize<CharacterInfo>(json); } catch { }
-            }
-        }
+            var tInfo = _cli.RunJsonAsync<CharacterInfo>("get_my_info", timeoutSeconds: 5);
+            var tWeekly = _cli.RunJsonAsync<List<MissionItem>>("get_weekly_missions", timeoutSeconds: 5);
+            var tCurr = _cli.RunJsonAsync<List<CurrencyItem>>("get_currencies", timeoutSeconds: 5);
+            var tQuests = _cli.RunJsonAsync<List<QuestItem>>("get_quests", timeoutSeconds: 5);
+            await Task.WhenAll(tInfo, tWeekly, tCurr, tQuests);
 
+            if ((await tInfo).data is { } ch) _lastCharInfo = ch;
+            if ((await tWeekly).data is { } weekly) _lastWeeklyMissions = weekly;
+            if ((await tCurr).data is { } curr) _lastCurrencies = curr;
+            if ((await tQuests).data is { } quests) _lastQuests = quests;
+
+            // 숙제 상태 최신 평가
+            EvaluateHomeworkStatus();
+            RefreshHomeworkUi();
+        }
+        catch { }
+
+        var charInfo = _lastCharInfo;
         if (charInfo == null)
         {
             return (false, "게임이 실행 중이지 않거나 캐릭터 정보를 가져올 수 없습니다.");

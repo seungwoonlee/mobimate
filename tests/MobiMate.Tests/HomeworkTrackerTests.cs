@@ -454,4 +454,68 @@ public class HomeworkTrackerTests : IDisposable
         Assert.True(recordAfter.Items["weekly_vanguard_breach"].IsCompleted);
         Assert.True(recordAfter.Items["weekly_vanguard_breach"].IsAutoDetected);
     }
+
+    [Fact]
+    public void RaidPostClear_DetectsCavrak_WhenWeeklyMissionAndUniqueTokenPresent()
+    {
+        var now = new DateTime(2026, 9, 24, 12, 0, 0);
+        string key = "Aira_DualBlade";
+
+        // 주간 미션에 "선장님, 출정합니다! 레이드 1회 토벌" 완료 및 카브락 증표 단독 보유
+        var ctx = new HomeworkEvaluationContext
+        {
+            CharacterKey = key,
+            WeeklyMissions = new List<MissionItem>
+            {
+                new("선장님, 출정합니다!", "레이드 1회 토벌", CurrentCount: 1, GoalCount: 1, IsCompleted: true, IsRewardReceived: true)
+            },
+            Currencies = new List<CurrencyItem>
+            {
+                new("골드", 10000),
+                new("원정의 증거: 카브락\u00A0레이드", 176),
+                new("원정의 증거: 글라스기브넨 레이드", 0),
+                new("원정의 증거: 타바르타스 레이드", 0)
+            },
+            Quests = new List<QuestItem>() // 퀘스트는 이미 완료 수령되어 목록에서 소멸한 상태
+        };
+
+        var record = _service.EvaluateAndSync(ctx, now);
+
+        // 카브락만 정확히 자동 감지 완료 판정
+        Assert.True(record.Items["raid_cavrak"].IsCompleted);
+        Assert.True(record.Items["raid_cavrak"].IsAutoDetected);
+
+        // 에이렐과 화서큐는 오탐되지 않고 미완료로 유지
+        Assert.False(record.Items["raid_airel"].IsCompleted);
+        Assert.False(record.Items["raid_white_succubus"].IsCompleted);
+    }
+
+    [Fact]
+    public void RaidPostClear_DoesNotAutoDetect_WhenMultipleRaidTokensPresent()
+    {
+        var now = new DateTime(2026, 9, 24, 12, 0, 0);
+        string key = "Aira_DualBlade";
+
+        // 카브락 증표와 에이렐 증표 둘 다 보유하고 있는 경우 (단일 특정 불가)
+        var ctx = new HomeworkEvaluationContext
+        {
+            CharacterKey = key,
+            WeeklyMissions = new List<MissionItem>
+            {
+                new("선장님, 출정합니다!", "레이드 1회 토벌", CurrentCount: 1, GoalCount: 1, IsCompleted: true, IsRewardReceived: true)
+            },
+            Currencies = new List<CurrencyItem>
+            {
+                new("원정의 증거: 카브락 레이드", 176),
+                new("원정의 증거: 에이렐 레이드", 50)
+            },
+            Quests = new List<QuestItem>()
+        };
+
+        var record = _service.EvaluateAndSync(ctx, now);
+
+        // 복수 토큰 보유 시 오탐 방지 원칙에 따라 둘 다 자동 완료 처리되지 않아야 함
+        Assert.False(record.Items["raid_cavrak"].IsCompleted);
+        Assert.False(record.Items["raid_airel"].IsCompleted);
+    }
 }

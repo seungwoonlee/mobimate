@@ -111,6 +111,17 @@ namespace MobiMate
                     newlyDone = true;
                 }
 
+                // Layer 5: 레이드 사후 정밀 감지 (퀘스트 소멸 후 주간 미션 완료 + 고유 레이드 증표 보유 교차 검증)
+                if (!newlyDone && def.Category == HomeworkCategory.Raid && CheckLayer5RaidCompleted(def, ctx))
+                {
+                    state.CurrentCount = state.GoalCount;
+                    state.IsCompleted = true;
+                    state.IsAutoDetected = true;
+                    state.CompletedAt = now;
+                    changed = true;
+                    newlyDone = true;
+                }
+
                 // 공유 풀(SharedPoolId: 예 필드 보스 주간 1회 택1) 동기화
                 if (newlyDone && !string.IsNullOrEmpty(def.SharedPoolId))
                 {
@@ -301,6 +312,55 @@ namespace MobiMate
 
             return ctx.AlteringWorks.CompletedCount > 0 ||
                    (ctx.AlteringWorks.Works != null && ctx.AlteringWorks.Works.Any(w => w.IsDone));
+        }
+
+        /// <summary>
+        /// Layer 5: 레이드 사후 정밀 감지
+        /// 레이드는 토벌 완료 후 get_quests 목록에서 소멸하므로,
+        /// 주간 미션("선장님, 출정합니다! 레이드 1회 토벌" 완료)과 get_currencies 내 해당 레이드 고유 원정 증거 토큰을 교차 검증하여 확정 판정함.
+        /// [오탐 방지 가드레일]: 보유한 레이드 원정 증거 토큰 중 잔여량이 존재하는 레이드가 단 1종일 때만 100% 매핑하여 복수 레이드 동시 오탐 방지.
+        /// </summary>
+        private static bool CheckLayer5RaidCompleted(HomeworkDefinition def, HomeworkEvaluationContext ctx)
+        {
+            if (def.Category != HomeworkCategory.Raid) return false;
+
+            // 1. 주간 미션에 "레이드 1회 토벌" 완료가 찍혀 있는지 확인
+            bool hasWeeklyRaidDone = ctx.WeeklyMissions != null && ctx.WeeklyMissions.Any(m =>
+                (m.Title?.Contains("출정") == true || m.Description?.Contains("레이드") == true) &&
+                (m.IsCompleted || m.CurrentCount >= 1));
+
+            if (!hasWeeklyRaidDone) return false;
+
+            // 2. 재화(Currencies) 목록에서 원정의 증거 레이드 토큰 보유 검사
+            if (ctx.Currencies == null || ctx.Currencies.Count == 0) return false;
+
+            // 모든 레이드 원정의 증거 토큰 목록 추출 (Non-breaking space \u00A0 정규화)
+            var activeRaidTokens = ctx.Currencies
+                .Where(c => !string.IsNullOrEmpty(c.DisplayName) &&
+                            c.DisplayName.Contains("원정의 증거") &&
+                            c.DisplayName.Contains("레이드") &&
+                            c.Amount > 0)
+                .ToList();
+
+            if (activeRaidTokens.Count == 0) return false;
+
+            // [오탐 방지 가드레일 A]: 보유 레이드 토큰이 오직 1종류만 존재할 때 100% 확정 매핑
+            // (복수 레이드 토큰 보유 시 이번 주에 어떤 레이드를 돌았는지 불명확하므로 오탐 방지를 위해 자동 완료 보류)
+            if (activeRaidTokens.Count == 1)
+            {
+                var token = activeRaidTokens[0];
+                var cleanTokenName = (token.DisplayName ?? "").Replace("\u00A0", " ").Replace(" ", "");
+
+                bool kwMatch = def.MatchKeywords.Any(kw =>
+                {
+                    var cleanKw = (kw ?? "").Replace(" ", "");
+                    return !string.IsNullOrEmpty(cleanKw) && cleanTokenName.Contains(cleanKw, StringComparison.OrdinalIgnoreCase);
+                });
+
+                return kwMatch;
+            }
+
+            return false;
         }
 
         public void ToggleManual(string homeworkId, string characterKey, DateTime now)
