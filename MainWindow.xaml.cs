@@ -35,6 +35,7 @@ public partial class MainWindow : Window
 
     private readonly GoogleSheetSettingsManager _googleSheetSettingsManager = new();
     private readonly GoogleSheetSyncService _googleSheetSyncService = new();
+    private readonly ExcelSheetSyncService _excelSyncService = new();
     private string _lastSyncedCharacterKey = "";
 
     private List<ItemData> _allItems = new();
@@ -1895,37 +1896,75 @@ public partial class MainWindow : Window
         }
     }
 
-    // ================= 10. 구글 스프레드시트 [캐릭터 육성] 자동 동기화 =================
-    private void BtnGoogleSheet_Click(object sender, RoutedEventArgs e)
+    // ================= 10. 전자동 엑셀/구글 드라이브 스프레드시트 연동 =================
+    private async void BtnOpenExcelSheet_Click(object sender, RoutedEventArgs e)
     {
-        var settings = _googleSheetSettingsManager.CurrentSettings;
-        TxtGoogleSheetWebhookUrl.Text = settings.WebhookUrl;
-        ChkAutoSyncOnCharChange.IsChecked = settings.AutoSyncOnCharChange;
-        ChkAutoBackupDaily.IsChecked = settings.AutoBackupDaily;
-
-        string defaultName = "";
-        if (_lastCharInfo != null)
+        try
         {
-            var realm = string.IsNullOrEmpty(_lastCharInfo.RealmName) ? "에린" : _lastCharInfo.RealmName;
-            var job = string.IsNullOrEmpty(_lastCharInfo.JobName) ? "밀레시안" : _lastCharInfo.JobName;
-            var profile = _snapshotManager.GetProfile(realm, job);
-            if (profile != null && !string.IsNullOrWhiteSpace(profile.CustomName))
+            var charInfo = _lastCharInfo;
+            if (charInfo == null)
             {
-                defaultName = profile.CustomName;
+                var (ok, json, _) = await _cli.RunRawAsync("get_my_info", timeoutSeconds: 5);
+                if (ok && !string.IsNullOrWhiteSpace(json))
+                {
+                    try { charInfo = JsonSerializer.Deserialize<CharacterInfo>(json); } catch { }
+                }
+            }
+
+            string targetName = "빅클라우드";
+            if (charInfo != null)
+            {
+                var realm = string.IsNullOrEmpty(charInfo.RealmName) ? "에린" : charInfo.RealmName;
+                var job = string.IsNullOrEmpty(charInfo.JobName) ? "밀레시안" : charInfo.JobName;
+                var profile = _snapshotManager.GetProfile(realm, job);
+                if (profile != null && !string.IsNullOrWhiteSpace(profile.CustomName))
+                {
+                    targetName = profile.CustomName;
+                }
+                else if (job.Contains("전사") || job.Contains("대검"))
+                {
+                    targetName = "빅클라우드";
+                }
+                else if (job.Contains("듀얼") || job.Contains("블레이드"))
+                {
+                    targetName = "빅콜라";
+                }
+
+                // 엑셀 파일 핀포인트 갱신
+                var (success, msg, row) = _excelSyncService.SyncCharacter(targetName, charInfo, _homeworkService.Repository);
+                if (success)
+                {
+                    ShowToast($"📊 [{targetName}] 엑셀 동기화 완료! (구글 드라이브 반영)", true);
+                }
+                else
+                {
+                    ShowToast($"⚠️ {msg}", false);
+                }
+            }
+
+            // 엑셀 파일 바로 열기 (기본 연결 프로그램: Excel 등)
+            if (File.Exists(_excelSyncService.TargetFilePath))
+            {
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = _excelSyncService.TargetFilePath,
+                    UseShellExecute = true
+                });
+            }
+            else
+            {
+                ShowToast($"파일을 찾을 수 없습니다: {_excelSyncService.TargetFilePath}", false);
             }
         }
-        if (string.IsNullOrWhiteSpace(defaultName) && !string.IsNullOrWhiteSpace(settings.LastSyncCharacter))
+        catch (Exception ex)
         {
-            defaultName = settings.LastSyncCharacter;
+            ShowToast($"엑셀 열기 오류: {ex.Message}", false);
         }
-        if (string.IsNullOrWhiteSpace(defaultName))
-        {
-            defaultName = "빅플라우드";
-        }
+    }
 
-        TxtGoogleSheetCharName.Text = defaultName;
-        UpdateGoogleSheetStatusUi();
-        OverlayGoogleSheet.Visibility = Visibility.Visible;
+    private void BtnGoogleSheet_Click(object sender, RoutedEventArgs e)
+    {
+        BtnOpenExcelSheet_Click(sender, e);
     }
 
     private void BtnCloseGoogleSheet_Click(object sender, RoutedEventArgs e)
@@ -2086,39 +2125,57 @@ public partial class MainWindow : Window
 
     private void CheckAndTriggerAutoGoogleSheetSync(string realm, string job)
     {
-        if (!_googleSheetSettingsManager.CurrentSettings.AutoSyncOnCharChange) return;
-        var webhookUrl = _googleSheetSettingsManager.CurrentSettings.WebhookUrl;
-        if (string.IsNullOrWhiteSpace(webhookUrl)) return;
-
         var charKey = $"{realm}_{job}";
         if (_lastSyncedCharacterKey == charKey) return;
         _lastSyncedCharacterKey = charKey;
+
+        var charInfo = _lastCharInfo;
+        if (charInfo == null) return;
 
         var profile = _snapshotManager.GetProfile(realm, job);
         var targetName = profile?.CustomName;
         if (string.IsNullOrWhiteSpace(targetName))
         {
-            targetName = _googleSheetSettingsManager.CurrentSettings.LastSyncCharacter;
+            if (job.Contains("전사") || job.Contains("대검")) targetName = "빅클라우드";
+            else if (job.Contains("듀얼") || job.Contains("블레이드")) targetName = "빅콜라";
+            else targetName = _googleSheetSettingsManager.CurrentSettings.LastSyncCharacter ?? "빅클라우드";
         }
 
-        if (!string.IsNullOrWhiteSpace(targetName))
+        // 1. 전자동 엑셀 (구글 드라이브 동기화 폴더) 직접 갱신 (수동 조작 0%)
+        _ = Task.Run(() =>
         {
-            _ = Task.Run(async () =>
+            try
             {
-                await Task.Delay(1500);
-                var (ok, msg) = await ExecuteGoogleSheetSyncAsync(
-                    targetName,
-                    webhookUrl,
-                    _googleSheetSettingsManager.CurrentSettings.AutoBackupDaily);
-
-                Dispatcher.Invoke(() =>
+                var (ok, msg, row) = _excelSyncService.SyncCharacter(targetName, charInfo, _homeworkService.Repository);
+                if (ok)
                 {
-                    if (ok)
+                    Dispatcher.Invoke(() =>
                     {
-                        ShowToast($"📊 [{targetName}] 구글 시트 자동 동기화 완료!", true);
-                    }
+                        ShowToast($"📊 [{targetName}] 엑셀 자동 갱신 완료! (구글 드라이브 동기화)", true);
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                App.LogTrace($"Auto excel sync error: {ex.Message}");
+            }
+        });
+
+        // 2. 구글 웹앱 Webhook이 설정되어 있는 경우 백업 호환 전송
+        if (_googleSheetSettingsManager.CurrentSettings.AutoSyncOnCharChange)
+        {
+            var webhookUrl = _googleSheetSettingsManager.CurrentSettings.WebhookUrl;
+            if (!string.IsNullOrWhiteSpace(webhookUrl))
+            {
+                _ = Task.Run(async () =>
+                {
+                    await Task.Delay(1500);
+                    var (ok, msg) = await ExecuteGoogleSheetSyncAsync(
+                        targetName,
+                        webhookUrl,
+                        _googleSheetSettingsManager.CurrentSettings.AutoBackupDaily);
                 });
-            });
+            }
         }
     }
 

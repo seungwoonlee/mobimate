@@ -454,10 +454,10 @@
                         </Button.Template>
                     </Button>
 
-                    <Button x:Name="BtnGoogleSheet" Content="📊 구글 시트" Click="BtnGoogleSheet_Click"
+                    <Button x:Name="BtnOpenExcelSheet" Content="📊 시트 열기" Click="BtnOpenExcelSheet_Click"
                             Background="#1E3A5F" Foreground="#79B8FF" FontWeight="Bold" FontSize="14"
                             Padding="12,6" BorderBrush="#388BFD" BorderThickness="1" Margin="0,0,8,0" Cursor="Hand"
-                            ToolTip="구글 스프레드시트(캐릭터 육성) 자동 동기화 및 안전 백업 설정">
+                            ToolTip="구글 드라이브 엑셀 파일(마비노기_모바일_캐릭터육성.xlsx)을 즉시 동기화하고 엽니다.">
                         <Button.Template>
                             <ControlTemplate TargetType="Button">
                                 <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="6" Padding="{TemplateBinding Padding}">
