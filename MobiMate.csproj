@@ -9,19 +9,28 @@
     <SelfContained>false</SelfContained>
     <PublishSingleFile>true</PublishSingleFile>
     <DebugType>none</DebugType>
-    <Version>1.1.1</Version>
-    <AssemblyVersion>1.1.1.0</AssemblyVersion>
-    <FileVersion>1.1.1.0</FileVersion>
     <DefaultItemExcludes>$(DefaultItemExcludes);tests\**;web\**</DefaultItemExcludes>
+
+    <!-- 빌드 시점 기준 월일시분(MMdd.HHmm) 동적 버전 생성 -->
+    <BuildDate>$([System.DateTime]::Now.ToString("MMdd"))</BuildDate>
+    <BuildTime>$([System.DateTime]::Now.ToString("HHmm"))</BuildTime>
+    <Version>1.1.$(BuildDate).$(BuildTime)</Version>
+    <AssemblyVersion>1.1.$(BuildDate).$(BuildTime)</AssemblyVersion>
+    <FileVersion>1.1.$(BuildDate).$(BuildTime)</FileVersion>
+    <InformationalVersion>v1.1.$(BuildDate).$(BuildTime)</InformationalVersion>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="ClosedXML" Version="0.105.1" />
   </ItemGroup>
 
-  <!-- 빌드/퍼블리시 시 메신저 전송용 MobiMate.zip 자동 생성 -->
-  <Target Name="ZipAfterPublish" AfterTargets="Publish" Condition="'$(PublishDir)' != ''">
+  <!-- 퍼블리시 후 zip 압축 및 프로젝트 루트 복사 자동화 -->
+  <Target Name="PostPublishArtifacts" AfterTargets="Publish" Condition="'$(PublishDir)' != ''">
+    <!-- 1. 메신저 전송용 MobiMate.zip 자동 생성 -->
     <Exec Command="powershell -NoProfile -Command &quot;if (Test-Path '$(PublishDir)MobiMate.exe') { Compress-Archive -Path '$(PublishDir)MobiMate.exe' -DestinationPath '$(PublishDir)MobiMate.zip' -Force }&quot;" />
+    <!-- 2. 최종 완성본을 프로젝트 루트(V:\workspace\MobiMate\MobiMate.exe)에 복사 (파일 잠금 시 안전하게 계속 진행) -->
+    <Copy SourceFiles="$(PublishDir)MobiMate.exe" DestinationFolder="$(MSBuildProjectDirectory)" ContinueOnError="true" />
   </Target>
 
 </Project>

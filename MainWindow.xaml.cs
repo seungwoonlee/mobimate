@@ -71,10 +71,12 @@ public partial class MainWindow : Window
         InitializeComponent();
         App.LogTrace("MainWindow.ctor InitializeComponent finished");
 
-        var asmVersion = typeof(MainWindow).Assembly.GetName().Version;
+        string buildVersion = GetBuildVersionString();
+        this.Title = $"모비노기 AI도우미 (MobiMate) - {buildVersion}";
         if (TxtBuildVersion != null)
         {
-            TxtBuildVersion.Text = asmVersion != null ? $"v{asmVersion.Major}.{asmVersion.Minor}.{asmVersion.Build}" : "v1.1.1";
+            TxtBuildVersion.Text = buildVersion;
+            TxtBuildVersion.ToolTip = $"MobiMate 빌드 버전: {buildVersion}";
         }
 
         DataContext = this;
@@ -135,6 +137,41 @@ public partial class MainWindow : Window
             _autoRefreshTimer?.Stop();
         };
         App.LogTrace("MainWindow.ctor exit");
+    }
+
+    /// <summary>
+    /// 빌드 시점 월일시분 기반 동적 빌드 버전 문자열 반환 (예: v1.1.0925.0028)
+    /// </summary>
+    public static string GetBuildVersionString()
+    {
+        try
+        {
+            var asm = typeof(MainWindow).Assembly;
+            var infoVerAttr = (System.Reflection.AssemblyInformationalVersionAttribute?)
+                Attribute.GetCustomAttribute(asm, typeof(System.Reflection.AssemblyInformationalVersionAttribute));
+
+            if (infoVerAttr != null && !string.IsNullOrWhiteSpace(infoVerAttr.InformationalVersion))
+            {
+                // .NET 8 Git SHA 분리 방어 (예: v1.1.0925.0028+sha -> v1.1.0925.0028)
+                string raw = infoVerAttr.InformationalVersion.Split('+')[0].Trim();
+                if (!string.IsNullOrEmpty(raw))
+                {
+                    return raw.StartsWith("v", StringComparison.OrdinalIgnoreCase) ? raw : $"v{raw}";
+                }
+            }
+
+            var asmVersion = asm.GetName().Version;
+            if (asmVersion != null)
+            {
+                return $"v{asmVersion.Major}.{asmVersion.Minor}.{asmVersion.Build:D4}.{asmVersion.Revision:D4}";
+            }
+        }
+        catch
+        {
+            // fallback
+        }
+
+        return "v1.1";
     }
 
     // ================= 0. 인앱 비동기 토스트 알림 (MessageBox 완전 대체) =================

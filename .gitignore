@@ -5,4 +5,7 @@ __pycache__/
 **/obj/
 dist/
 dist_update/
+/MobiMate.exe
+*.zip
 character_history_db.json
+

@@ -519,9 +519,9 @@
                         </Button.Template>
                     </Button>
 
-                    <!-- 빌드 버전 뱃지 (최우측 상단) -->
-                    <Border Background="#1C212D" BorderBrush="#388BFD" BorderThickness="1" CornerRadius="8" Padding="8,5" Margin="0,0,0,0" VerticalAlignment="Center" ToolTip="MobiMate 빌드 버전">
-                        <TextBlock x:Name="TxtBuildVersion" Text="v1.1.1" FontSize="12" Foreground="#58A6FF" FontWeight="Bold"/>
+                    <!-- 빌드 버전 뱃지 (최우측 상단, 선명한 고대비 디자인) -->
+                    <Border Background="#162238" BorderBrush="#58A6FF" BorderThickness="1.5" CornerRadius="8" Padding="10,5" Margin="4,0,0,0" VerticalAlignment="Center">
+                        <TextBlock x:Name="TxtBuildVersion" Text="v1.1" FontSize="13" Foreground="#58A6FF" FontWeight="Bold" VerticalAlignment="Center"/>
                     </Border>
                 </StackPanel>
             </Grid>
