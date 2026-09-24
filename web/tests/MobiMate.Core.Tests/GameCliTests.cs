@@ -99,12 +99,14 @@ public class GameCliTests
         var requestedAt = DateTime.UtcNow;
         var stop = await cli.RunAsync(new CliCommand("stop_action"));
         Assert.True(stop.Ok, stop.Error);
-        Assert.False(busyGeneral.IsCompleted, "정지가 일반 레인 작업이 끝나길 기다렸다");
+        // 큐 대기(앱 책임)와 프로세스 기동·실행(환경 부하)을 나눠 보여 준다
+        var stopTiming = $"큐 대기 {stop.QueueWait.TotalMilliseconds:F0}ms, 기동·실행 {stop.Exec.TotalMilliseconds:F0}ms";
+        Assert.True(stop.QueueWait < TimeSpan.FromMilliseconds(50), $"정지가 큐에서 기다렸다: {stopTiming}");
+        Assert.False(busyGeneral.IsCompleted, $"정지가 일반 레인 작업이 끝나길 기다렸다: {stopTiming}");
         await busyGeneral;
 
         var stopStart = env.ReadCalls().First(c => c.Command == "stop_action" && c.Phase == "start");
-        Assert.True(stopStart.At - requestedAt < TimeSpan.FromSeconds(1), $"정지 전달 지연: {stopStart.At - requestedAt}");
-        Assert.True(stop.QueueWait < TimeSpan.FromMilliseconds(50), $"정지가 큐에서 기다렸다: {stop.QueueWait}");
+        Assert.True(stopStart.At - requestedAt < TimeSpan.FromSeconds(1), $"정지 전달 지연: {(stopStart.At - requestedAt).TotalMilliseconds:F0}ms ({stopTiming})");
 
         var g = await gather.WaitAsync(TimeSpan.FromSeconds(5));
         Assert.True(g.Ok, g.Error);

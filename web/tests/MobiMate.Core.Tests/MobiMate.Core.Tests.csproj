@@ -22,6 +22,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- 가짜 CLI 호출 로그 판독기 (Web 테스트와 공유) -->
+    <Compile Include="..\FakeCliLogReader.cs" Link="FakeCliLogReader.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Using Include="Xunit" />
   </ItemGroup>
 
