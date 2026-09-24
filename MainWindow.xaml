@@ -454,6 +454,19 @@
                         </Button.Template>
                     </Button>
 
+                    <Button x:Name="BtnGoogleSheet" Content="📊 구글 시트" Click="BtnGoogleSheet_Click"
+                            Background="#1E3A5F" Foreground="#79B8FF" FontWeight="Bold" FontSize="14"
+                            Padding="12,6" BorderBrush="#388BFD" BorderThickness="1" Margin="0,0,8,0" Cursor="Hand"
+                            ToolTip="구글 스프레드시트(캐릭터 육성) 자동 동기화 및 안전 백업 설정">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="6" Padding="{TemplateBinding Padding}">
+                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                            </ControlTemplate>
+                        </Button.Template>
+                    </Button>
+
                     <Button x:Name="BtnRefreshCurrentTab" Content="🔄 새로고침" Click="BtnRefreshCurrentTab_Click"
                             Background="{StaticResource AccentBlue}" Foreground="White" FontWeight="Bold" FontSize="14"
                             Padding="12,6" BorderThickness="0" Margin="0,0,8,0" Cursor="Hand">
@@ -1473,6 +1486,88 @@
                         </Grid>
                     </Grid>
                 </Grid>
+            </Border>
+        </Grid>
+
+        <!-- ================= 4. 구글 스프레드시트 연동 오버레이 모달 ================= -->
+        <Grid x:Name="OverlayGoogleSheet" Grid.Row="0" Grid.RowSpan="4" Background="#CC0D1117" Visibility="Collapsed" Panel.ZIndex="2000">
+            <Border HorizontalAlignment="Center" VerticalAlignment="Center" Width="640" MaxHeight="680"
+                    Background="#161B22" BorderBrush="#388BFD" BorderThickness="1.5" CornerRadius="12" Padding="24">
+                <Border.Effect>
+                    <DropShadowEffect BlurRadius="24" ShadowDepth="8" Opacity="0.7" Color="#000000"/>
+                </Border.Effect>
+                <StackPanel>
+                    <!-- 모달 헤더 -->
+                    <Grid Margin="0,0,0,16">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="📊" FontSize="20" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                            <TextBlock Text="구글 스프레드시트 [캐릭터 육성] 연동" FontSize="18" FontWeight="Bold" Foreground="#FFFFFF" VerticalAlignment="Center"/>
+                        </StackPanel>
+                        <Button Content="✕" Click="BtnCloseGoogleSheet_Click" HorizontalAlignment="Right"
+                                Background="Transparent" Foreground="#8B949E" BorderThickness="0" Cursor="Hand" FontWeight="Bold" FontSize="18"/>
+                    </Grid>
+
+                    <!-- 가이드 배너 -->
+                    <Border Background="#0D1D30" BorderBrush="#1F4273" BorderThickness="1" CornerRadius="8" Padding="14,10" Margin="0,0,0,16">
+                        <StackPanel>
+                            <TextBlock Text="🛡️ 핀포인트 갱신 &amp; 안전 백업 원칙" FontWeight="Bold" Foreground="#58A6FF" FontSize="13" Margin="0,0,0,4"/>
+                            <TextBlock Text="• B열(이름)을 탐색하여 C, E, F, G, H(스탯) 및 L, M, N, Q, R(숙제) 셀만 정확히 갱신합니다.&#x0a;• 기존 수기 메모, 펫/장비 열, 배경색 및 수식은 100% 무훼손 보존됩니다.&#x0a;• 첫 동기화 시 구글 드라이브 내에 안전 백업 사본이 자동 생성됩니다."
+                                       FontSize="12" Foreground="#8B949E" LineHeight="18"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- 1. Webhook URL 입력 -->
+                    <TextBlock Text="1. Google Apps Script 웹 앱 Webhook URL" FontWeight="SemiBold" Foreground="#C9D1D9" FontSize="13" Margin="0,0,0,6"/>
+                    <Grid Margin="0,0,0,14">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBox x:Name="TxtGoogleSheetWebhookUrl" Grid.Column="0"
+                                 Background="#0D1117" Foreground="#FFFFFF" BorderBrush="#30363D" BorderThickness="1"
+                                 Padding="10,8" FontSize="13" VerticalContentAlignment="Center"/>
+                        <Button x:Name="BtnCopyAppsScript" Grid.Column="1" Content="📋 스크립트 복사" Click="BtnCopyAppsScript_Click"
+                                Background="#21262D" Foreground="#58A6FF" FontWeight="SemiBold" FontSize="12"
+                                Padding="12,8" BorderBrush="#30363D" BorderThickness="1" Margin="8,0,0,0" Cursor="Hand"
+                                ToolTip="시트 [확장 프로그램] -> [Apps Script]에 붙여넣을 스크립트 코드를 클립보드에 복사합니다."/>
+                    </Grid>
+
+                    <!-- 2. 스프레드시트 B열 탐색 키 (캐릭터 이름) -->
+                    <TextBlock Text="2. 시트 B열 매칭 캐릭터 이름" FontWeight="SemiBold" Foreground="#C9D1D9" FontSize="13" Margin="0,0,0,6"/>
+                    <TextBox x:Name="TxtGoogleSheetCharName" Background="#0D1117" Foreground="#FFFFFF" BorderBrush="#30363D" BorderThickness="1"
+                             Padding="10,8" FontSize="13" Margin="0,0,0,4"/>
+                    <TextBlock Text="* 시트 B열에 적힌 이름과 정확히 일치해야 합니다. (예: 빅플라우드)" FontSize="11" Foreground="#6E7681" Margin="0,0,0,14"/>
+
+                    <!-- 3. 자동 옵션 -->
+                    <Border Background="#1C2128" BorderBrush="#30363D" BorderThickness="1" CornerRadius="8" Padding="12" Margin="0,0,0,16">
+                        <StackPanel>
+                            <CheckBox x:Name="ChkAutoSyncOnCharChange" Content="🔄 캐릭터 변경/접속 감지 시 백그라운드 자동 동기화"
+                                      Foreground="#C9D1D9" FontSize="13" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                            <CheckBox x:Name="ChkAutoBackupDaily" Content="🛡️ 동기화 시 구글 드라이브에 당일 안전 사본 자동 백업 (1일 1회)"
+                                      Foreground="#C9D1D9" FontSize="13" FontWeight="SemiBold" IsChecked="True"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- 4. 상태 및 최근 동기화 결과 -->
+                    <Border Background="#0D1117" BorderBrush="#21262D" BorderThickness="1" CornerRadius="6" Padding="10" Margin="0,0,0,18">
+                        <TextBlock x:Name="TxtGoogleSheetStatus" Text="동기화 대기 중..." Foreground="#8B949E" FontSize="12" TextWrapping="Wrap"/>
+                    </Border>
+
+                    <!-- 5. 하단 제어 버튼 -->
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <Button x:Name="BtnSaveGoogleSheetSettings" Grid.Column="1" Content="💾 설정 저장" Click="BtnSaveGoogleSheetSettings_Click"
+                                Background="#21262D" Foreground="#C9D1D9" FontWeight="Bold" FontSize="13"
+                                Padding="16,9" BorderBrush="#30363D" BorderThickness="1" Margin="0,0,8,0" Cursor="Hand"/>
+                        <Button x:Name="BtnSyncGoogleSheetNow" Grid.Column="2" Content="⚡ 지금 즉시 동기화" Click="BtnSyncGoogleSheetNow_Click"
+                                Background="{StaticResource AccentBlue}" Foreground="#FFFFFF" FontWeight="Bold" FontSize="13"
+                                Padding="20,9" BorderThickness="0" Cursor="Hand"/>
+                    </Grid>
+                </StackPanel>
             </Border>
         </Grid>
     </Grid>

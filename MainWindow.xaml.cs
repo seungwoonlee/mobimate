@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Linq;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
@@ -9,7 +11,6 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
-using System.Text.Json;
 
 namespace MobiMate;
 
@@ -31,6 +32,10 @@ public partial class MainWindow : Window
 
     private readonly HomeworkTrackerService _homeworkService = new();
     private HomeworkCategory _currentHomeworkCategory = HomeworkCategory.All;
+
+    private readonly GoogleSheetSettingsManager _googleSheetSettingsManager = new();
+    private readonly GoogleSheetSyncService _googleSheetSyncService = new();
+    private string _lastSyncedCharacterKey = "";
 
     private List<ItemData> _allItems = new();
     private string _currentItemLocationFilter = "All";
@@ -457,6 +462,9 @@ public partial class MainWindow : Window
             }
 
             if (ch.Vitals != null) UpdateWeightUi(ch.Vitals);
+
+            // 구글 스프레드시트 캐릭터 변경 시 자동 동기화 트리거
+            CheckAndTriggerAutoGoogleSheetSync(realm, job);
         }
 
         if (act != null)
@@ -1885,6 +1893,297 @@ public partial class MainWindow : Window
         {
             ShowToast($"정지 실패: {err}", false);
         }
+    }
+
+    // ================= 10. 구글 스프레드시트 [캐릭터 육성] 자동 동기화 =================
+    private void BtnGoogleSheet_Click(object sender, RoutedEventArgs e)
+    {
+        var settings = _googleSheetSettingsManager.CurrentSettings;
+        TxtGoogleSheetWebhookUrl.Text = settings.WebhookUrl;
+        ChkAutoSyncOnCharChange.IsChecked = settings.AutoSyncOnCharChange;
+        ChkAutoBackupDaily.IsChecked = settings.AutoBackupDaily;
+
+        string defaultName = "";
+        if (_lastCharInfo != null)
+        {
+            var realm = string.IsNullOrEmpty(_lastCharInfo.RealmName) ? "에린" : _lastCharInfo.RealmName;
+            var job = string.IsNullOrEmpty(_lastCharInfo.JobName) ? "밀레시안" : _lastCharInfo.JobName;
+            var profile = _snapshotManager.GetProfile(realm, job);
+            if (profile != null && !string.IsNullOrWhiteSpace(profile.CustomName))
+            {
+                defaultName = profile.CustomName;
+            }
+        }
+        if (string.IsNullOrWhiteSpace(defaultName) && !string.IsNullOrWhiteSpace(settings.LastSyncCharacter))
+        {
+            defaultName = settings.LastSyncCharacter;
+        }
+        if (string.IsNullOrWhiteSpace(defaultName))
+        {
+            defaultName = "빅플라우드";
+        }
+
+        TxtGoogleSheetCharName.Text = defaultName;
+        UpdateGoogleSheetStatusUi();
+        OverlayGoogleSheet.Visibility = Visibility.Visible;
+    }
+
+    private void BtnCloseGoogleSheet_Click(object sender, RoutedEventArgs e)
+    {
+        OverlayGoogleSheet.Visibility = Visibility.Collapsed;
+    }
+
+    private void BtnCopyAppsScript_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var scriptPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "GoogleSheetsScript.js");
+            string scriptCode;
+            if (File.Exists(scriptPath))
+            {
+                scriptCode = File.ReadAllText(scriptPath);
+            }
+            else
+            {
+                var parentPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", "GoogleSheetsScript.js");
+                if (File.Exists(parentPath))
+                {
+                    scriptCode = File.ReadAllText(parentPath);
+                }
+                else
+                {
+                    scriptCode = GetDefaultGoogleSheetScript();
+                }
+            }
+
+            Clipboard.SetText(scriptCode);
+            ShowToast("📋 Apps Script 코드가 클립보드에 복사되었습니다! 시트 [확장 프로그램]->[Apps Script]에 붙여넣으세요.", true);
+        }
+        catch (Exception ex)
+        {
+            ShowToast($"스크립트 복사 실패: {ex.Message}", false);
+        }
+    }
+
+    private void BtnSaveGoogleSheetSettings_Click(object sender, RoutedEventArgs e)
+    {
+        var settings = _googleSheetSettingsManager.CurrentSettings;
+        settings.WebhookUrl = TxtGoogleSheetWebhookUrl.Text.Trim();
+        settings.AutoSyncOnCharChange = ChkAutoSyncOnCharChange.IsChecked == true;
+        settings.AutoBackupDaily = ChkAutoBackupDaily.IsChecked == true;
+        settings.LastSyncCharacter = TxtGoogleSheetCharName.Text.Trim();
+        _googleSheetSettingsManager.SaveSettings();
+
+        if (_lastCharInfo != null && !string.IsNullOrWhiteSpace(settings.LastSyncCharacter))
+        {
+            var realm = string.IsNullOrEmpty(_lastCharInfo.RealmName) ? "에린" : _lastCharInfo.RealmName;
+            var job = string.IsNullOrEmpty(_lastCharInfo.JobName) ? "밀레시안" : _lastCharInfo.JobName;
+            _snapshotManager.SetCustomName(realm, job, settings.LastSyncCharacter);
+        }
+
+        ShowToast("💾 구글 스프레드시트 설정이 안전하게 저장되었습니다.", true);
+    }
+
+    private async void BtnSyncGoogleSheetNow_Click(object sender, RoutedEventArgs e)
+    {
+        BtnSyncGoogleSheetNow.IsEnabled = false;
+        BtnSyncGoogleSheetNow.Content = "⏳ 동기화 중...";
+        TxtGoogleSheetStatus.Text = "Google Apps Script로 최신 캐릭터 스탯 및 숙제 데이터를 전송하는 중...";
+
+        try
+        {
+            var charName = TxtGoogleSheetCharName.Text.Trim();
+            var webhookUrl = TxtGoogleSheetWebhookUrl.Text.Trim();
+            var requestBackup = ChkAutoBackupDaily.IsChecked == true;
+
+            BtnSaveGoogleSheetSettings_Click(sender, e);
+
+            var (success, msg) = await ExecuteGoogleSheetSyncAsync(charName, webhookUrl, requestBackup);
+            UpdateGoogleSheetStatusUi();
+
+            if (success)
+            {
+                ShowToast($"✓ 구글 시트 동기화 성공: {msg}", true);
+            }
+            else
+            {
+                ShowToast($"⚠️ 구글 시트 동기화 실패: {msg}", false);
+            }
+        }
+        finally
+        {
+            BtnSyncGoogleSheetNow.IsEnabled = true;
+            BtnSyncGoogleSheetNow.Content = "⚡ 지금 즉시 동기화";
+        }
+    }
+
+    private async Task<(bool success, string message)> ExecuteGoogleSheetSyncAsync(
+        string characterName,
+        string webhookUrl,
+        bool requestBackup)
+    {
+        if (string.IsNullOrWhiteSpace(webhookUrl))
+        {
+            return (false, "Google Apps Script Webhook URL을 먼저 입력해 주세요.");
+        }
+
+        if (string.IsNullOrWhiteSpace(characterName))
+        {
+            return (false, "시트 B열에서 매칭할 캐릭터 이름을 입력해 주세요.");
+        }
+
+        var charInfo = _lastCharInfo;
+        if (charInfo == null)
+        {
+            var (ok, json, _) = await _cli.RunRawAsync("get_my_info", timeoutSeconds: 5);
+            if (ok && !string.IsNullOrWhiteSpace(json))
+            {
+                try
+                {
+                    charInfo = JsonSerializer.Deserialize<CharacterInfo>(json);
+                }
+                catch { }
+            }
+        }
+
+        if (charInfo == null)
+        {
+            return (false, "게임이 실행 중이지 않거나 캐릭터 정보를 가져올 수 없습니다.");
+        }
+
+        var payload = GoogleSheetSyncService.BuildPayload(
+            characterName,
+            charInfo,
+            _homeworkService.Repository,
+            requestBackup);
+
+        var (okSync, msgSync, resData) = await _googleSheetSyncService.SyncAsync(webhookUrl, payload);
+
+        var settings = _googleSheetSettingsManager.CurrentSettings;
+        settings.LastSyncTime = DateTime.Now;
+        settings.LastSyncCharacter = characterName;
+        settings.LastSyncStatus = okSync ? (resData?.Message ?? "동기화 성공") : msgSync;
+        _googleSheetSettingsManager.SaveSettings();
+
+        return (okSync, okSync ? (resData?.Message ?? "동기화 완료") : msgSync);
+    }
+
+    private void UpdateGoogleSheetStatusUi()
+    {
+        var settings = _googleSheetSettingsManager.CurrentSettings;
+        if (settings.LastSyncTime.HasValue)
+        {
+            var timeStr = settings.LastSyncTime.Value.ToString("yyyy-MM-dd HH:mm:ss");
+            var charName = settings.LastSyncCharacter ?? "미지정";
+            var status = settings.LastSyncStatus ?? "상태 없음";
+            TxtGoogleSheetStatus.Text = $"🕒 마지막 동기화: {timeStr} | 대상: {charName}\n결과: {status}";
+        }
+        else
+        {
+            TxtGoogleSheetStatus.Text = "아직 동기화가 수행되지 않았습니다. URL과 캐릭터명을 입력하고 [지금 즉시 동기화]를 눌러보세요.";
+        }
+    }
+
+    private void CheckAndTriggerAutoGoogleSheetSync(string realm, string job)
+    {
+        if (!_googleSheetSettingsManager.CurrentSettings.AutoSyncOnCharChange) return;
+        var webhookUrl = _googleSheetSettingsManager.CurrentSettings.WebhookUrl;
+        if (string.IsNullOrWhiteSpace(webhookUrl)) return;
+
+        var charKey = $"{realm}_{job}";
+        if (_lastSyncedCharacterKey == charKey) return;
+        _lastSyncedCharacterKey = charKey;
+
+        var profile = _snapshotManager.GetProfile(realm, job);
+        var targetName = profile?.CustomName;
+        if (string.IsNullOrWhiteSpace(targetName))
+        {
+            targetName = _googleSheetSettingsManager.CurrentSettings.LastSyncCharacter;
+        }
+
+        if (!string.IsNullOrWhiteSpace(targetName))
+        {
+            _ = Task.Run(async () =>
+            {
+                await Task.Delay(1500);
+                var (ok, msg) = await ExecuteGoogleSheetSyncAsync(
+                    targetName,
+                    webhookUrl,
+                    _googleSheetSettingsManager.CurrentSettings.AutoBackupDaily);
+
+                Dispatcher.Invoke(() =>
+                {
+                    if (ok)
+                    {
+                        ShowToast($"📊 [{targetName}] 구글 시트 자동 동기화 완료!", true);
+                    }
+                });
+            });
+        }
+    }
+
+    private static string GetDefaultGoogleSheetScript()
+    {
+        return @"function doPost(e) {
+  try {
+    if (!e || !e.postData || !e.postData.contents) {
+      return responseJson({ status: 'error', message: '전송된 데이터가 없습니다.' });
+    }
+    var data = JSON.parse(e.postData.contents);
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getSheetByName('캐릭터 육성');
+    if (!sheet) {
+      return responseJson({ status: 'error', message: '\'캐릭터 육성\' 탭을 찾을 수 없습니다.' });
+    }
+    if (data.backup === true) {
+      makeDailyBackupOnce(ss);
+    }
+    var values = sheet.getDataRange().getValues();
+    var targetRow = -1;
+    var searchName = (data.name || '').toString().trim();
+    if (!searchName) {
+      return responseJson({ status: 'error', message: '캐릭터 이름이 지정되지 않았습니다.' });
+    }
+    for (var i = 2; i < values.length; i++) {
+      var cellName = (values[i][1] || '').toString().trim();
+      if (cellName === searchName) {
+        targetRow = i + 1;
+        break;
+      }
+    }
+    if (targetRow === -1) {
+      return responseJson({ status: 'error', message: '시트에서 캐릭터를 찾을 수 없습니다: ' + searchName });
+    }
+    if (data.job !== undefined && data.job !== null) sheet.getRange(targetRow, 3).setValue(data.job);
+    if (data.combatScore !== undefined && data.combatScore !== null) sheet.getRange(targetRow, 5).setValue(data.combatScore);
+    if (data.livingScore !== undefined && data.livingScore !== null) sheet.getRange(targetRow, 6).setValue(data.livingScore);
+    if (data.attractiveness !== undefined && data.attractiveness !== null) sheet.getRange(targetRow, 7).setValue(data.attractiveness);
+    if (data.arcaneResist !== undefined && data.arcaneResist !== null) sheet.getRange(targetRow, 8).setValue(data.arcaneResist);
+    if (data.raidCavrak !== undefined) sheet.getRange(targetRow, 12).setValue(data.raidCavrak ? 'O' : '');
+    if (data.raidEirel !== undefined) sheet.getRange(targetRow, 13).setValue(data.raidEirel ? 'O' : '');
+    if (data.raidWhiteSuccubus !== undefined) sheet.getRange(targetRow, 14).setValue(data.raidWhiteSuccubus ? 'O' : '');
+    if (data.fieldBoss !== undefined) sheet.getRange(targetRow, 17).setValue(data.fieldBoss ? 'O' : '');
+    if (data.vanguard !== undefined) sheet.getRange(targetRow, 18).setValue(data.vanguard ? 'O' : '');
+    return responseJson({ status: 'success', message: '[' + searchName + '] 동기화 완료 (' + targetRow + '행)', updatedRow: targetRow });
+  } catch (err) {
+    return responseJson({ status: 'error', message: err.toString() });
+  }
+}
+function makeDailyBackupOnce(ss) {
+  try {
+    var todayStr = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyyMMdd');
+    var propKey = 'LAST_BACKUP_DATE';
+    var props = PropertiesService.getScriptProperties();
+    if (props.getProperty(propKey) === todayStr) return;
+    var file = DriveApp.getFileById(ss.getId());
+    var backupName = '[자동백업] ' + ss.getName() + '_' + todayStr;
+    file.makeCopy(backupName);
+    props.setProperty(propKey, todayStr);
+  } catch (e) {}
+}
+function responseJson(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
+}";
     }
 }
 
