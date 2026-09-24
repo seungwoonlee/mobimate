@@ -93,6 +93,7 @@ public class ContentRecommendationViewModel
 
     // 4. 상위 난이도 도전 가이드 (3행)
     public string NextTierGuideText { get; set; } = "";
+    public string NextTierGuideFg { get; set; } = "#39D353";
 }
 
 public static class DungeonCutoffService
@@ -182,8 +183,8 @@ public static class DungeonCutoffService
         else
         {
             var firstTier = content.Tiers.First();
-            long cLack = Math.Max(0, firstTier.MinEntryCombat - combat);
-            long mLack = Math.Max(0, firstTier.MinEntryMdef - mdef);
+            long entryCombatLack = Math.Max(0, firstTier.MinEntryCombat - combat);
+            long entryMdefLack = Math.Max(0, firstTier.MinEntryMdef - mdef);
             vm.MaxEntryTier = "입장 불가";
             vm.MaxEntryTierBadgeBg = "#2D1D24";
             vm.MaxEntryTierBadgeFg = "#F85149";
@@ -194,10 +195,11 @@ public static class DungeonCutoffService
             vm.RecommendedStatusBorder = "#DA3633";
 
             var reasons = new List<string>();
-            if (cLack > 0) reasons.Add($"투력 {cLack:N0} 부족");
-            if (mLack > 0) reasons.Add($"저항 {mLack:N0} 부족");
+            if (entryCombatLack > 0) reasons.Add($"투력 {entryCombatLack:N0} 부족");
+            if (entryMdefLack > 0) reasons.Add($"저항 {entryMdefLack:N0} 부족");
             vm.StatusDetailText = $"{firstTier.TierName} 기준 {string.Join(", ", reasons)}";
             vm.NextTierGuideText = $"💡 {firstTier.TierName} 단계 입장 스펙 달성 필요";
+            vm.NextTierGuideFg = "#FF7B72";
             return vm;
         }
 
@@ -234,6 +236,12 @@ public static class DungeonCutoffService
         vm.RecommendedTier = targetTier.TierName;
 
         // 3. 2행 상태 텍스트 (StatusDetailText)
+        // 承雲 원칙: 압도전투력의 몇%라고 표시, 얼마의 전투력을 더 채워야 압도가 된다고 출력
+        int pct = targetTier.OverwhelmCombat > 0
+            ? Math.Min(99, (int)((double)combat / targetTier.OverwhelmCombat * 100))
+            : 100;
+        long cLack = Math.Max(0, targetTier.OverwhelmCombat - combat);
+
         if (targetTier.IsOverwhelmed(combat, mdef))
         {
             vm.RecommendedStatusBadge = "⚡ 압도";
@@ -241,7 +249,7 @@ public static class DungeonCutoffService
             vm.RecommendedStatusFg = "#D2A8FF";
             vm.RecommendedStatusBorder = "#9B59B6";
 
-            vm.StatusDetailText = "압도 달성";
+            vm.StatusDetailText = "⚡ 압도 달성";
         }
         else if (combat >= (targetTier.OverwhelmCombat * 9) / 10 && (targetTier.OverwhelmMdef == 0 || mdef >= targetTier.OverwhelmMdef))
         {
@@ -250,8 +258,7 @@ public static class DungeonCutoffService
             vm.RecommendedStatusFg = "#F5D061";
             vm.RecommendedStatusBorder = "#E5A93C";
 
-            long cLack = Math.Max(0, targetTier.OverwhelmCombat - combat);
-            vm.StatusDetailText = $"압도까지 투력 {cLack:N0} 부족";
+            vm.StatusDetailText = $"🔥 압도 전투력의 {pct}% (투력 {cLack:N0} 더 채우면 압도)";
         }
         else
         {
@@ -261,12 +268,11 @@ public static class DungeonCutoffService
             vm.RecommendedStatusBorder = "#BB8009";
 
             var lackParts = new List<string>();
-            if (combat < targetTier.RecommendedCombat)
-                lackParts.Add($"투력 {targetTier.RecommendedCombat - combat:N0} 부족");
+            lackParts.Add($"압도 전투력의 {pct}% (투력 {cLack:N0} 더 채우면 압도)");
             if (targetTier.OverwhelmMdef > 0 && mdef < targetTier.OverwhelmMdef)
                 lackParts.Add($"저항 {targetTier.OverwhelmMdef - mdef:N0} 부족");
 
-            vm.StatusDetailText = lackParts.Count > 0 ? string.Join(", ", lackParts) : "권장 충족";
+            vm.StatusDetailText = $"⚠️ {string.Join(", ", lackParts)}";
         }
 
         // 4. 3행 상위 난이도 도전 가이드 (NextTierGuideText)
@@ -278,6 +284,7 @@ public static class DungeonCutoffService
             long nextCombatLack = Math.Max(0, nextReqCombat - combat);
             long nextMdefLack = nextTier.OverwhelmMdef > 0 ? Math.Max(0, nextTier.OverwhelmMdef - mdef) : 0;
 
+            vm.NextTierGuideFg = "#39D353"; // 눈에 잘 띄는 네온 라임 그린
             if (nextCombatLack > 0 && nextMdefLack > 0)
             {
                 vm.NextTierGuideText = $"💡 투력 {nextCombatLack:N0}, 저항 {nextMdefLack:N0} 올리면 상위({nextTier.TierName}) 도전 가능";
@@ -297,7 +304,8 @@ public static class DungeonCutoffService
         }
         else
         {
-            vm.NextTierGuideText = "💡 최고 난이도 정복 (파티 플레이 극대화)";
+            vm.NextTierGuideText = "💡 최고 난이도 도전 가능";
+            vm.NextTierGuideFg = "#A371F7"; // 라벤더 퍼플
         }
 
         return vm;

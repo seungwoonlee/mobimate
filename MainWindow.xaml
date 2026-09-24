@@ -593,7 +593,7 @@
                                 </ItemsControl.ItemsPanel>
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <Border Background="{StaticResource BgCard}" BorderBrush="#2E3A52" BorderThickness="1" CornerRadius="8" Padding="14,10" Margin="4,4,4,6">
+                                        <Border Background="{StaticResource BgCard}" BorderBrush="#2E3A52" BorderThickness="1" CornerRadius="8" Padding="16,12" Margin="4,4,4,6">
                                             <Grid>
                                                 <Grid.RowDefinitions>
                                                     <RowDefinition Height="Auto"/>
@@ -607,31 +607,31 @@
 
                                                 <!-- [1행 좌측]: 아이콘 + 콘텐츠명 -->
                                                 <StackPanel Grid.Row="0" Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                                                    <TextBlock Text="{Binding Icon}" FontSize="18" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                                    <TextBlock Text="{Binding ContentName}" FontWeight="Bold" FontSize="15" Foreground="{StaticResource TextPrimary}" VerticalAlignment="Center"/>
+                                                    <TextBlock Text="{Binding Icon}" FontSize="20" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                                    <TextBlock Text="{Binding ContentName}" FontWeight="Bold" FontSize="16" Foreground="{StaticResource TextPrimary}" VerticalAlignment="Center"/>
                                                 </StackPanel>
 
                                                 <!-- [1행 우측]: 최고 입장 & 맞춤 추천 (인라인 배치) -->
                                                 <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
                                                     <!-- 최고 입장 -->
-                                                    <TextBlock Text="입장" FontSize="12" Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center" Margin="0,0,5,0"/>
-                                                    <Border Background="{Binding MaxEntryTierBadgeBg}" CornerRadius="4" Padding="6,2" Margin="0,0,12,0" VerticalAlignment="Center">
-                                                        <TextBlock Text="{Binding MaxEntryTier}" FontSize="12" FontWeight="Bold" Foreground="{Binding MaxEntryTierBadgeFg}"/>
+                                                    <TextBlock Text="입장" FontSize="13" Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                                                    <Border Background="{Binding MaxEntryTierBadgeBg}" CornerRadius="4" Padding="7,2" Margin="0,0,12,0" VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding MaxEntryTier}" FontSize="13" FontWeight="Bold" Foreground="{Binding MaxEntryTierBadgeFg}"/>
                                                     </Border>
 
                                                     <!-- 맞춤 추천 -->
-                                                    <TextBlock Text="추천" FontSize="12" Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center" Margin="0,0,5,0"/>
-                                                    <TextBlock Text="{Binding RecommendedTier}" FontSize="13" FontWeight="Bold" Foreground="#FFFFFF" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                                                    <Border Background="{Binding RecommendedStatusBg}" BorderBrush="{Binding RecommendedStatusBorder}" BorderThickness="1" CornerRadius="4" Padding="6,2" VerticalAlignment="Center">
-                                                        <TextBlock Text="{Binding RecommendedStatusBadge}" FontSize="11" FontWeight="Bold" Foreground="{Binding RecommendedStatusFg}"/>
+                                                    <TextBlock Text="추천" FontSize="13" Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                                                    <TextBlock Text="{Binding RecommendedTier}" FontSize="15" FontWeight="Bold" Foreground="#FFFFFF" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                                    <Border Background="{Binding RecommendedStatusBg}" BorderBrush="{Binding RecommendedStatusBorder}" BorderThickness="1" CornerRadius="4" Padding="7,2" VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding RecommendedStatusBadge}" FontSize="12" FontWeight="Bold" Foreground="{Binding RecommendedStatusFg}"/>
                                                     </Border>
                                                 </StackPanel>
 
                                                 <!-- [2행]: 현재 추천 난이도 상태 및 부족 수치 -->
-                                                <TextBlock Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Text="{Binding StatusDetailText}" FontSize="12" Foreground="#F5D061" Margin="0,5,0,0"/>
+                                                <TextBlock Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Text="{Binding StatusDetailText}" FontSize="13.5" FontWeight="SemiBold" Foreground="#F5D061" Margin="0,6,0,0"/>
 
-                                                <!-- [3행]: 상위 난이도 도전 가이드 (올려야 할 스펙 안내) -->
-                                                <TextBlock Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" Text="{Binding NextTierGuideText}" FontSize="11" Foreground="#58A6FF" Margin="0,3,0,0"/>
+                                                <!-- [3행]: 상위 난이도 도전 가이드 (눈에 띄는 고대비 네온 강조 색상) -->
+                                                <TextBlock Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" Text="{Binding NextTierGuideText}" FontSize="13" FontWeight="Bold" Foreground="{Binding NextTierGuideFg}" Margin="0,4,0,0"/>
                                             </Grid>
                                         </Border>
                                     </DataTemplate>
