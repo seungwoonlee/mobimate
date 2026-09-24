@@ -200,7 +200,12 @@ public class GoogleSheetSyncService
                 }
             }
 
-            return (true, "동기화 요청이 완료되었습니다.", null);
+            if (responseString.Contains("doPost"))
+            {
+                return (false, "구글 스크립트 프로젝트에 doPost 함수가 없습니다. 코드를 붙여넣고 저장했는지 확인해 주세요.", null);
+            }
+
+            return (false, $"구글 서버 응답 파싱 실패 (HTML 응답): {responseString.Substring(0, Math.Min(80, responseString.Length))}", null);
         }
         catch (OperationCanceledException)
         {

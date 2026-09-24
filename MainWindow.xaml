@@ -1532,11 +1532,11 @@
                                 ToolTip="시트 [확장 프로그램] -> [Apps Script]에 붙여넣을 스크립트 코드를 클립보드에 복사합니다."/>
                     </Grid>
 
-                    <!-- 2. 스프레드시트 B열 탐색 키 (캐릭터 이름) -->
-                    <TextBlock Text="2. 시트 B열 매칭 캐릭터 이름" FontWeight="SemiBold" Foreground="#C9D1D9" FontSize="13" Margin="0,0,0,6"/>
+                    <!-- 2. 스프레드시트 C열 탐색 키 (캐릭터 이름) -->
+                    <TextBlock Text="2. 시트 C열 매칭 캐릭터 이름" FontWeight="SemiBold" Foreground="#C9D1D9" FontSize="13" Margin="0,0,0,6"/>
                     <TextBox x:Name="TxtGoogleSheetCharName" Background="#0D1117" Foreground="#FFFFFF" BorderBrush="#30363D" BorderThickness="1"
                              Padding="10,8" FontSize="13" Margin="0,0,0,4"/>
-                    <TextBlock Text="* 시트 B열에 적힌 이름과 정확히 일치해야 합니다. (예: 빅플라우드)" FontSize="11" Foreground="#6E7681" Margin="0,0,0,14"/>
+                    <TextBlock Text="* 시트 C열에 적힌 이름과 일치해야 합니다. (예: 빅클라우드, 빅콜라)" FontSize="11" Foreground="#6E7681" Margin="0,0,0,14"/>
 
                     <!-- 3. 자동 옵션 -->
                     <Border Background="#1C2128" BorderBrush="#30363D" BorderThickness="1" CornerRadius="8" Padding="12" Margin="0,0,0,16">

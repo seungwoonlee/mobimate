@@ -1,17 +1,14 @@
 /**
- * [마비노기 모바일] 캐릭터 육성 구글 스프레드시트 자동 동기화 & 안전 백업 스크립트
+ * [마비노기 모바일] 캐릭터 육성 구글 스프레드시트 맞춤 자동 동기화 & 안전 백업 스크립트
  * 
- * [설치 및 배포 방법]
- * 1. 스프레드시트 상단 메뉴 [확장 프로그램] -> [Apps Script] 클릭
- * 2. 기존 코드를 모두 지우고 이 스크립트 전체를 붙여넣기
- * 3. 상단 [저장(디스켓 아이콘)] 클릭
- * 4. 우측 상단 파란색 [배포] -> [새 배포] 클릭
- *    - 유형 선택: [웹 앱] (톱니바퀴 아이콘)
- *    - 설명: MobiMate Sync
- *    - 다음 사용자로 실행: 나 (내 계정)
- *    - 액세스 권한이 있는 사용자: [모든 사용자] (Anyone)  <-- 중요!
- * 5. [배포] 버튼 클릭 후 생성되는 "웹 앱 URL"(https://script.google.com/macros/s/.../exec) 복사
- * 6. MobiMate 앱의 [📊 구글 시트 연동] 창에 해당 URL을 붙여넣기
+ * [承雲 스프레드시트 실측 레이아웃 100% 일치 매핑]
+ * - C열 (3): 캐릭터 이름 (빅클라우드, 빅콜라 등)
+ * - E열 (5): 클래스 (전사, 듀얼블레이드 등)
+ * - G열 (7): 전투력 (= 전투력 =)
+ * - H열 (8): 생활력 (= 생활력 =)
+ * - I열 (9): 매력 (= 매력 =)
+ * - J열 (10): 마도 저항 (= 마도 저항 =)
+ * - L~R열: 주간 숙제 (헤더 자동 감지 및 핀포인트 갱신)
  */
 
 function doPost(e) {
@@ -25,7 +22,7 @@ function doPost(e) {
     var sheet = ss.getSheetByName("캐릭터 육성");
     
     if (!sheet) {
-      return responseJson({ status: "error", message: "'캐릭터 육성' 탭을 찾을 수 없습니다." });
+      sheet = ss.getSheets()[0];
     }
 
     // 1. 당일 1회 안전 자동 백업 (요청 시 구글 드라이브에 안전 사본 복제)
@@ -33,80 +30,93 @@ function doPost(e) {
       makeDailyBackupOnce(ss);
     }
 
-    // 2. B열(인덱스 1)에서 캐릭터 이름 탐색
     var values = sheet.getDataRange().getValues();
     var targetRow = -1;
-    var searchName = (data.name || "").toString().trim();
+    var rawSearchName = (data.name || "").toString();
+    var searchClean = cleanStr(rawSearchName);
 
-    if (!searchName) {
+    if (!searchClean) {
       return responseJson({ status: "error", message: "캐릭터 이름이 지정되지 않았습니다." });
     }
 
-    // 3행(배열 인덱스 2)부터 캐릭터 데이터 검색
-    for (var i = 2; i < values.length; i++) {
-      var cellName = (values[i][1] || "").toString().trim();
-      if (cellName === searchName) {
-        targetRow = i + 1; // 1-based row index
+    // 2. 캐릭터 행(Row) 탐색
+    // [1순위] C열 (인덱스 2)에서 캐릭터 이름 탐색
+    for (var r = 0; r < values.length; r++) {
+      var cellVal = cleanStr(values[r][2]);
+      if (cellVal && (cellVal === searchClean || cellVal.indexOf(searchClean) !== -1 || searchClean.indexOf(cellVal) !== -1)) {
+        targetRow = r + 1;
         break;
+      }
+    }
+
+    // [2순위] C열에서 못 찾으면 A~E열(인덱스 0~4) 전체 스캔
+    if (targetRow === -1) {
+      for (var r = 0; r < values.length; r++) {
+        for (var c = 0; c < Math.min(values[r].length, 6); c++) {
+          var cellVal = cleanStr(values[r][c]);
+          if (cellVal && (cellVal === searchClean || cellVal.indexOf(searchClean) !== -1 || searchClean.indexOf(cellVal) !== -1)) {
+            targetRow = r + 1;
+            break;
+          }
+        }
+        if (targetRow !== -1) break;
       }
     }
 
     if (targetRow === -1) {
       return responseJson({ 
         status: "error", 
-        message: "시트에서 캐릭터를 찾을 수 없습니다: " + searchName + " (B열 이름을 확인하세요)" 
+        message: "시트 C열에서 '" + rawSearchName + "' 캐릭터를 찾을 수 없습니다." 
       });
     }
 
-    // 3. 핀포인트 셀 값 갱신 (서식, 배경색, 수기 메모, 기타 열 100% 보존)
-    // C열 (3): 클래스
+    // 3. 열 번호 감지 (실측 레이아웃 기준)
+    var cols = detectColumns(values);
+
+    // 4. 핀포인트 셀 값 갱신 (D, F열 공백 및 서식, 배경색, 수식 100% 무훼손 보존)
+    // E열: 클래스
     if (data.job !== undefined && data.job !== null) {
-      sheet.getRange(targetRow, 3).setValue(data.job);
+      sheet.getRange(targetRow, cols.job).setValue(data.job);
     }
-    // E열 (5): 전투력
+    // G열: 전투력
     if (data.combatScore !== undefined && data.combatScore !== null) {
-      sheet.getRange(targetRow, 5).setValue(data.combatScore);
+      sheet.getRange(targetRow, cols.combat).setValue(data.combatScore);
     }
-    // F열 (6): 생활력
+    // H열: 생활력
     if (data.livingScore !== undefined && data.livingScore !== null) {
-      sheet.getRange(targetRow, 6).setValue(data.livingScore);
+      sheet.getRange(targetRow, cols.living).setValue(data.livingScore);
     }
-    // G열 (7): 매력
+    // I열: 매력
     if (data.attractiveness !== undefined && data.attractiveness !== null) {
-      sheet.getRange(targetRow, 7).setValue(data.attractiveness);
+      sheet.getRange(targetRow, cols.attract).setValue(data.attractiveness);
     }
-    // H열 (8): 마도저항
+    // J열: 마도 저항
     if (data.arcaneResist !== undefined && data.arcaneResist !== null) {
-      sheet.getRange(targetRow, 8).setValue(data.arcaneResist);
+      sheet.getRange(targetRow, cols.arcane).setValue(data.arcaneResist);
     }
 
-    // 주간 숙제 완료 여부 (L, M, N, Q, R열)
-    // L열 (12): 카브락 레이드
-    if (data.raidCavrak !== undefined) {
-      sheet.getRange(targetRow, 12).setValue(data.raidCavrak ? "O" : "");
+    // 주간 숙제 완료 여부 (L~R열)
+    if (data.raidCavrak !== undefined && cols.raidCavrak > 0) {
+      sheet.getRange(targetRow, cols.raidCavrak).setValue(data.raidCavrak ? "O" : "");
     }
-    // M열 (13): 에이렐 레이드
-    if (data.raidEirel !== undefined) {
-      sheet.getRange(targetRow, 13).setValue(data.raidEirel ? "O" : "");
+    if (data.raidEirel !== undefined && cols.raidEirel > 0) {
+      sheet.getRange(targetRow, cols.raidEirel).setValue(data.raidEirel ? "O" : "");
     }
-    // N열 (14): 화이트 서큐버스 레이드
-    if (data.raidWhiteSuccubus !== undefined) {
-      sheet.getRange(targetRow, 14).setValue(data.raidWhiteSuccubus ? "O" : "");
+    if (data.raidWhiteSuccubus !== undefined && cols.raidSuccubus > 0) {
+      sheet.getRange(targetRow, cols.raidSuccubus).setValue(data.raidWhiteSuccubus ? "O" : "");
     }
-    // Q열 (17): 필드보스 (주간 택1)
-    if (data.fieldBoss !== undefined) {
-      sheet.getRange(targetRow, 17).setValue(data.fieldBoss ? "O" : "");
+    if (data.fieldBoss !== undefined && cols.fieldBoss > 0) {
+      sheet.getRange(targetRow, cols.fieldBoss).setValue(data.fieldBoss ? "O" : "");
     }
-    // R열 (18): 뱅가드 브리치
-    if (data.vanguard !== undefined) {
-      sheet.getRange(targetRow, 18).setValue(data.vanguard ? "O" : "");
+    if (data.vanguard !== undefined && cols.vanguard > 0) {
+      sheet.getRange(targetRow, cols.vanguard).setValue(data.vanguard ? "O" : "");
     }
 
     return responseJson({
       status: "success",
-      row: targetRow,
-      character: searchName,
-      updatedAt: new Date().toISOString()
+      message: "[" + rawSearchName + "] 동기화 완료 (" + targetRow + "행 갱신)",
+      updatedRow: targetRow,
+      character: rawSearchName
     });
 
   } catch (err) {
@@ -114,33 +124,72 @@ function doPost(e) {
   }
 }
 
-/**
- * 당일 1회 안전 사본 생성 (드라이브 용량 급증 방지)
- */
+// 문자열 정규화 (공백/특수공백/등호 제거, NFC 정규화, 소문자화)
+function cleanStr(s) {
+  if (!s) return "";
+  return s.toString()
+    .normalize("NFC")
+    .replace(/[=\s\u00A0\u3000\t\r\n]+/g, "")
+    .toLowerCase();
+}
+
+// 실측 기반 열 번호 감지
+function detectColumns(values) {
+  // 承雲 시트 실측 기본값 (1-based index)
+  // C열(3)=이름, E열(5)=클래스, G열(7)=전투력, H열(8)=생활력, I열(9)=매력, J열(10)=마도저항
+  var mapping = {
+    job: 5,
+    combat: 7,
+    living: 8,
+    attract: 9,
+    arcane: 10,
+    raidCavrak: 14,
+    raidEirel: 15,
+    raidSuccubus: 16,
+    fieldBoss: 19,
+    vanguard: 20
+  };
+
+  // 1~3행 헤더 스캔하여 텍스트 매칭
+  for (var r = 0; r < Math.min(values.length, 3); r++) {
+    for (var c = 0; c < values[r].length; c++) {
+      var header = cleanStr(values[r][c]);
+      if (!header) continue;
+      var colIdx = c + 1;
+
+      if (header.indexOf("클래스") !== -1 || header.indexOf("직업") !== -1) mapping.job = colIdx;
+      else if (header.indexOf("전투력") !== -1 || header.indexOf("투급") !== -1) mapping.combat = colIdx;
+      else if (header.indexOf("생활력") !== -1) mapping.living = colIdx;
+      else if (header.indexOf("매력") !== -1) mapping.attract = colIdx;
+      else if (header.indexOf("마도") !== -1 || header.indexOf("마도저항") !== -1) mapping.arcane = colIdx;
+      else if (header.indexOf("카브락") !== -1) mapping.raidCavrak = colIdx;
+      else if (header.indexOf("에이렐") !== -1 || header.indexOf("아이렐") !== -1) mapping.raidEirel = colIdx;
+      else if (header.indexOf("화서큐") !== -1 || header.indexOf("서큐버스") !== -1) mapping.raidSuccubus = colIdx;
+      else if (header.indexOf("필드보스") !== -1 || header.indexOf("필보") !== -1) mapping.fieldBoss = colIdx;
+      else if (header.indexOf("뱅가드") !== -1 || header.indexOf("브리치") !== -1) mapping.vanguard = colIdx;
+    }
+  }
+
+  return mapping;
+}
+
+// 당일 1회 안전 백업
 function makeDailyBackupOnce(ss) {
   try {
-    var todayStr = Utilities.formatDate(new Date(), "Asia/Seoul", "yyyyMMdd");
+    var todayStr = Utilities.formatDate(new Date(), Session.getScriptTimeZone() || "Asia/Seoul", "yyyyMMdd");
+    var propKey = "LAST_BACKUP_DATE";
     var props = PropertiesService.getScriptProperties();
-    var lastBackup = props.getProperty("LAST_BACKUP_DATE");
+    if (props.getProperty(propKey) === todayStr) return;
 
-    if (lastBackup !== todayStr) {
-      var file = DriveApp.getFileById(ss.getId());
-      var backupName = "[MobiMate_백업] " + ss.getName() + "_" + todayStr;
-      file.makeCopy(backupName);
-      props.setProperty("LAST_BACKUP_DATE", todayStr);
-    }
+    var file = DriveApp.getFileById(ss.getId());
+    var backupName = "[자동백업] " + ss.getName() + "_" + todayStr;
+    file.makeCopy(backupName);
+    props.setProperty(propKey, todayStr);
   } catch (e) {
-    // 백업 권한/오류가 나더라도 본 동기화는 정상 진행
-    console.error("Backup error: " + e.toString());
   }
 }
 
 function responseJson(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj))
     .setMimeType(ContentService.MimeType.JSON);
-}
-
-// 브라우저에서 직접 접속 테스트용 GET 핸들러
-function doGet(e) {
-  return ContentService.createTextOutput("MobiMate Google Sheets Webhook is Active.");
 }
