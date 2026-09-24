@@ -17,7 +17,46 @@ public class ApiTests
         Assert.Equal("아이라_격투가", d.GetProperty("characterKey").GetString());
         Assert.Equal(88737, d.GetProperty("character").GetProperty("combatScore").GetInt64());
         Assert.Equal("ok", d.GetProperty("weight").GetProperty("level").GetString());
-        Assert.StartsWith("에린 시간 2959년 4월 23일", d.GetProperty("location").GetProperty("erinn").GetString());
+        Assert.StartsWith("에린 시간 2959-4-23 15:51", d.GetProperty("location").GetProperty("erinn").GetString());
+    }
+
+    [Fact]
+    public async Task Header_HasFourScores_AndCutoffsFollowFr_Co()
+    {
+        using var host = new TestHost();
+        var c = await host.LocalAsync();
+        var h = await TestHost.Data(await c.GetAsync("/api/header"));
+        var scores = h.GetProperty("scores");
+        Assert.Equal(88737, scores.GetProperty("combat").GetInt64());
+        Assert.Equal(4316, scores.GetProperty("mdef").GetInt64());
+        Assert.Equal(23011, scores.GetProperty("living").GetInt64());
+        Assert.Equal(19745, scores.GetProperty("attract").GetInt64());
+
+        // 전투력 88,737 / 마도저항 4,316: 어비스 지옥 1 입장 가능, 지옥 1 압도 저항(4,400) 미달 → 매우 어려움 추천(압도 근접)
+        var cut = await TestHost.Data(await c.GetAsync("/api/cutoffs"));
+        var abyss = cut.GetProperty("contents").EnumerateArray().Single(x => x.GetProperty("id").GetString() == "abyss");
+        Assert.Equal("지옥 1", abyss.GetProperty("maxEntryTier").GetString());
+        Assert.Equal("매우 어려움", abyss.GetProperty("recommendedTier").GetString());
+        Assert.Equal("near", abyss.GetProperty("status").GetString());
+        Assert.Equal("지옥 1", abyss.GetProperty("next").GetProperty("tier").GetString());
+        Assert.Equal(84, abyss.GetProperty("next").GetProperty("mdefShort").GetInt64());
+        Assert.False(cut.GetProperty("stale").GetBoolean());
+        var succubus = cut.GetProperty("contents").EnumerateArray().Single(x => x.GetProperty("id").GetString() == "white_succubus");
+        Assert.Equal(System.Text.Json.JsonValueKind.Null, succubus.GetProperty("next").ValueKind);   // 최고 난이도
+        var cavrak = cut.GetProperty("contents").EnumerateArray().Single(x => x.GetProperty("id").GetString() == "cavrak");
+        Assert.Equal(System.Text.Json.JsonValueKind.Null, cavrak.GetProperty("entryShort").ValueKind);
+
+        var ov = await TestHost.Data(await c.GetAsync("/api/overview"));
+        Assert.Equal(4, ov.GetProperty("cutoffs").GetProperty("contents").GetArrayLength());
+    }
+
+    [Fact]
+    public async Task Meta_Version_IsBuildTimestamp()
+    {
+        using var host = new TestHost();
+        var c = await host.LocalAsync();
+        var v = (await TestHost.Data(await c.GetAsync("/api/meta"))).GetProperty("version").GetString();
+        Assert.Matches(@"^0\.9\.\d{4}\.\d{4}$", v);
     }
 
     [Fact]

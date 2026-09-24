@@ -10,6 +10,12 @@
     <RootNamespace>MobiMate.Web</RootNamespace>
     <AssemblyName>MobiMateWeb</AssemblyName>
     <InvariantGlobalization>false</InvariantGlobalization>
+
+    <!-- 빌드 시각 기반 버전 <주>.<부>.MMdd.HHmm (NFR-16, WPF판 v1.2.0 방식). 첫 릴리스 전까지 0.9 -->
+    <BuildStamp>$([System.DateTime]::Now.ToString("MMdd.HHmm"))</BuildStamp>
+    <Version>0.9.$(BuildStamp)</Version>
+    <InformationalVersion>0.9.$(BuildStamp)</InformationalVersion>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
   </PropertyGroup>
 
   <!-- WinForms 전역 using은 ASP.NET Core 형식과 이름이 겹치므로 뺀다. 트레이 코드만 별칭으로 쓴다. -->

@@ -38,11 +38,14 @@
       "title": "앙그르바한", "subtitle": "바라프 계곡 필드 보스 (주간 1회 택1)", "icon": "field-boss", "goal": 1, "bossNames": ["앙그르바한", "앙그라바한"] },
 
     { "id": "raid_cavrak", "category": "raid", "period": "weekly", "share": "character", "mode": "manual",
-      "title": "카브락", "subtitle": "주간 레이드 흑룡 카브락 토벌", "icon": "raid", "goal": 1, "bossNames": ["카브락", "카브라크"] },
+      "title": "카브락", "subtitle": "주간 레이드 흑룡 카브락 토벌", "icon": "raid", "goal": 1, "bossNames": ["카브락", "카브라크"],
+      "tokenCurrency": "원정의 증거: 카브락 레이드" },
     { "id": "raid_airel", "category": "raid", "period": "weekly", "share": "character", "mode": "manual",
-      "title": "에이렐", "subtitle": "주간 레이드 얼음 여왕 에이렐 토벌", "icon": "raid", "goal": 1, "bossNames": ["에이렐", "아이렐"] },
+      "title": "에이렐", "subtitle": "주간 레이드 얼음 여왕 에이렐 토벌", "icon": "raid", "goal": 1, "bossNames": ["에이렐", "아이렐"],
+      "tokenCurrency": "원정의 증거: 에이렐 레이드" },
     { "id": "raid_white_succubus", "category": "raid", "period": "weekly", "share": "character", "mode": "manual",
-      "title": "화이트 서큐버스", "subtitle": "주간 레이드 화서큐 토벌", "icon": "raid", "goal": 1, "bossNames": ["화이트 서큐버스"] },
+      "title": "화이트 서큐버스", "subtitle": "주간 레이드 화서큐 토벌", "icon": "raid", "goal": 1, "bossNames": ["화이트 서큐버스"],
+      "tokenCurrency": "원정의 증거: 화이트 서큐버스 레이드" },
 
     { "id": "abyss_illusory_anchorage", "category": "abyss", "period": "weekly", "share": "character", "mode": "manual",
       "title": "허상의 정박지", "subtitle": "어비스 심층 허상의 정박지 토벌", "icon": "abyss", "goal": 1, "spaceNames": ["허상의 정박지"] },

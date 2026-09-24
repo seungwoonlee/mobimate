@@ -12,7 +12,7 @@ public enum HomeworkCardStatus
 public sealed record HomeworkCard(
     string Id, string Category, string CategoryTitle, HomeworkPeriod Period, HomeworkShare Share, HomeworkMode Mode,
     string Title, string Subtitle, string Icon, int Count, int Goal, HomeworkCardStatus Status,
-    string? Evidence, string? Pool, string? Reward, string? NeedsMeasurement)
+    string? Evidence, string? Pool, string? Reward, string? NeedsMeasurement, HomeworkSuggestion? Suggestion = null)
 {
     public bool IsDone => Status is HomeworkCardStatus.AutoDone or HomeworkCardStatus.ManualDone or HomeworkCardStatus.PoolDone;
 }
@@ -47,6 +47,12 @@ public sealed class HomeworkService
 
     public HomeworkCatalog Catalog => _catalog;
 
+    /// <summary>마지막으로 판정한 캐릭터 키 (캐릭터 전환 감지용).</summary>
+    public string? LastObservedCharacter
+    {
+        get { lock (_lock) return _file?.LastObservedCharacter ?? _lastEvaluatedCharacter; }
+    }
+
     public HomeworkService(HomeworkCatalog catalog, HomeworkStore store, Func<DateTimeOffset>? utcNow = null)
     {
         _catalog = catalog;
@@ -64,18 +70,23 @@ public sealed class HomeworkService
             var now = _now();
             var (character, resetIds, created) = Prepare(file, characterKey, now);
 
-            var switched = _lastEvaluatedCharacter != null && !_lastEvaluatedCharacter.Equals(characterKey, StringComparison.OrdinalIgnoreCase);
+            // 파일에 남긴 마지막 관찰 캐릭터와 비교한다(재기동 뒤에도 "사이에 다른 캐릭터"를 안다, H2)
+            var last = file.LastObservedCharacter ?? _lastEvaluatedCharacter;
+            var switched = last != null && !last.Equals(characterKey, StringComparison.OrdinalIgnoreCase);
             _lastEvaluatedCharacter = characterKey;
+            var lastChanged = !characterKey.Equals(file.LastObservedCharacter, StringComparison.OrdinalIgnoreCase);
+            file.LastObservedCharacter = characterKey;
 
             var alteringBefore = character.AlteringDoneCounts;
+            var tokensBefore = character.RaidTokens;
             var result = HomeworkEvaluator.Evaluate(character, file.Account, _catalog, obs, now, switched);
             // 관찰 시각만 바뀐 경우는 메모리에만 두고 저장하지 않는다 (개수 내용이 바뀌었을 때만 저장)
-            var alteringChanged = !SameCounts(alteringBefore, character.AlteringDoneCounts);
+            var alteringChanged = !SameCounts(alteringBefore, character.AlteringDoneCounts) || !SameAmounts(tokensBefore, character.RaidTokens);
 
             var signals = SignalsFor(characterKey);
             foreach (var id in result.InProgressIds) signals[id] = now;
 
-            if ((created || resetIds.Count > 0 || result.ChangedIds.Count > 0 || alteringChanged) && !_store.Save(file))
+            if ((created || resetIds.Count > 0 || result.ChangedIds.Count > 0 || alteringChanged || lastChanged) && !_store.Save(file))
                 _file = null;   // 저장 실패: 메모리 변경을 버리고 다음 호출에서 파일을 다시 읽는다
 
             var ids = resetIds.Concat(result.ChangedIds).Concat(result.InProgressIds).Distinct().ToList();
@@ -112,6 +123,7 @@ public sealed class HomeworkService
             st.CompletedAtUtc = done ? now : null;
             st.Auto = false;
             st.Evidence = null;
+            st.Suggestion = null;
             st.ManualOverride = true;
             ledger.Items[def.Id] = st;
             SaveOrThrow(file);
@@ -181,7 +193,8 @@ public sealed class HomeworkService
 
         return new HomeworkCard(def.Id, def.Category, HomeworkCatalog.CategoryTitles.GetValueOrDefault(def.Category, def.Category),
             def.Period, def.Share, def.EffectiveMode, def.Title, def.Subtitle, def.Icon,
-            st?.Count ?? 0, st?.Goal ?? def.Goal, status, st?.Evidence, def.Pool, def.Reward, def.NeedsMeasurement);
+            st?.Count ?? 0, st?.Goal ?? def.Goal, status, st?.Evidence, def.Pool, def.Reward, def.NeedsMeasurement,
+            status is HomeworkCardStatus.Pending or HomeworkCardStatus.InProgress ? st?.Suggestion : null);
     }
 
     /// <summary>공유 풀 완료 = 풀 안 항목 중 하나라도 완료. 형제 상태를 복사하지 않고 매번 계산한다.</summary>
@@ -217,6 +230,9 @@ public sealed class HomeworkService
     }
 
     private static bool SameCounts(Dictionary<string, int>? a, Dictionary<string, int>? b) =>
+        a == null ? b == null : b != null && a.Count == b.Count && a.All(kv => b.TryGetValue(kv.Key, out var v) && v == kv.Value);
+
+    private static bool SameAmounts(Dictionary<string, long>? a, Dictionary<string, long>? b) =>
         a == null ? b == null : b != null && a.Count == b.Count && a.All(kv => b.TryGetValue(kv.Key, out var v) && v == kv.Value);
 
     private Dictionary<string, DateTimeOffset> SignalsFor(string characterKey) =>

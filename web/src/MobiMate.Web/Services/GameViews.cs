@@ -7,12 +7,48 @@ namespace MobiMate.Web.Services;
 /// 화면용 조회 결과를 만든다 (§7 조회 API). CLI 호출은 모두 GameQueries(캐시·단일 비행)를 거친다.
 /// 헤더를 읽을 때마다 GameStateCache·SnapshotManager(세션 변화량)를 갱신하고 SSE "header"로 다른 기기에도 알린다.
 /// </summary>
-public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManager snapshots, SseHub hub)
+public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManager snapshots, SseHub hub, CutoffCatalog cutoffs)
 {
     private readonly ConcurrentDictionary<string, Dictionary<string, int>> _bagBaselines = new(StringComparer.OrdinalIgnoreCase);
 
     public static string CharacterKey(CharacterInfo? ch) =>
         $"{(string.IsNullOrWhiteSpace(ch?.RealmName) ? "에린" : ch!.RealmName)}_{(string.IsNullOrWhiteSpace(ch?.JobName) ? "밀레시안" : ch!.JobName)}";
+
+    /// <summary>
+    /// 어비스·레이드 컷오프 추천 (FR-CO). 헤더가 오래됐으면 새로 읽고, 실패하면 마지막 값으로 계산한다(FR-CO-06).
+    /// 캐릭터를 한 번도 읽지 못했으면 null.
+    /// </summary>
+    public async Task<CliData<object>> CutoffsAsync(CancellationToken ct)
+    {
+        CliFailure? failure = null;
+        if (state.IsHeaderStale)
+        {
+            var h = await HeaderAsync(ct);
+            if (!h.Ok) failure = h.Failure;
+        }
+        var ch = state.Character;
+        if (ch == null) return new CliData<object>(null, failure ?? new CliFailure(CliFailureKind.Failed, "캐릭터 정보가 없습니다."), DateTimeOffset.UtcNow);
+        // 신선도는 마지막으로 헤더를 받은 시각이다. 이번 갱신이 실패했으면 stale로 알린다 (FR-CO-06, FR-CN-03).
+        return new CliData<object>(CutoffView(ch, stale: failure != null), null, state.HeaderFetchedAt ?? DateTimeOffset.UtcNow);
+    }
+
+    public object CutoffView(CharacterInfo ch, bool stale = false)
+    {
+        long combat = ch.CombatScore?.Value ?? 0, mdef = ch.ArcaneResistance?.Value ?? 0;
+        return new
+        {
+            combat, mdef, stale,
+            contents = CutoffEvaluator.EvaluateAll(cutoffs, combat, mdef).Select(r => new
+            {
+                r.Id, r.Name, r.Icon, r.MaxEntryTier, r.RecommendedTier,
+                status = r.Status switch { CutoffStatus.Overwhelm => "overwhelm", CutoffStatus.Near => "near", CutoffStatus.Marginal => "marginal", _ => "locked" },
+                r.OverwhelmPct, r.CombatToOverwhelm, r.MdefShort,
+                // FR-CO-08: 최고 난이도면 next = null (화면은 "최고 난이도 도전 가능"), 입장 불가면 entryShort
+                next = r.Next is { Top: false } n ? new { tier = n.Tier, combatShort = n.CombatShort, mdefShort = n.MdefShort, readyNow = n.ReadyNow } : null,
+                entryShort = r.EntryShort == null ? null : new { tier = r.EntryTier, combatShort = r.EntryShort.Combat, mdefShort = r.EntryShort.Mdef },
+            }),
+        };
+    }
 
     public static string WeightLevel(double pct) => pct >= 100 ? "danger" : pct >= 95 ? "warn" : "ok";
 
@@ -25,8 +61,15 @@ public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManag
         var (ch, act, env) = (tCh.Result, tAct.Result, tEnv.Result);
         if (!ch.Ok) return new CliData<object>(null, ch.Failure, ch.FetchedAt);
 
+        // 캐릭터가 바뀌었으면 캐시된 재화·미션은 이전 캐릭터 것이다: 새 캐릭터의 세션 기준값에 쓰지 않고 재화 캐시를 비운다
+        var switched = state.Character != null && CharacterKey(state.Character) != CharacterKey(ch.Value);
+        if (switched)
+        {
+            q.Invalidate("get_currencies", "get_daily_missions");
+            state.ClearPerCharacter();
+        }
         state.UpdateHeader(ch.Value, act.Value, env.Value);
-        var delta = snapshots.UpdateSnapshot(ch.Value, state.Currencies?.ToList(), state.DailyMissions?.ToList());
+        var delta = snapshots.UpdateSnapshot(ch.Value, switched ? null : state.Currencies?.ToList(), switched ? null : state.DailyMissions?.ToList());
         var dto = BuildHeader(ch.Value!, act.Value, env.Value, delta);
         hub.Broadcast("header", dto);
         return new CliData<object>(dto, null, ch.FetchedAt);
@@ -45,6 +88,13 @@ public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManag
                 realm = ch.RealmName, job = ch.JobName, level = ch.Level, title = ch.Title,
                 nickname = string.IsNullOrWhiteSpace(profile?.CustomName) ? null : profile!.CustomName,
                 combatScore = ch.CombatScore?.Value ?? 0, combatDelta = delta.CombatScoreDiff,
+            },
+            // 4대 점수 (WPF판 v1.2.0): 전투력·마도저항은 세션 변화량 포함
+            scores = new
+            {
+                combat = ch.CombatScore?.Value ?? 0, combatDelta = delta.CombatScoreDiff,
+                mdef = ch.ArcaneResistance?.Value ?? 0, mdefDelta = delta.ArcaneResistanceDiff,
+                living = ch.LivingScore?.Value ?? 0, attract = ch.AttractivenessScore?.Value ?? 0,
             },
             activity = new { text = GameStateCache.DescribeActivity(act), inCombat = act?.IsInCombat ?? false, canStop = act?.CanStopCurrentAction ?? false },
             location = new

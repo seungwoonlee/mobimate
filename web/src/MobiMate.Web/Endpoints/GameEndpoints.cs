@@ -26,6 +26,7 @@ public static class GameEndpoints
         api.MapGet("/missions", (GameViews v, CancellationToken ct) => Respond(v.MissionsAsync(ct)));
         api.MapGet("/life", (GameViews v, CancellationToken ct) => Respond(v.LifeAsync(ct)));
         api.MapGet("/nearby", (GameViews v, CancellationToken ct) => Respond(v.NearbyAsync(ct)));
+        api.MapGet("/cutoffs", (GameViews v, CancellationToken ct) => Respond(v.CutoffsAsync(ct)));
 
         // 개요 (FR-OV-01): 한 번에 여러 조회를 묶는다. 헤더 외 항목은 실패해도 null로 두고 나머지를 보여 준다.
         api.MapGet("/overview", async (GameViews v, HomeworkWatcher hw, GameStateCache state, CancellationToken ct) =>
@@ -49,6 +50,7 @@ public static class GameEndpoints
                 life = tLife.Result.Value,
                 nearby = tNear.Result.Value,
                 homework = new { daily = board.Daily, weekly = board.Weekly, nextDailyReset = board.NextDailyResetUtc, nextWeeklyReset = board.NextWeeklyResetUtc },
+                cutoffs = state.Character is { } ch ? v.CutoffView(ch) : null,
             }, header.FetchedAt);
         });
 
