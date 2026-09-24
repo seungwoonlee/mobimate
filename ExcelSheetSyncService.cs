@@ -15,10 +15,24 @@ public class CharacterSheetMasterEntry
 
 public class ExcelSheetSyncService
 {
-    private readonly string _targetFilePath;
+    private string _targetFilePath;
     private readonly object _lock = new();
 
     public string TargetFilePath => _targetFilePath;
+
+    public void SetTargetFilePath(string newPath)
+    {
+        if (string.IsNullOrWhiteSpace(newPath)) return;
+        lock (_lock)
+        {
+            _targetFilePath = newPath;
+            var dir = Path.GetDirectoryName(_targetFilePath);
+            if (!string.IsNullOrWhiteSpace(dir))
+            {
+                Directory.CreateDirectory(dir);
+            }
+        }
+    }
 
     public static readonly List<CharacterSheetMasterEntry> DefaultMasterCharacters = new()
     {
