@@ -19,6 +19,20 @@ public sealed class MobiMateOptions
     public int Port { get; set; } = 17800;
     public bool OpenBrowser { get; set; } = true;
 
+    /// <summary>트레이 아이콘 (테스트에서 끈다).</summary>
+    public bool Tray { get; set; } = true;
+
+    /// <summary>LAN 모드에서 mDNS 이름 광고 (FR-MB-13).</summary>
+    public bool Mdns { get; set; } = true;
+
+    /// <summary>LAN을 올리기 전 개인 네트워크 판정을 두 번 하는 간격, 네트워크 변경 이벤트 디바운스 (NFR-03).</summary>
+    public TimeSpan LanConfirmDelay { get; set; } = TimeSpan.FromSeconds(2);
+
+    /// <summary>
+    /// 단일 인스턴스 검사. 호스트를 만들기 전에 판단하므로 환경변수 MobiMate__SingleInstance로만 끈다(테스트).
+    /// </summary>
+    public bool SingleInstance { get; set; } = true;
+
     /// <summary>게임 상태(status) 확인 주기 (FR-CN-01).</summary>
     public TimeSpan StatusInterval { get; set; } = TimeSpan.FromSeconds(10);
 
@@ -35,4 +49,7 @@ public sealed class ServerIdentity
 
     /// <summary>실제로 듣고 있는 루프백 포트 (빈 포트 자동 선택 결과).</summary>
     public int Port { get; set; }
+
+    /// <summary>설정 포트. Port와 다르면 로컬 전용 대체 기동 중이라 LAN을 열지 않는다 (NFR-04).</summary>
+    public int PreferredPort { get; set; }
 }

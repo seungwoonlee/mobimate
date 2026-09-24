@@ -6,11 +6,21 @@ using MobiMate;
 using MobiMate.Web.Endpoints;
 using MobiMate.Web.Hosting;
 using MobiMate.Web.Infrastructure;
+using MobiMate.Web.Lan;
 using MobiMate.Web.Security;
 using MobiMate.Web.Services;
 
 // 콘텐츠 루트를 실행 파일 폴더로 고정한다. 다른 폴더에서 실행해도 wwwroot를 찾게 하기 위해서다.
 var builder = WebApplication.CreateBuilder(new WebApplicationOptions { Args = args, ContentRootPath = AppContext.BaseDirectory });
+
+// 단일 인스턴스 (상세설계 §3.1). 이미 실행 중이면 그쪽에 브라우저 열기를 부탁하고 끝낸다.
+// 호스트를 만들기 전이라 테스트 설정은 아직 보이지 않는다. 테스트는 환경변수 MobiMate__SingleInstance=false로 끈다.
+using var single = builder.Configuration.GetValue($"{MobiMateOptions.Section}:SingleInstance", true) ? new SingleInstance() : null;
+if (single is { IsFirst: false })
+{
+    SingleInstance.SignalExisting();
+    return;
+}
 
 // 설정은 DI에서 늦게 읽는다. 테스트(WebApplicationFactory)가 구성 값을 바꿀 수 있게 하기 위해서다.
 builder.Services.Configure<MobiMateOptions>(builder.Configuration.GetSection(MobiMateOptions.Section));
@@ -18,7 +28,13 @@ builder.Services.AddSingleton(sp => sp.GetRequiredService<IOptions<MobiMateOptio
 
 var configuredPort = builder.Configuration.GetValue<int?>($"{MobiMateOptions.Section}:Port") ?? 17800;
 var port = PortPicker.FirstFree(configuredPort);
-builder.WebHost.UseUrls($"http://127.0.0.1:{port}");   // 루프백만 (NFR-03). LAN 엔드포인트는 S3b.
+
+// Kestrel 엔드포인트는 전용 설정 공급자에서 읽는다. 루프백은 고정, LAN 엔드포인트는 LanService가 넣고 뺀다 (§3.6).
+var kestrelEndpoints = new KestrelEndpointSource();
+var kestrelConfig = new ConfigurationBuilder().Add(kestrelEndpoints).Build();
+kestrelEndpoints.Provider.SetEndpoints(port, Array.Empty<IPAddress>());
+builder.WebHost.ConfigureKestrel(o => o.Configure(kestrelConfig.GetSection("Kestrel"), reloadOnChange: true));
+builder.Services.AddSingleton(kestrelEndpoints);
 
 builder.Services.AddSingleton<ILoggerProvider>(sp => new FileLoggerProvider(Path.Combine(sp.GetRequiredService<MobiMateOptions>().StorageDir, "logs")));
 // 프레임워크 요청 로그는 URL 전체(쿼리 포함)를 남긴다. 기동 코드·페어링 코드가 파일에 남지 않도록 경고 이상만 쓴다 (NFR-15).
@@ -30,12 +46,17 @@ builder.Services.ConfigureHttpJsonOptions(o =>
     o.SerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter(System.Text.Json.JsonNamingPolicy.CamelCase));
 });
 
-builder.Services.AddSingleton(new ServerIdentity { Port = port });
+builder.Services.AddSingleton(new ServerIdentity { Port = port, PreferredPort = configuredPort });
 builder.Services.AddSingleton(sp => new WebSettingsStore(Dir(sp)));
 builder.Services.AddSingleton(sp => new DeviceStore(Dir(sp)));
 builder.Services.AddSingleton<BootCodes>();
 builder.Services.AddSingleton<PairingService>();
-builder.Services.AddSingleton<ILanHosts, NoLanHosts>();
+builder.Services.AddSingleton<INetworkProfileSource, NlmNetworkProfileSource>();
+builder.Services.AddSingleton<IPortProbe, TcpPortProbe>();
+builder.Services.AddSingleton<IMdnsAdvertiser, MdnsResponder>();
+builder.Services.AddSingleton<LanService>();
+builder.Services.AddSingleton<ILanHosts>(sp => sp.GetRequiredService<LanService>());
+builder.Services.AddSingleton<BrowserLauncher>();
 
 builder.Services.AddSingleton(sp =>
 {
@@ -62,6 +83,9 @@ builder.Services.AddSingleton<AiService>();
 builder.Services.AddSingleton<StatusMonitor>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<StatusMonitor>());
 builder.Services.AddHostedService<StartupTasks>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<LanService>());
+builder.Services.AddHostedService<InstancePipeListener>();
+builder.Services.AddHostedService<TrayHost>();
 
 var app = builder.Build();
 
@@ -71,7 +95,10 @@ app.Use(async (ctx, next) =>
     var h = ctx.Response.Headers;
     h.XContentTypeOptions = "nosniff";
     h["Referrer-Policy"] = "no-referrer";
-    h.ContentSecurityPolicy = "default-src 'self'; img-src 'self' data:; media-src 'self' blob:; style-src 'self' 'unsafe-inline'; connect-src 'self'; frame-ancestors 'none'";
+    // connect-src에는 실제로 광고 중인 mDNS 이름을 넣는다. IP 주소로 연 페이지가 이름 주소의 /api/ping을 확인하기 위해서다 (FR-MB-13).
+    var lan = ctx.RequestServices.GetRequiredService<LanService>().Status;
+    var mdnsSrc = lan.MdnsName is { } n ? $" http://{n}:{lan.Port}" : "";
+    h.ContentSecurityPolicy = $"default-src 'self'; img-src 'self' data:; media-src 'self' blob:; style-src 'self' 'unsafe-inline'; connect-src 'self'{mdnsSrc}; frame-ancestors 'none'";
     if (ctx.Request.Path.StartsWithSegments("/api")) h.CacheControl = "no-store";
     await next();
 });
@@ -83,7 +110,22 @@ AuthEndpoints.Map(app);
 GameEndpoints.Map(app);
 CommsEndpoints.Map(app);
 
-app.Run();
+try
+{
+    app.Run();
+}
+catch (Exception ex) when (ex is not OperationCanceledException)
+{
+    // 콘솔이 없는 WinExe라 조용히 끝나지 않게 로그와 메시지 상자로 알린다 (상세설계 §3.6)
+    app.Logger.LogCritical(ex, "서버를 시작하지 못했습니다.");
+    try
+    {
+        System.Windows.Forms.MessageBox.Show($"MobiMate Web을 시작하지 못했습니다.\n\n{ex.Message}\n\n로그: {Path.Combine(app.Services.GetRequiredService<MobiMateOptions>().StorageDir, "logs")}",
+            "MobiMate Web", System.Windows.Forms.MessageBoxButtons.OK, System.Windows.Forms.MessageBoxIcon.Error);
+    }
+    catch { }
+    Environment.ExitCode = 1;
+}
 
 static string Dir(IServiceProvider sp)
 {
@@ -130,15 +172,10 @@ namespace MobiMate.Web.Hosting
 
             _ = Task.Run(() => sp.GetRequiredService<AiService>().EnsureDiscoveredAsync(), CancellationToken.None);
 
-            if (options.OpenBrowser)
-            {
-                var id = sp.GetRequiredService<ServerIdentity>();
-                var code = sp.GetRequiredService<BootCodes>().Issue(DateTimeOffset.UtcNow);
-                var url = $"http://127.0.0.1:{id.Port}/auth/boot?code={code}";
-                try { Process.Start(new ProcessStartInfo(url) { UseShellExecute = true }); }
-                catch (Exception ex) { log.LogWarning(ex, "브라우저를 열지 못했습니다. 직접 여세요: http://127.0.0.1:{Port}", id.Port); }
-            }
-            log.LogInformation("MobiMate 서버 시작: http://127.0.0.1:{Port}", sp.GetRequiredService<ServerIdentity>().Port);
+            if (options.OpenBrowser) sp.GetRequiredService<BrowserLauncher>().Open();
+            var id = sp.GetRequiredService<ServerIdentity>();
+            log.LogInformation("MobiMate 서버 시작 {Version}: http://127.0.0.1:{Port}", id.Version, id.Port);
+            if (id.Port != id.PreferredPort) log.LogWarning("포트 {Preferred}이 사용 중이라 {Port}로 떴습니다. 이 상태에서는 LAN 모드를 켜지 않습니다.", id.PreferredPort, id.Port);
             return Task.CompletedTask;
         }
 

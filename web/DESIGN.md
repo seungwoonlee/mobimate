@@ -190,6 +190,23 @@ Homework/
 
 ---
 
+### 2.9 컷오프 추천 (REQUIREMENTS §5.12, WPF v1.2.0)
+
+```csharp
+public sealed record CutoffTier(string Name, long MinCombat, long RecCombat, long OverCombat, long MinMdef, long OverMdef);
+public sealed record CutoffContent(string Id, string Name, string Icon, IReadOnlyList<CutoffTier> Tiers);
+public enum CutoffStatus { Locked, Marginal, Near, Overwhelm }   // 입장 불가 / 턱걸이 / 압도 근접 / 압도
+public sealed record CutoffResult(string Id, string Name, string? MaxEntryTier, string? RecommendedTier, CutoffStatus Status,
+    int OverwhelmPct, long CombatToOverwhelm, long MdefShort, CutoffNext? Next, CutoffShort? EntryShort);
+public static class CutoffEvaluator { public static CutoffResult Evaluate(CutoffContent c, long combat, long mdef); }
+```
+
+- 카탈로그: `Cutoff/cutoff_catalog.json`(임베디드) + 사용자 폴더 `cutoff_catalog.override.json`(콘텐츠 ID 단위로 교체). 로드 시 난이도 순서(입장 전투력 오름차순)와 음수 값 검증.
+- 판정은 문구·색을 만들지 않는다. WPF판 `DungeonCutoffService`의 색(`#39D353` 등)·문장은 클라이언트가 토큰과 문구 템플릿으로 만든다.
+- 스냅샷: `CharacterSnapshot.ArcaneResistance`, `SessionDelta.ArcaneResistanceDiff` 추가(WPF판 v1.2.0과 같은 이름). 기존 파일에 필드가 없으면 0으로 읽는다.
+- 에린 시간: `DisplayFormat.ErinnTime`은 원형 문자열 + 낮·밤 배지(K-11). 아무말 대잔치 컨텍스트도 같은 함수를 쓴다.
+- 레이드 확인 제안(FR-HW-17): `HomeworkEvaluator`가 캐릭터별 직전 관찰의 레이드 증표 수량을 기억하고(가공 대기열 관찰과 같은 10분·연속 성공 규칙), 증가를 보면 해당 항목에 `Suggestion = "raidTokenIncreased"`를 단다. 완료 상태는 바꾸지 않는다.
+
 ## 3. 로컬 서버 설계 (MobiMate.Web)
 
 ### 3.1 기동 흐름
@@ -294,6 +311,25 @@ public sealed class QueryCache
   - COM 호출이 실패하면 LAN 모드를 켜지 않는다. 안전한 쪽으로 실패하게 하는 것이다(SEC-10).
 - 고정 포트 충돌 시 LAN 엔드포인트를 띄우지 않고 `lanError`를 `/api/meta`에 싣는다(NFR-04). Kestrel은 설정을 다시 읽은 뒤 바인딩에 실패해도 로그만 남기므로, **설정을 바꾸기 전에** 대상 주소·포트에 `TcpListener`를 잠깐 열었다 닫아 사용 가능 여부를 먼저 확인한다. 확인에 실패하면 설정을 바꾸지 않고 `lanError`를 채운다.
 - **mDNS**: LAN 엔드포인트가 떠 있는 동안 **개인 네트워크 어댑터에서만** `mobimate.local` A 레코드를 알린다. 라이브러리가 이름 충돌 검사(probing)를 하지 않으므로, 광고하기 전에 서버가 직접 `mobimate.local`을 1초 동안 질의한다. 다른 호스트가 응답하면 `mobimate-2.local`, `mobimate-3.local` 순으로 시도한다. **실제로 광고 중인 이름**을 `IMdnsNameProvider`로 노출하고, SEC-01 Host 허용 목록·CORS(`/api/ping`)·CSP `connect-src`·QR URL을 모두 이 값으로 만든다. 라이브러리 선택(Makaretu 등)과 동작은 M7에서 확정한다.
+
+#### S3b 구현 결정 (2026-09-25)
+
+- **Kestrel 엔드포인트**: `UseUrls` 대신 전용 설정 공급자(`LanEndpointConfig`, 값 바꾸면 `OnReload`)의 `Kestrel:Endpoints`를 `reloadOnChange: true`로 묶는다. `Loopback` 엔드포인트는 고정, `Lan0..n`만 넣고 뺀다.
+- **포트**: LAN 모드가 켜져 있으면 기동 때 루프백도 설정 포트(17800)를 먼저 시도한다. 사용 중이면 루프백은 다음 빈 포트로 뜨고 LAN은 켜지 않으며 `lanError = PORT_IN_USE`. 실행 중 LAN을 켤 때는 `ServerIdentity.Port == 설정 포트`여야 하고, 대상 IP:포트를 `TcpListener`로 미리 열어 본 뒤에만 설정을 바꾼다.
+- **LAN 내리기 순서 (계획 리뷰 High 반영)**: ① 허용 호스트(`ILanHosts`)에서 먼저 뺀다(새 요청은 즉시 421) → ② LAN 주소로 들어온 SSE 연결을 즉시 닫는다 → ③ Kestrel 설정을 바꾼다. 미들웨어는 요청의 `LocalIpAddress`가 루프백이 아니고 현재 연 LAN 주소도 아니면 거부한다(Kestrel이 연결을 정리하는 동안 남은 keep-alive 연결 차단).
+- **LAN 올리기 순서**: 개인 판정 2회 연속 → 포트 사전 확인 → Kestrel 설정 변경 → 그 주소:포트로 TCP 연결이 되는지 최대 3초 확인 → 확인되면 허용 호스트에 넣고 `active=true`. 연결이 안 되면 설정을 되돌리고 `lanError=BindFailed`.
+- **포트 사전 확인 실패 구분**: `AddressAlreadyInUse` → `PortInUse`, `AccessDenied`(Hyper-V 등 예약 범위) → `PortReserved`. 기동 때 17800이 사용 중이라 다른 포트로 떴다면 `PortChanged`이고, 화면에 "앱을 다시 시작해야 LAN을 켤 수 있음"을 안내한다.
+- **네트워크 프로필**: `[ComImport]` NLM 인터페이스(`INetworkListManager`·`IEnumNetworkConnections`·`INetworkConnection`·`INetwork`)로 어댑터 GUID → 카테고리를 구한다. **`INetworkEvents` 연결점 구독 대신** `NetworkAddressChanged`·`NetworkAvailabilityChanged` + **10초 주기 재판정**으로 한다(판정 호출은 수 ms, 연결점 구현의 COM 스레드 문제를 피함). 카테고리가 공용으로 바뀐 뒤 최대 10초 안에 LAN 엔드포인트를 내린다. `Private`만 허용(`DomainAuthenticated`도 제외). COM 실패 = 비공개로 보지 않음(SEC-10).
+- **변경 이벤트 처리**: 이벤트가 오면 LAN을 즉시 내리고(위 순서), 2초 디바운스 뒤 개인 판정이 두 번 연속(2초 간격) 나오면 다시 올린다.
+- **테스트**: `WebApplicationFactory`는 Kestrel을 TestServer로 바꾸므로 바인딩 자체는 검증할 수 없다. `INetworkProfileSource`·`IPortProbe`를 가짜로 바꿔 상태 전이·허용 호스트·SSE 차단을 검증하고, 실제 바인딩·mDNS는 실행 스모크로 확인한다. NLM 호출은 실제 PC에서 한 번 실행해 본다.
+- **대상 주소**: 개인 네트워크 카테고리이고 `Up` 상태인 어댑터의 IPv4 유니캐스트(루프백·169.254.x 제외).
+- **mDNS**: 라이브러리 없이 최소 응답기를 직접 구현한다(`MdnsResponder`: UDP 5353, 224.0.0.251 가입, 개인 어댑터 주소에서만 A 질의 응답, TTL 120초, 종료 시 TTL 0 알림). 광고 전 1초 질의로 충돌을 검사하고 `mobimate-2.local` 순으로 바꾼다. 패킷 인코딩·디코딩은 순수 함수로 두고 단위 테스트한다. Makaretu 등 외부 패키지를 쓰지 않는다(NFR-02 단일 exe, 유지보수 중단 라이브러리 회피).
+- **`ILanHosts`**: 현재 LAN IP들 + 광고 중인 mDNS 이름. Host·Origin 검사, `/api/ping` CORS(허용 출처만 에코), CSP `connect-src`, 페어링 URL(`urlIp`·`urlName`)이 이 값을 쓴다.
+- **트레이**: WinForms `NotifyIcon`을 전용 STA 스레드에서 `Application.Run`. 메뉴 = 브라우저 열기 · 📱 폰으로 보기(LAN 켜고 `/#/pair` 열기) · LAN 모드 켜기/끄기(체크) · 로그 폴더 열기 · 종료. 툴팁에 버전·포트·LAN 상태. 옵션 `MobiMate:Tray=false`로 끈다(테스트).
+- **단일 인스턴스**: 명명 뮤텍스 `Local\MobiMateWeb.Single` + 명명 파이프 `MobiMateWeb.Pipe.<사용자 SID>`. 두 번째 실행은 `open-browser`를 보내고 끝난다. 이 판단은 호스트 빌드 전에 하므로 환경변수 `MobiMate__SingleInstance=false`로 끈다(테스트).
+- **`OutputType=WinExe`**: 콘솔 창 없음. 치명 오류는 로그 파일 + 메시지 상자.
+- **받아들인 한계 (S3b 구현 리뷰)**: ① 다른 프로그램이 `0.0.0.0:17800`을 쓰고 있으면 Windows는 특정 주소 바인딩을 허용하므로 포트 사전 확인과 연결 확인이 그 프로그램 때문에 통과할 수 있다(드묾, 로그로 확인). ② 같은 망의 공격자가 `mobimate.local`을 위조 응답하고 `/api/ping`의 serverId를 흉내 내면, 이름 주소로 옮겨 갈 때 페어링 코드가 공격자에게 갈 수 있다. SEC-10(가정용 신뢰 네트워크 전제)의 범위로 받아들이고, S4에서 이름 주소로 옮길 때 코드를 싣지 않는 흐름을 검토한다. ③ mDNS는 RFC 6762의 3회 프로브·알려진 답 억제·응답 속도 제한을 구현하지 않는다(단일 이름·저빈도라 영향 작음). ④ `Tailscale` 같은 VPN 어댑터도 Windows가 '개인'으로 분류하면 LAN 대상이 된다(인증은 그대로 필요).
+- **API**: `GET /api/meta`의 `lan = { enabled, active, hosts, mdnsName, port, error, networkPrivate }`. `PUT /api/lan { enabled }` 🔒🏠 (SEC-08). `POST /api/pairing/start`는 `urlIp`·`urlName`을 준다(LAN이 꺼져 있으면 409 `LAN_OFF`).
 
 ### 3.7 채집 작업 (FR-DT-08)
 

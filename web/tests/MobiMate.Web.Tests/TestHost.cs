@@ -5,8 +5,10 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using MobiMate.Web.Hosting;
+using MobiMate.Web.Lan;
 using MobiMate.Web.Security;
 
 [assembly: CollectionBehavior(DisableTestParallelization = true)]   // 가짜 CLI 환경변수가 프로세스 전역이다
@@ -20,10 +22,17 @@ namespace MobiMate.Web.Tests;
 public sealed class TestHost : WebApplicationFactory<Program>
 {
     public const string RemoteIpHeader = "X-Test-Remote-IP";
+    public const string LocalIpHeader = "X-Test-Local-IP";
     public string StorageDir { get; }
     public string FakeCliLog { get; }
     public string StopFile { get; }
     public bool KeepStorage { get; init; }
+
+    /// <summary>가짜 네트워크: 기본은 개인 네트워크 192.168.0.23 하나.</summary>
+    public FakeNetwork Network { get; } = new();
+    public FakePortProbe Probe { get; } = new();
+    public FakeMdns Mdns { get; } = new();
+    public const string LanIp = "192.168.0.23";
 
     public TestHost(string? storageDir = null)
     {
@@ -34,6 +43,9 @@ public sealed class TestHost : WebApplicationFactory<Program>
         foreach (var k in new[] { "FAKECLI_DELAY_EXECUTE_GATHERING", "FAKECLI_STATE", "FAKECLI_FAIL_GET_MY_INFO" })
             Environment.SetEnvironmentVariable(k, null);
         Environment.SetEnvironmentVariable("FAKECLI_LOG", FakeCliLog);
+        // 호스트 빌드 전에 읽는 값은 환경변수로만 바꿀 수 있다: 단일 인스턴스 끄기, 실제 포트와 겹치지 않는 포트
+        Environment.SetEnvironmentVariable("MobiMate__SingleInstance", "false");
+        Environment.SetEnvironmentVariable("MobiMate__Port", Random.Shared.Next(20000, 60000).ToString());
         Environment.SetEnvironmentVariable("FAKECLI_STOPFILE", StopFile);
     }
 
@@ -44,7 +56,15 @@ public sealed class TestHost : WebApplicationFactory<Program>
         builder.UseSetting("MobiMate:CliPath", FakeCli.ExePath);
         builder.UseSetting("MobiMate:OpenBrowser", "false");
         builder.UseSetting("MobiMate:SsePingInterval", "00:00:01");
+        builder.UseSetting("MobiMate:Tray", "false");
+        builder.UseSetting("MobiMate:LanConfirmDelay", "00:00:00");
         builder.ConfigureServices(s => s.AddSingleton<IStartupFilter, RemoteIpStartupFilter>());
+        builder.ConfigureTestServices(s =>
+        {
+            s.AddSingleton<INetworkProfileSource>(Network);
+            s.AddSingleton<IPortProbe>(Probe);
+            s.AddSingleton<IMdnsAdvertiser>(Mdns);
+        });
     }
 
     /// <summary>서버가 고른 포트. Host·Origin 검사가 포트까지 비교하므로 테스트 요청도 이 포트를 쓴다.</summary>
@@ -71,11 +91,29 @@ public sealed class TestHost : WebApplicationFactory<Program>
         return c;
     }
 
-    /// <summary>LAN 기기(폰): 게임 PC가 페어링을 시작하고, 기기가 코드로 확인한다.</summary>
+    /// <summary>게임 PC에서 LAN 모드를 켠다 (가짜 네트워크).</summary>
+    public async Task EnableLanAsync(HttpClient local)
+    {
+        var s = await Data(await local.PutAsJsonAsync("/api/lan", new { enabled = true }));
+        Assert.True(s.GetProperty("active").GetBoolean(), s.ToString());
+    }
+
+    /// <summary>LAN 주소로 접속하는 기기 (Host·Origin = LAN IP:포트).</summary>
+    public HttpClient LanClient(string remoteIp = "192.168.0.50", string host = LanIp)
+    {
+        var origin = $"http://{host}:{Port}";
+        var c = CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, HandleCookies = true, BaseAddress = new Uri(origin) });
+        c.DefaultRequestHeaders.Add("Origin", origin);
+        c.DefaultRequestHeaders.Add(RemoteIpHeader, remoteIp);
+        return c;
+    }
+
+    /// <summary>LAN 기기(폰): 게임 PC가 LAN을 켜고 페어링을 시작하면, 기기가 LAN 주소로 코드를 확인한다.</summary>
     public async Task<HttpClient> LanAsync(HttpClient local, string ip = "192.168.0.50")
     {
+        if (!Services.GetRequiredService<LanService>().Status.Active) await EnableLanAsync(local);
         var code = (await Data(await local.PostAsync("/api/pairing/start", null))).GetProperty("code").GetString();
-        var c = Anonymous(ip);
+        var c = LanClient(ip);
         var r = await c.PostAsJsonAsync("/api/pairing/confirm", new { code, deviceName = "테스트 폰" });
         Assert.Equal(HttpStatusCode.OK, r.StatusCode);
         await AttachCsrfAsync(c);
@@ -117,10 +155,47 @@ public sealed class TestHost : WebApplicationFactory<Program>
             app.Use(async (HttpContext ctx, Func<Task> n) =>
             {
                 ctx.Connection.RemoteIpAddress = ctx.Request.Headers.TryGetValue(RemoteIpHeader, out var v) ? IPAddress.Parse(v!) : IPAddress.Loopback;
+                // 받은 로컬 주소: Host가 IP면 그 주소로 들어온 연결로 본다 (Kestrel이면 실제 바인딩 주소)
+                ctx.Connection.LocalIpAddress = ctx.Request.Headers.TryGetValue(LocalIpHeader, out var l) ? IPAddress.Parse(l!)
+                    : IPAddress.TryParse(ctx.Request.Host.Host, out var local) ? local : IPAddress.Loopback;
                 await n();
             });
             next(app);
         };
+    }
+}
+
+public sealed class FakeNetwork : INetworkProfileSource
+{
+    public volatile IReadOnlyList<LanAddress>? Addresses = new[] { new LanAddress(IPAddress.Parse(TestHost.LanIp), 7, "Wi-Fi") };
+    public IReadOnlyList<LanAddress>? PrivateAddresses() => Addresses;
+}
+
+public sealed class FakePortProbe : IPortProbe
+{
+    public ProbeResult Result = ProbeResult.Free;
+    public bool Listening = true;
+    public bool Throw;
+    public ProbeResult CanBind(IPAddress address, int port) => Result;
+    public Task<bool> IsListeningAsync(IPAddress address, int port, TimeSpan timeout, CancellationToken ct) =>
+        Throw ? throw new OperationCanceledException("테스트: 확인 도중 취소") : Task.FromResult(Listening);
+}
+
+public sealed class FakeMdns : IMdnsAdvertiser
+{
+    public string? CurrentName { get; private set; }
+    public string NextName = "mobimate.local";
+    public int Starts;
+    public Task<string?> StartAsync(IReadOnlyList<LanAddress> addresses, CancellationToken ct)
+    {
+        Starts++;
+        CurrentName = NextName;
+        return Task.FromResult<string?>(CurrentName);
+    }
+    public Task StopAsync()
+    {
+        CurrentName = null;
+        return Task.CompletedTask;
     }
 }
 

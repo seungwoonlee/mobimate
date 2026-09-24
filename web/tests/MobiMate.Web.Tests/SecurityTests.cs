@@ -133,6 +133,7 @@ public class SecurityTests
     {
         using var host = new TestHost();
         var local = await host.LocalAsync();
+        await host.EnableLanAsync(local);
         var code = (await TestHost.Data(await local.PostAsync("/api/pairing/start", null))).GetProperty("code").GetString();
 
         var ok = await host.Anonymous("192.168.0.51").PostAsJsonAsync("/api/pairing/confirm", new { code });

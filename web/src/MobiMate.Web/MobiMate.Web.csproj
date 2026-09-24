@@ -3,12 +3,20 @@
   <!-- 웹앱 로컬 서버. S3b에서 트레이(WinForms)·네트워크 프로필(COM)을 쓰므로 Windows 대상. -->
   <PropertyGroup>
     <TargetFramework>net8.0-windows</TargetFramework>
+    <OutputType>WinExe</OutputType>
+    <UseWindowsForms>true</UseWindowsForms>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>MobiMate.Web</RootNamespace>
     <AssemblyName>MobiMateWeb</AssemblyName>
     <InvariantGlobalization>false</InvariantGlobalization>
   </PropertyGroup>
+
+  <!-- WinForms 전역 using은 ASP.NET Core 형식과 이름이 겹치므로 뺀다. 트레이 코드만 별칭으로 쓴다. -->
+  <ItemGroup>
+    <Using Remove="System.Windows.Forms" />
+    <Using Remove="System.Drawing" />
+  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\MobiMate.Core\MobiMate.Core.csproj" />
