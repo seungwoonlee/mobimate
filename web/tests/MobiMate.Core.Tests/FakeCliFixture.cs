@@ -49,9 +49,7 @@ public sealed class FakeCliEnv : IDisposable
 
     public IReadOnlyList<Call> ReadCalls()
     {
-        if (!File.Exists(LogPath)) return Array.Empty<Call>();
-        return File.ReadAllLines(LogPath)
-            .Where(l => l.Length > 0)
+        return FakeCliLogReader.ReadLines(LogPath)
             .Select(l => l.Split('\t'))
             .Select(p => new Call(DateTime.Parse(p[0], null, DateTimeStyles.RoundtripKind), int.Parse(p[1]), p[2], p[3], p.Length > 4 ? p[4] : ""))
             .ToList();

@@ -152,8 +152,10 @@ string? Env(string name) => Environment.GetEnvironmentVariable(name) is { Length
 void Log(string phase)
 {
     if (Env("FAKECLI_LOG") is not { } logPath) return;
+    // 시각은 재시도 전에 찍는다. 다른 가짜 CLI가 쓰는 중이면(쓰기끼리는 배타) 최대 2초 재시도하고,
+    // 그래도 못 쓰면 조용히 버리지 않고 stderr에 남긴다. 테스트 쪽 판독기는 쓰기 공유로 열어 쓰기를 막지 않는다.
     var line = string.Join('\t', DateTime.UtcNow.ToString("O"), Environment.ProcessId, phase, cmd, string.Join('\u001f', rest)) + "\n";
-    for (var i = 0; i < 20; i++)
+    for (var i = 0; i < 200; i++)
     {
         try
         {
@@ -162,4 +164,5 @@ void Log(string phase)
         }
         catch (IOException) { Thread.Sleep(10); }
     }
+    Console.Error.WriteLine($"FAKECLI_LOG 기록 실패: {logPath}");
 }

@@ -10,6 +10,7 @@ using Microsoft.Extensions.DependencyInjection;
 using MobiMate.Web.Hosting;
 using MobiMate.Web.Lan;
 using MobiMate.Web.Security;
+using MobiMate.Tests;
 
 [assembly: CollectionBehavior(DisableTestParallelization = true)]   // 가짜 CLI 환경변수가 프로세스 전역이다
 
@@ -45,7 +46,7 @@ public sealed class TestHost : WebApplicationFactory<Program>
         Environment.SetEnvironmentVariable("FAKECLI_LOG", FakeCliLog);
         // 호스트 빌드 전에 읽는 값은 환경변수로만 바꿀 수 있다: 단일 인스턴스 끄기, 실제 포트와 겹치지 않는 포트
         Environment.SetEnvironmentVariable("MobiMate__SingleInstance", "false");
-        Environment.SetEnvironmentVariable("MobiMate__Port", Random.Shared.Next(20000, 60000).ToString());
+        Environment.SetEnvironmentVariable("MobiMate__Port", FreeLoopbackPort().ToString());
         Environment.SetEnvironmentVariable("FAKECLI_STOPFILE", StopFile);
     }
 
@@ -70,6 +71,25 @@ public sealed class TestHost : WebApplicationFactory<Program>
     /// <summary>서버가 고른 포트. Host·Origin 검사가 포트까지 비교하므로 테스트 요청도 이 포트를 쓴다.</summary>
     public int Port => Services.GetRequiredService<ServerIdentity>().Port;
     public string Origin => $"http://localhost:{Port}";
+
+    // 무작위 포트가 이 PC에서 이미 쓰이면 서버가 다음 포트로 뜨고(PreferredPort ≠ Port) LAN이 PortChanged로 막힌다.
+    // 서버와 같은 방식(루프백 바인드)으로 비어 있는 포트만 고른다.
+    private static int FreeLoopbackPort()
+    {
+        for (var i = 0; i < 50; i++)
+        {
+            var p = Random.Shared.Next(20000, 60000);
+            try
+            {
+                var l = new System.Net.Sockets.TcpListener(IPAddress.Loopback, p);
+                l.Start();
+                l.Stop();
+                return p;
+            }
+            catch (System.Net.Sockets.SocketException) { }
+        }
+        throw new InvalidOperationException("비어 있는 루프백 포트를 찾지 못했습니다.");
+    }
 
     /// <summary>세션 없는 클라이언트 (쿠키 보관, 자동 리디렉트 안 함).</summary>
     public HttpClient Anonymous(string? remoteIp = null)
@@ -138,9 +158,7 @@ public sealed class TestHost : WebApplicationFactory<Program>
         JsonDocument.Parse(await r.Content.ReadAsStringAsync()).RootElement.GetProperty("error").GetProperty("code").GetString()!;
 
     public IReadOnlyList<string> CliCalls(string phase = "start") =>
-        File.Exists(FakeCliLog)
-            ? File.ReadAllLines(FakeCliLog).Select(l => l.Split('\t')).Where(p => p.Length > 3 && p[2] == phase).Select(p => p[3] + (p.Length > 4 && p[4].Length > 0 ? " " + p[4] : "")).ToList()
-            : Array.Empty<string>();
+        FakeCliLogReader.ReadLines(FakeCliLog).Select(l => l.Split('\t')).Where(p => p.Length > 3 && p[2] == phase).Select(p => p[3] + (p.Length > 4 && p[4].Length > 0 ? " " + p[4] : "")).ToList();
 
     protected override void Dispose(bool disposing)
     {
