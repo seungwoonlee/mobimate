@@ -297,7 +297,9 @@ public partial class MainWindow : Window
                     var tDaily = _cli.RunJsonAsync<List<MissionItem>>("get_daily_missions", timeoutSeconds: 4, ct: ct);
                     var tWeekly = _cli.RunJsonAsync<List<MissionItem>>("get_weekly_missions", timeoutSeconds: 4, ct: ct);
                     var tQuests = _cli.RunJsonAsync<List<QuestItem>>("get_quests", timeoutSeconds: 4, ct: ct);
-                    await Task.WhenAll(tDaily, tWeekly, tQuests);
+                    var tTab3Curr = _cli.RunJsonAsync<List<CurrencyItem>>("get_currencies", timeoutSeconds: 4, ct: ct);
+                    await Task.WhenAll(tDaily, tWeekly, tQuests, tTab3Curr);
+                    if ((await tTab3Curr).data is { } curr3) _lastCurrencies = curr3;
                     UpdateMissions((await tDaily).data, (await tWeekly).data, (await tQuests).data);
                     break;
 
@@ -2151,22 +2153,16 @@ public partial class MainWindow : Window
         // 1. 전자동 엑셀 (구글 드라이브 동기화 폴더) 직접 갱신
         if (_excelSettingsManager.CurrentSettings.AutoSyncOnCharChange)
         {
-            _ = Task.Run(() =>
+            _ = Task.Run(async () =>
             {
                 try
                 {
-                    var (ok, msg, row) = _excelSyncService.SyncCharacter(targetName, charInfo, _homeworkService.Repository);
+                    var (ok, msg) = await ExecuteExcelSyncAsync();
                     if (ok)
                     {
-                        var settings = _excelSettingsManager.CurrentSettings;
-                        settings.LastSyncTime = DateTime.Now;
-                        settings.LastSyncCharacter = targetName;
-                        settings.LastSyncStatus = $"[{targetName}] {row}행 자동 갱신";
-                        _excelSettingsManager.SaveSettings();
-
                         Dispatcher.Invoke(() =>
                         {
-                            ShowToast($"📊 [{targetName}] 엑셀 자동 갱신 완료! (구글 드라이브 반영)", true);
+                            ShowToast($"📊 {msg} (구글 드라이브 반영)", true);
                         });
                     }
                 }
