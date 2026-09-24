@@ -14,6 +14,7 @@ public class CharacterSnapshot
     public int Level { get; set; }
     public string Title { get; set; } = "";
     public long CombatScore { get; set; }
+    public long ArcaneResistance { get; set; }
     public double WeightCurrent { get; set; }
     public long Gold { get; set; }
     public long Wings { get; set; }
@@ -34,6 +35,7 @@ public class CharacterHistoryRecord
     public int Level { get; set; }
     public string Title { get; set; } = "";
     public long CombatScore { get; set; }
+    public long ArcaneResistance { get; set; }
     public long LivingScore { get; set; }
     public long AttackPower { get; set; }
     public long DefencePower { get; set; }
@@ -71,6 +73,7 @@ public class SessionDelta
     }
 
     public long CombatScoreDiff => Current.CombatScore - Baseline.CombatScore;
+    public long ArcaneResistanceDiff => Current.ArcaneResistance - Baseline.ArcaneResistance;
     public double WeightDiff => Current.WeightCurrent - Baseline.WeightCurrent;
     public long GoldDiff => Baseline.HasCurrencyBaseline ? (Current.Gold - Baseline.Gold) : 0;
     public long WingsDiff => Baseline.HasCurrencyBaseline ? (Current.Wings - Baseline.Wings) : 0;
@@ -335,6 +338,7 @@ public class SnapshotManager
         var level = ch?.Level ?? 1;
         var title = ch?.Title ?? "";
         var combatScore = ch?.CombatScore?.Value ?? 0;
+        var mdef = ch?.ArcaneResistance?.Value ?? 0;
         var weight = ch?.Vitals?.WeightCurrent ?? 0.0;
 
         var key = $"{realm}_{job}";
@@ -355,6 +359,7 @@ public class SnapshotManager
             current.Level = level;
             current.Title = title;
             current.CombatScore = combatScore;
+            current.ArcaneResistance = mdef;
             current.WeightCurrent = weight;
             current.Timestamp = DateTime.Now;
 
@@ -385,6 +390,7 @@ public class SnapshotManager
                     Level = level,
                     Title = title,
                     CombatScore = combatScore,
+                    ArcaneResistance = mdef,
                     WeightCurrent = weight,
                     Timestamp = DateTime.Now
                 };
@@ -445,6 +451,7 @@ public class SnapshotManager
             bool shouldRecord = lastRecord == null ||
                 (DateTime.Now - lastRecord.Timestamp).TotalMinutes >= 5 ||
                 lastRecord.CombatScore != current.CombatScore ||
+                lastRecord.ArcaneResistance != current.ArcaneResistance ||
                 lastRecord.Level != current.Level ||
                 (current.Gold > 0 && lastRecord.Gold != current.Gold) ||
                 (current.Wings > 0 && lastRecord.Wings != current.Wings) ||
@@ -459,6 +466,7 @@ public class SnapshotManager
                     Level = current.Level,
                     Title = current.Title,
                     CombatScore = current.CombatScore,
+                    ArcaneResistance = current.ArcaneResistance,
                     LivingScore = ch?.LivingScore?.Value ?? 0,
                     AttackPower = ch?.AttackPower?.Value ?? 0,
                     DefencePower = ch?.DefencePower?.Value ?? 0,

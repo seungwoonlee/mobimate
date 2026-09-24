@@ -74,27 +74,24 @@ public class InGameChatterService
     }
 
     /// <summary>
-    /// 에린 시간 포맷터: 가상 연도(2959년)를 제거하고 마비노기 감성의 월/일/시간 및 낮/밤 아이콘으로 정돈
+    /// 에린 시간 포맷터: 실측치 원형(2960-0-20 13:47)을 왜곡('0월' 등) 없이 보존하고 낮/밤 아이콘 뱃지를 결합
     /// </summary>
     public static string FormatErinnTime(string? erinnNow)
     {
         if (string.IsNullOrWhiteSpace(erinnNow)) return "";
 
-        var match = Regex.Match(erinnNow, @"(?:(\d+)-)?(\d{1,2})-(\d{1,2})\s+(\d{1,2}):(\d{2})");
+        var raw = erinnNow.Trim();
+        var match = Regex.Match(raw, @"(\d{1,2}):(\d{2})");
         if (match.Success)
         {
-            var year = match.Groups[1].Success ? match.Groups[1].Value : "2959";
-            var month = int.Parse(match.Groups[2].Value);
-            var day = int.Parse(match.Groups[3].Value);
-            var hour = int.Parse(match.Groups[4].Value);
-            var minute = match.Groups[5].Value;
+            var hour = int.Parse(match.Groups[1].Value);
             var isDay = hour >= 6 && hour < 18;
             var icon = isDay ? "☀️" : "🌙";
             var period = isDay ? "낮" : "밤";
-            return $"에린 시간 {year}년 {month}월 {day}일 {hour:D2}:{minute} {icon} ({period})";
+            return $"에린 시간 {raw} {icon} ({period})";
         }
 
-        return $"에린 시간 {erinnNow}";
+        return $"에린 시간 {raw}";
     }
 
     /// <summary>

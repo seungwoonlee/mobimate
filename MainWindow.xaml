@@ -370,28 +370,55 @@
         </Border>
 
         <!-- ================= 1. 상단 글로벌 헤더 ================= -->
-        <Border Grid.Row="0" Background="{StaticResource BgSecondary}" Padding="16,8" BorderBrush="{StaticResource BorderColor}" BorderThickness="0,0,0,1">
+        <Border Grid.Row="0" Background="{StaticResource BgSecondary}" Padding="16,10" BorderBrush="{StaticResource BorderColor}" BorderThickness="0,0,0,1">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
-                <!-- 좌측: 캐릭터 정보 & 세션 변화량 -->
+                <!-- 좌측: 압핀, 캐릭터 정보, 4대 핵심 스탯 뱃지 & 에린 시간 -->
                 <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                    <TextBlock x:Name="TxtStatusIcon" Text="🟢" FontSize="28" Margin="0,0,14,0" VerticalAlignment="Center"/>
+                    <!-- 1. 압핀 (항상 위 고정) 원형 토글 버튼 - 최우선 배치 -->
+                    <ToggleButton x:Name="BtnTopmost" Click="BtnTopmost_Click"
+                                  Background="#2A2D35" Foreground="{StaticResource TextPrimary}" FontWeight="Bold" FontSize="16"
+                                  Width="38" Height="38" Padding="0" BorderBrush="#3E424D" BorderThickness="1" Cursor="Hand"
+                                  ToolTip="📌 항상 위 고정 토글 (클릭하여 창을 항상 맨 위에 고정합니다)" Margin="0,0,12,0" VerticalAlignment="Center">
+                        <ToggleButton.Template>
+                            <ControlTemplate TargetType="ToggleButton">
+                                <Border x:Name="bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="19">
+                                    <TextBlock Text="📌" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="16"/>
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsChecked" Value="True">
+                                        <Setter TargetName="bd" Property="Background" Value="{StaticResource AccentBlue}"/>
+                                        <Setter TargetName="bd" Property="BorderBrush" Value="#58A6FF"/>
+                                    </Trigger>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="bd" Property="BorderBrush" Value="{StaticResource AccentBlue}"/>
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </ToggleButton.Template>
+                    </ToggleButton>
+
+                    <!-- 2. 온라인/연동 상태 인디케이터 -->
+                    <TextBlock x:Name="TxtStatusIcon" Text="🟢" FontSize="26" Margin="0,0,10,0" VerticalAlignment="Center"/>
+
+                    <!-- 3. 캐릭터 주요 정보 컨테이너 -->
                     <StackPanel VerticalAlignment="Center">
-                        <StackPanel Orientation="Horizontal">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                             <!-- 직업 클래스 심볼 아이콘 뱃지 -->
-                            <Border x:Name="BadgeJobIcon" Background="#2A2D35" BorderBrush="#3E424D" BorderThickness="1" CornerRadius="8" Padding="6,2" Margin="0,0,8,0" VerticalAlignment="Center" ToolTip="캐릭터 직업 클래스">
+                            <Border x:Name="BadgeJobIcon" Background="#2A2D35" BorderBrush="#3E424D" BorderThickness="1" CornerRadius="8" Padding="8,4" Margin="0,0,10,0" VerticalAlignment="Center" ToolTip="캐릭터 직업 클래스">
                                 <TextBlock x:Name="TxtJobIcon" Text="⚔️" FontSize="18" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                             </Border>
 
-                            <TextBlock x:Name="TxtCharTitle" Text="[아이라] 격투가 Lv.100" FontWeight="Bold" FontSize="22" Foreground="{StaticResource TextPrimary}"
-                                       Cursor="Hand" ToolTip="클릭하여 캐릭터 닉네임(별칭)을 설정하거나 변경할 수 있습니다." MouseLeftButtonUp="TxtCharTitle_MouseLeftButtonUp"/>
+                            <!-- 캐릭터명 & 직업 & 레벨 (글자 크기 25pt로 확대) -->
+                            <TextBlock x:Name="TxtCharTitle" Text="[아이라] 격투가 Lv.100" FontWeight="Bold" FontSize="25" Foreground="#FFFFFF"
+                                       Cursor="Hand" ToolTip="클릭하여 캐릭터 닉네임(별칭)을 설정하거나 변경할 수 있습니다." MouseLeftButtonUp="TxtCharTitle_MouseLeftButtonUp" VerticalAlignment="Center"/>
 
-                            <!-- 닉네임 미등록 온보딩 말풍선 (클릭 시 닉네임 설정 팝업 호출) -->
-                            <Border x:Name="BubbleNickGuide" Background="#3B2A14" BorderBrush="#E5A93C" BorderThickness="1" CornerRadius="10" Padding="8,3" Margin="8,0,0,0" Cursor="Hand" MouseLeftButtonUp="TxtCharTitle_MouseLeftButtonUp" Visibility="Collapsed" VerticalAlignment="Center">
+                            <!-- 닉네임 미등록 온보딩 말풍선 -->
+                            <Border x:Name="BubbleNickGuide" Background="#3B2A14" BorderBrush="#E5A93C" BorderThickness="1" CornerRadius="10" Padding="8,3" Margin="10,0,0,0" Cursor="Hand" MouseLeftButtonUp="TxtCharTitle_MouseLeftButtonUp" Visibility="Collapsed" VerticalAlignment="Center">
                                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                     <TextBlock Text="💬 클릭해서 닉네임 등록!" FontSize="12" Foreground="#F5D061" FontWeight="Bold"/>
                                 </StackPanel>
@@ -420,31 +447,41 @@
                                 </Border>
                             </Popup>
                             
-                            <!-- 전투력 및 변화량 뱃지 -->
-                            <Border Background="#35373C" CornerRadius="6" Padding="10,3" Margin="12,0,0,0">
-                                <StackPanel Orientation="Horizontal">
+                            <!-- ⚔️ 전투력 뱃지 -->
+                            <Border Background="#2B2D33" BorderBrush="#E5A93C" BorderThickness="1" CornerRadius="8" Padding="10,4" Margin="14,0,0,0" VerticalAlignment="Center">
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                     <TextBlock x:Name="TxtCombatScore" Text="⚔️ 전투력 88,737" FontSize="15" Foreground="{StaticResource AccentYellow}" FontWeight="Bold"/>
-                                    <TextBlock x:Name="TxtCombatDelta" Text=" (+150 ▲)" FontSize="14" Foreground="{StaticResource AccentGreen}" FontWeight="Bold" Visibility="Collapsed"/>
+                                    <TextBlock x:Name="TxtCombatDelta" Text=" (+150 ▲)" FontSize="13" Foreground="{StaticResource AccentGreen}" FontWeight="Bold" Visibility="Collapsed"/>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- 🔮 마도 저항 뱃지 -->
+                            <Border Background="#252438" BorderBrush="#9B59B6" BorderThickness="1" CornerRadius="8" Padding="10,4" Margin="8,0,0,0" VerticalAlignment="Center">
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <TextBlock x:Name="TxtMdefScore" Text="🔮 마도저항 4,316" FontSize="15" Foreground="#D2A8FF" FontWeight="Bold"/>
+                                    <TextBlock x:Name="TxtMdefDelta" Text=" (+50 ▲)" FontSize="13" Foreground="{StaticResource AccentGreen}" FontWeight="Bold" Visibility="Collapsed"/>
                                 </StackPanel>
                             </Border>
 
                             <!-- 활동 상태 램프 -->
-                            <Border x:Name="BadgeActivity" Background="#1C3829" CornerRadius="6" Padding="8,3" Margin="8,0,0,0">
-                                <TextBlock x:Name="TxtActivity" Text="대기 중 (Idle)" FontSize="14" Foreground="{StaticResource AccentGreen}" FontWeight="Bold"/>
+                            <Border x:Name="BadgeActivity" Background="#1C3829" CornerRadius="6" Padding="8,4" Margin="8,0,0,0" VerticalAlignment="Center">
+                                <TextBlock x:Name="TxtActivity" Text="대기 중 (Idle)" FontSize="13" Foreground="{StaticResource AccentGreen}" FontWeight="Bold"/>
                             </Border>
 
                             <!-- 게임 데이터 수집 출처 표기 배지 -->
-                            <Border Background="#1C2E46" CornerRadius="6" Padding="8,3" Margin="8,0,0,0">
-                                <TextBlock Text="📡 게임 연동: 넥슨 MM AI CLI" FontSize="13" Foreground="#58A6FF" FontWeight="Bold"/>
+                            <Border Background="#1C2E46" CornerRadius="6" Padding="8,4" Margin="8,0,0,0" VerticalAlignment="Center">
+                                <TextBlock Text="📡 게임 연동: 넥슨 MM AI CLI" FontSize="12" Foreground="#58A6FF" FontWeight="Bold"/>
                             </Border>
                         </StackPanel>
-                        <TextBlock x:Name="TxtLocation" Text="📍 페카 고분 심층 2층 3구역 (맑음 ☀️)  |  에린 시간 2959-4-23" FontSize="14" Foreground="{StaticResource TextSecondary}" Margin="0,4,0,0"/>
+
+                        <!-- 하단 라인: 위치 및 에린 시간 -->
+                        <TextBlock x:Name="TxtLocation" Text="📍 페카 고분 심층 2층 3구역 (맑음 ☀️)  |  에린 시간 2960-0-20 13:47 ☀️ (낮)" FontSize="14" Foreground="{StaticResource TextSecondary}" Margin="0,5,0,0"/>
                     </StackPanel>
                 </StackPanel>
 
-                <!-- 우측: 제어 버튼들 -->
+                <!-- 우측: 제어 버튼들 및 빌드 버전 뱃지 -->
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                    <Button Content="🛑 정지 (ESC)" Click="BtnEmergencyStop_Click" Background="{StaticResource AccentRed}" Foreground="White" FontWeight="Bold" FontSize="14" Padding="12,6" BorderThickness="0" Margin="0,0,8,0" Cursor="Hand">
+                    <Button Content="🛑 정지 (ESC)" Click="BtnEmergencyStop_Click" Background="{StaticResource AccentRed}" Foreground="White" FontWeight="Bold" FontSize="14" Padding="12,7" BorderThickness="0" Margin="0,0,8,0" Cursor="Hand">
                         <Button.Template>
                             <ControlTemplate TargetType="Button">
                                 <Border Background="{TemplateBinding Background}" CornerRadius="6" Padding="{TemplateBinding Padding}">
@@ -456,7 +493,7 @@
 
                     <Button x:Name="BtnOpenExcelSheet" Content="📊 엑셀 시트" Click="BtnOpenExcelSheet_Click"
                             Background="#1E3A5F" Foreground="#79B8FF" FontWeight="Bold" FontSize="14"
-                            Padding="12,6" BorderBrush="#388BFD" BorderThickness="1" Margin="0,0,8,0" Cursor="Hand"
+                            Padding="12,7" BorderBrush="#388BFD" BorderThickness="1" Margin="0,0,8,0" Cursor="Hand"
                             ToolTip="엑셀 파일 저장 위치 관리 및 동기화 창을 엽니다.">
                         <Button.Template>
                             <ControlTemplate TargetType="Button">
@@ -469,7 +506,7 @@
 
                     <Button x:Name="BtnRefreshCurrentTab" Content="🔄 새로고침" Click="BtnRefreshCurrentTab_Click"
                             Background="{StaticResource AccentBlue}" Foreground="White" FontWeight="Bold" FontSize="14"
-                            Padding="12,6" BorderThickness="0" Margin="0,0,8,0" Cursor="Hand">
+                            Padding="12,7" BorderThickness="0" Margin="0,0,8,0" Cursor="Hand">
                         <Button.Template>
                             <ControlTemplate TargetType="Button">
                                 <Border Background="{TemplateBinding Background}" CornerRadius="6" Padding="{TemplateBinding Padding}">
@@ -479,22 +516,10 @@
                         </Button.Template>
                     </Button>
 
-                    <ToggleButton x:Name="BtnTopmost" Content="📌" Click="BtnTopmost_Click"
-                                  Background="#35373C" Foreground="{StaticResource TextPrimary}" FontWeight="Bold" FontSize="15"
-                                  Width="34" Height="34" Padding="0" BorderThickness="0" Cursor="Hand" ToolTip="항상 위 고정 토글">
-                        <ToggleButton.Template>
-                            <ControlTemplate TargetType="ToggleButton">
-                                <Border x:Name="bd" Background="{TemplateBinding Background}" CornerRadius="6" Padding="{TemplateBinding Padding}">
-                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                </Border>
-                                <ControlTemplate.Triggers>
-                                    <Trigger Property="IsChecked" Value="True">
-                                        <Setter TargetName="bd" Property="Background" Value="{StaticResource AccentBlue}"/>
-                                    </Trigger>
-                                </ControlTemplate.Triggers>
-                            </ControlTemplate>
-                        </ToggleButton.Template>
-                    </ToggleButton>
+                    <!-- 빌드 버전 뱃지 (최우측 상단) -->
+                    <Border Background="#1C212D" BorderBrush="#388BFD" BorderThickness="1" CornerRadius="6" Padding="10,6" Margin="0,0,0,0" VerticalAlignment="Center" ToolTip="MobiMate 빌드 버전">
+                        <TextBlock x:Name="TxtBuildVersion" Text="v1.1.1" FontSize="13" Foreground="#58A6FF" FontWeight="Bold"/>
+                    </Border>
                 </StackPanel>
             </Grid>
         </Border>
@@ -524,60 +549,107 @@
                 <TabItem x:Name="TabCharStats" Header="  📊 스탯  ">
                     <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="20">
                         <StackPanel>
+                            <!-- 1. 캐릭터 종합 4대 점수 -->
                             <TextBlock Text="🏆 캐릭터 종합 4대 점수" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" FontSize="18" Margin="0,0,0,10"/>
                             <UniformGrid Columns="4" Margin="0,0,0,18">
-                                <Border Background="{StaticResource BgCard}" CornerRadius="8" Padding="16,12" Margin="0,0,8,0">
+                                <Border Background="{StaticResource BgCard}" CornerRadius="8" Padding="16,12" Margin="0,0,8,0" BorderBrush="{StaticResource BorderColor}" BorderThickness="1">
                                     <StackPanel>
                                         <TextBlock Text="⚔️ 전투력" FontSize="14" Foreground="{StaticResource TextSecondary}"/>
                                         <TextBlock x:Name="TxtScoreCombat" Text="88,737" FontWeight="Bold" FontSize="26" Foreground="{StaticResource AccentYellow}" Margin="0,4,0,0"/>
                                     </StackPanel>
                                 </Border>
-                                <Border Background="{StaticResource BgCard}" CornerRadius="8" Padding="16,12" Margin="4,0,4,0">
+                                <Border Background="{StaticResource BgCard}" CornerRadius="8" Padding="16,12" Margin="4,0,4,0" BorderBrush="{StaticResource BorderColor}" BorderThickness="1">
+                                    <StackPanel>
+                                        <TextBlock Text="🔮 마도 저항" FontSize="14" Foreground="{StaticResource TextSecondary}"/>
+                                        <TextBlock x:Name="TxtScoreMdef" Text="4,316" FontWeight="Bold" FontSize="26" Foreground="#D2A8FF" Margin="0,4,0,0"/>
+                                    </StackPanel>
+                                </Border>
+                                <Border Background="{StaticResource BgCard}" CornerRadius="8" Padding="16,12" Margin="4,0,4,0" BorderBrush="{StaticResource BorderColor}" BorderThickness="1">
                                     <StackPanel>
                                         <TextBlock Text="🌿 생활력" FontSize="14" Foreground="{StaticResource TextSecondary}"/>
                                         <TextBlock x:Name="TxtScoreLiving" Text="23,011" FontWeight="Bold" FontSize="26" Foreground="{StaticResource AccentGreen}" Margin="0,4,0,0"/>
                                     </StackPanel>
                                 </Border>
-                                <Border Background="{StaticResource BgCard}" CornerRadius="8" Padding="16,12" Margin="4,0,4,0">
+                                <Border Background="{StaticResource BgCard}" CornerRadius="8" Padding="16,12" Margin="8,0,0,0" BorderBrush="{StaticResource BorderColor}" BorderThickness="1">
                                     <StackPanel>
                                         <TextBlock Text="✨ 매력" FontSize="14" Foreground="{StaticResource TextSecondary}"/>
                                         <TextBlock x:Name="TxtScoreAttract" Text="19,745" FontWeight="Bold" FontSize="26" Foreground="{StaticResource AccentPurple}" Margin="0,4,0,0"/>
                                     </StackPanel>
                                 </Border>
-                                <Border Background="{StaticResource BgCard}" CornerRadius="8" Padding="16,12" Margin="8,0,0,0">
-                                    <StackPanel>
-                                        <TextBlock Text="🎨 데코 점수" FontSize="14" Foreground="{StaticResource TextSecondary}"/>
-                                        <TextBlock x:Name="TxtScoreDecor" Text="5,445" FontWeight="Bold" FontSize="26" Foreground="{StaticResource AccentCyan}" Margin="0,4,0,0"/>
-                                    </StackPanel>
-                                </Border>
                             </UniformGrid>
 
-                            <TextBlock Text="🛡️ 전투 기본 능력치" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" FontSize="18" Margin="0,0,0,10"/>
-                            <Border Style="{StaticResource VisualCard}">
-                                <UniformGrid Columns="3" Rows="3">
-                                    <TextBlock x:Name="TxtStatHp" Text="❤️ 최대 체력: 72,614" Foreground="{StaticResource TextPrimary}" FontSize="16" Margin="10,10"/>
-                                    <TextBlock x:Name="TxtStatAtk" Text="⚔️ 공격력: 33,338" Foreground="{StaticResource TextPrimary}" FontSize="16" Margin="10,10"/>
-                                    <TextBlock x:Name="TxtStatDef" Text="🛡️ 방어력: 19,178" Foreground="{StaticResource TextPrimary}" FontSize="16" Margin="10,10"/>
-                                    <TextBlock x:Name="TxtStatMdef" Text="🔮 마도 저항: 4,316" Foreground="{StaticResource TextPrimary}" FontSize="16" Margin="10,10"/>
-                                    <TextBlock x:Name="TxtStatStr" Text="💪 힘 (STR): 4,996" Foreground="{StaticResource TextPrimary}" FontSize="16" Margin="10,10"/>
-                                    <TextBlock x:Name="TxtStatDex" Text="🎯 솜씨 (DEX): 6,019" Foreground="{StaticResource TextPrimary}" FontSize="16" Margin="10,10"/>
-                                    <TextBlock x:Name="TxtStatInt" Text="🧠 지력 (INT): 5,116" Foreground="{StaticResource TextPrimary}" FontSize="16" Margin="10,10"/>
-                                    <TextBlock x:Name="TxtStatLuck" Text="🍀 행운 (LUCK): 5,402" Foreground="{StaticResource TextPrimary}" FontSize="16" Margin="10,10"/>
-                                    <TextBlock x:Name="TxtStatWill" Text="🔥 의지 (WILL): 4,812" Foreground="{StaticResource TextPrimary}" FontSize="16" Margin="10,10"/>
-                                </UniformGrid>
-                            </Border>
+                            <!-- 2. 어비스 던전 & 주간 레이드 입장 컷 & 마도 압력 대시보드 -->
+                            <Grid Margin="0,4,0,12">
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <TextBlock Text="🏛️ 어비스 &amp; 주간 레이드 입장 컷 &amp; 마도 압력 대시보드" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" FontSize="18"/>
+                                    <Border Background="#252438" BorderBrush="#9B59B6" BorderThickness="1" CornerRadius="6" Padding="8,2" Margin="12,0,0,0" VerticalAlignment="Center">
+                                        <TextBlock Text="⚡ 압도 달성 시 파티원 피해 증폭 +40%" FontSize="12" Foreground="#D2A8FF" FontWeight="Bold"/>
+                                    </Border>
+                                </StackPanel>
+                                
+                                <!-- 던전 카테고리 필터 세그먼트 탭 -->
+                                <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
+                                    <RadioButton x:Name="RbDungeonFilterAll" Style="{StaticResource SegmentTabRadio}" Content="전체 던전" IsChecked="True" Checked="RbDungeonFilter_Checked"/>
+                                    <RadioButton x:Name="RbDungeonFilterAbyss" Style="{StaticResource SegmentTabRadio}" Content="🏛️ 어비스 (3종)" Checked="RbDungeonFilter_Checked"/>
+                                    <RadioButton x:Name="RbDungeonFilterRaid" Style="{StaticResource SegmentTabRadio}" Content="🐲 주간 레이드 (3종)" Checked="RbDungeonFilter_Checked"/>
+                                </StackPanel>
+                            </Grid>
 
-                            <TextBlock Text="👑 성기사 (Paladin) 스탯" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" FontSize="18" Margin="0,6,0,10"/>
-                            <Border Style="{StaticResource VisualCard}">
-                                <UniformGrid Columns="3" Rows="2">
-                                    <TextBlock x:Name="TxtPalAtk" Text="신성력: 54" Foreground="{StaticResource TextPrimary}" FontSize="16" Margin="10,10"/>
-                                    <TextBlock x:Name="TxtPalDef" Text="항마력: 54" Foreground="{StaticResource TextPrimary}" FontSize="16" Margin="10,10"/>
-                                    <TextBlock x:Name="TxtPalJustice" Text="정의: 694" Foreground="{StaticResource TextPrimary}" FontSize="16" Margin="10,10"/>
-                                    <TextBlock x:Name="TxtPalJudge" Text="심판: 459" Foreground="{StaticResource TextPrimary}" FontSize="16" Margin="10,10"/>
-                                    <TextBlock x:Name="TxtPalOrder" Text="질서: 694" Foreground="{StaticResource TextPrimary}" FontSize="16" Margin="10,10"/>
-                                    <TextBlock x:Name="TxtPalBless" Text="가호: 459" Foreground="{StaticResource TextPrimary}" FontSize="16" Margin="10,10"/>
-                                </UniformGrid>
-                            </Border>
+                            <!-- 던전 카드 바둑판 그리드 (2열 바둑판 레이아웃) -->
+                            <ItemsControl x:Name="ListDungeonCards">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <UniformGrid Columns="2"/>
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Background="{StaticResource BgCard}" BorderBrush="{Binding CardBorderBrush}" BorderThickness="1" CornerRadius="8" Padding="14" Margin="4,4,4,6">
+                                            <Grid>
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="Auto"/>
+                                                    <RowDefinition Height="Auto"/>
+                                                    <RowDefinition Height="Auto"/>
+                                                </Grid.RowDefinitions>
+
+                                                <!-- 상단: 던전 카테고리/명칭 & 상태 판정 뱃지 -->
+                                                <Grid Grid.Row="0" Margin="0,0,0,10">
+                                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                        <Border Background="{Binding CategoryBadgeBg}" CornerRadius="4" Padding="6,2" Margin="0,0,8,0">
+                                                            <TextBlock Text="{Binding CategoryBadgeText}" Foreground="{Binding CategoryBadgeFg}" FontSize="12" FontWeight="Bold"/>
+                                                        </Border>
+                                                        <TextBlock Text="{Binding DisplayName}" FontWeight="Bold" FontSize="16" Foreground="{StaticResource TextPrimary}" VerticalAlignment="Center"/>
+                                                    </StackPanel>
+
+                                                    <Border HorizontalAlignment="Right" Background="{Binding StatusBadgeBg}" BorderBrush="{Binding StatusBadgeBorder}" BorderThickness="1" CornerRadius="6" Padding="8,3">
+                                                        <TextBlock Text="{Binding StatusBadgeText}" Foreground="{Binding StatusBadgeFg}" FontWeight="Bold" FontSize="12"/>
+                                                    </Border>
+                                                </Grid>
+
+                                                <!-- 중단: 마도 저항 게이지 & 수치 -->
+                                                <StackPanel Grid.Row="1" Margin="0,0,0,8">
+                                                    <Grid Margin="0,0,0,4">
+                                                        <TextBlock Text="🔮 마도 저항 달성도" FontSize="13" Foreground="{StaticResource TextSecondary}"/>
+                                                        <TextBlock HorizontalAlignment="Right" Text="{Binding MdefProgressText}" FontSize="13" Foreground="{Binding MdefTextBrush}" FontWeight="Bold"/>
+                                                    </Grid>
+                                                    <ProgressBar Style="{StaticResource BigProgress}" Height="12" Minimum="0" Maximum="{Binding ProgressMax}" Value="{Binding ProgressValue}" Foreground="{Binding ProgressBrush}" Background="#15171C"/>
+                                                </StackPanel>
+
+                                                <!-- 하단: 권장 전투력 및 페널티/압도 효과 안내 -->
+                                                <Border Grid.Row="2" Background="{Binding EffectBoxBg}" CornerRadius="6" Padding="10,6">
+                                                    <Grid>
+                                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                            <TextBlock Text="⚔️ 권장 전투력: " FontSize="12" Foreground="{StaticResource TextSecondary}"/>
+                                                            <TextBlock Text="{Binding ReqCombatText}" FontSize="12" Foreground="{Binding CombatStatusBrush}" FontWeight="Bold"/>
+                                                        </StackPanel>
+                                                        <TextBlock HorizontalAlignment="Right" Text="{Binding EffectSummaryText}" FontSize="12" Foreground="{Binding EffectSummaryBrush}" FontWeight="SemiBold"/>
+                                                    </Grid>
+                                                </Border>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
                         </StackPanel>
                     </ScrollViewer>
                 </TabItem>

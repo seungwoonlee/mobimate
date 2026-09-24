@@ -59,6 +59,7 @@ public partial class MainWindow : Window
     private readonly AdaptiveRefreshController _adaptiveRefresh = new();
     private bool _isAutoRefreshing = false;
     private bool _isWindowLoaded;
+    private string _selectedDungeonFilter = "All";
 
     public ICommand EmergencyStopCommand { get; }
 
@@ -70,6 +71,12 @@ public partial class MainWindow : Window
         App.LogTrace("MainWindow.ctor calling InitializeComponent");
         InitializeComponent();
         App.LogTrace("MainWindow.ctor InitializeComponent finished");
+
+        var asmVersion = typeof(MainWindow).Assembly.GetName().Version;
+        if (TxtBuildVersion != null)
+        {
+            TxtBuildVersion.Text = asmVersion != null ? $"v{asmVersion.Major}.{asmVersion.Minor}.{asmVersion.Build}" : "v1.1.1";
+        }
 
         DataContext = this;
         ListGameChatLogs.ItemsSource = GameChatLogs;
@@ -111,6 +118,7 @@ public partial class MainWindow : Window
             App.LogTrace("MainWindow.Loaded enter");
             _isWindowLoaded = true;
             RefreshHomeworkUi();
+            RefreshDungeonCutoffUi();
             LoadCustomPersonasToUi();
             App.LogTrace("MainWindow.Loaded calling LoadAiEnginesAsync");
             await LoadAiEnginesAsync();
@@ -452,34 +460,20 @@ public partial class MainWindow : Window
                 TxtCombatScore.Text = $"⚔️ 전투력 {ch.CombatScore.Value:N0}";
                 TxtScoreCombat.Text = $"{ch.CombatScore.Value:N0}";
             }
+            if (ch.ArcaneResistance != null)
+            {
+                TxtMdefScore.Text = $"🔮 마도저항 {ch.ArcaneResistance.Value:N0}";
+                TxtScoreMdef.Text = $"{ch.ArcaneResistance.Value:N0}";
+            }
             if (ch.LivingScore != null) TxtScoreLiving.Text = $"{ch.LivingScore.Value:N0}";
             if (ch.AttractivenessScore != null) TxtScoreAttract.Text = $"{ch.AttractivenessScore.Value:N0}";
-            if (ch.DecorScore != null) TxtScoreDecor.Text = $"{ch.DecorScore.Value:N0}";
 
-            if (ch.HealthMax != null) TxtStatHp.Text = $"❤️ 최대 체력: {ch.HealthMax.Value:N0}";
-            if (ch.AttackPower != null) TxtStatAtk.Text = $"⚔️ 공격력: {ch.AttackPower.Value:N0}";
-            if (ch.DefencePower != null) TxtStatDef.Text = $"🛡️ 방어력: {ch.DefencePower.Value:N0}";
-            if (ch.ArcaneResistance != null) TxtStatMdef.Text = $"🔮 마도 저항: {ch.ArcaneResistance.Value:N0}";
-            if (ch.STR != null) TxtStatStr.Text = $"💪 힘 (STR): {ch.STR.Value:N0}";
-            if (ch.DEX != null) TxtStatDex.Text = $"🎯 솜씨 (DEX): {ch.DEX.Value:N0}";
-            if (ch.INT != null) TxtStatInt.Text = $"🧠 지력 (INT): {ch.INT.Value:N0}";
-            if (ch.LUCK != null) TxtStatLuck.Text = $"🍀 행운 (LUCK): {ch.LUCK.Value:N0}";
-            if (ch.WILL != null) TxtStatWill.Text = $"🔥 의지 (WILL): {ch.WILL.Value:N0}";
-
-            if (ch.PaladinStats != null)
-            {
-                var p = ch.PaladinStats;
-                if (p.PaladinAttackPower != null) TxtPalAtk.Text = $"신성력: {p.PaladinAttackPower.Value:N0}";
-                if (p.PaladinDefencePower != null) TxtPalDef.Text = $"항마력: {p.PaladinDefencePower.Value:N0}";
-                if (p.JusticePower != null) TxtPalJustice.Text = $"정의: {p.JusticePower.Value:N0}";
-                if (p.JudgementPower != null) TxtPalJudge.Text = $"심판: {p.JudgementPower.Value:N0}";
-                if (p.OrderPower != null) TxtPalOrder.Text = $"질서: {p.OrderPower.Value:N0}";
-                if (p.BlessingPower != null) TxtPalBless.Text = $"가호: {p.BlessingPower.Value:N0}";
-            }
+            // 어비스 던전 & 주간 레이드 입장 컷 & 마도 압력 대시보드 실시간 갱신
+            RefreshDungeonCutoffUi(ch);
 
             if (ch.Vitals != null) UpdateWeightUi(ch.Vitals);
 
-            // 구글 스프레드시트 캐릭터 변경 시 자동 동기화 트리거
+            // 엑셀 스프레드시트 캐릭터 변경 시 자동 동기화 트리거
             CheckAndTriggerAutoGoogleSheetSync(realm, job);
         }
 
@@ -573,6 +567,18 @@ public partial class MainWindow : Window
             TxtCombatDelta.Visibility = Visibility.Collapsed;
         }
 
+        // 1-1. 마도 저항 변화량
+        if (delta.ArcaneResistanceDiff != 0)
+        {
+            TxtMdefDelta.Text = $" ({SnapshotManager.FormatDiff(delta.ArcaneResistanceDiff)})";
+            TxtMdefDelta.Foreground = delta.ArcaneResistanceDiff > 0 ? (Brush)FindResource("AccentGreen") : (Brush)FindResource("AccentRed");
+            TxtMdefDelta.Visibility = Visibility.Visible;
+        }
+        else
+        {
+            TxtMdefDelta.Visibility = Visibility.Collapsed;
+        }
+
         // 2. 가방 무게 변화량
         if (Math.Abs(delta.WeightDiff) >= 0.05)
         {
@@ -644,6 +650,38 @@ public partial class MainWindow : Window
         {
             TxtMissionDelta.Visibility = Visibility.Collapsed;
         }
+    }
+
+    private void RbDungeonFilter_Checked(object sender, RoutedEventArgs e)
+    {
+        if (!_isWindowLoaded || ListDungeonCards == null) return;
+
+        if (RbDungeonFilterAbyss?.IsChecked == true)
+        {
+            _selectedDungeonFilter = "Abyss";
+        }
+        else if (RbDungeonFilterRaid?.IsChecked == true)
+        {
+            _selectedDungeonFilter = "Raid";
+        }
+        else
+        {
+            _selectedDungeonFilter = "All";
+        }
+
+        RefreshDungeonCutoffUi(_lastCharInfo);
+    }
+
+    private void RefreshDungeonCutoffUi(CharacterInfo? ch = null)
+    {
+        if (!_isWindowLoaded || ListDungeonCards == null) return;
+
+        var charData = ch ?? _lastCharInfo;
+        long combat = charData?.CombatScore?.Value ?? 0;
+        long mdef = charData?.ArcaneResistance?.Value ?? 0;
+
+        var cards = DungeonCutoffService.BuildCardViewModels(combat, mdef, _selectedDungeonFilter);
+        ListDungeonCards.ItemsSource = cards;
     }
 
     private static bool IsBagLocation(string? loc) =>
