@@ -584,7 +584,7 @@
                             <!-- 2. 어비스 & 레이드 추천 대시보드 -->
                             <TextBlock Text="🏛️ 어비스 &amp; 레이드 추천 대시보드" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" FontSize="18" Margin="0,4,0,12"/>
 
-                            <!-- 4대 콘텐츠 요약 카드 그리드 (2열 바둑판 레이아웃) -->
+                            <!-- 4대 콘텐츠 슬림 요약 카드 그리드 (2열 바둑판 레이아웃) -->
                             <ItemsControl x:Name="ListContentCards">
                                 <ItemsControl.ItemsPanel>
                                     <ItemsPanelTemplate>
@@ -593,92 +593,35 @@
                                 </ItemsControl.ItemsPanel>
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <Border Background="{StaticResource BgCard}" BorderBrush="#2E3A52" BorderThickness="1" CornerRadius="10" Padding="16" Margin="4,4,4,8">
+                                        <Border Background="{StaticResource BgCard}" BorderBrush="#2E3A52" BorderThickness="1" CornerRadius="8" Padding="14,10" Margin="4,4,4,6"
+                                                ToolTip="{Binding StatusDetailText}" Cursor="Help">
                                             <Grid>
-                                                <Grid.RowDefinitions>
-                                                    <RowDefinition Height="Auto"/>
-                                                    <RowDefinition Height="Auto"/>
-                                                    <RowDefinition Height="Auto"/>
-                                                    <RowDefinition Height="Auto"/>
-                                                </Grid.RowDefinitions>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
 
-                                                <!-- Row 0: 콘텐츠 헤더 (아이콘, 이름, 서브타이틀) -->
-                                                <Grid Grid.Row="0" Margin="0,0,0,12">
-                                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                                        <TextBlock Text="{Binding Icon}" FontSize="22" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                                        <StackPanel VerticalAlignment="Center">
-                                                            <TextBlock Text="{Binding ContentName}" FontWeight="Bold" FontSize="17" Foreground="{StaticResource TextPrimary}"/>
-                                                            <TextBlock Text="{Binding Subtitle}" FontSize="12" Foreground="{StaticResource TextSecondary}"/>
-                                                        </StackPanel>
-                                                    </StackPanel>
-                                                </Grid>
+                                                <!-- 좌측: 아이콘 + 콘텐츠명 (단 한 줄, 사족 없음) -->
+                                                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                                    <TextBlock Text="{Binding Icon}" FontSize="18" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                                    <TextBlock Text="{Binding ContentName}" FontWeight="Bold" FontSize="15" Foreground="{StaticResource TextPrimary}" VerticalAlignment="Center"/>
+                                                </StackPanel>
 
-                                                <!-- Row 1: 최고 입장 가능 & 맞춤 추천 2분할 뱃지 바 -->
-                                                <Border Grid.Row="1" Background="#161B22" BorderBrush="#262C36" BorderThickness="1" CornerRadius="8" Padding="12,10" Margin="0,0,0,10">
-                                                    <Grid>
-                                                        <Grid.ColumnDefinitions>
-                                                            <ColumnDefinition Width="*"/>
-                                                            <ColumnDefinition Width="1"/>
-                                                            <ColumnDefinition Width="1.2*"/>
-                                                        </Grid.ColumnDefinitions>
-
-                                                        <!-- 좌: 최고 입장 가능 -->
-                                                        <StackPanel Grid.Column="0" Margin="0,0,10,0">
-                                                            <TextBlock Text="🚪 최고 입장 가능" FontSize="12" Foreground="{StaticResource TextSecondary}" Margin="0,0,0,4"/>
-                                                            <Border Background="{Binding MaxEntryTierBadgeBg}" CornerRadius="6" Padding="8,4" HorizontalAlignment="Left">
-                                                                <TextBlock Text="{Binding MaxEntryTier}" FontSize="14" FontWeight="Bold" Foreground="{Binding MaxEntryTierBadgeFg}"/>
-                                                            </Border>
-                                                        </StackPanel>
-
-                                                        <!-- 구분선 -->
-                                                        <Border Grid.Column="1" Background="#262C36" Margin="0,2"/>
-
-                                                        <!-- 우: 맞춤 추천 난이도 -->
-                                                        <StackPanel Grid.Column="2" Margin="12,0,0,0">
-                                                            <TextBlock Text="🎯 맞춤 추천 파밍" FontSize="12" Foreground="{StaticResource TextSecondary}" Margin="0,0,0,4"/>
-                                                            <StackPanel Orientation="Horizontal">
-                                                                <TextBlock Text="{Binding RecommendedTier}" FontSize="15" FontWeight="Bold" Foreground="#FFFFFF" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                                                                <Border Background="{Binding RecommendedStatusBg}" BorderBrush="{Binding RecommendedStatusBorder}" BorderThickness="1" CornerRadius="6" Padding="6,2" VerticalAlignment="Center">
-                                                                    <TextBlock Text="{Binding RecommendedStatusBadge}" FontSize="12" FontWeight="Bold" Foreground="{Binding RecommendedStatusFg}"/>
-                                                                </Border>
-                                                            </StackPanel>
-                                                        </StackPanel>
-                                                    </Grid>
-                                                </Border>
-
-                                                <!-- Row 2: 맞춤 가이드 & 모자란 수치 상세 안내 박스 -->
-                                                <Border Grid.Row="2" Background="#1B2230" BorderBrush="#2B3648" BorderThickness="1" CornerRadius="6" Padding="10,8" Margin="0,0,0,8">
-                                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                                        <TextBlock Text="💡 " FontSize="13" VerticalAlignment="Center"/>
-                                                        <TextBlock Text="{Binding StatusDetailText}" FontSize="13" FontWeight="SemiBold" Foreground="{Binding StatusDetailFg}" VerticalAlignment="Center" TextWrapping="Wrap"/>
-                                                    </StackPanel>
-                                                </Border>
-
-                                                <!-- Row 3: 전체 난이도 펼쳐보기 Expander -->
-                                                <Expander Grid.Row="3" Header="🔍 전체 난이도 기준표 및 내 상태 펼쳐보기" Foreground="{StaticResource TextSecondary}" FontSize="12" Margin="0,4,0,0">
-                                                    <Border Background="#141820" CornerRadius="6" Padding="8" Margin="0,6,0,0">
-                                                        <ItemsControl ItemsSource="{Binding TierDetails}">
-                                                            <ItemsControl.ItemTemplate>
-                                                                <DataTemplate>
-                                                                    <Grid Margin="0,3">
-                                                                        <Grid.ColumnDefinitions>
-                                                                            <ColumnDefinition Width="90"/>
-                                                                            <ColumnDefinition Width="80"/>
-                                                                            <ColumnDefinition Width="*"/>
-                                                                            <ColumnDefinition Width="*"/>
-                                                                        </Grid.ColumnDefinitions>
-                                                                        <TextBlock Grid.Column="0" Text="{Binding TierName}" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" FontSize="12" VerticalAlignment="Center"/>
-                                                                        <Border Grid.Column="1" Background="{Binding EntryStatusBg}" CornerRadius="4" Padding="4,2" HorizontalAlignment="Left" VerticalAlignment="Center">
-                                                                            <TextBlock Text="{Binding EntryStatusText}" Foreground="{Binding EntryStatusFg}" FontSize="11" FontWeight="Bold"/>
-                                                                        </Border>
-                                                                        <TextBlock Grid.Column="2" Text="{Binding SpecRequirementText}" Foreground="{StaticResource TextSecondary}" FontSize="11" VerticalAlignment="Center"/>
-                                                                        <TextBlock Grid.Column="3" Text="{Binding OverwhelmSpecText}" Foreground="#D2A8FF" FontSize="11" VerticalAlignment="Center"/>
-                                                                    </Grid>
-                                                                </DataTemplate>
-                                                            </ItemsControl.ItemTemplate>
-                                                        </ItemsControl>
+                                                <!-- 우측: 최고 입장 & 맞춤 추천 (인라인 단층 배치) -->
+                                                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                                    <!-- 최고 입장 -->
+                                                    <TextBlock Text="입장" FontSize="12" Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                                                    <Border Background="{Binding MaxEntryTierBadgeBg}" CornerRadius="4" Padding="6,2" Margin="0,0,12,0" VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding MaxEntryTier}" FontSize="12" FontWeight="Bold" Foreground="{Binding MaxEntryTierBadgeFg}"/>
                                                     </Border>
-                                                </Expander>
+
+                                                    <!-- 맞춤 추천 -->
+                                                    <TextBlock Text="추천" FontSize="12" Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                                                    <TextBlock Text="{Binding RecommendedTier}" FontSize="13" FontWeight="Bold" Foreground="#FFFFFF" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                                    <Border Background="{Binding RecommendedStatusBg}" BorderBrush="{Binding RecommendedStatusBorder}" BorderThickness="1" CornerRadius="4" Padding="6,2" VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding RecommendedStatusBadge}" FontSize="11" FontWeight="Bold" Foreground="{Binding RecommendedStatusFg}"/>
+                                                    </Border>
+                                                </StackPanel>
                                             </Grid>
                                         </Border>
                                     </DataTemplate>
