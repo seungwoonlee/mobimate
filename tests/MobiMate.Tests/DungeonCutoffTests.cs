@@ -85,6 +85,8 @@ public class DungeonCutoffTests
         // 압도치(105,000)에 102,832로 근접(부족 2,168)하므로 압도 근접 추천
         Assert.Contains("압도 근접", abyss.RecommendedStatusBadge);
         Assert.Contains("2,168", abyss.StatusDetailText);
+        // 지옥 2는 압도 투력 115,000(90%=103,500) 대비 668 부족, 저항 6,600 대비 1,864 부족
+        Assert.Contains("투력 668, 저항 1,864", abyss.NextTierGuideText);
 
         // 2. 화이트 서큐버스:
         // 매우 어려움(입장 50,000 / 압도 64,000)을 102,832로 압도 초과 달성!
@@ -92,6 +94,8 @@ public class DungeonCutoffTests
         Assert.Equal("매우 어려움", succubus.MaxEntryTier);
         Assert.Equal("매우 어려움", succubus.RecommendedTier);
         Assert.Contains("압도", succubus.RecommendedStatusBadge);
+        Assert.Equal("압도 달성", succubus.StatusDetailText);
+        Assert.Contains("최고 난이도 정복", succubus.NextTierGuideText);
 
         // 3. 에이렐:
         // 매우 어려움(입장 88,500 / 저항 3,000) 충족 -> 최고 입장은 매우 어려움!
@@ -100,13 +104,17 @@ public class DungeonCutoffTests
         // 압도치(107,000)에 102,832로 부족 4,168이므로 압도 근접 추천
         Assert.Contains("압도 근접", airel.RecommendedStatusBadge);
         Assert.Contains("4,168", airel.StatusDetailText);
+        Assert.Contains("최고 난이도 정복", airel.NextTierGuideText);
 
         // 4. 카브락:
         // 어려움(입장 90,000 / 저항 3,100) 충족 -> 최고 입장은 어려움!
         var cavrak = results.First(c => c.ContentId == "cavrak");
         Assert.Equal("어려움", cavrak.MaxEntryTier);
-        // 어려움 권장(95,000) 충족, 압도치(109,000)에 투력 -6,168 부족
+        // 어려움 권장(95,000) 충족, 압도치(109,000)에 투력 -6,168 부족 (90%인 98,100 초과)
         Assert.Equal("어려움", cavrak.RecommendedTier);
+        Assert.Contains("압도 근접", cavrak.RecommendedStatusBadge);
+        Assert.Contains("6,168", cavrak.StatusDetailText);
+        Assert.Contains("최고 난이도 정복", cavrak.NextTierGuideText);
     }
 
     [Fact]
@@ -119,6 +127,7 @@ public class DungeonCutoffTests
         var abyss = results.First(c => c.ContentId == "abyss");
         Assert.Equal("입장 불가", abyss.MaxEntryTier);
         Assert.Contains("부족", abyss.StatusDetailText);
+        Assert.Contains("입문", abyss.NextTierGuideText);
 
         // 화서큐: 어려움(입장 0) -> 입장 가능 & 압도 달성
         var succubus = results.First(c => c.ContentId == "white_succubus");
@@ -128,9 +137,11 @@ public class DungeonCutoffTests
         // 에이렐: 입문 어려움(43,500) 미달 -> 입장 불가
         var airel = results.First(c => c.ContentId == "airel");
         Assert.Equal("입장 불가", airel.MaxEntryTier);
+        Assert.Contains("어려움", airel.NextTierGuideText);
 
         // 카브락: 입문(65,000) 미달 -> 입장 불가
         var cavrak = results.First(c => c.ContentId == "cavrak");
         Assert.Equal("입장 불가", cavrak.MaxEntryTier);
+        Assert.Contains("입문", cavrak.NextTierGuideText);
     }
 }

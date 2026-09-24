@@ -88,8 +88,11 @@ public class ContentRecommendationViewModel
     public string RecommendedStatusFg { get; set; } = "#D2A8FF";
     public string RecommendedStatusBorder { get; set; } = "#9B59B6";
 
-    // 3. 상태 및 모자란 수치 상세 가이드 (마우스 호버 툴팁 전용)
+    // 3. 상태 및 모자란 수치 상세 가이드 (2행)
     public string StatusDetailText { get; set; } = "";
+
+    // 4. 상위 난이도 도전 가이드 (3행)
+    public string NextTierGuideText { get; set; } = "";
 }
 
 public static class DungeonCutoffService
@@ -193,30 +196,44 @@ public static class DungeonCutoffService
             var reasons = new List<string>();
             if (cLack > 0) reasons.Add($"투력 {cLack:N0} 부족");
             if (mLack > 0) reasons.Add($"저항 {mLack:N0} 부족");
-            vm.StatusDetailText = $"입문 기준 {string.Join(", ", reasons)}";
+            vm.StatusDetailText = $"{firstTier.TierName} 기준 {string.Join(", ", reasons)}";
+            vm.NextTierGuideText = $"💡 {firstTier.TierName} 단계 입장 스펙 달성 필요";
             return vm;
         }
 
-        // 2. 추천 난이도 탐색 (입장 가능한 난이도 중 상위 난이도 우선)
+        // 2. 추천 난이도 탐색
+        // 承雲 원칙:
+        // (1) 마도저항 무관용: 압도 마도저항(OverwhelmMdef)을 100% 충족해야만 추천 가능. 단 1이라도 부족하면 추천단계 강등!
+        // (2) 전투력 압도 10% 추천 허용: 권장 전투력 이상이고 압도 전투력의 90% 이상(combat >= (OverwhelmCombat * 9) / 10)이면 추천 가능.
         var enterableTiers = content.Tiers.Where(t => t.CanEnter(combat, mdef)).ToList();
 
-        // 1순위: 입장 가능하면서 권장 전투력(RecommendedCombat)을 충족하는 난이도 중 최상위 난이도
-        var safeTiers = enterableTiers.Where(t => combat >= t.RecommendedCombat).ToList();
-        DungeonCutoffTier targetTier;
+        var qualifyingTiers = enterableTiers.Where(t =>
+            (t.OverwhelmMdef == 0 || mdef >= t.OverwhelmMdef) &&
+            (combat >= t.RecommendedCombat && combat >= (t.OverwhelmCombat * 9) / 10)
+        ).ToList();
 
-        if (safeTiers.Count > 0)
+        DungeonCutoffTier targetTier;
+        if (qualifyingTiers.Count > 0)
         {
-            targetTier = safeTiers.Last();
+            targetTier = qualifyingTiers.Last();
         }
         else
         {
-            // 모든 입장 가능 난이도가 권장 미달이면 입장 가능한 최상위 난이도를 턱걸이로 추천
-            targetTier = maxEnterableTier;
+            // 마도저항 압도가 충족되는 하위 난이도 중 최상위 탐색
+            var safeMdefTiers = enterableTiers.Where(t => t.OverwhelmMdef == 0 || mdef >= t.OverwhelmMdef).ToList();
+            if (safeMdefTiers.Count > 0)
+            {
+                targetTier = safeMdefTiers.Last();
+            }
+            else
+            {
+                targetTier = maxEnterableTier;
+            }
         }
 
         vm.RecommendedTier = targetTier.TierName;
 
-        // 타겟 난이도의 상태 평가
+        // 3. 2행 상태 텍스트 (StatusDetailText)
         if (targetTier.IsOverwhelmed(combat, mdef))
         {
             vm.RecommendedStatusBadge = "⚡ 압도";
@@ -224,39 +241,17 @@ public static class DungeonCutoffService
             vm.RecommendedStatusFg = "#D2A8FF";
             vm.RecommendedStatusBorder = "#9B59B6";
 
-            vm.StatusDetailText = targetTier.OverwhelmMdef > 0 
-                ? $"압도 충족 (기준 투력 {targetTier.OverwhelmCombat:N0} / 저항 {targetTier.OverwhelmMdef:N0})"
-                : $"압도 충족 (기준 투력 {targetTier.OverwhelmCombat:N0})";
+            vm.StatusDetailText = "압도 달성";
         }
-        else if (targetTier.IsNearOverwhelm(combat, mdef, out var nearCLack, out var nearMLack))
+        else if (combat >= (targetTier.OverwhelmCombat * 9) / 10 && (targetTier.OverwhelmMdef == 0 || mdef >= targetTier.OverwhelmMdef))
         {
             vm.RecommendedStatusBadge = "🔥 압도 근접";
             vm.RecommendedStatusBg = "#3B2A14";
             vm.RecommendedStatusFg = "#F5D061";
             vm.RecommendedStatusBorder = "#E5A93C";
 
-            var lackParts = new List<string>();
-            if (nearCLack > 0) lackParts.Add($"투력 {nearCLack:N0} 부족");
-            if (nearMLack > 0) lackParts.Add($"저항 {nearMLack:N0} 부족");
-
-            vm.StatusDetailText = $"압도까지 {string.Join(", ", lackParts)}";
-        }
-        else if (combat >= targetTier.RecommendedCombat)
-        {
-            vm.RecommendedStatusBadge = "✓ 권장";
-            vm.RecommendedStatusBg = "#1C3829";
-            vm.RecommendedStatusFg = "#3FB950";
-            vm.RecommendedStatusBorder = "#2EA043";
-
             long cLack = Math.Max(0, targetTier.OverwhelmCombat - combat);
-            long mLack = targetTier.OverwhelmMdef > 0 ? Math.Max(0, targetTier.OverwhelmMdef - mdef) : 0;
-            var lackParts = new List<string>();
-            if (cLack > 0) lackParts.Add($"투력 {cLack:N0}");
-            if (mLack > 0) lackParts.Add($"저항 {mLack:N0}");
-
-            vm.StatusDetailText = lackParts.Count > 0 
-                ? $"권장 충족 (압도까지 {string.Join(", ", lackParts)} 부족)"
-                : "권장 충족";
+            vm.StatusDetailText = $"압도까지 투력 {cLack:N0} 부족";
         }
         else
         {
@@ -265,8 +260,44 @@ public static class DungeonCutoffService
             vm.RecommendedStatusFg = "#D29922";
             vm.RecommendedStatusBorder = "#BB8009";
 
-            long reqLack = targetTier.RecommendedCombat - combat;
-            vm.StatusDetailText = $"권장 투력보다 {reqLack:N0} 부족";
+            var lackParts = new List<string>();
+            if (combat < targetTier.RecommendedCombat)
+                lackParts.Add($"투력 {targetTier.RecommendedCombat - combat:N0} 부족");
+            if (targetTier.OverwhelmMdef > 0 && mdef < targetTier.OverwhelmMdef)
+                lackParts.Add($"저항 {targetTier.OverwhelmMdef - mdef:N0} 부족");
+
+            vm.StatusDetailText = lackParts.Count > 0 ? string.Join(", ", lackParts) : "권장 충족";
+        }
+
+        // 4. 3행 상위 난이도 도전 가이드 (NextTierGuideText)
+        int targetIdx = content.Tiers.IndexOf(targetTier);
+        if (targetIdx >= 0 && targetIdx < content.Tiers.Count - 1)
+        {
+            var nextTier = content.Tiers[targetIdx + 1];
+            long nextReqCombat = Math.Max(nextTier.RecommendedCombat, (nextTier.OverwhelmCombat * 9) / 10);
+            long nextCombatLack = Math.Max(0, nextReqCombat - combat);
+            long nextMdefLack = nextTier.OverwhelmMdef > 0 ? Math.Max(0, nextTier.OverwhelmMdef - mdef) : 0;
+
+            if (nextCombatLack > 0 && nextMdefLack > 0)
+            {
+                vm.NextTierGuideText = $"💡 투력 {nextCombatLack:N0}, 저항 {nextMdefLack:N0} 올리면 상위({nextTier.TierName}) 도전 가능";
+            }
+            else if (nextMdefLack > 0)
+            {
+                vm.NextTierGuideText = $"💡 저항 {nextMdefLack:N0}만 올리면 상위({nextTier.TierName}) 도전 가능";
+            }
+            else if (nextCombatLack > 0)
+            {
+                vm.NextTierGuideText = $"💡 투력 {nextCombatLack:N0}만 올리면 상위({nextTier.TierName}) 도전 가능";
+            }
+            else
+            {
+                vm.NextTierGuideText = $"💡 상위({nextTier.TierName}) 즉시 도전 가능!";
+            }
+        }
+        else
+        {
+            vm.NextTierGuideText = "💡 최고 난이도 정복 (파티 플레이 극대화)";
         }
 
         return vm;

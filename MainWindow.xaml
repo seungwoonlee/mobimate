@@ -584,7 +584,7 @@
                             <!-- 2. 어비스 & 레이드 추천 대시보드 -->
                             <TextBlock Text="🏛️ 어비스 &amp; 레이드 추천 대시보드" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" FontSize="18" Margin="0,4,0,12"/>
 
-                            <!-- 4대 콘텐츠 슬림 요약 카드 그리드 (2열 바둑판 레이아웃, 2행 직관 구조) -->
+                            <!-- 4대 콘텐츠 슬림 요약 카드 그리드 (2열 바둑판 레이아웃, 3행 직관 구조) -->
                             <ItemsControl x:Name="ListContentCards">
                                 <ItemsControl.ItemsPanel>
                                     <ItemsPanelTemplate>
@@ -596,6 +596,7 @@
                                         <Border Background="{StaticResource BgCard}" BorderBrush="#2E3A52" BorderThickness="1" CornerRadius="8" Padding="14,10" Margin="4,4,4,6">
                                             <Grid>
                                                 <Grid.RowDefinitions>
+                                                    <RowDefinition Height="Auto"/>
                                                     <RowDefinition Height="Auto"/>
                                                     <RowDefinition Height="Auto"/>
                                                 </Grid.RowDefinitions>
@@ -626,8 +627,11 @@
                                                     </Border>
                                                 </StackPanel>
 
-                                                <!-- [2행]: 상세 상태 및 부족 수치 바로 표시 -->
-                                                <TextBlock Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Text="{Binding StatusDetailText}" FontSize="12" Foreground="#F5D061" Margin="0,6,0,0"/>
+                                                <!-- [2행]: 현재 추천 난이도 상태 및 부족 수치 -->
+                                                <TextBlock Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Text="{Binding StatusDetailText}" FontSize="12" Foreground="#F5D061" Margin="0,5,0,0"/>
+
+                                                <!-- [3행]: 상위 난이도 도전 가이드 (올려야 할 스펙 안내) -->
+                                                <TextBlock Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" Text="{Binding NextTierGuideText}" FontSize="11" Foreground="#58A6FF" Margin="0,3,0,0"/>
                                             </Grid>
                                         </Border>
                                     </DataTemplate>

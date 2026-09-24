@@ -14,10 +14,10 @@
     <!-- 빌드 시점 기준 월일시분(MMdd.HHmm) 동적 버전 생성 -->
     <BuildDate>$([System.DateTime]::Now.ToString("MMdd"))</BuildDate>
     <BuildTime>$([System.DateTime]::Now.ToString("HHmm"))</BuildTime>
-    <Version>1.1.$(BuildDate).$(BuildTime)</Version>
-    <AssemblyVersion>1.1.$(BuildDate).$(BuildTime)</AssemblyVersion>
-    <FileVersion>1.1.$(BuildDate).$(BuildTime)</FileVersion>
-    <InformationalVersion>v1.1.$(BuildDate).$(BuildTime)</InformationalVersion>
+    <Version>1.2.$(BuildDate).$(BuildTime)</Version>
+    <AssemblyVersion>1.2.$(BuildDate).$(BuildTime)</AssemblyVersion>
+    <FileVersion>1.2.$(BuildDate).$(BuildTime)</FileVersion>
+    <InformationalVersion>v1.2.$(BuildDate).$(BuildTime)</InformationalVersion>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
   </PropertyGroup>
 
