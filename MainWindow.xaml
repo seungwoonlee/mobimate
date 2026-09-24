@@ -482,7 +482,7 @@
                 <!-- 우측: 컴팩트 아이콘 제어 버튼들 및 빌드 버전 뱃지 -->
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                     <!-- 긴급 정지 아이콘 버튼 -->
-                    <Button Click="BtnEmergencyStop_Click" Background="{StaticResource AccentRed}" Foreground="White" Width="36" Height="36" BorderThickness="0" Margin="0,0,8,0" Cursor="Hand" ToolTip="🛑 긴급 정지 (ESC)">
+                    <Button Click="BtnEmergencyStop_Click" Background="{StaticResource AccentRed}" Foreground="White" Width="36" Height="36" BorderThickness="0" Margin="0,0,8,0" Cursor="Hand" ToolTip="🛑 긴급 정지 (ESC) - 실행 중인 모든 작업을 즉시 중단합니다">
                         <Button.Template>
                             <ControlTemplate TargetType="Button">
                                 <Border Background="{TemplateBinding Background}" CornerRadius="18">
@@ -496,7 +496,7 @@
                     <Button x:Name="BtnOpenExcelSheet" Click="BtnOpenExcelSheet_Click"
                             Background="#1E3A5F" Foreground="#79B8FF" Width="36" Height="36"
                             BorderBrush="#388BFD" BorderThickness="1" Margin="0,0,8,0" Cursor="Hand"
-                            ToolTip="📊 엑셀 파일 저장 위치 관리 및 동기화">
+                            ToolTip="📊 엑셀 시트 관리 - 저장 위치 설정 및 캐릭터 데이터 동기화">
                         <Button.Template>
                             <ControlTemplate TargetType="Button">
                                 <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="18">
@@ -509,7 +509,7 @@
                     <!-- 새로고침 아이콘 버튼 -->
                     <Button x:Name="BtnRefreshCurrentTab" Click="BtnRefreshCurrentTab_Click"
                             Background="{StaticResource AccentBlue}" Foreground="White" Width="36" Height="36"
-                            BorderThickness="0" Margin="0,0,8,0" Cursor="Hand" ToolTip="🔄 현재 탭 새로고침">
+                            BorderThickness="0" Margin="0,0,8,0" Cursor="Hand" ToolTip="🔄 현재 탭 새로고침 - 게임 클라이언트에서 최신 데이터를 다시 불러옵니다">
                         <Button.Template>
                             <ControlTemplate TargetType="Button">
                                 <Border Background="{TemplateBinding Background}" CornerRadius="18">
@@ -584,7 +584,7 @@
                             <!-- 2. 어비스 & 레이드 추천 대시보드 -->
                             <TextBlock Text="🏛️ 어비스 &amp; 레이드 추천 대시보드" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" FontSize="18" Margin="0,4,0,12"/>
 
-                            <!-- 4대 콘텐츠 슬림 요약 카드 그리드 (2열 바둑판 레이아웃) -->
+                            <!-- 4대 콘텐츠 슬림 요약 카드 그리드 (2열 바둑판 레이아웃, 2행 직관 구조) -->
                             <ItemsControl x:Name="ListContentCards">
                                 <ItemsControl.ItemsPanel>
                                     <ItemsPanelTemplate>
@@ -593,22 +593,25 @@
                                 </ItemsControl.ItemsPanel>
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <Border Background="{StaticResource BgCard}" BorderBrush="#2E3A52" BorderThickness="1" CornerRadius="8" Padding="14,10" Margin="4,4,4,6"
-                                                ToolTip="{Binding StatusDetailText}" Cursor="Help">
+                                        <Border Background="{StaticResource BgCard}" BorderBrush="#2E3A52" BorderThickness="1" CornerRadius="8" Padding="14,10" Margin="4,4,4,6">
                                             <Grid>
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="Auto"/>
+                                                    <RowDefinition Height="Auto"/>
+                                                </Grid.RowDefinitions>
                                                 <Grid.ColumnDefinitions>
                                                     <ColumnDefinition Width="Auto"/>
                                                     <ColumnDefinition Width="*"/>
                                                 </Grid.ColumnDefinitions>
 
-                                                <!-- 좌측: 아이콘 + 콘텐츠명 (단 한 줄, 사족 없음) -->
-                                                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                                <!-- [1행 좌측]: 아이콘 + 콘텐츠명 -->
+                                                <StackPanel Grid.Row="0" Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
                                                     <TextBlock Text="{Binding Icon}" FontSize="18" Margin="0,0,8,0" VerticalAlignment="Center"/>
                                                     <TextBlock Text="{Binding ContentName}" FontWeight="Bold" FontSize="15" Foreground="{StaticResource TextPrimary}" VerticalAlignment="Center"/>
                                                 </StackPanel>
 
-                                                <!-- 우측: 최고 입장 & 맞춤 추천 (인라인 단층 배치) -->
-                                                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                                <!-- [1행 우측]: 최고 입장 & 맞춤 추천 (인라인 배치) -->
+                                                <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
                                                     <!-- 최고 입장 -->
                                                     <TextBlock Text="입장" FontSize="12" Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center" Margin="0,0,5,0"/>
                                                     <Border Background="{Binding MaxEntryTierBadgeBg}" CornerRadius="4" Padding="6,2" Margin="0,0,12,0" VerticalAlignment="Center">
@@ -622,6 +625,9 @@
                                                         <TextBlock Text="{Binding RecommendedStatusBadge}" FontSize="11" FontWeight="Bold" Foreground="{Binding RecommendedStatusFg}"/>
                                                     </Border>
                                                 </StackPanel>
+
+                                                <!-- [2행]: 상세 상태 및 부족 수치 바로 표시 -->
+                                                <TextBlock Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Text="{Binding StatusDetailText}" FontSize="12" Foreground="#F5D061" Margin="0,6,0,0"/>
                                             </Grid>
                                         </Border>
                                     </DataTemplate>

@@ -197,71 +197,76 @@ public static class DungeonCutoffService
             return vm;
         }
 
-        // 2. 추천 난이도 탐색
-        var overwhelmedTier = content.Tiers.LastOrDefault(t => t.IsOverwhelmed(combat, mdef));
+        // 2. 추천 난이도 탐색 (입장 가능한 난이도 중 상위 난이도 우선)
+        var enterableTiers = content.Tiers.Where(t => t.CanEnter(combat, mdef)).ToList();
 
-        long nearCombatLack = 0, nearMdefLack = 0;
-        var nearOverwhelmTier = content.Tiers.LastOrDefault(t => t.IsNearOverwhelm(combat, mdef, out nearCombatLack, out nearMdefLack));
+        // 1순위: 입장 가능하면서 권장 전투력(RecommendedCombat)을 충족하는 난이도 중 최상위 난이도
+        var safeTiers = enterableTiers.Where(t => combat >= t.RecommendedCombat).ToList();
+        DungeonCutoffTier targetTier;
 
-        if (overwhelmedTier != null && (nearOverwhelmTier == null || content.Tiers.IndexOf(overwhelmedTier) >= content.Tiers.IndexOf(nearOverwhelmTier)))
+        if (safeTiers.Count > 0)
         {
-            vm.RecommendedTier = overwhelmedTier.TierName;
+            targetTier = safeTiers.Last();
+        }
+        else
+        {
+            // 모든 입장 가능 난이도가 권장 미달이면 입장 가능한 최상위 난이도를 턱걸이로 추천
+            targetTier = maxEnterableTier;
+        }
+
+        vm.RecommendedTier = targetTier.TierName;
+
+        // 타겟 난이도의 상태 평가
+        if (targetTier.IsOverwhelmed(combat, mdef))
+        {
             vm.RecommendedStatusBadge = "⚡ 압도";
             vm.RecommendedStatusBg = "#2E1C48";
             vm.RecommendedStatusFg = "#D2A8FF";
             vm.RecommendedStatusBorder = "#9B59B6";
 
-            vm.StatusDetailText = overwhelmedTier.OverwhelmMdef > 0 
-                ? $"압도 충족 (기준 투력 {overwhelmedTier.OverwhelmCombat:N0} / 저항 {overwhelmedTier.OverwhelmMdef:N0})"
-                : $"압도 충족 (기준 투력 {overwhelmedTier.OverwhelmCombat:N0})";
+            vm.StatusDetailText = targetTier.OverwhelmMdef > 0 
+                ? $"압도 충족 (기준 투력 {targetTier.OverwhelmCombat:N0} / 저항 {targetTier.OverwhelmMdef:N0})"
+                : $"압도 충족 (기준 투력 {targetTier.OverwhelmCombat:N0})";
         }
-        else if (nearOverwhelmTier != null)
+        else if (targetTier.IsNearOverwhelm(combat, mdef, out var nearCLack, out var nearMLack))
         {
-            nearOverwhelmTier.IsNearOverwhelm(combat, mdef, out nearCombatLack, out nearMdefLack);
-            vm.RecommendedTier = nearOverwhelmTier.TierName;
             vm.RecommendedStatusBadge = "🔥 압도 근접";
             vm.RecommendedStatusBg = "#3B2A14";
             vm.RecommendedStatusFg = "#F5D061";
             vm.RecommendedStatusBorder = "#E5A93C";
 
             var lackParts = new List<string>();
-            if (nearCombatLack > 0) lackParts.Add($"투력 {nearCombatLack:N0} 부족");
-            if (nearMdefLack > 0) lackParts.Add($"저항 {nearMdefLack:N0} 부족");
+            if (nearCLack > 0) lackParts.Add($"투력 {nearCLack:N0} 부족");
+            if (nearMLack > 0) lackParts.Add($"저항 {nearMLack:N0} 부족");
 
             vm.StatusDetailText = $"압도까지 {string.Join(", ", lackParts)}";
         }
+        else if (combat >= targetTier.RecommendedCombat)
+        {
+            vm.RecommendedStatusBadge = "✓ 권장";
+            vm.RecommendedStatusBg = "#1C3829";
+            vm.RecommendedStatusFg = "#3FB950";
+            vm.RecommendedStatusBorder = "#2EA043";
+
+            long cLack = Math.Max(0, targetTier.OverwhelmCombat - combat);
+            long mLack = targetTier.OverwhelmMdef > 0 ? Math.Max(0, targetTier.OverwhelmMdef - mdef) : 0;
+            var lackParts = new List<string>();
+            if (cLack > 0) lackParts.Add($"투력 {cLack:N0}");
+            if (mLack > 0) lackParts.Add($"저항 {mLack:N0}");
+
+            vm.StatusDetailText = lackParts.Count > 0 
+                ? $"권장 충족 (압도까지 {string.Join(", ", lackParts)} 부족)"
+                : "권장 충족";
+        }
         else
         {
-            var targetTier = maxEnterableTier;
-            vm.RecommendedTier = targetTier.TierName;
+            vm.RecommendedStatusBadge = "⚠️ 턱걸이";
+            vm.RecommendedStatusBg = "#382914";
+            vm.RecommendedStatusFg = "#D29922";
+            vm.RecommendedStatusBorder = "#BB8009";
 
-            if (combat >= targetTier.RecommendedCombat)
-            {
-                vm.RecommendedStatusBadge = "✓ 권장";
-                vm.RecommendedStatusBg = "#1C3829";
-                vm.RecommendedStatusFg = "#3FB950";
-                vm.RecommendedStatusBorder = "#2EA043";
-
-                long cLack = Math.Max(0, targetTier.OverwhelmCombat - combat);
-                long mLack = targetTier.OverwhelmMdef > 0 ? Math.Max(0, targetTier.OverwhelmMdef - mdef) : 0;
-                var lackParts = new List<string>();
-                if (cLack > 0) lackParts.Add($"투력 {cLack:N0}");
-                if (mLack > 0) lackParts.Add($"저항 {mLack:N0}");
-
-                vm.StatusDetailText = lackParts.Count > 0 
-                    ? $"권장 충족 (압도까지 {string.Join(", ", lackParts)} 부족)"
-                    : "권장 충족";
-            }
-            else
-            {
-                vm.RecommendedStatusBadge = "⚠️ 턱걸이";
-                vm.RecommendedStatusBg = "#382914";
-                vm.RecommendedStatusFg = "#D29922";
-                vm.RecommendedStatusBorder = "#BB8009";
-
-                long reqLack = targetTier.RecommendedCombat - combat;
-                vm.StatusDetailText = $"권장 투력보다 {reqLack:N0} 부족";
-            }
+            long reqLack = targetTier.RecommendedCombat - combat;
+            vm.StatusDetailText = $"권장 투력보다 {reqLack:N0} 부족";
         }
 
         return vm;
