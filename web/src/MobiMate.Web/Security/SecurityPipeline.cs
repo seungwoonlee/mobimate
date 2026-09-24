@@ -6,12 +6,17 @@ namespace MobiMate.Web.Security;
 /// <summary>LAN 모드에서 허용할 호스트 이름(현재 LAN IP, mDNS 이름). S3b에서 실제 구현으로 바뀐다.</summary>
 public interface ILanHosts
 {
+    /// <summary>허용 호스트 이름(현재 연 LAN IP, 광고 중인 mDNS 이름).</summary>
     IReadOnlyCollection<string> Current { get; }
+
+    /// <summary>이 로컬 주소로 지금 LAN 서비스를 하고 있는가.</summary>
+    bool Serves(IPAddress local);
 }
 
 public sealed class NoLanHosts : ILanHosts
 {
     public IReadOnlyCollection<string> Current => Array.Empty<string>();
+    public bool Serves(IPAddress local) => false;
 }
 
 /// <summary>
@@ -31,7 +36,14 @@ public sealed class SecurityMiddleware(RequestDelegate next, DeviceStore devices
 
     public async Task InvokeAsync(HttpContext ctx)
     {
-        if (!IsAllowedHost(ctx.Request.Host.Host) || ctx.Request.Host.Port != identity.Port)
+        // LAN을 내린 뒤에도 Kestrel이 정리 중인 keep-alive 연결로 요청이 올 수 있다. 받은 주소가 지금 서비스 중인 주소가 아니면 거부한다.
+        var local = ctx.Connection.LocalIpAddress;
+        // 연결 주소와 Host를 묶는다: LAN 주소로 들어온 연결은 LAN 호스트 이름(IP·mDNS)만, 루프백 연결은 허용 목록 전체 (SEC-01).
+        var viaLan = local != null && !IPAddress.IsLoopback(local);
+        var localOk = !viaLan || lanHosts.Serves(local!);
+        var host = ctx.Request.Host.Host;
+        var hostOk = viaLan ? lanHosts.Current.Contains(host, StringComparer.OrdinalIgnoreCase) : IsAllowedHost(host);
+        if (!localOk || !hostOk || ctx.Request.Host.Port != identity.Port)
         {
             await ApiResults.Write(ctx, StatusCodes.Status421MisdirectedRequest, "HOST_NOT_ALLOWED", "허용되지 않은 호스트입니다.");
             return;
@@ -70,14 +82,18 @@ public sealed class SecurityMiddleware(RequestDelegate next, DeviceStore devices
         await next(ctx);
     }
 
-    private bool IsAllowedHost(string host) =>
-        LoopbackNames.Contains(host, StringComparer.OrdinalIgnoreCase) || lanHosts.Current.Contains(host, StringComparer.OrdinalIgnoreCase);
+    private bool IsAllowedHost(string host) => IsAllowedHost(host, lanHosts);
 
-    private bool IsAllowedOrigin(string origin)
+    private bool IsAllowedOrigin(string origin) => IsAllowedOrigin(origin, lanHosts, identity.Port);
+
+    public static bool IsAllowedHost(string host, ILanHosts lan) =>
+        LoopbackNames.Contains(host, StringComparer.OrdinalIgnoreCase) || lan.Current.Contains(host, StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>허용 출처: http + 허용 호스트 + 서버 포트 (SEC-02). 포트가 다르면 같은 PC의 다른 서버다.</summary>
+    public static bool IsAllowedOrigin(string? origin, ILanHosts lan, int port)
     {
         if (string.IsNullOrEmpty(origin) || !Uri.TryCreate(origin, UriKind.Absolute, out var uri)) return false;
-        // 포트까지 같아야 한다. 같은 PC의 다른 로컬 서버(다른 포트)는 다른 출처다 (SEC-02).
-        return uri.Scheme == Uri.UriSchemeHttp && IsAllowedHost(uri.Host) && uri.Port == identity.Port;
+        return uri.Scheme == Uri.UriSchemeHttp && IsAllowedHost(uri.Host, lan) && uri.Port == port;
     }
 
     public static DeviceRecord? DeviceOf(HttpContext ctx) => ctx.Items[DeviceItem] as DeviceRecord;

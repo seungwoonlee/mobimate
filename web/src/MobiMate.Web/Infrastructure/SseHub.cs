@@ -28,6 +28,18 @@ public sealed class SseHub(ServerIdentity identity, MobiMateOptions options, Mob
         foreach (var c in _connections.Values.Where(c => c.DeviceId == deviceId)) c.Channel.Writer.TryWrite(frame);
     }
 
+    /// <summary>받은 로컬 주소가 조건에 맞는 연결을 닫는다 (LAN을 내릴 때).</summary>
+    public int DisconnectWhere(Func<System.Net.IPAddress?, bool> localMatches)
+    {
+        var n = 0;
+        foreach (var c in _connections.Values.Where(c => localMatches(c.Local)))
+        {
+            c.Channel.Writer.TryComplete();
+            n++;
+        }
+        return n;
+    }
+
     public int Disconnect(string deviceId)
     {
         var n = 0;
@@ -41,7 +53,7 @@ public sealed class SseHub(ServerIdentity identity, MobiMateOptions options, Mob
 
     public async Task Serve(HttpContext ctx, string deviceId)
     {
-        var conn = new Connection(Guid.NewGuid().ToString("N")[..12], deviceId,
+        var conn = new Connection(Guid.NewGuid().ToString("N")[..12], deviceId, ctx.Connection.LocalIpAddress,
             Channel.CreateBounded<string>(new BoundedChannelOptions(256) { FullMode = BoundedChannelFullMode.DropOldest }));
         _connections[conn.Id] = conn;
         var ct = ctx.RequestAborted;
@@ -93,5 +105,5 @@ public sealed class SseHub(ServerIdentity identity, MobiMateOptions options, Mob
     private static string Frame(string evt, object data) =>
         $"event: {evt}\ndata: {JsonSerializer.Serialize(data, ApiResults.Json)}\n\n";
 
-    private sealed record Connection(string Id, string DeviceId, Channel<string> Channel);
+    private sealed record Connection(string Id, string DeviceId, System.Net.IPAddress? Local, Channel<string> Channel);
 }

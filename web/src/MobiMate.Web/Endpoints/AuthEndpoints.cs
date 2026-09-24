@@ -2,12 +2,14 @@ using System.Diagnostics;
 using System.Net;
 using MobiMate.Web.Hosting;
 using MobiMate.Web.Infrastructure;
+using MobiMate.Web.Lan;
 using MobiMate.Web.Security;
 using MobiMate.Web.Services;
 
 namespace MobiMate.Web.Endpoints;
 
 public sealed record PairingConfirmRequest(string? Code, string? DeviceName);
+public sealed record LanRequest(bool? Enabled);
 
 /// <summary>기동 코드 교환, 세션·메타, 페어링 (SEC-03~08, 상세설계 §3.3·§5.1).</summary>
 public static class AuthEndpoints
@@ -28,7 +30,17 @@ public static class AuthEndpoints
         });
 
         // 서버 식별 (FR-MB-13 mDNS 판정용). 인증 불필요, 개인 데이터 없음.
-        app.MapGet("/api/ping", (ServerIdentity id) => Results.Json(new { serverId = id.ServerId }, ApiResults.Json));
+        // IP 주소로 연 페이지가 mDNS 이름 주소로 확인하므로 교차 출처 요청이다. 허용 출처(SEC-01 호스트)만 CORS를 연다 (SEC-03).
+        app.MapGet("/api/ping", (HttpContext ctx, ServerIdentity id, ILanHosts lan) =>
+        {
+            var origin = ctx.Request.Headers.Origin.ToString();
+            if (SecurityMiddleware.IsAllowedOrigin(origin, lan, id.Port))
+            {
+                ctx.Response.Headers.AccessControlAllowOrigin = origin;
+                ctx.Response.Headers.Vary = "Origin";
+            }
+            return Results.Json(new { serverId = id.ServerId }, ApiResults.Json);
+        });
 
         app.MapGet("/api/session", (HttpContext ctx, DeviceStore devices) =>
         {
@@ -36,24 +48,37 @@ public static class AuthEndpoints
             return ApiResults.Ok(new { deviceId = d.Id, deviceName = d.Name, kind = d.Kind, csrf = devices.CsrfFor(d.Id), expiresAt = d.ExpiresAt });
         });
 
-        app.MapGet("/api/meta", (ServerIdentity id, WebSettingsStore settings, ILanHosts lan) => ApiResults.Ok(new
+        app.MapGet("/api/meta", (ServerIdentity id, LanService lan) => ApiResults.Ok(new
         {
             version = id.Version,
             serverId = id.ServerId,
             chatCountMode = ChatText.Mode,
             chatMaxLength = ChatText.MaxLength,
-            lan = new { enabled = settings.Current.LanEnabled, active = lan.Current.Count > 0, hosts = lan.Current, port = id.Port },
+            lan = LanView(lan.Status),
             wpfRunning = WpfRunning(),
         }));
 
-        var pairing = app.MapGroup("/api/pairing");
-        pairing.MapPost("/start", (PairingService svc, ILanHosts lan, ServerIdentity id) =>
+        // LAN 모드 켜기/끄기 (NFR-03, SEC-08 게임 PC 전용)
+        app.MapPut("/api/lan", async (LanRequest req, LanService lan, CancellationToken ct) =>
         {
+            if (req.Enabled == null) return ApiResults.Error(StatusCodes.Status400BadRequest, "VALIDATION", "enabled가 필요합니다.");
+            var s = await lan.SetEnabledAsync(req.Enabled.Value, ct);
+            return s == null ? ApiResults.Error(503, "STORAGE_UNAVAILABLE", "설정을 저장하지 못했습니다.") : ApiResults.Ok(LanView(s));
+        }).AddEndpointFilter<LoopbackOnly>();
+
+        var pairing = app.MapGroup("/api/pairing");
+        // QR은 항상 IP 주소로 연다(urlIp). 이름 주소(urlName)는 폰 페이지가 /api/ping으로 확인한 뒤 옮겨 간다 (FR-MB-10·13).
+        pairing.MapPost("/start", (PairingService svc, LanService lan) =>
+        {
+            var s = lan.Status;
+            if (!s.Active) return ApiResults.Error(StatusCodes.Status409Conflict, "LAN_OFF", "LAN 모드가 꺼져 있거나 쓸 수 없습니다. 설정에서 LAN 모드를 켜 주세요.");
             var (code, expiresAt) = svc.Start(DateTimeOffset.UtcNow);
             return ApiResults.Ok(new
             {
                 code, expiresAt,
-                urls = lan.Current.Select(h => $"http://{h}:{id.Port}/pair?code={code}"),
+                urlIp = $"http://{s.Addresses[0]}:{s.Port}/pair?code={code}",
+                urlName = s.MdnsName is { } n ? $"http://{n}:{s.Port}/pair?code={code}" : null,
+                addresses = s.Addresses,
             });
         }).AddEndpointFilter<LoopbackOnly>();
 
@@ -90,6 +115,12 @@ public static class AuthEndpoints
             return ApiResults.Ok(new { revoked = id, closedStreams = closed });
         }).AddEndpointFilter<LoopbackOnly>();
     }
+
+    internal static object LanView(LanStatus s) => new
+    {
+        enabled = s.Enabled, active = s.Active, hosts = s.Addresses, mdnsName = s.MdnsName, port = s.Port,
+        error = s.Error == LanError.None ? null : s.Error.ToString(), networkPrivate = s.NetworkPrivate,
+    };
 
     public static bool IsLoopback(HttpContext ctx) => ctx.Connection.RemoteIpAddress is { } ip && IPAddress.IsLoopback(ip);
 
