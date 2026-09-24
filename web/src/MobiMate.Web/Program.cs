@@ -70,6 +70,12 @@ builder.Services.AddSingleton<GameQueries>();
 builder.Services.AddSingleton<GameStateCache>();
 builder.Services.AddSingleton(sp => new SnapshotManager(Dir(sp)));
 builder.Services.AddSingleton(_ => HomeworkCatalog.LoadEmbedded());
+builder.Services.AddSingleton(sp =>
+{
+    var catalog = CutoffCatalog.Load(Dir(sp));
+    foreach (var w in catalog.Warnings) sp.GetRequiredService<ILogger<CutoffCatalog>>().LogWarning("컷오프 기준표: {Warning}", w);
+    return catalog;
+});
 builder.Services.AddSingleton(sp => new HomeworkStore(Dir(sp)));
 builder.Services.AddSingleton(sp => new HomeworkService(sp.GetRequiredService<HomeworkCatalog>(), sp.GetRequiredService<HomeworkStore>()));
 builder.Services.AddSingleton<HomeworkWatcher>();

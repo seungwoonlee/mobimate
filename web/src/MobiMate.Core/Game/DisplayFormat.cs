@@ -15,26 +15,23 @@ public static partial class DisplayFormat
         return $"{t.Seconds}초";
     }
 
-    [GeneratedRegex(@"(?:(\d+)-)?(\d{1,2})-(\d{1,2})\s+(\d{1,2}):(\d{2})")]
-    private static partial Regex ErinnRegex();
+    [GeneratedRegex(@"(\d{1,2}):(\d{2})")]
+    private static partial Regex ErinnClockRegex();
 
     /// <summary>
-    /// 에린 시간: "2959-4-23 15:51" → "에린 시간 2959년 4월 23일 15:51 ☀️ (낮)".
-    /// v1.1.0에서 연도 표시를 되살렸다. 연도가 없으면 연도 없이 표시한다.
+    /// 에린 시간 (REQUIREMENTS K-11, WPF판 v1.2.0): 게임이 준 문자열을 그대로 두고 낮·밤 배지만 붙인다.
+    /// "2960-0-20 13:47" → "에린 시간 2960-0-20 13:47 ☀️ (낮)". 엔진의 월은 0부터 시작하므로 "N월"로 풀어 쓰지 않는다.
     /// </summary>
     public static string ErinnTime(string? erinnNow)
     {
         if (string.IsNullOrWhiteSpace(erinnNow)) return "";
 
-        var m = ErinnRegex().Match(erinnNow);
-        if (!m.Success) return $"에린 시간 {erinnNow}";
+        var raw = erinnNow.Trim();
+        var m = ErinnClockRegex().Match(raw);
+        if (!m.Success) return $"에린 시간 {raw}";
 
-        var year = m.Groups[1].Success ? $"{m.Groups[1].Value}년 " : "";
-        var month = int.Parse(m.Groups[2].Value);
-        var day = int.Parse(m.Groups[3].Value);
-        var hour = int.Parse(m.Groups[4].Value);
-        var minute = m.Groups[5].Value;
+        var hour = int.Parse(m.Groups[1].Value);
         var isDay = hour >= 6 && hour < 18;
-        return $"에린 시간 {year}{month}월 {day}일 {hour:D2}:{minute} {(isDay ? "☀️" : "🌙")} ({(isDay ? "낮" : "밤")})";
+        return $"에린 시간 {raw} {(isDay ? "☀️" : "🌙")} ({(isDay ? "낮" : "밤")})";
     }
 }

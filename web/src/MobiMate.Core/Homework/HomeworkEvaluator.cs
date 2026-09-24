@@ -8,7 +8,8 @@ public sealed record HomeworkObservation(
     ActivityInfo? Activity = null,
     EnvironmentInfo? Environment = null,
     AlteringWorksResponse? AlteringWorks = null,
-    bool CollectedByApp = false);
+    bool CollectedByApp = false,
+    IReadOnlyList<CurrencyItem>? Currencies = null);
 
 public sealed record HomeworkEvaluation(IReadOnlyList<string> ChangedIds, IReadOnlyList<string> InProgressIds);
 
@@ -51,6 +52,7 @@ public static class HomeworkEvaluator
         var changed = new List<string>();
         var inProgress = new List<string>();
         var alteringCollected = ObserveAltering(character, obs, nowUtc, characterJustSwitched);
+        var raidSuggestions = ObserveRaidTokens(character, catalog, obs, nowUtc, characterJustSwitched);
 
         foreach (var def in catalog.Items)
         {
@@ -62,7 +64,7 @@ public static class HomeworkEvaluator
 
             // 빈 상태를 미리 만들지 않는다. 값이 바뀔 때만 장부에 넣는다.
             var st = existing ?? new HomeworkItemState();
-            var before = (st.Completed, st.Count, st.Goal);
+            var before = (st.Completed, st.Count, st.Goal, st.Suggestion);
             switch (def.EffectiveMode)
             {
                 case HomeworkMode.DirectMission:
@@ -78,7 +80,8 @@ public static class HomeworkEvaluator
                     Complete(st, def.Goal, alteringCollected, nowUtc);
                     break;
             }
-            if ((st.Completed, st.Count, st.Goal) != before)
+            if (!st.Completed && raidSuggestions.TryGetValue(def.Id, out var suggestion)) st.Suggestion = suggestion;
+            if ((st.Completed, st.Count, st.Goal, st.Suggestion) != before)
             {
                 ledger.Items[def.Id] = st;
                 changed.Add(def.Id);
@@ -156,6 +159,49 @@ public static class HomeworkEvaluator
         return evidence;
     }
 
+    /// <summary>
+    /// 레이드 증표 관찰 (FR-HW-17, H-11). 같은 캐릭터를 이어서 관찰했고(사이에 다른 캐릭터 없음), 직전 관찰이 이번 주간 주기 안이며,
+    /// 증표 수량이 늘었으면 그 레이드 항목에 제안을 돌려준다. 완료 처리는 하지 않는다.
+    /// - 조회 실패(null)·빈 목록은 비교에도 기록에도 쓰지 않는다.
+    /// - 목록에 없는 증표는 0으로 보지 않는다: 그 증표의 기준값을 그대로 두고 비교에서 뺀다(불완전한 목록 → 0 → 늘어남 오탐 방지).
+    /// - 캐릭터가 바뀐 관찰은 기준값을 지우기만 한다(재화 캐시가 이전 캐릭터 것일 수 있음). 다음 관찰부터 새로 쌓는다.
+    /// </summary>
+    private static Dictionary<string, HomeworkSuggestion> ObserveRaidTokens(
+        HomeworkLedger character, HomeworkCatalog catalog, HomeworkObservation obs, DateTimeOffset now, bool characterJustSwitched)
+    {
+        var result = new Dictionary<string, HomeworkSuggestion>(StringComparer.OrdinalIgnoreCase);
+        if (characterJustSwitched)
+        {
+            character.RaidTokens = null;
+            character.RaidTokensObservedUtc = null;
+            return result;
+        }
+        if (obs.Currencies is not { Count: > 0 }) return result;
+
+        var defs = catalog.Items.Where(d => !string.IsNullOrWhiteSpace(d.TokenCurrency)).ToList();
+        if (defs.Count == 0) return result;
+
+        var amounts = obs.Currencies
+            .GroupBy(c => HomeworkText.Normalize(c.DisplayName))
+            .ToDictionary(g => g.Key, g => g.Sum(c => c.Amount));
+
+        var samePeriod = character.RaidTokensObservedUtc is { } at && at >= character.LastWeeklyResetUtc;
+        var prev = samePeriod ? character.RaidTokens : null;   // 지난 주기 기준값은 버린다
+        var next = new Dictionary<string, long>(prev ?? new Dictionary<string, long>());
+        foreach (var d in defs)
+        {
+            var key = HomeworkText.Normalize(d.TokenCurrency);
+            if (!amounts.TryGetValue(key, out var now_)) continue;   // 목록에 없음: 기준값 유지, 비교 안 함
+            if (prev != null && prev.TryGetValue(key, out var before) && now_ > before)
+                result[d.Id] = new HomeworkSuggestion("raidTokenIncreased", d.TokenCurrency!, before, now_);
+            next[key] = now_;
+        }
+
+        character.RaidTokens = next;
+        character.RaidTokensObservedUtc = now;
+        return result;
+    }
+
     private static bool IsProgressSignal(HomeworkDefinition def, HomeworkObservation obs)
     {
         if (obs.Activity?.IsInCombat != true) return false;   // H-10: 자동 사냥만으로는 신호 아님
@@ -175,5 +221,6 @@ public static class HomeworkEvaluator
         st.Count = count;
         st.CompletedAtUtc = now;
         st.Evidence = evidence;
+        st.Suggestion = null;
     }
 }

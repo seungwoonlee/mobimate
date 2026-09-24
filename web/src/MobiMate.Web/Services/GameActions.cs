@@ -153,12 +153,16 @@ public sealed class HomeworkWatcher(HomeworkService homework, GameQueries q, Sse
         var tA = q.Get<ActivityInfo>("get_activity", ct);
         var tE = q.Get<EnvironmentInfo>("get_current_environment", ct);
         var tW2 = q.Get<AlteringWorksResponse>("get_altering_works", ct);
-        await Task.WhenAll(tMe, tD, tW, tQ, tA, tE, tW2);
+        var tC = q.Get<List<CurrencyItem>>("get_currencies", ct);   // 레이드 증표 관찰 (FR-HW-17)
+        await Task.WhenAll(tMe, tD, tW, tQ, tA, tE, tW2, tC);
 
         if (tMe.Result.Value is not { } ch || string.IsNullOrWhiteSpace(ch.RealmName) || string.IsNullOrWhiteSpace(ch.JobName)) return null;
         var key = GameViews.CharacterKey(ch);
+        // 캐릭터가 바뀌었으면 재화 캐시가 이전 캐릭터 것일 수 있다. 이번 관찰은 판정기가 기준값만 지우고, 다음 조회는 새로 받게 한다.
+        if (homework.LastObservedCharacter is { } last && !last.Equals(key, StringComparison.OrdinalIgnoreCase)) q.Invalidate("get_currencies");
         Evaluate(key, new HomeworkObservation(
-            tD.Result.Value, tW.Result.Value, tQ.Result.Value, tA.Result.Value, tE.Result.Value, tW2.Result.Value));
+            tD.Result.Value, tW.Result.Value, tQ.Result.Value, tA.Result.Value, tE.Result.Value, tW2.Result.Value,
+            Currencies: tC.Result.Value));
         return key;
     }
 

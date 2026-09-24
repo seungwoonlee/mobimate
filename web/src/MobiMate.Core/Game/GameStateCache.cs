@@ -31,6 +31,13 @@ public sealed class GameStateCache
     }
 
     public void UpdateCurrencies(IReadOnlyList<CurrencyItem>? list) { if (list != null) Currencies = list; }
+
+    /// <summary>캐릭터가 바뀌면 캐릭터별 값(재화·일일 미션)을 비운다. 이전 캐릭터 값이 새 캐릭터의 세션 기준값이 되지 않게 한다.</summary>
+    public void ClearPerCharacter()
+    {
+        Currencies = null;
+        DailyMissions = null;
+    }
     public void UpdateDailyMissions(IReadOnlyList<MissionItem>? list) { if (list != null) DailyMissions = list; }
     public void UpdateGatherables(IReadOnlyList<GatherableItem>? list) { if (list != null) Gatherables = list; }
 

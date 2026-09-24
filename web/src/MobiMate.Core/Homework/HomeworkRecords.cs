@@ -18,7 +18,13 @@ public sealed class HomeworkItemState
 
     /// <summary>자동 완료 근거 (FR-HW-13).</summary>
     public string? Evidence { get; set; }
+
+    /// <summary>완료 제안 (FR-HW-17, 예: 레이드 증표 증가). 완료로 세지 않는다. 완료·수동 설정·리셋 때 사라진다.</summary>
+    public HomeworkSuggestion? Suggestion { get; set; }
 }
+
+/// <summary>완료 제안. Code = "raidTokenIncreased", Item = 근거 재화 이름, From→To = 관찰한 수량 변화. 문구는 화면이 만든다.</summary>
+public sealed record HomeworkSuggestion(string Code, string Item, long From, long To);
 
 /// <summary>캐릭터 하나(또는 계정 공통)의 숙제 장부.</summary>
 public sealed class HomeworkLedger
@@ -30,6 +36,10 @@ public sealed class HomeworkLedger
     /// <summary>가공 수거 관찰용: 직전 성공 조회의 (시설|작업명)별 완료 작업 수 (FR-HW-05). 캐릭터 장부에만 쓴다.</summary>
     public Dictionary<string, int>? AlteringDoneCounts { get; set; }
     public DateTimeOffset? AlteringObservedUtc { get; set; }
+
+    /// <summary>레이드 증표 관찰용: 직전 성공 조회의 (정규화한 재화 이름)별 수량 (FR-HW-17). 재기동해도 이어지도록 저장한다.</summary>
+    public Dictionary<string, long>? RaidTokens { get; set; }
+    public DateTimeOffset? RaidTokensObservedUtc { get; set; }
 
     /// <summary>JSON에서 읽으면 대소문자 무시 비교자가 사라지므로 읽은 직후 다시 씌운다.</summary>
     internal void RestoreComparers()
@@ -43,6 +53,9 @@ public sealed class HomeworkFile
 {
     public int Version { get; set; } = 1;
     public HomeworkLedger Account { get; set; } = new();
+
+    /// <summary>마지막으로 판정한 캐릭터 키. 재기동해도 "사이에 다른 캐릭터 관찰"을 알 수 있게 저장한다 (FR-HW-17).</summary>
+    public string? LastObservedCharacter { get; set; }
     public Dictionary<string, HomeworkLedger> Characters { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 }
 

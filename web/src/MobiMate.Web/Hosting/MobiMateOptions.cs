@@ -45,7 +45,10 @@ public sealed class ServerIdentity
 {
     public string ServerId { get; } = Convert.ToHexString(RandomNumberGenerator.GetBytes(8)).ToLowerInvariant();
     public DateTimeOffset StartedAt { get; } = DateTimeOffset.UtcNow;
-    public string Version { get; } = typeof(ServerIdentity).Assembly.GetName().Version?.ToString(3) ?? "0.0.0";
+    /// <summary>빌드 버전 원문 "0.9.MMdd.HHmm" (NFR-16). 네 자리를 모두 쓰고 앞자리 0을 살린다.</summary>
+    public string Version { get; } =
+        (System.Reflection.CustomAttributeExtensions.GetCustomAttribute<System.Reflection.AssemblyInformationalVersionAttribute>(typeof(ServerIdentity).Assembly)
+            ?.InformationalVersion ?? "0.0.0").Split('+')[0];
 
     /// <summary>실제로 듣고 있는 루프백 포트 (빈 포트 자동 선택 결과).</summary>
     public int Port { get; set; }

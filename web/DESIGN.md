@@ -205,7 +205,7 @@ public static class CutoffEvaluator { public static CutoffResult Evaluate(Cutoff
 - 판정은 문구·색을 만들지 않는다. WPF판 `DungeonCutoffService`의 색(`#39D353` 등)·문장은 클라이언트가 토큰과 문구 템플릿으로 만든다.
 - 스냅샷: `CharacterSnapshot.ArcaneResistance`, `SessionDelta.ArcaneResistanceDiff` 추가(WPF판 v1.2.0과 같은 이름). 기존 파일에 필드가 없으면 0으로 읽는다.
 - 에린 시간: `DisplayFormat.ErinnTime`은 원형 문자열 + 낮·밤 배지(K-11). 아무말 대잔치 컨텍스트도 같은 함수를 쓴다.
-- 레이드 확인 제안(FR-HW-17): `HomeworkEvaluator`가 캐릭터별 직전 관찰의 레이드 증표 수량을 기억하고(가공 대기열 관찰과 같은 10분·연속 성공 규칙), 증가를 보면 해당 항목에 `Suggestion = "raidTokenIncreased"`를 단다. 완료 상태는 바꾸지 않는다.
+- 레이드 확인 제안(FR-HW-17): `HomeworkEvaluator`가 캐릭터 장부에 레이드 증표 수량(`RaidTokens`)과 관찰 시각을 저장한다. 비교 조건은 같은 캐릭터 연속 관찰(`HomeworkFile.LastObservedCharacter`로 재기동 뒤에도 판단) + 같은 주간 주기(10분 규칙은 쓰지 않음, 레이드 중 조회가 끊겨도 놓치지 않게). 목록에 없는 증표는 기준값 유지. 증가를 보면 항목에 `HomeworkSuggestion("raidTokenIncreased", 재화 이름, 이전, 현재)`을 단다. 완료 상태는 바꾸지 않는다. 캐릭터 전환이 감지되면 `get_currencies` 캐시를 비운다.
 
 ## 3. 로컬 서버 설계 (MobiMate.Web)
 
@@ -614,7 +614,9 @@ sequenceDiagram
 | M5 | Viewport Segments 지원 | 트라이폴드 실기(펼침·부분 펼침에서 구역 수 확인) | 폭 기준 레이아웃만 |
 | M6 | LAN HTTP에서 화면 켜두기 대체 방식 | 아이폰 12·탭 S10 울트라 5분 방치 | 설정 안내 |
 | M8 | 기기별 실제 CSS 뷰포트 | 시안의 "내 화면" 모드 상단 표시값(폭×높이·배율·구역 수)을 4종 기기에서 기록 | — (프레임·TST-05 값 교체) |
-| M7 | `Makaretu.Dns.Multicast` 광고 동작 | PC에서 `ping mobimate.local` | 다른 라이브러리 또는 IP만 |
+| M7 | ~~`Makaretu.Dns.Multicast`~~ 직접 구현한 mDNS 응답기 광고 동작 | ✅ PC(2026-09-25): `Resolve-DnsName mobimate.local` → 192.168.0.4. 남은 확인: 4종 모바일 기기(M4) | IP만 |
+| M9 | 레이드 증표 재화 (K-12) | 실기: 레이드 클리어 전후 `get_currencies`에서 `원정의 증거: <보스> 레이드`의 정확한 이름·수량 변화, 다른 캐릭터로 바꿨을 때 같은 수량인지(계정 재화 여부), 주를 넘겨 남는지 | 이름이 다르면 카탈로그 `tokenCurrency` 수정, 계정 재화면 FR-HW-17 끔 |
+| M10 | 컷오프 기준표 갱신 | 게임 업데이트 때 난이도별 입장·권장·압도 수치 확인 | `cutoff_catalog.override.json`으로 덮어쓰기 |
 
 M1~M3은 게임이 필요하고, M4~M6·M8은 모바일 기기가 필요하다. M8은 S1 시안으로 바로 할 수 있다. 가짜 CLI 기반 개발을 막지 않으므로 S2~S4와 나란히 진행한다.
 
