@@ -97,7 +97,7 @@ web/
    └─ e2e/                    ← Playwright
 ```
 
-> WPF판(`master`)과 웹앱(`webapp`)은 별개 프로젝트다. `webapp` 브랜치에는 WPF 코드가 없고, `master` 브랜치에는 웹 코드가 없다. 두 브랜치는 서로 다른 작업 폴더(git worktree: `V:\workspace\MobiMate` = master, `V:\workspace\MobiMate-web` = webapp)에서 다룬다. 공통 요구사양 문서(루트 `REQUIREMENTS.md`, `API_SPEC_SAMPLES.md`, `0x-상세설계*.md`)는 양쪽에 사본으로 둔다.
+> WPF판(`master`)과 웹앱(`webapp`)은 별개 프로젝트다. `webapp` 브랜치에는 WPF 코드가 없고, `master` 브랜치에는 웹 코드가 없다. 두 브랜치는 서로 다른 작업 폴더(git worktree: `V:\workspace\MobiMate\master` = master, `V:\workspace\MobiMate\webapp` = webapp, 저장소는 `V:\workspace\MobiMate\.git` bare)에서 다룬다. 공통 요구사양 문서(루트 `REQUIREMENTS.md`, `API_SPEC_SAMPLES.md`, `0x-상세설계*.md`)는 양쪽에 사본으로 둔다.
 
 ---
 
