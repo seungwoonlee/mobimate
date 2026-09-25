@@ -20,6 +20,22 @@ public class SecurityTests
     }
 
     [Fact]
+    public async Task AppShellRoutes_FallBackToIndex_ButUnknownApiIs404()
+    {
+        using var host = new TestHost();
+        var c = host.Anonymous();
+        var page = await c.GetAsync("/homework?tab=daily");
+        Assert.Equal(HttpStatusCode.OK, page.StatusCode);
+        Assert.Equal("text/html", page.Content.Headers.ContentType?.MediaType);
+        Assert.True(page.Headers.CacheControl?.NoCache, "앱 셸은 no-cache");
+        var local = await host.LocalAsync();
+        Assert.Equal(HttpStatusCode.NotFound, (await local.GetAsync("/api/does-not-exist")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await local.GetAsync("/API/Does-Not-Exist")).StatusCode);   // 대소문자 무관
+        Assert.NotEqual("text/html", (await local.PostAsync("/homework", null)).Content.Headers.ContentType?.MediaType);   // 폴백은 GET·HEAD만
+        Assert.Equal(HttpStatusCode.Unauthorized, (await c.GetAsync("/api/does-not-exist")).StatusCode);   // 세션 검사가 먼저
+    }
+
+    [Fact]
     public async Task ForeignHost_Returns421()
     {
         using var host = new TestHost();

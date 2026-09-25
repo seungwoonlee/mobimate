@@ -19,6 +19,12 @@ public sealed class MobiMateOptions
     public int Port { get; set; } = 17800;
     public bool OpenBrowser { get; set; } = true;
 
+    /// <summary>
+    /// 개발·E2E 전용: 값이 있으면 브라우저를 열지 않고 1회용 기동 URL을 이 파일에 쓴다(60초·1회용·루프백 전용 교환).
+    /// 개발 환경(ASPNETCORE_ENVIRONMENT=Development)에서만 동작한다. 배포 설정에서는 비워 둔다.
+    /// </summary>
+    public string? BootUrlFile { get; set; }
+
     /// <summary>트레이 아이콘 (테스트에서 끈다).</summary>
     public bool Tray { get; set; } = true;
 

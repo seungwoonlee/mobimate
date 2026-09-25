@@ -10,7 +10,8 @@
 | `web/REQUIREMENTS.md` | 웹앱 요구사양서 |
 | `web/DESIGN.md` | 웹앱 상세설계서 |
 | `web/design/mockup.html` | 화면 시안 |
-| `web/MobiMate.Web.sln` | 웹앱 솔루션 (Core · 가짜 CLI · 테스트) |
+| `web/MobiMate.Web.sln` | 웹앱 솔루션 (Core · 서버 · 가짜 CLI · 테스트) |
+| `web/src/client` | 프론트엔드 (Vite + React + TypeScript) |
 | 루트 `REQUIREMENTS.md`, `API_SPEC_SAMPLES.md`, `0x-상세*.md` | WPF판과 공유하는 요구사양·게임 CLI 스펙 문서 (사본) |
 
 ## 작업 폴더 (git worktree)
@@ -25,9 +26,15 @@
 ## 빌드·테스트
 
 ```bash
+# 프론트엔드: 빌드 결과(web/src/client/dist)를 서버 빌드가 wwwroot로 복사한다. 없으면 안내용 index.html만 나간다.
+cd web/src/client && npm ci && npm test && npm run build && cd -
+
 dotnet build web/MobiMate.Web.sln
 dotnet test web/MobiMate.Web.sln
 ```
+
+화면 개발 중에는 `npm run dev`(포트 5173)가 `/api`·`/auth`를 로컬 서버(기본 `http://127.0.0.1:17800`, 환경변수 `MOBIMATE_SERVER`로 변경)로 넘깁니다.
+가짜 CLI로 서버를 띄울 때 `MobiMate__BootUrlFile=<파일>`을 주면 브라우저를 여는 대신 1회용 기동 URL을 그 파일에 남깁니다(개발·E2E 전용).
 
 ## 저장 데이터
 

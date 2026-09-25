@@ -106,15 +106,23 @@ app.Use(async (ctx, next) =>
     var mdnsSrc = lan.MdnsName is { } n ? $" http://{n}:{lan.Port}" : "";
     h.ContentSecurityPolicy = $"default-src 'self'; img-src 'self' data:; media-src 'self' blob:; style-src 'self' 'unsafe-inline'; connect-src 'self'{mdnsSrc}; frame-ancestors 'none'";
     if (ctx.Request.Path.StartsWithSegments("/api")) h.CacheControl = "no-store";
+    else if (ctx.Request.Path.StartsWithSegments("/assets")) h.CacheControl = "public, max-age=31536000, immutable";   // 파일 이름에 해시가 있다
+    else h.CacheControl = "no-cache";   // 앱 셸(index.html)은 매번 확인한다: 업그레이드 뒤 옛 화면이 남지 않게
     await next();
 });
 app.UseMiddleware<SecurityMiddleware>();
 app.UseDefaultFiles();
 app.UseStaticFiles();
+// 라우팅은 정적 파일 뒤에 둔다. 앞에 있으면(최소 호스팅의 기본 위치) 폴백 라우트가 먼저 선택되어 정적 파일 미들웨어가 건너뛴다.
+app.UseRouting();
 
 AuthEndpoints.Map(app);
 GameEndpoints.Map(app);
 CommsEndpoints.Map(app);
+
+// 앱 셸 라우팅: /stats 같은 화면 경로는 index.html로 돌려준다. /api·/auth는 제외(없는 API는 404 그대로).
+app.MapFallbackToFile("{*path:regex(^(?!(?i:api/|api$|auth/)).*$)}", "index.html")
+    .WithMetadata(new Microsoft.AspNetCore.Routing.HttpMethodMetadata(new[] { "GET", "HEAD" }));
 
 try
 {
@@ -178,7 +186,14 @@ namespace MobiMate.Web.Hosting
 
             _ = Task.Run(() => sp.GetRequiredService<AiService>().EnsureDiscoveredAsync(), CancellationToken.None);
 
-            if (options.OpenBrowser) sp.GetRequiredService<BrowserLauncher>().Open();
+            if (!string.IsNullOrWhiteSpace(options.BootUrlFile) && sp.GetRequiredService<IHostEnvironment>().IsDevelopment())
+            {
+                // 개발·E2E 전용: 브라우저를 여는 대신 1회용 기동 URL(60초)을 파일로 남긴다. 기본값은 꺼짐.
+                var boot = sp.GetRequiredService<BrowserLauncher>().BootUrl();
+                File.WriteAllText(options.BootUrlFile, boot);
+                log.LogWarning("개발용 기동 URL을 파일로 남겼습니다: {File}", options.BootUrlFile);
+            }
+            else if (options.OpenBrowser) sp.GetRequiredService<BrowserLauncher>().Open();
             var id = sp.GetRequiredService<ServerIdentity>();
             log.LogInformation("MobiMate 서버 시작 {Version}: http://127.0.0.1:{Port}", id.Version, id.Port);
             if (id.Port != id.PreferredPort) log.LogWarning("포트 {Preferred}이 사용 중이라 {Port}로 떴습니다. 이 상태에서는 LAN 모드를 켜지 않습니다.", id.PreferredPort, id.Port);
