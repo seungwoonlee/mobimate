@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useLayout } from '../hooks/layout';
 import { useQuery } from '@tanstack/react-query';
 import { api, ApiError, session } from '../api/http';
 import { keys, useMeta, useSettings } from '../api/queries';
@@ -43,6 +44,7 @@ export function SettingsView() {
             <Seg value={dev.glance ? 'on' : 'off'} options={[['on', '켜기'], ['off', '끄기']]} onChange={v => dev.set({ glance: v === 'on' })} />
           </Row>
           <p className="faint small">이 기기에만 저장됩니다. 기기: {me.data?.deviceName ?? '…'}</p>
+          <ScreenInfo />
         </div>
         <div className="card">
           <CardHead title="PC 서버" />
@@ -125,6 +127,22 @@ function ServerSettings({ canChangeCli }: { canChangeCli: boolean }) {
             <div className="acts"><button type="button" className="btn" onClick={() => setCli(null)}>취소</button><button type="submit" className="btn primary" disabled={!cli.trim()}>저장</button></div>
           </form>)}
     </>
+  );
+}
+
+/** 실기 점검 M8: 이 기기의 CSS 화면 크기·배율·크기 클래스·입력 방식 */
+function ScreenInfo() {
+  const l = useLayout();
+  const [, force] = useState(0);
+  useEffect(() => {
+    const on = () => force(n => n + 1);
+    window.addEventListener('resize', on);
+    return () => window.removeEventListener('resize', on);
+  }, []);
+  return (
+    <p className="faint small num" aria-label="화면 정보">
+      화면 {window.innerWidth} × {window.innerHeight} · 배율 {window.devicePixelRatio} · {l.size}{l.posture !== 'flat' ? ` · ${l.posture}` : ''} · {l.coarse ? '터치' : '마우스'}
+    </p>
   );
 }
 

@@ -23,5 +23,6 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     globals: true,
+    exclude: ['e2e/**', 'node_modules/**', 'dist/**'],   // e2e는 Playwright가 돌린다
   },
 });

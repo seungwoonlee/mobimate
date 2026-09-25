@@ -19,7 +19,25 @@
 
     <!-- 정적 웹 자산(개발 환경에서 프로젝트 폴더를 직접 물림)을 끈다. 앱 셸은 빌드 출력의 wwwroot 하나만 쓴다. -->
     <StaticWebAssetsEnabled>false</StaticWebAssetsEnabled>
+    <ApplicationIcon>app.ico</ApplicationIcon>
   </PropertyGroup>
+
+  <!--
+    배포 (NFR-02): `dotnet publish web/src/MobiMate.Web -c Release -o web/dist` 한 번으로
+    화면 빌드 → 단일 exe(.NET 8 데스크톱 런타임 필요) → 메신저 전송용 zip까지 만든다.
+  -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>false</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <DebugType>none</DebugType>
+    <CopyOutputSymbolsToPublishDirectory>false</CopyOutputSymbolsToPublishDirectory>
+    <IsTransformWebConfigDisabled>true</IsTransformWebConfigDisabled>
+  </PropertyGroup>
+  <Target Name="ZipAfterPublish" AfterTargets="Publish" Condition="'$(PublishDir)' != ''">
+    <Exec Command="powershell -NoProfile -Command &quot;Compress-Archive -Path '$(PublishDir)MobiMateWeb.exe' -DestinationPath '$(PublishDir)MobiMateWeb.zip' -Force&quot;" />
+    <Message Importance="high" Text="배포물: $(PublishDir)MobiMateWeb.exe, $(PublishDir)MobiMateWeb.zip" />
+  </Target>
 
   <!-- WinForms 전역 using은 ASP.NET Core 형식과 이름이 겹치므로 뺀다. 트레이 코드만 별칭으로 쓴다. -->
   <ItemGroup>
@@ -32,22 +50,34 @@
   </ItemGroup>
 
   <!--
-    앱 셸을 출력 폴더의 wwwroot로 복사한다 (S6에서 임베디드 리소스로 바꾼다).
-    프론트엔드 빌드 결과(..\client\dist, `npm run build`)가 있으면 그것을 쓰고, 없으면 저장소의 안내용 index.html을 쓴다.
+    앱 셸(화면)은 exe 안에 넣는다 (NFR-02 단일 exe). 리소스 이름은 "wwwroot/<상대 경로>"이고 EmbeddedWebRoot가 읽는다.
+    - Release 빌드는 먼저 프론트엔드를 빌드한다(npm ci + npm run build). -p:SkipClientBuild=true로 건너뛸 수 있다.
+    - 빌드 결과(..\client\dist)가 없으면 안내용 페이지(Placeholder)를 넣는다.
+    - 항목은 타깃 안에서 만든다: 이번 빌드에서 새로 만든 dist도 들어가게 (평가 시점에는 없을 수 있다).
   -->
   <PropertyGroup>
-    <ClientDist>$(MSBuildProjectDirectory)\..\client\dist</ClientDist>
-    <HasClientBuild Condition="Exists('$(ClientDist)\index.html')">true</HasClientBuild>
+    <ClientDir>$(MSBuildProjectDirectory)\..\client</ClientDir>
+    <ClientDist>$(ClientDir)\dist</ClientDist>
   </PropertyGroup>
-  <!-- 안내용 페이지는 wwwroot 밖(Placeholder)에 둔다. 프로젝트에 wwwroot가 있으면 개발 환경에서 그 폴더가 빌드 결과를 가린다. -->
-  <ItemGroup Condition="'$(HasClientBuild)' != 'true'">
-    <Content Include="Placeholder\index.html" Link="wwwroot\index.html" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
-  </ItemGroup>
-  <ItemGroup Condition="'$(HasClientBuild)' == 'true'">
-    <Content Include="$(ClientDist)\**" Link="wwwroot\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
-  </ItemGroup>
+
+  <Target Name="BuildClient" Condition="'$(Configuration)' == 'Release' AND '$(SkipClientBuild)' != 'true'">
+    <Exec Command="npm ci --no-audit --no-fund" WorkingDirectory="$(ClientDir)" Condition="!Exists('$(ClientDir)\node_modules')" />
+    <Exec Command="npm run build" WorkingDirectory="$(ClientDir)" />
+  </Target>
+
+  <Target Name="IncludeClientAssets" DependsOnTargets="BuildClient" BeforeTargets="AssignTargetPaths">
+    <ItemGroup Condition="Exists('$(ClientDist)\index.html')">
+      <_ClientFile Include="$(ClientDist)\**\*" />
+      <EmbeddedResource Include="@(_ClientFile)" LogicalName="wwwroot/$([System.String]::Copy('%(_ClientFile.RecursiveDir)').Replace('\','/'))%(_ClientFile.Filename)%(_ClientFile.Extension)" />
+    </ItemGroup>
+    <ItemGroup Condition="!Exists('$(ClientDist)\index.html')">
+      <EmbeddedResource Include="Placeholder\index.html" LogicalName="wwwroot/index.html" />
+    </ItemGroup>
+  </Target>
+
   <ItemGroup>
     <None Remove="Placeholder\**" />
+    <Content Remove="Placeholder\**" />
   </ItemGroup>
 
   <ItemGroup>

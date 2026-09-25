@@ -9,6 +9,11 @@
     <SupportedOSPlatformVersion>10.0.17763.0</SupportedOSPlatformVersion>
   </PropertyGroup>
 
+  <!-- 배포(단일 exe)에 기호 파일을 남기지 않는다 -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <DebugType>none</DebugType>
+  </PropertyGroup>
+
   <ItemGroup>
     <EmbeddedResource Include="Homework\homework_catalog.json" LogicalName="MobiMate.Homework.homework_catalog.json" />
     <EmbeddedResource Include="Cutoff\cutoff_catalog.json" LogicalName="MobiMate.Cutoff.cutoff_catalog.json" />

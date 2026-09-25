@@ -88,7 +88,7 @@ function PairHost() {
 }
 
 /** 끊김 배너 (FR-MB-12): 다음 재시도까지 남은 초를 센다. */
-function OfflineBanner() {
+export function OfflineBanner() {
   const retryAt = useUi(s => s.retryAt);
   const now = useNow();
   const left = retryAt ? Math.max(0, Math.ceil((retryAt - now) / 1000)) : 0;

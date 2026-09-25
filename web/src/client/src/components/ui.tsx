@@ -90,7 +90,7 @@ export function CardHead({ icon, title, right }: { icon?: string; title: ReactNo
 /** 불러오는 중·오류·빈 상태 */
 export function Skeleton({ lines = 3 }: { lines?: number }) {
   return (
-    <div className="card skel" aria-busy="true" aria-label="불러오는 중">
+    <div className="card skel" role="status" aria-busy="true" aria-label="불러오는 중">
       {Array.from({ length: lines }, (_, i) => <i key={i} style={{ width: `${90 - i * 15}%` }} />)}
     </div>
   );

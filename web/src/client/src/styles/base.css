@@ -41,7 +41,7 @@ button{cursor:pointer}
 .stop-btn{display:inline-flex;align-items:center;gap:8px;height:38px;padding:0 14px;border-radius:10px;border:1px solid transparent;background:var(--danger);color:var(--on-danger);font-weight:600;font-size:13.5px}
 .stop-btn .ic{width:18px;height:18px}
 .stop-btn:hover{filter:brightness(1.07)}
-.stop-btn kbd{font:inherit;font-size:11px;opacity:.8;border:1px solid currentColor;border-radius:5px;padding:0 5px}
+.stop-btn kbd{font:inherit;font-size:11px;border:1px solid currentColor;border-radius:5px;padding:0 5px}
 .offline-banner{display:none}
 .app[data-offline="true"] .offline-banner{display:flex;position:absolute;left:50%;transform:translateX(-50%);top:62px;z-index:40;align-items:center;gap:8px;padding:8px 14px;border-radius:999px;background:var(--danger-soft);color:var(--danger);font-size:13px;font-weight:600;border:1px solid var(--danger);white-space:nowrap}
 .app[data-offline="true"] [data-needs-conn]{opacity:.45;pointer-events:none}
