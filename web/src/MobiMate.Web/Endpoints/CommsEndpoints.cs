@@ -6,13 +6,13 @@ using MobiMate.Web.Services;
 
 namespace MobiMate.Web.Endpoints;
 
-public sealed record ChatRequest(string? Text, bool? AutoEmote);
+public sealed record ChatRequest(string? Text, bool? AutoEmote, string? Source = null);
 public sealed record ChatterRequest(string? Persona, string? CustomId);
 public sealed record PersonaRequest(string? Name, string? Emoji, string? Prompt);
 public sealed record PersonaGenerateRequest(string? Request);
 public sealed record EngineSelectRequest(string? Id, bool? ConfirmPaid);
 public sealed record AskRequest(string? Text);
-public sealed record SettingsRequest(int? MaxRefreshSec, bool? AutoEmoteDefault, string? CliPath);
+public sealed record SettingsRequest(int? MaxRefreshSec, bool? AutoEmoteDefault, string? CliPath, string? ChatterPersona = null);
 public sealed record ClientErrorRequest(string? Message, string? Source, string? Stack);
 
 /// <summary>채팅·아무말·페르소나·AI·설정·SSE (요구사양서 §7).</summary>
@@ -32,7 +32,9 @@ public static class CommsEndpoints
 
         api.MapPost("/chat/game", async (HttpContext ctx, ChatRequest req, ChatService chat, WebSettingsStore s, CancellationToken ct) =>
         {
-            var (status, entry) = await chat.SendAsync(req.Text, req.AutoEmote ?? s.Current.AutoEmoteDefault, "직접", SecurityMiddleware.DeviceOf(ctx)!.Id, ct);
+            // 출처는 "직접" 또는 "아무말 · <페르소나>"만 받는다 (FR-GC-05). 그 밖의 값은 "직접"으로 둔다
+            var source = req.Source is { Length: <= 40 } src && src.StartsWith("아무말", StringComparison.Ordinal) ? src : "직접";
+            var (status, entry) = await chat.SendAsync(req.Text, req.AutoEmote ?? s.Current.AutoEmoteDefault, source, SecurityMiddleware.DeviceOf(ctx)!.Id, ct);
             return status switch
             {
                 ChatSendStatus.Sent => ApiResults.Ok(entry),
@@ -57,7 +59,7 @@ public static class CommsEndpoints
             }
             if (state.IsHeaderStale) await views.HeaderAsync(ct);
             var line = await lines.GenerateLineAsync(persona, custom, state.BuildChatterContext(), ct);
-            return ApiResults.Ok(new { text = line.Text, usedFallback = line.UsedFallback, count = ChatText.Count(line.Text) });
+            return ApiResults.Ok(new { text = line.Raw, final = line.Text, usedFallback = line.UsedFallback, count = ChatText.Count(line.Text) });
         });
 
         // ── 커스텀 페르소나 (FR-CH-04, FR-CH-07) ──
@@ -146,12 +148,13 @@ public static class CommsEndpoints
         // ── 설정 (FR-ST) ──
         api.MapGet("/settings", (WebSettingsStore s, GameCli cli) => ApiResults.Ok(new
         {
-            s.Current.MaxRefreshSec, s.Current.AutoEmoteDefault, s.Current.LanEnabled, cliPath = cli.CliPath, cliAvailable = cli.IsAvailable,
+            s.Current.MaxRefreshSec, s.Current.AutoEmoteDefault, s.Current.LanEnabled, s.Current.ChatterPersona, cliPath = cli.CliPath, cliAvailable = cli.IsAvailable,
         }));
 
         api.MapPut("/settings", async (HttpContext ctx, SettingsRequest req, WebSettingsStore s, GameCli cli, StatusMonitor status, SseHub hub) =>
         {
             if (req.MaxRefreshSec is < 15 or > 3600) return ApiResults.Error(400, "VALIDATION", "자동 갱신 최대 주기는 15~3600초입니다.");
+            if (req.ChatterPersona != null && !IsPersonaValue(req.ChatterPersona)) return ApiResults.Error(400, "VALIDATION", "알 수 없는 페르소나입니다.");
             if (req.CliPath != null)
             {
                 if (!AuthEndpoints.IsLoopback(ctx)) return ApiResults.Error(403, "LOOPBACK_ONLY", "CLI 경로는 게임 PC에서만 바꿀 수 있습니다.");
@@ -162,6 +165,7 @@ public static class CommsEndpoints
                     if (req.MaxRefreshSec is { } m) x.MaxRefreshSec = m;
                     if (req.AutoEmoteDefault is { } a) x.AutoEmoteDefault = a;
                     if (req.CliPath != null) x.CliPath = req.CliPath;
+                    if (req.ChatterPersona != null) x.ChatterPersona = req.ChatterPersona;
                 }))
                 return ApiResults.Error(503, "STORAGE_UNAVAILABLE", "설정을 저장하지 못했습니다.");
 
@@ -171,7 +175,7 @@ public static class CommsEndpoints
                 await status.CheckNowAsync(ctx.RequestAborted);
             }
             hub.Broadcast("state.changed", new { keys = new[] { "settings" } });
-            return ApiResults.Ok(new { s.Current.MaxRefreshSec, s.Current.AutoEmoteDefault, cliPath = cli.CliPath, cliAvailable = cli.IsAvailable });
+            return ApiResults.Ok(new { s.Current.MaxRefreshSec, s.Current.AutoEmoteDefault, s.Current.ChatterPersona, cliPath = cli.CliPath, cliAvailable = cli.IsAvailable });
         });
 
         // ── 클라이언트 오류 보고 (FR-ST-03): 기기별 분당 10건 ──
@@ -188,6 +192,10 @@ public static class CommsEndpoints
         // ── SSE ──
         api.MapGet("/events", (HttpContext ctx, SseHub hub) => hub.Serve(ctx, SecurityMiddleware.DeviceOf(ctx)!.Id));
     }
+
+    private static bool IsPersonaValue(string v) =>
+        (v.StartsWith("custom:", StringComparison.Ordinal) && v.Length is > 7 and <= 64)
+        || (Enum.TryParse<ChatterPersona>(v, out var p) && p != ChatterPersona.Custom);
 
     private static IResult? Validate(PersonaRequest req)
     {

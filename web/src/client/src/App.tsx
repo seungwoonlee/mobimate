@@ -14,6 +14,7 @@ import { CurrenciesView, InventoryView, NearbyView } from './features/inventory'
 import { HomeworkView } from './features/homework';
 import { LifeView } from './features/life';
 import { SettingsView } from './features/settings';
+import { PairLanding } from './features/pairing';
 
 export function App() {
   return (
@@ -38,6 +39,8 @@ function Root() {
   // 401 → 인증 안내 화면 (SEC-06·07)
   useEffect(() => onApiError(e => { if (e.unauthorized) setUnauthorized(true); }), [setUnauthorized]);
 
+  // 폰 페어링 착륙은 세션 없이 열린다 (FR-MB-10)
+  if (window.location.pathname.replace(/\/+$/, '') === '/pair') return <PairLanding />;
   if (unauthorized) return <AuthNeeded />;
   return <Connected />;
 }

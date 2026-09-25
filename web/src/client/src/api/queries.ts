@@ -37,3 +37,22 @@ export const useCutoffs = () => q<Cutoffs>(keys.cutoffs, '/api/cutoffs');
 export const useHomework = () => q<HomeworkBoard>(keys.homework, '/api/homework');
 export const useMeta = () => q<Meta>(keys.meta, '/api/meta', { staleTime: 30_000 });
 export const useStatus = () => q<Status>(keys.status, '/api/status');
+
+// ── S5 ──
+import type { ChatLogEntry, CustomPersona, Device, Engines, Session, Settings } from './types';
+import { session } from './http';
+
+export const keys5 = {
+  chatLog: ['chatLog'] as const,
+  personas: ['personas'] as const,
+  engines: ['engines'] as const,
+  devices: ['devices'] as const,
+  session: ['session'] as const,
+};
+
+export const useChatLog = () => q<ChatLogEntry[]>(keys5.chatLog, '/api/chat/game/log');
+export const usePersonas = () => q<CustomPersona[]>(keys5.personas, '/api/personas', { staleTime: 60_000 });
+export const useEngines = () => q<Engines>(keys5.engines, '/api/ai/engines', { staleTime: 60_000 });
+export const useDevices = () => q<Device[]>(keys5.devices, '/api/pairing/devices');
+export const useSettings = () => q<Settings>(keys.settings, '/api/settings', { staleTime: 60_000 });
+export const useSession = () => useQuery<Session>({ queryKey: keys5.session, queryFn: () => session(), staleTime: Infinity });

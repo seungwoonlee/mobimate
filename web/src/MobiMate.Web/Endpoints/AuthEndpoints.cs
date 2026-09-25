@@ -76,7 +76,8 @@ public static class AuthEndpoints
             return ApiResults.Ok(new
             {
                 code, expiresAt,
-                urlIp = $"http://{s.Addresses[0]}:{s.Port}/pair?code={code}",
+                // QR은 IP 주소로 연다. 광고 중인 이름(n)을 함께 실어 폰 페이지가 이름 주소를 확인할 수 있게 한다 (FR-MB-13)
+                urlIp = $"http://{s.Addresses[0]}:{s.Port}/pair?code={code}" + (s.MdnsName is { } nm ? $"&n={Uri.EscapeDataString(nm)}" : ""),
                 urlName = s.MdnsName is { } n ? $"http://{n}:{s.Port}/pair?code={code}" : null,
                 addresses = s.Addresses,
             });

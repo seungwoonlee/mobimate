@@ -13,6 +13,8 @@ import { api } from '../api/http';
 import { stopAction } from '../lib/actions';
 import { fmt, weather } from '../lib/format';
 import { Dock } from './Dock';
+import { PairDialog } from '../features/pairing';
+import { useSession } from '../api/queries';
 
 /** 하단 탭(Compact)에 둘 화면 (시안: 개요·가방·숙제·생활 + 채팅) */
 const TAB_ROUTES: RouteName[] = ['overview', 'inventory', 'homework', 'life'];
@@ -67,8 +69,22 @@ export function AppShell({ children }: { children: ReactNode }) {
         <Icon name="stop" />
       </button>
       <Toasts />
+      <PairHost />
     </div>
   );
+}
+
+/** 📱 폰으로 보기 대화상자. 트레이의 "폰으로 보기"는 #/pair를 붙여 연다. */
+function PairHost() {
+  const open = useUi(s => s.pairOpen);
+  const setOpen = useUi(s => s.setPairOpen);
+  useEffect(() => {
+    if (window.location.hash === '#/pair') {
+      window.history.replaceState(null, '', window.location.pathname + window.location.search);
+      setOpen(true);
+    }
+  }, [setOpen]);
+  return open ? <PairDialog onClose={() => setOpen(false)} /> : null;
 }
 
 /** 끊김 배너 (FR-MB-12): 다음 재시도까지 남은 초를 센다. */
@@ -91,6 +107,8 @@ function TopBar({ compact }: { compact: boolean }) {
   const refresh = useAdaptiveRefresh(settings.data?.data.maxRefreshSec ?? 300);
   const qc = useQueryClient();
   const bump = useUi(s => s.bumpRefresh);
+  const setPairOpen = useUi(s => s.setPairOpen);
+  const local = useSession().data?.kind === 'local';   // 페어링 시작은 게임 PC에서만 (SEC-08)
   const h = header.data?.data;
   const state = status.data?.data.state ?? 'unknown';
   const conn = state === 'connected' ? 'ok' : state === 'unknown' ? 'plain' : 'danger';
@@ -128,6 +146,11 @@ function TopBar({ compact }: { compact: boolean }) {
         <button type="button" className="refresh" onClick={manualRefresh} title={`자동 갱신: 활동이 없으면 15초씩 늘어납니다 (지금 ${refresh.period}초 주기)`} aria-label={`지금 새로고침 (다음 자동 갱신 ${refresh.left}초 후)`}>
           <Icon name="refresh" /><span className="refresh-txt num">{refresh.left}초</span>
         </button>
+        {local && (
+          <button type="button" className="icon-btn" onClick={() => setPairOpen(true)} aria-label="폰·태블릿으로 보기" title="폰·태블릿으로 보기 (QR)">
+            <Icon name="phone" />
+          </button>
+        )}
         {!compact && (
           <button type="button" className="stop-btn" onClick={stopAction}>
             <Icon name="stop" />긴급 정지 <kbd>Esc</kbd>
@@ -143,7 +166,7 @@ function NavRail({ onChat }: { onChat: () => void }) {
   const go = useRouter(s => s.go);
   return (
     <nav className="rail" aria-label="화면">
-      {ROUTES.filter(r => r.name !== 'settings').map(r => (
+      {ROUTES.filter(r => r.name !== 'settings' && r.name !== 'pair').map(r => (
         <button key={r.name} type="button" onClick={() => go(r.name)} aria-current={cur === r.name ? 'page' : undefined} title={r.key ? `${r.label} (${r.key})` : r.label}>
           <Icon name={r.icon} />{r.label}
         </button>

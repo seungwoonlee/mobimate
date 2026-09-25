@@ -6,6 +6,12 @@
   <meta name="theme-color" content="#0B0F13" media="(prefers-color-scheme: dark)">
   <meta name="theme-color" content="#F4F7F9" media="(prefers-color-scheme: light)">
   <title>MobiMate</title>
+  <!-- 홈 화면 바로가기 (FR-MB-11). LAN HTTP에서는 서비스 워커를 쓰지 않는다 -->
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
+  <link rel="apple-touch-icon" href="/icon-180.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="MobiMate">
 </head>
 <body>
   <div id="root"></div>

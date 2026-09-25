@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 
 /** 화면 경로 (상세설계 §4.2). 도크는 경로가 아니라 UI 상태다. */
-export type RouteName = 'overview' | 'stats' | 'homework' | 'inventory' | 'currencies' | 'life' | 'nearby' | 'settings';
+export type RouteName = 'overview' | 'stats' | 'homework' | 'inventory' | 'currencies' | 'life' | 'nearby' | 'settings' | 'pair';
 
 export const ROUTES: { name: RouteName; path: string; label: string; icon: string; key?: string }[] = [
   { name: 'overview', path: '/', label: '개요', icon: 'home', key: '1' },
@@ -12,6 +12,7 @@ export const ROUTES: { name: RouteName; path: string; label: string; icon: strin
   { name: 'life', path: '/life', label: '생활', icon: 'leaf', key: '6' },
   { name: 'nearby', path: '/nearby', label: '레이더', icon: 'radar', key: '7' },
   { name: 'settings', path: '/settings', label: '설정', icon: 'gear' },
+  { name: 'pair', path: '/pair', label: '연결', icon: 'phone' },   // 폰 페어링 착륙(세션 없이 열림)
 ];
 
 export interface Location { name: RouteName; params: URLSearchParams }
@@ -27,6 +28,8 @@ function parse(): Location {
 interface RouterState {
   loc: Location;
   go: (name: RouteName, params?: Record<string, string>) => void;
+  /** 서버가 준 경로(예: AI 명령의 "/homework?tab=daily")로 이동. 모르는 경로는 무시한다. */
+  goPath: (path: string) => void;
   setParam: (key: string, value: string | null) => void;
 }
 
@@ -36,6 +39,13 @@ export const useRouter = create<RouterState>((set, get) => ({
     const r = ROUTES.find(x => x.name === name)!;
     const q = params ? `?${new URLSearchParams(params)}` : '';
     window.history.pushState(null, '', r.path + q);
+    set({ loc: parse() });
+  },
+  goPath: path => {
+    const u = new URL(path, window.location.origin);
+    const r = ROUTES.find(x => x.path === u.pathname);
+    if (!r) return;
+    window.history.pushState(null, '', r.path + u.search);
     set({ loc: parse() });
   },
   setParam: (key, value) => {

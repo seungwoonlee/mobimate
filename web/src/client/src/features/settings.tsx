@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api, ApiError, session } from '../api/http';
-import { keys, useMeta } from '../api/queries';
+import { keys, useMeta, useSettings } from '../api/queries';
+import { DeviceList } from './pairing';
 import type { LanView } from '../api/types';
 import { CardHead, Pill } from '../components/ui';
 import { queryClient } from '../lib/queryClient';
@@ -48,8 +49,10 @@ export function SettingsView() {
           <div className="kv"><span className="muted">버전</span><span className="num">{meta.data?.data.version ?? '…'}</span></div>
           {meta.data && <LanRow lan={meta.data.data.lan} canChange={local} />}
           {meta.data?.data.wpfRunning && <p className="warn-text small">WPF판 MobiMate가 함께 실행 중입니다. 게임 CLI를 같이 쓰므로 조회가 느려질 수 있습니다.</p>}
+          <ServerSettings canChangeCli={local} />
         </div>
       </div>
+      {local && <div className="card"><DeviceList /></div>}
     </>
   );
 }
@@ -81,6 +84,46 @@ function LanRow({ lan, canChange }: { lan: LanView; canChange: boolean }) {
         ? <button type="button" className="btn mt-8" disabled={busy} onClick={toggle}>{lan.enabled ? 'LAN 모드 끄기' : 'LAN 모드 켜기'}</button>
         : <p className="faint small">LAN 모드는 게임 PC에서만 바꿀 수 있습니다.</p>}
       <p className="faint small">공용 와이파이에서는 켜지 마세요. 개인 네트워크에서만 실제로 열립니다.</p>
+    </>
+  );
+}
+
+/** PC 서버 설정 (FR-ST): 자동 갱신 최대 주기, 자동 이모티콘 기본값, 게임 CLI 경로(게임 PC 전용, SEC-08·09) */
+function ServerSettings({ canChangeCli }: { canChangeCli: boolean }) {
+  const q = useSettings();
+  const toast = useUi(s => s.toast);
+  const [cli, setCli] = useState<string | null>(null);
+  const s = q.data?.data;
+  if (!s) return null;
+  const save = async (body: Record<string, unknown>) => {
+    try {
+      await api.put('/api/settings', body);
+      await queryClient.invalidateQueries({ queryKey: keys.settings });
+      toast('설정을 저장했습니다', 'ok');
+      return true;
+    } catch (e) {
+      toast(e instanceof ApiError ? e.message : '설정을 저장하지 못했습니다', 'warn');
+      return false;
+    }
+  };
+  return (
+    <>
+      <Row label="자동 갱신 최대 주기">
+        <Seg value={String(s.maxRefreshSec)} options={[['60', '1분'], ['300', '5분'], ['900', '15분']]} onChange={v => void save({ maxRefreshSec: Number(v) })} />
+      </Row>
+      <Row label="채팅 자동 이모티콘 기본값">
+        <Seg value={s.autoEmoteDefault ? 'on' : 'off'} options={[['on', '켜기'], ['off', '끄기']]} onChange={v => void save({ autoEmoteDefault: v === 'on' })} />
+      </Row>
+      <div className="kv wrap">
+        <span className="muted">게임 CLI {s.cliAvailable ? <Pill tone="ok">찾음</Pill> : <Pill tone="danger">없음</Pill>}</span>
+        <span className="faint small path">{s.cliPath ?? '—'}</span>
+      </div>
+      {canChangeCli && (cli === null
+        ? <button type="button" className="btn" onClick={() => setCli(s.cliPath ?? '')}>CLI 경로 바꾸기</button>
+        : <form className="form" onSubmit={async e => { e.preventDefault(); if (await save({ cliPath: cli.trim() })) setCli(null); }}>
+            <label>MabinogiMobile_CLI.exe 전체 경로 <input value={cli} onChange={e => setCli(e.target.value)} placeholder="C:\\...\\MabinogiMobile_CLI.exe" /></label>
+            <div className="acts"><button type="button" className="btn" onClick={() => setCli(null)}>취소</button><button type="submit" className="btn primary" disabled={!cli.trim()}>저장</button></div>
+          </form>)}
     </>
   );
 }
