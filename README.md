@@ -16,10 +16,14 @@
 
 ## 작업 폴더 (git worktree)
 
+저장소 하나(`V:\workspace\MobiMate\.git`, bare)에 브랜치별 작업 폴더를 둡니다 (2026-09-25 재구성).
+
 | 폴더 | 브랜치 | 프로젝트 |
 |---|---|---|
-| `V:\workspace\MobiMate` | `master` | WPF판 |
-| `V:\workspace\MobiMate-web` | `webapp` | 웹앱 (이 폴더) |
+| `V:\workspace\MobiMate\master` | `master` | WPF판 (Antigravity) |
+| `V:\workspace\MobiMate\webapp` | `webapp` | 웹앱 (이 폴더) |
+
+`V:\workspace\MobiMate` 자체는 작업 폴더가 아닙니다(bare 저장소). 새 작업 폴더는 `git -C V:\workspace\MobiMate worktree add <폴더> <브랜치>`로 만들고, 만든 뒤 `git -C <폴더> config --worktree core.bare false`를 한 번 실행하세요(이 git 버전은 작업 폴더도 bare 설정을 물려받습니다).
 
 한 폴더에서 브랜치를 바꾸지 마세요. 무시 대상인 빌드 산출물(`bin/`, `obj/`)이 남아 다른 프로젝트의 빌드를 깨뜨립니다.
 

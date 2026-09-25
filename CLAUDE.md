@@ -8,7 +8,7 @@
   - WPF 코드(`*.cs`, `*.xaml`, `MobiMate.csproj`, `tests/MobiMate.Tests`)를 이 브랜치에 들이지 않는다.
   - 웹앱 저장 폴더는 `%APPDATA%\MobiMateWeb`이다. WPF판 폴더 `%APPDATA%\MobiMate`에는 쓰지 않는다(첫 실행 때 읽어서 복사만 한다).
   - WPF판의 결함 정보가 필요하면 `git show master:08-분석보고-WPF판_결함목록_인수인계.md`로 읽기만 한다.
-- 작업 폴더: 이 브랜치는 `V:\workspace\MobiMate-web`(git worktree)에서 다룬다. `V:\workspace\MobiMate`는 master 전용이다. 한 폴더에서 브랜치를 바꾸지 않는다.
+- 작업 폴더: 이 브랜치는 `V:\workspace\MobiMate\webapp`(git worktree)에서 다룬다. `V:\workspace\MobiMate\master`는 master 전용이고, `V:\workspace\MobiMate` 자체는 bare 저장소다. 한 폴더에서 브랜치를 바꾸지 않는다.
 
 ## 작업 방식
 
