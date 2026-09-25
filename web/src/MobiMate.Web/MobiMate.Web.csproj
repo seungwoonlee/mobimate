@@ -16,6 +16,9 @@
     <Version>0.9.$(BuildStamp)</Version>
     <InformationalVersion>0.9.$(BuildStamp)</InformationalVersion>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+
+    <!-- 정적 웹 자산(개발 환경에서 프로젝트 폴더를 직접 물림)을 끈다. 앱 셸은 빌드 출력의 wwwroot 하나만 쓴다. -->
+    <StaticWebAssetsEnabled>false</StaticWebAssetsEnabled>
   </PropertyGroup>
 
   <!-- WinForms 전역 using은 ASP.NET Core 형식과 이름이 겹치므로 뺀다. 트레이 코드만 별칭으로 쓴다. -->
@@ -28,9 +31,23 @@
     <ProjectReference Include="..\MobiMate.Core\MobiMate.Core.csproj" />
   </ItemGroup>
 
-  <!-- 앱 셸을 출력 폴더에 복사한다 (S6에서 임베디드 리소스로 바꾼다) -->
+  <!--
+    앱 셸을 출력 폴더의 wwwroot로 복사한다 (S6에서 임베디드 리소스로 바꾼다).
+    프론트엔드 빌드 결과(..\client\dist, `npm run build`)가 있으면 그것을 쓰고, 없으면 저장소의 안내용 index.html을 쓴다.
+  -->
+  <PropertyGroup>
+    <ClientDist>$(MSBuildProjectDirectory)\..\client\dist</ClientDist>
+    <HasClientBuild Condition="Exists('$(ClientDist)\index.html')">true</HasClientBuild>
+  </PropertyGroup>
+  <!-- 안내용 페이지는 wwwroot 밖(Placeholder)에 둔다. 프로젝트에 wwwroot가 있으면 개발 환경에서 그 폴더가 빌드 결과를 가린다. -->
+  <ItemGroup Condition="'$(HasClientBuild)' != 'true'">
+    <Content Include="Placeholder\index.html" Link="wwwroot\index.html" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(HasClientBuild)' == 'true'">
+    <Content Include="$(ClientDist)\**" Link="wwwroot\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
   <ItemGroup>
-    <Content Update="wwwroot\**" CopyToOutputDirectory="PreserveNewest" />
+    <None Remove="Placeholder\**" />
   </ItemGroup>
 
   <ItemGroup>

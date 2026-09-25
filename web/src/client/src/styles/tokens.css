@@ -1,0 +1,49 @@
+/* 폰트는 번들한다 (NFR-12, 상세설계 §4.6). 한글 글꼴은 유니코드 범위별로 쪼개져 있어 필요한 조각만 받는다. */
+@import "@fontsource/ibm-plex-sans-kr/400.css";
+@import "@fontsource/ibm-plex-sans-kr/500.css";
+@import "@fontsource/ibm-plex-sans-kr/600.css";
+@import "@fontsource/ibm-plex-sans-kr/700.css";
+@import "@fontsource/barlow-semi-condensed/500.css";
+@import "@fontsource/barlow-semi-condensed/600.css";
+
+/* 디자인 토큰 (상세설계 §4.6). 값은 시안 design/mockup.html의 :root가 기준이다. */
+:root{
+  --bg-0:#E9EEF2; --bg-1:#F4F7F9; --bg-2:#FFFFFF; --bg-3:#E6ECF1; --bg-inset:#EEF2F6;
+  --line:#D5DDE5; --line-strong:#BAC6D2;
+  --text-1:#14202B; --text-2:#4A5A6A; --text-3:#5E6A77;
+  --accent:#0B6F68; --accent-2:#08564F; --accent-soft:#D3EFEA; --on-accent:#FFFFFF;
+  --gold:#946511; --gold-soft:#F5E8CB; --lime:#1A7F37; --lime-soft:#DCF3E2; --violet:#6E40C9; --violet-soft:#EDE4FB;
+  --cyan:#1B78A0; --cyan-soft:#D8ECF5;
+  --ok:#17744A; --ok-soft:#DBF2E6; --warn:#8F5200; --warn-soft:#FAEACF; --danger:#B8312A; --danger-soft:#FADCD9; --on-danger:#FFFFFF; --qr-bg:#FFFFFF; --qr-fg:#0B0F13;
+  --shadow:0 1px 2px rgba(20,32,43,.06),0 8px 24px rgba(20,32,43,.08);
+  --scrim:rgba(10,16,22,.45);
+  --f-body:"IBM Plex Sans KR","Pretendard","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+  --f-num:"Barlow Semi Condensed","IBM Plex Sans KR",system-ui,sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg-0:#0B0F13; --bg-1:#11171E; --bg-2:#172029; --bg-3:#202A35; --bg-inset:#0F151B;
+    --line:#25303C; --line-strong:#33414F;
+    --text-1:#E7EDF2; --text-2:#A0AEBB; --text-3:#8896A5;
+    --accent:#4FC4BA; --accent-2:#7AD6CE; --accent-soft:rgba(79,196,186,.14); --on-accent:#06201D;
+    --gold:#E9B65A; --gold-soft:rgba(233,182,90,.13); --lime:#39D353; --lime-soft:rgba(57,211,83,.13); --violet:#B79CF7; --violet-soft:rgba(183,156,247,.14);
+    --cyan:#62B9E0; --cyan-soft:rgba(98,185,224,.13);
+    --ok:#4BC78C; --ok-soft:rgba(75,199,140,.14); --warn:#EFA43F; --warn-soft:rgba(239,164,63,.15); --danger:#EF615B; --danger-soft:rgba(239,97,91,.15); --on-danger:#1C0706;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 30px rgba(0,0,0,.35);
+    --scrim:rgba(0,0,0,.55);
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg-0:#0B0F13; --bg-1:#11171E; --bg-2:#172029; --bg-3:#202A35; --bg-inset:#0F151B;
+  --line:#25303C; --line-strong:#33414F;
+  --text-1:#E7EDF2; --text-2:#A0AEBB; --text-3:#8896A5;
+  --accent:#4FC4BA; --accent-2:#7AD6CE; --accent-soft:rgba(79,196,186,.14); --on-accent:#06201D;
+  --gold:#E9B65A; --gold-soft:rgba(233,182,90,.13); --lime:#39D353; --lime-soft:rgba(57,211,83,.13); --violet:#B79CF7; --violet-soft:rgba(183,156,247,.14);
+  --cyan:#62B9E0; --cyan-soft:rgba(98,185,224,.13);
+  --ok:#4BC78C; --ok-soft:rgba(75,199,140,.14); --warn:#EFA43F; --warn-soft:rgba(239,164,63,.15); --danger:#EF615B; --danger-soft:rgba(239,97,91,.15); --on-danger:#1C0706;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 30px rgba(0,0,0,.35);
+  --scrim:rgba(0,0,0,.55);
+  color-scheme:dark;
+}

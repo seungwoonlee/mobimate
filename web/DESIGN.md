@@ -359,6 +359,8 @@ public sealed class GatherJobService
 
 ### 4.1 구조
 
+> **S4 구현 기준 (2026-09-25)**: 폴더는 `web/src/client/src/{api, state, hooks, layout, components, features, lib, styles}`. 라우팅은 외부 라이브러리 없이 `state/router.ts`(History API + zustand)로 한다. 화면이 8개뿐이라 의존성을 늘리지 않았다. 서버는 `/api`·`/auth` 외 경로를 `index.html`로 돌려준다(`MapFallbackToFile`, 정적 파일 뒤에 `UseRouting`). 시안 갱신(숙제·4대 점수·콘텐츠 추천 카드)은 시안 파일 대신 실제 화면으로 했다(가짜 CLI로 확인).
+
 ```
 client/src/
 ├─ app/            App.tsx, routes.tsx, providers.tsx
