@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "e2e": "npm run build && dotnet build ../../MobiMate.Web.sln -nologo -v q && playwright test",
+    "e2e:only": "playwright test"
   },
   "dependencies": {
     "@fontsource/barlow-semi-condensed": "^5.3.0",
@@ -19,6 +21,8 @@
     "zustand": "^4.5.7"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
+    "@playwright/test": "^1.63.0",
     "@testing-library/dom": "^10.4.2",
     "@testing-library/react": "^16.3.3",
     "@types/qrcode": "^1.5.6",

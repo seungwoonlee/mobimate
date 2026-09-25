@@ -111,6 +111,8 @@ app.Use(async (ctx, next) =>
     await next();
 });
 app.UseMiddleware<SecurityMiddleware>();
+// 앱 셸은 exe에 넣은 파일에서 읽는다 (단일 exe, NFR-02). 폴백 라우트(MapFallbackToFile)도 같은 제공자를 쓴다.
+app.Environment.WebRootFileProvider = new EmbeddedWebRoot(typeof(Program).Assembly);
 app.UseDefaultFiles();
 app.UseStaticFiles();
 // 라우팅은 정적 파일 뒤에 둔다. 앞에 있으면(최소 호스팅의 기본 위치) 폴백 라우트가 먼저 선택되어 정적 파일 미들웨어가 건너뛴다.

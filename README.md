@@ -37,6 +37,25 @@ dotnet build web/MobiMate.Web.sln
 dotnet test web/MobiMate.Web.sln
 ```
 
+### 배포물 (단일 exe + zip)
+
+```bash
+dotnet publish web/src/MobiMate.Web -c Release -o web/dist
+```
+
+화면 빌드(npm) → `web/dist/MobiMateWeb.exe`(화면 포함 단일 파일, .NET 8 데스크톱 런타임 필요) → 메신저 전송용 `web/dist/MobiMateWeb.zip`까지 한 번에 만듭니다. 실기 점검은 `web/실기점검-체크리스트.md`를 따릅니다.
+
+### 화면 자동 테스트 (E2E·접근성)
+
+```bash
+cd web/src/client && npm run e2e
+```
+
+`npm run e2e`는 화면 빌드 → 서버 빌드(방금 만든 화면을 dll에 넣음) → 테스트 순서로 돕니다. 순서가 바뀌면 옛 화면으로 테스트되므로, 이미 둘 다 빌드했을 때만 `npm run e2e:only`를 씁니다.
+Safari 엔진(WebKit) 검사는 Playwright 브라우저를 한 번 받은 뒤(`npx playwright install webkit`) `E2E_WEBKIT=1`을 붙여 돌립니다.
+
+설치된 Edge로 PC·태블릿·폰 8개 뷰포트(트라이폴드 펼침·아이폰 가로 포함)에서 핵심 흐름과 폴더블 전환, 접근성(axe, serious 이상 0건)을 검사합니다. 서버는 가짜 CLI와 임시 저장 폴더로 자동으로 띄웁니다.
+
 화면 개발 중에는 `npm run dev`(포트 5173)가 `/api`·`/auth`를 로컬 서버(기본 `http://127.0.0.1:17800`, 환경변수 `MOBIMATE_SERVER`로 변경)로 넘깁니다.
 가짜 CLI로 서버를 띄울 때 `MobiMate__BootUrlFile=<파일>`을 주면 브라우저를 여는 대신 1회용 기동 URL을 그 파일에 남깁니다(개발·E2E 전용).
 
