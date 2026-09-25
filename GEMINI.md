@@ -8,7 +8,8 @@
 > - 테스트가 실제 `%APPDATA%\MobiMate`를 오염시키므로(W-09) 테스트 실행 전에 먼저 고친다.
 > - **프로젝트 경계**: 웹앱은 `webapp` 브랜치의 별개 프로젝트다. 두 프로젝트는 요구사양 문서만 공유하고 **코드·빌드·저장 데이터는 공유하지 않는다.**
 >   - `master`와 `webapp`은 서로 병합하지 않는다. 웹 코드(`web/`)를 master에 들이지 않는다.
->   - 작업 폴더: master = `V:\workspace\MobiMate`, webapp = `V:\workspace\MobiMate-web` (git worktree). 이 폴더에서 `webapp`으로 브랜치를 바꾸지 않는다.
+>   - 작업 폴더 (2026-09-25 재구성): master = `V:\workspace\MobiMate\master`, webapp = `V:\workspace\MobiMate\webapp` (git worktree). `V:\workspace\MobiMate` 자체는 bare 저장소라 작업 폴더가 아니다. **Antigravity는 `V:\workspace\MobiMate\master`를 연다.** 이 폴더에서 `webapp`으로 브랜치를 바꾸지 않는다.
+>   - 배포 경로도 함께 옮겨졌다: `dist\`와 루트 복사 exe는 `V:\workspace\MobiMate\master\dist`, `V:\workspace\MobiMate\master\MobiMate.exe`다.
 >   - WPF판 저장 폴더는 `%APPDATA%\MobiMate`, 웹앱은 `%APPDATA%\MobiMateWeb`이다.
 >   - `MobiMate.csproj`의 `web\**` 제외는 실수로 같은 폴더에서 브랜치를 바꿨을 때를 대비한 안전장치다. 지우지 않는다.
 
