@@ -9,10 +9,12 @@ export interface DevicePrefs {
   scale: 1 | 1.15 | 1.3;
   glance: boolean;
   dockWidth: number;
+  /** 게임 채팅 자동 이모티콘 (없으면 서버 기본값) */
+  autoEmote: boolean | null;
 }
 
 const KEY = 'mobimate.device.v1';
-const DEFAULTS: DevicePrefs = { theme: 'system', scale: 1, glance: true, dockWidth: 360 };
+const DEFAULTS: DevicePrefs = { theme: 'system', scale: 1, glance: true, dockWidth: 360, autoEmote: null };
 
 function load(): DevicePrefs {
   try {
@@ -31,7 +33,7 @@ export const useDevice = create<DeviceState>((set, get) => ({
   ...load(),
   set: p => {
     set(p);
-    const { theme, scale, glance, dockWidth } = { ...get(), ...p };
-    try { localStorage.setItem(KEY, JSON.stringify({ theme, scale, glance, dockWidth })); } catch { /* 저장 불가: 이번 세션만 */ }
+    const { theme, scale, glance, dockWidth, autoEmote } = { ...get(), ...p };
+    try { localStorage.setItem(KEY, JSON.stringify({ theme, scale, glance, dockWidth, autoEmote })); } catch { /* 저장 불가: 이번 세션만 */ }
   },
 }));

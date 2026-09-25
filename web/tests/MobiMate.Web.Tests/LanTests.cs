@@ -36,6 +36,7 @@ public class LanTests
 
         var p = await TestHost.Data(await local.PostAsync("/api/pairing/start", null));
         Assert.StartsWith($"http://{TestHost.LanIp}:{host.Port}/pair?code=", p.GetProperty("urlIp").GetString());
+        Assert.EndsWith("&n=mobimate.local", p.GetProperty("urlIp").GetString());
         Assert.StartsWith($"http://mobimate.local:{host.Port}/pair?code=", p.GetProperty("urlName").GetString());
 
         var ping = await host.LanClient().GetAsync("/api/ping");

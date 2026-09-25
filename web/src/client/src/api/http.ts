@@ -74,3 +74,8 @@ export const api = {
   put: <T>(path: string, body?: unknown) => send<T>('PUT', path, body),
   del: <T>(path: string) => send<T>('DELETE', path),
 };
+
+/** 스트리밍 요청처럼 fetch를 직접 쓸 때 필요한 CSRF 값 (SEC-04) */
+export async function csrfToken(): Promise<string> {
+  return csrf ?? (await session()).csrf;
+}

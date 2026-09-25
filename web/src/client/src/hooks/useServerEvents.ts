@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { connectSse } from '../api/sse';
-import { keys } from '../api/queries';
+import { keys, keys5 } from '../api/queries';
 import { queryClient } from '../lib/queryClient';
 import { useUi, type ToastLevel } from '../state/ui';
 import type { Header } from '../api/types';
@@ -39,6 +39,9 @@ export function useServerEvents() {
           void queryClient.invalidateQueries({ queryKey: keys.life });
           void queryClient.invalidateQueries({ queryKey: keys.inventory });
           break;
+        case 'chat.logged':
+          void queryClient.invalidateQueries({ queryKey: keys5.chatLog });
+          break;
         case 'homework.changed':
           void queryClient.invalidateQueries({ queryKey: keys.homework });
           void queryClient.invalidateQueries({ queryKey: keys.overview });
@@ -48,6 +51,8 @@ export function useServerEvents() {
           if (k.includes('lan') || k.includes('settings')) void queryClient.invalidateQueries({ queryKey: keys.meta });
           if (k.includes('settings')) void queryClient.invalidateQueries({ queryKey: keys.settings });
           if (k.includes('profile')) void queryClient.invalidateQueries({ queryKey: keys.header });
+          if (k.includes('personas')) void queryClient.invalidateQueries({ queryKey: keys5.personas });
+          if (k.includes('engine')) void queryClient.invalidateQueries({ queryKey: keys5.engines });
           break;
         }
       }

@@ -4,7 +4,9 @@ namespace MobiMate;
 
 /// <param name="Text">ChatPlanService(이모지·50자)까지 거친 최종 대사</param>
 /// <param name="UsedFallback">LLM 엔진을 시도했지만 실패·시간 초과로 내장 대사 풀을 쓴 경우 true (D-03 토스트 판단용)</param>
-public sealed record ChatterLine(string Text, bool UsedFallback);
+/// <param name="Text">자동 이모티콘·행동까지 붙인 최종 문장 (WPF판과 같은 결과)</param>
+/// <param name="Raw">이모지를 붙이기 전 대사. 입력창에 채울 때 쓴다: 보낼 때 이모지가 다시 붙으므로 두 번 붙지 않게 (FR-CH-03)</param>
+public sealed record ChatterLine(string Text, bool UsedFallback, string Raw = "");
 
 /// <summary>
 /// "아무말 대잔치" 한마디 생성기 (FR-CH-02).
@@ -55,7 +57,9 @@ public sealed class ChatterLineService
             line = SanitizeLine(PersonaTemplates.GetRandomTemplate(persona, ctx));
         }
 
-        return new ChatterLine(ChatPlanService.BuildChatPlan(line).FinalMessage, usedFallback);
+        // 원문은 이모지 접미사(공백 + 이모지 1자) 자리를 남겨 자른다: 보낼 때 붙어도 50자를 넘지 않게
+        var raw = ChatText.Truncate(ChatText.Sanitize(line), ChatText.MaxLength - 2);
+        return new ChatterLine(ChatPlanService.BuildChatPlan(line).FinalMessage, usedFallback, raw);
     }
 
     internal static string BuildPersonaPrompt(ChatterPersona persona, CustomPersona? custom, ChatterContext ctx)

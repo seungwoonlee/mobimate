@@ -528,6 +528,8 @@ sequenceDiagram
     S-->>PC: SSE toast "📱 Galaxy TriFold · Samsung Internet 연결됨"
 ```
 
+- **S5 구현 기준 (2026-09-25)**: `urlIp`에 광고 중인 이름을 `&n=<mdns 이름>`으로 함께 싣는다(폰 페이지가 확인할 이름을 알아야 하므로). 폰 페이지(`/pair`)는 세션 없이 열리고, 이름 주소의 `/api/ping` serverId가 같으면 그 주소로 옮겨 가서 페어링하고 아니면 지금 주소에서 페어링한다. 성공하면 주소에서 코드를 지우고 "홈 화면에 추가" 안내를 보여 준다(FR-MB-11). 실측: 내장 브라우저는 `.local` 요청을 막아 IP로 페어링됐다(설계대로의 대체 경로). 실제 폰 동작은 M4에서 확인한다.
+
 ### 5.2 채팅 전송 (FR-GC-04)
 
 1. 클라이언트: `POST /api/chat/game { text, autoEmote: true }`

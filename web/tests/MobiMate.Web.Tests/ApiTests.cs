@@ -51,6 +51,37 @@ public class ApiTests
     }
 
     [Fact]
+    public async Task ChatterLine_ReturnsRawWithoutEmoji_AndSourceIsLogged()
+    {
+        using var host = new TestHost();
+        var c = await host.LocalAsync();
+        var line = await TestHost.Data(await c.PostAsJsonAsync("/api/chatter/line", new { persona = "Scrooge" }));
+        var raw = line.GetProperty("text").GetString()!;
+        var final = line.GetProperty("final").GetString()!;
+        Assert.True(ChatText.Count(raw) <= ChatText.MaxLength - 2);
+        Assert.NotEqual(raw, final);                  // 최종 문장에는 이모지가 붙어 있다
+        Assert.StartsWith(raw.TrimEnd(), final);
+
+        var sent = await TestHost.Data(await c.PostAsJsonAsync("/api/chat/game", new { text = raw, autoEmote = true, source = "아무말 · 구두쇠 영감" }));
+        Assert.Equal("아무말 · 구두쇠 영감", sent.GetProperty("source").GetString());
+        Assert.Equal(final, sent.GetProperty("message").GetString());   // 이모지는 한 번만
+
+        var spoof = await TestHost.Data(await c.PostAsJsonAsync("/api/chat/game", new { text = "다른 말", source = "관리자" }));
+        Assert.Equal("직접", spoof.GetProperty("source").GetString());
+    }
+
+    [Fact]
+    public async Task ChatterPersona_IsSharedServerSetting()
+    {
+        using var host = new TestHost();
+        var c = await host.LocalAsync();
+        Assert.Equal("Villainess", (await TestHost.Data(await c.GetAsync("/api/settings"))).GetProperty("chatterPersona").GetString());
+        Assert.Equal("IdolDancer", (await TestHost.Data(await c.PutAsJsonAsync("/api/settings", new { chatterPersona = "IdolDancer" }))).GetProperty("chatterPersona").GetString());
+        Assert.Equal(System.Net.HttpStatusCode.BadRequest, (await c.PutAsJsonAsync("/api/settings", new { chatterPersona = "Custom" })).StatusCode);
+        Assert.Equal(System.Net.HttpStatusCode.BadRequest, (await c.PutAsJsonAsync("/api/settings", new { chatterPersona = "관리자" })).StatusCode);
+    }
+
+    [Fact]
     public async Task Meta_Version_IsBuildTimestamp()
     {
         using var host = new TestHost();

@@ -91,3 +91,28 @@ export interface Overview {
   homework: { daily: Progress; weekly: Progress; nextDailyReset: string; nextWeeklyReset: string };
   cutoffs: Cutoffs | null;
 }
+
+// ── S5: 채팅·아무말·AI·페어링 ──
+
+export interface ChatLogEntry { at: string; message: string; behaviour: string | null; ok: boolean; error: string | null; source: string; deviceId: string }
+export interface ChatPreview { final: string; emoji: string | null; behaviour: string | null; count: number; max: number }
+export interface CustomPersona { id: string; name: string; tagEmoji: string; systemPrompt: string; createdAt: string; displayName: string }
+export interface PersonaDraft { name: string; emoji: string; prompt: string; fromAi: boolean }
+
+export type CostTier = 'builtin' | 'localFree' | 'paid';
+export interface Engine { id: string; name: string; type: string; costTier: CostTier; description: string }
+export interface Engines { current: string | null; engines: Engine[] }
+
+export interface Device { id: string; name: string; kind: 'local' | 'lan'; createdAt: string; lastSeenAt: string; expiresAt: string | null }
+export interface PairingStart { code: string; expiresAt: string; urlIp: string; urlName: string | null; addresses: string[] }
+export interface Settings { maxRefreshSec: number; autoEmoteDefault: boolean; lanEnabled?: boolean; chatterPersona: string; cliPath: string | null; cliAvailable: boolean }
+
+/** POST /api/ai/ask 응답(NDJSON) 한 줄 */
+export type AskEvent =
+  | { type: 'token'; t: string }
+  | { type: 'done'; engine?: string }
+  | { type: 'error'; message: string }
+  | { type: 'action'; kind: string; ok: boolean; message: string }
+  | { type: 'navigate'; to: string }
+  | { type: 'intent'; kind: 'collect'; items: string[] }
+  | { type: 'intent'; kind: 'gather'; item: string; count: number | null; wingsCost: number };

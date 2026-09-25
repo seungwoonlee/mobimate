@@ -8,6 +8,9 @@ public sealed class WebSettings
     public bool AutoEmoteDefault { get; set; } = true;
     public string? CliPath { get; set; }
     public bool LanEnabled { get; set; }
+
+    /// <summary>현재 아무말 페르소나: 기본 5종 이름 또는 "custom:&lt;id&gt;" (FR-MB-15, 기기 사이 공유)</summary>
+    public string ChatterPersona { get; set; } = "Villainess";
 }
 
 public sealed class WebSettingsStore
@@ -49,5 +52,6 @@ public sealed class WebSettingsStore
         AutoEmoteDefault = s.AutoEmoteDefault,
         CliPath = s.CliPath,
         LanEnabled = s.LanEnabled,
+        ChatterPersona = s.ChatterPersona,
     };
 }

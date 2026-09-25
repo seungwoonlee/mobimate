@@ -27,13 +27,15 @@ export async function stopAction() {
 }
 
 /** 가공물 수거 (FR-DT-05). 이름이 없으면 완료된 첫 작업. */
-export async function collect(name?: string) {
-  if (blockedOffline()) return;
+export async function collect(name?: string): Promise<boolean> {
+  if (blockedOffline()) return false;
   try {
     const r = await api.post<{ collected: string }>('/api/actions/collect', name ? { displayName: name } : {});
     toast(`${r.data.collected} 수거했습니다`, 'ok');
+    return true;
   } catch (e) {
     toast(e instanceof ApiError && e.code === 'NOTHING_TO_COLLECT' ? '완료된 가공물이 없습니다' : `수거 실패: ${msg(e)}`, 'warn');
+    return false;
   } finally {
     void queryClient.invalidateQueries({ queryKey: keys.life });
     void queryClient.invalidateQueries({ queryKey: keys.overview });
@@ -42,19 +44,23 @@ export async function collect(name?: string) {
 }
 
 /** 완료된 가공물을 모두 수거한다 (퀵 액션 📥). 하나씩 차례로 보낸다. */
-export async function collectAll(names: string[]) {
-  if (!names.length) { toast('완료된 가공물이 없습니다', 'info'); return; }
-  for (const n of names) await collect(n);
+export async function collectAll(names: string[]): Promise<boolean> {
+  if (!names.length) { toast('완료된 가공물이 없습니다', 'info'); return false; }
+  let any = false;
+  for (const n of names) any = (await collect(n)) || any;
+  return any;
 }
 
 /** 채집 시작 (FR-DT-07·08): 202로 바로 돌아오고 결과는 SSE "gather"로 온다. */
-export async function startGather(name: string, count: number | null) {
-  if (blockedOffline()) return;
+export async function startGather(name: string, count: number | null): Promise<boolean> {
+  if (blockedOffline()) return false;
   try {
     await api.post('/api/actions/gather', { displayName: name, count: count ?? undefined });
     toast(`${name} 채집을 시작했습니다${count ? ` · 목표 ${count}개` : ''}`, 'info');
+    return true;
   } catch (e) {
     toast(`채집을 시작하지 못했습니다: ${msg(e)}`, 'warn');
+    return false;
   }
 }
 
