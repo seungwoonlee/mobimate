@@ -195,7 +195,11 @@ namespace MobiMate.Web.Hosting
                 File.WriteAllText(options.BootUrlFile, boot);
                 log.LogWarning("개발용 기동 URL을 파일로 남겼습니다: {File}", options.BootUrlFile);
             }
-            else if (options.OpenBrowser) sp.GetRequiredService<BrowserLauncher>().Open();
+            else if (options.OpenBrowser)
+            {
+                // 기동 작업은 서버가 포트를 열기 전에 돈다. 먼저 열면 첫 접속이 거부되므로 서버가 준비된 뒤에 연다
+                sp.GetRequiredService<IHostApplicationLifetime>().ApplicationStarted.Register(() => sp.GetRequiredService<BrowserLauncher>().Open());
+            }
             var id = sp.GetRequiredService<ServerIdentity>();
             log.LogInformation("MobiMate 서버 시작 {Version}: http://127.0.0.1:{Port}", id.Version, id.Port);
             if (id.Port != id.PreferredPort) log.LogWarning("포트 {Preferred}이 사용 중이라 {Port}로 떴습니다. 이 상태에서는 LAN 모드를 켜지 않습니다.", id.PreferredPort, id.Port);
