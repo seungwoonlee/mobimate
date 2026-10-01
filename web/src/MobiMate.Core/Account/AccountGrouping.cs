@@ -138,3 +138,22 @@ public static class AccountGrouper
     public static bool IsMember(AccountData data, string accountId, DateTime nowUtc) =>
         data.Accounts.TryGetValue(accountId, out var i) && i.MembershipExpiresAtUtc is { } e && e > nowUtc;
 }
+
+/// <summary>
+/// 멤버십 만료 시각 계산 (승운 확정 2026-10-02). 사용자는 게임 캐시샵에서 본 **남은 일수**만 입력한다.
+/// 게임의 하루는 새벽 6시에 바뀌므로, 실제 만료는 "(오늘 + 남은 일수 − 1일)이 지난 뒤 첫 새벽 6시"다.
+/// 새벽 6시 전이면 아직 어제로 센다.
+/// </summary>
+public static class MembershipClock
+{
+    public static readonly TimeSpan DayStart = TimeSpan.FromHours(6);
+
+    /// <param name="nowLocal">PC의 현지 시각</param>
+    /// <param name="days">캐시샵에 표시된 남은 일수 (1 이상)</param>
+    /// <returns>만료 시각(현지)</returns>
+    public static DateTime ExpiryLocal(DateTime nowLocal, int days)
+    {
+        var gameDate = (nowLocal - DayStart).Date;           // 게임의 오늘 (새벽 6시 전이면 어제)
+        return gameDate.AddDays(days).Add(DayStart);          // 오늘 + (days-1)일의 다음 새벽 6시
+    }
+}

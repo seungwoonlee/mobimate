@@ -37,6 +37,23 @@ export function AppShell({ children }: { children: ReactNode }) {
   const route = useRouter(s => s.loc.name);
   const main = useRef<HTMLElement>(null);
 
+  // 상단 버튼(새로고침·빠른 실행·폰으로 보기·긴급 정지)은 좌측 바가 보이는 화면에서는 그 아래쪽에 아이콘으로 둔다 (v1.5).
+  // 좌측 바가 없는 폰(Compact)·테이블톱 자세에서는 상단에 둔다.
+  const settings = useQuery({ queryKey: keys.settings, queryFn: () => api.get<{ maxRefreshSec: number }>('/api/settings'), staleTime: 60_000 });
+  const refresh = useAdaptiveRefresh(settings.data?.data.maxRefreshSec ?? 300);   // 자동 갱신 최대 주기는 PC 서버 설정을 따른다 (FR-RF-01)
+  const qc = useQueryClient();
+  const bump = useUi(s => s.bumpRefresh);
+  const setPairOpen = useUi(s => s.setPairOpen);
+  const setPaletteOpen = useUi(s => s.setPaletteOpen);
+  const local = useSession().data?.kind === 'local';   // 폰으로 보기 버튼은 게임 PC에서만
+  const actions: Actions = {
+    refresh, local,
+    manualRefresh: () => { void qc.invalidateQueries({ type: 'active' }); bump(); },
+    openPair: () => setPairOpen(true),
+    openPalette: () => setPaletteOpen(true),
+  };
+  const railShown = layout.size !== 'compact' && layout.posture !== 'tabletop';
+
   // 도크: Expanded 이상은 옆 패널(기본 열림), 그 아래·높이가 낮으면 시트 (상세설계 §4.5)
   const dockMode = layout.posture === 'book' ? 'split' : (layout.size === 'expanded' || layout.size === 'large') && !layout.short ? 'side' : 'sheet';
   // 채팅 기본값 (v1.5): 가로 화면이면(폰 제외) 옆 패널이 기본으로 열려 있다. 세로 화면은 기본으로 닫혀 있다. 사용자가 고르면 그 선택을 기억한다.
@@ -66,9 +83,9 @@ export function AppShell({ children }: { children: ReactNode }) {
       data-dock-tab={dockTab}
       data-offline={offline}
     >
-      <TopBar compact={layout.size === 'compact'} />
+      <TopBar compact={layout.size === 'compact'} actions={actions} showActions={!railShown} />
       {offline && <OfflineBanner />}
-      <NavRail chatOpen={dockVisible} canToggle={dockMode !== 'split'} onChat={toggleChat} />
+      <NavRail chatOpen={dockVisible} canToggle={dockMode !== 'split'} onChat={toggleChat} actions={actions} showActions={railShown} />
       <main className="main" ref={main} tabIndex={0} aria-label="본문">
         <div className="main-inner">{children}</div>
       </main>
@@ -111,26 +128,26 @@ export function OfflineBanner() {
   );
 }
 
-function TopBar({ compact }: { compact: boolean }) {
+/** 새로고침·빠른 실행·폰으로 보기에 필요한 값과 동작 (상단 또는 좌측 바의 버튼이 함께 쓴다) */
+interface Actions {
+  refresh: { period: number; left: number };
+  local: boolean;
+  manualRefresh: () => void;
+  openPair: () => void;
+  openPalette: () => void;
+}
+
+const TIP_REFRESH = (period: number) => `지금 새로고침 — 자동 갱신은 활동이 없으면 15초씩 늘어납니다 (지금 ${period}초 주기)`;
+const TIP_PALETTE = '빠른 실행 (Ctrl+K) — 화면 이동·채집·페르소나를 검색해서 바로 실행합니다';
+const TIP_PAIR = 'QR코드로 모바일 접속이 가능합니다';
+
+function TopBar({ compact, actions, showActions }: { compact: boolean; actions: Actions; showActions: boolean }) {
   const header = useHeader();
   const status = useStatus();
-  // 자동 갱신 최대 주기는 PC 서버 설정을 따른다 (FR-RF-01, FR-ST)
-  const settings = useQuery({ queryKey: keys.settings, queryFn: () => api.get<{ maxRefreshSec: number }>('/api/settings'), staleTime: 60_000 });
-  const refresh = useAdaptiveRefresh(settings.data?.data.maxRefreshSec ?? 300);
-  const qc = useQueryClient();
-  const bump = useUi(s => s.bumpRefresh);
-  const setPairOpen = useUi(s => s.setPairOpen);
-  const setPaletteOpen = useUi(s => s.setPaletteOpen);
-  const local = useSession().data?.kind === 'local';   // 폰으로 보기 버튼은 게임 PC에서만
   const h = header.data?.data;
   const state = status.data?.data.state ?? 'unknown';
   const conn = state === 'connected' ? 'ok' : state === 'unknown' ? 'plain' : 'danger';
   const name = h ? (h.character.nickname ?? h.character.realm) : '…';
-
-  const manualRefresh = () => {
-    void qc.invalidateQueries({ type: 'active' });
-    bump();
-  };
 
   return (
     <header className="top" data-selecting={h?.selecting ? 'true' : undefined}>
@@ -141,8 +158,8 @@ function TopBar({ compact }: { compact: boolean }) {
           <div className="who-name">
             <NicknameEditor name={name} current={h?.character.nickname ?? null} />
             {h && <span className="job">{h.character.job} Lv.{h.character.level}</span>}
-            {h && !h.selecting && <MembershipChip />}
             {h?.selecting ? <span className="who-title selecting">캐릭터 선택 중</span> : h?.character.title && <span className="who-title">“{h.character.title}”</span>}
+            {h && !h.selecting && <MembershipChip />}
           </div>
         </div>
       </div>
@@ -153,29 +170,31 @@ function TopBar({ compact }: { compact: boolean }) {
         </div>
       )}
       {h && !compact && <LocationScene place={h.location.space ?? h.location.channel} weather={h.location.weather} erinn={h.location.erinn} />}
-      <div className="top-actions">
-        <button type="button" className="refresh" onClick={manualRefresh} title={`자동 갱신: 활동이 없으면 15초씩 늘어납니다 (지금 ${refresh.period}초 주기)`} aria-label={`지금 새로고침 (다음 자동 갱신 ${refresh.left}초 후)`}>
-          <Icon name="refresh" /><span className="refresh-txt num">{refresh.left}초</span>
-        </button>
-        <button type="button" className="icon-btn" onClick={() => setPaletteOpen(true)} aria-label="빠른 실행" data-tip="빠른 실행 (Ctrl+K) — 화면 이동·채집·페르소나를 검색해서 바로 실행합니다">
-          <Icon name="search" />
-        </button>
-        {local && (
-          <button type="button" className="icon-btn" onClick={() => setPairOpen(true)} aria-label="폰·태블릿으로 보기" data-tip="QR코드로 모바일 접속이 가능합니다">
-            <Icon name="phone" />
+      {showActions && (
+        <div className="top-actions">
+          <button type="button" className="refresh" onClick={actions.manualRefresh} data-tip={TIP_REFRESH(actions.refresh.period)} aria-label={`지금 새로고침 (다음 자동 갱신 ${actions.refresh.left}초 후)`}>
+            <Icon name="refresh" /><span className="refresh-txt num">{actions.refresh.left}초</span>
           </button>
-        )}
-        {!compact && (
-          <button type="button" className="stop-btn" onClick={stopAction}>
-            <Icon name="stop" />긴급 정지 <kbd>Esc</kbd>
+          <button type="button" className="icon-btn" onClick={actions.openPalette} aria-label="빠른 실행" data-tip={TIP_PALETTE}>
+            <Icon name="search" />
           </button>
-        )}
-      </div>
+          {actions.local && (
+            <button type="button" className="icon-btn" onClick={actions.openPair} aria-label="폰·태블릿으로 보기" data-tip={TIP_PAIR}>
+              <Icon name="phone" />
+            </button>
+          )}
+          {!compact && (
+            <button type="button" className="stop-btn" onClick={stopAction}>
+              <Icon name="stop" />긴급 정지 <kbd>Esc</kbd>
+            </button>
+          )}
+        </div>
+      )}
     </header>
   );
 }
 
-function NavRail({ onChat, chatOpen, canToggle }: { onChat: () => void; chatOpen: boolean; canToggle: boolean }) {
+function NavRail({ onChat, chatOpen, canToggle, actions, showActions }: { onChat: () => void; chatOpen: boolean; canToggle: boolean; actions: Actions; showActions: boolean }) {
   const cur = useRouter(s => s.loc.name);
   const go = useRouter(s => s.go);
   return (
@@ -186,8 +205,28 @@ function NavRail({ onChat, chatOpen, canToggle }: { onChat: () => void; chatOpen
         </button>
       ))}
       <span className="sp" />
+      {showActions && (
+        <>
+          <button type="button" className="rail-act" onClick={actions.manualRefresh} data-tip={TIP_REFRESH(actions.refresh.period)} aria-label={`지금 새로고침 (다음 자동 갱신 ${actions.refresh.left}초 후)`}>
+            <Icon name="refresh" /><span className="num">{actions.refresh.left}초</span>
+          </button>
+          <button type="button" className="rail-act" onClick={actions.openPalette} aria-label="빠른 실행" data-tip={TIP_PALETTE}>
+            <Icon name="search" />실행
+          </button>
+          {actions.local && (
+            <button type="button" className="rail-act" onClick={actions.openPair} aria-label="폰·태블릿으로 보기" data-tip={TIP_PAIR}>
+              <Icon name="phone" />폰 연결
+            </button>
+          )}
+        </>
+      )}
       {canToggle && <button type="button" className="chat-toggle" onClick={onChat} aria-pressed={chatOpen} title={chatOpen ? '채팅 닫기' : '채팅 열기'}><Icon name="chat" />채팅</button>}
       <button type="button" onClick={() => go('settings')} aria-current={cur === 'settings' ? 'page' : undefined}><Icon name="gear" />설정</button>
+      {showActions && (
+        <button type="button" className="rail-stop" onClick={stopAction} aria-label="긴급 정지" data-tip="긴급 정지 (Esc) — 채집·이동·자동사냥을 멈춥니다">
+          <Icon name="stop" />정지
+        </button>
+      )}
     </nav>
   );
 }

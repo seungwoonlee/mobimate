@@ -493,8 +493,10 @@ public class DisplayAndRankingTests
             P("파티원", 10_000, 50, party: true), P("무소속", 90_000, 2, hasGuild: false), P("무소속2", 90_000, 1, hasGuild: false),
         }, myCombatScore: 88_737);
 
-        Assert.Equal(new[] { "친구", "파티원", "길드원", "강자", "무소속2", "무소속" }, ranked.Select(r => r.Pc.Title));
+        Assert.Equal(new[] { "친구", "길드원", "강자", "무소속2", "무소속", "파티원" }, ranked.Select(r => r.Pc.Title));   // IsInParty는 무시: 파티원은 그냥 전투력 순에 들어간다
         Assert.Equal(NearbyRelation.Friend, NearbyRanker.RelationOf(new NearPcItem("아이라", "둘 다", 1, 100, "전사", 1, false, true, true, false, true)));   // 친구이면서 파티원이면 친구
+        Assert.Equal(NearbyRelation.Other, NearbyRanker.RelationOf(new NearPcItem("아이라", "파티만", 1, 100, "전사", 1, false, true, false, false, false)));   // IsInParty만으로는 아무 관계도 아니다
+        Assert.Equal(NearbyRelation.Guild, NearbyRanker.RelationOf(new NearPcItem("아이라", "파티+길드", 1, 100, "전사", 1, true, true, false, false, true)));
         Assert.True(ranked.Single(r => r.Pc.Title == "강자").IsStronger);
         Assert.Equal("길드 없음", ranked.Single(r => r.Pc.Title == "무소속").RelationLabel);
         Assert.Equal("", ranked.Single(r => r.Pc.Title == "강자").RelationLabel);

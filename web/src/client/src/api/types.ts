@@ -57,7 +57,7 @@ export interface Life { works: Work[] | null; gatherables: Gatherable[] | null }
 
 export interface NearPlayer {
   title: string; realm: string; job: string; level: number; combatScore: number; distance: number;
-  inCombat: boolean; relation: 'party' | 'friend' | 'guild' | 'other'; relationLabel: string; isStronger: boolean;
+  inCombat: boolean; relation: 'friend' | 'guild' | 'other'; relationLabel: string; isStronger: boolean;
 }
 export interface Nearby { count: number; myCombatScore: number; players: NearPlayer[] }
 

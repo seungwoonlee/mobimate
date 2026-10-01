@@ -404,3 +404,25 @@ button.toast { border: 0; text-align: left; cursor: pointer; }
 .who-name .nm-wrap{max-width:none}
 .who-name .nm{max-width:none;overflow:visible;text-overflow:clip}
 .who-name .nm-hint{flex-basis:100%;width:fit-content}
+
+/* ── 상단 이름·직업·칭호 글자를 1.5배로 (v1.5). 이름 말고는 칸이 모자라면 여러 줄로 ── */
+.who-name{font-size:calc(54px * var(--scale));gap:6px 16px}
+.who-name .job{font-size:calc(32px * var(--scale));white-space:normal}
+.who-name .who-title{font-size:calc(22px * var(--scale));padding:4px 16px;white-space:normal;line-height:1.3}
+.who-name .mem-chip{font-size:calc(19px * var(--scale));padding:4px 16px;white-space:normal}
+.app[data-size="medium"] .who-name{font-size:calc(40px * var(--scale))}
+.app[data-size="medium"] .who-name .job{font-size:calc(24px * var(--scale))}
+.app[data-size="medium"] .who-name .who-title,.app[data-size="medium"] .who-name .mem-chip{font-size:16px}
+.app[data-size="compact"] .who-name .job{font-size:15px}
+.app[data-size="compact"] .who-name .who-title,.app[data-size="compact"] .who-name .mem-chip{font-size:13px;padding:2px 10px}
+
+/* ── 좌측 바 아래쪽 버튼(새로고침·빠른 실행·폰 연결·긴급 정지) ── */
+.rail{overflow:visible;gap:2px}
+@media (max-height:800px){.rail{overflow-y:auto}.rail button{padding:5px 0 3px}}
+.rail .rail-act .num{font-size:11px}
+.rail .rail-stop{background:var(--danger);color:var(--on-danger);margin-top:6px}
+.rail .rail-stop:hover{background:var(--danger);filter:brightness(1.1);color:var(--on-danger)}
+/* 좌측 바의 말풍선은 오른쪽으로 */
+.rail [data-tip]::after{top:50%;left:calc(100% + 12px);right:auto;transform:translateY(-50%) translateX(-3px)}
+.rail [data-tip]::before{top:50%;left:calc(100% + 6px);right:auto;transform:translateY(-50%);border:6px solid transparent;border-right-color:var(--text-1);border-left:0}
+.rail [data-tip]:hover::after,.rail [data-tip]:focus-visible::after{transform:translateY(-50%)}
