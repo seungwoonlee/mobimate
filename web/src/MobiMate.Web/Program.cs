@@ -49,6 +49,7 @@ builder.Services.AddSingleton(new ServerIdentity { Port = port, PreferredPort = 
 builder.Services.AddSingleton(sp => new WebSettingsStore(Dir(sp)));
 builder.Services.AddSingleton(sp => new FavoritesStore(Dir(sp)));
 builder.Services.AddSingleton(sp => new AccountStore(Dir(sp)));
+builder.Services.AddSingleton(sp => new ClassImages(Dir(sp), sp.GetRequiredService<ILogger<ClassImages>>()));
 builder.Services.AddSingleton(sp =>
 {
     var c = WorkCategoryCatalog.Load(Dir(sp));
@@ -186,6 +187,8 @@ namespace MobiMate.Web.Hosting
             }
 
             _ = Task.Run(() => sp.GetRequiredService<AiService>().EnsureDiscoveredAsync(), CancellationToken.None);
+            // 클래스 이미지는 첫 실행 때 이 PC에만 내려받는다(배포 파일에는 없다). 실패해도 SVG 아이콘으로 대신하므로 기다리지 않는다.
+            if (options.ClassImageDownload) _ = Task.Run(() => sp.GetRequiredService<ClassImages>().EnsureDownloadedAsync(), CancellationToken.None);
 
             if (options.OpenBrowser)
             {

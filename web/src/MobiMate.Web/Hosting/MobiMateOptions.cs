@@ -39,6 +39,9 @@ public sealed class MobiMateOptions
     /// <summary>전투력이 낮게 읽혔을 때 다시 읽기까지의 간격 (FR-DT-10). 최대 두 번 다시 읽는다.</summary>
     public TimeSpan CombatRecheckDelay { get; set; } = TimeSpan.FromSeconds(5);
 
+    /// <summary>클래스 이미지를 첫 실행 때 내려받을지 (v1.5). 테스트에서 끈다.</summary>
+    public bool ClassImageDownload { get; set; } = true;
+
     /// <summary>접속 중인 캐릭터를 읽어 기록하는 간격 (v1.5). 0이면 끈다.</summary>
     public TimeSpan RecordInterval { get; set; } = TimeSpan.FromSeconds(60);
 

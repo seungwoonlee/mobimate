@@ -151,7 +151,7 @@ function CharacterCardView({ c, now }: { c: CharacterCard; now: number }) {
           </span>
         }
       />
-      <div className="cc-job"><JobIcon job={c.job} size={16} /> {c.job} Lv.{c.level}{c.title && <span className="cc-title">“{c.title}”</span>}</div>
+      <div className="cc-job"><JobIcon job={c.job} size={30} /><span className="cc-jt"><span>{c.job} Lv.{c.level}</span>{c.title && <span className="cc-title">“{c.title}”</span>}</span></div>
       <div className="cc-main">
         <div><span className="lbl">전투력</span><b className={`v num ${scoreClass('combat', c.combat)}`}>{fmt(c.combat)}</b></div>
         <div><span className="lbl">마도저항</span><b className={`v num ${scoreClass('mdef', c.mdef)}`}>{fmt(c.mdef)}</b></div>

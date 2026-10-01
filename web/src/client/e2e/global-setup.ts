@@ -1,6 +1,6 @@
 import { type FullConfig } from '@playwright/test';
 import { spawn } from 'node:child_process';
-import { existsSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { createConnection } from 'node:net';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
@@ -30,6 +30,7 @@ export default async function globalSetup(config: FullConfig) {
   if (await listening(Number(port))) throw new Error(`포트 ${port}를 다른 프로그램이 쓰고 있습니다. 이전 E2E 서버를 끄거나 E2E_PORT를 바꾸세요.`);
   const storage = mkdtempSync(join(tmpdir(), 'mm-e2e-'));
   seedCharacters(storage);
+  seedClassImage(storage);
 
   const server = spawn('dotnet', [dll], {
     env: {
@@ -41,6 +42,7 @@ export default async function globalSetup(config: FullConfig) {
       MobiMate__Tray: 'false',
       MobiMate__SingleInstance: 'false',
       MobiMate__Mdns: 'false',
+      MobiMate__ClassImageDownload: 'false',   // 네트워크로 내려받지 않는다
       MobiMate__RecordInterval: '00:00:00',   // 자동 기록은 끈다 (화면이 읽을 때만 기록)
       MobiMate__Port: port,
       MobiMate__CliPath: cli,
@@ -80,4 +82,11 @@ function seedCharacters(dir: string) {
     prof('바람', '사제', 1 * H, [rec(1 * H, 95, 60000, 777, 888, 82, 1)]),
   ];
   writeFileSync(join(dir, 'character_history_db.json'), JSON.stringify(db));
+}
+
+/** 직업 이미지가 이미 내려받아져 있는 상태(격투가 = thief_3)를 만든다: 1x1 PNG */
+function seedClassImage(dir: string) {
+  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64');
+  mkdirSync(join(dir, 'class-images'), { recursive: true });
+  writeFileSync(join(dir, 'class-images', 'thief_3.png'), png);
 }
