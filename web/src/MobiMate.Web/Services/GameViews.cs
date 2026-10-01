@@ -9,7 +9,7 @@ namespace MobiMate.Web.Services;
 /// 헤더를 읽을 때마다 GameStateCache·SnapshotManager(세션 변화량)를 갱신하고 SSE "header"로 다른 기기에도 알린다.
 /// </summary>
 public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManager snapshots, SseHub hub, CutoffCatalog cutoffs,
-    CombatScoreGuard guard, MobiMateOptions options, ILogger<GameViews> log)
+    CombatScoreGuard guard, MobiMateOptions options, IHostApplicationLifetime life, ILogger<GameViews> log)
 {
     private readonly ConcurrentDictionary<string, Dictionary<string, int>> _bagBaselines = new(StringComparer.OrdinalIgnoreCase);
 
@@ -71,22 +71,24 @@ public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManag
 
     private async Task RecheckCombatAsync(string key, long known)
     {
+        var stop = life.ApplicationStopping;   // 앱을 끄면 재확인도 멈춘다
         try
         {
             long best = 0;
             for (var i = 0; i < 2; i++)
             {
-                await Task.Delay(options.CombatRecheckDelay);
+                await Task.Delay(options.CombatRecheckDelay, stop);
                 q.Invalidate("get_my_info");
-                var r = await q.Get<CharacterInfo>("get_my_info");
+                var r = await q.Get<CharacterInfo>("get_my_info", stop);
                 if (!r.Ok || r.Value == null || CharacterKey(r.Value) != key) continue;   // 읽지 못했거나 캐릭터가 바뀜
                 var now = r.Value.CombatScore?.Value ?? 0;
                 if (now >= known) { best = now; break; }
                 best = Math.Max(best, now);
             }
             if (best > 0 && best < known) { guard.ConfirmLow(key, best); log.LogInformation("전투력 {Known} → {Now}: 다시 읽어도 같아 실제 값으로 받아들입니다 ({Key})", known, best, key); }
-            await HeaderAsync(CancellationToken.None);   // 받아들인 값으로 화면을 갱신한다 (SSE header)
+            await HeaderAsync(stop);   // 받아들인 값으로 화면을 갱신한다 (SSE header)
         }
+        catch (OperationCanceledException) { }
         catch (Exception ex)
         {
             log.LogWarning(ex, "전투력 재확인 실패");
