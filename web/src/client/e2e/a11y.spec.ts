@@ -2,7 +2,7 @@ import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
 
 /** TST-06 접근성 자동 점검: 주요 화면을 다크·라이트에서 검사해 serious 이상 위반 0건. PC와 폰 폭에서 돈다. */
-const screens = ['/', '/stats', '/homework', '/inventory', '/life', '/nearby', '/settings'];
+const screens = ['/', '/overview', '/stats', '/homework', '/inventory', '/currencies', '/life', '/nearby', '/settings'];
 
 for (const scheme of ['dark', 'light'] as const) {
   for (const path of screens) {

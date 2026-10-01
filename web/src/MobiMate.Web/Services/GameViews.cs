@@ -9,9 +9,10 @@ namespace MobiMate.Web.Services;
 /// 헤더를 읽을 때마다 GameStateCache·SnapshotManager(세션 변화량)를 갱신하고 SSE "header"로 다른 기기에도 알린다.
 /// </summary>
 public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManager snapshots, SseHub hub, CutoffCatalog cutoffs,
-    CombatScoreGuard guard, MobiMateOptions options, IHostApplicationLifetime life, ILogger<GameViews> log)
+    FavoritesStore favorites, WorkCategoryCatalog workKinds, CombatScoreGuard guard, MobiMateOptions options, IHostApplicationLifetime life, ILogger<GameViews> log)
 {
     private readonly ConcurrentDictionary<string, Dictionary<string, int>> _bagBaselines = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, byte> _unclassifiedWorks = new();   // 분류표에 없는 가공품은 한 번만 기록한다 (FR-DT-20)
 
     public static string CharacterKey(CharacterInfo? ch) =>
         $"{(string.IsNullOrWhiteSpace(ch?.RealmName) ? "에린" : ch!.RealmName)}_{(string.IsNullOrWhiteSpace(ch?.JobName) ? "밀레시안" : ch!.JobName)}";
@@ -189,6 +190,7 @@ public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManag
             items = items.Select(i => new
             {
                 location = NormalizeLocation(i.Location), name = i.DisplayName, category = i.CategoryName, count = i.Count, locked = i.IsLocked,
+                favorite = favorites.IsItem(i.DisplayName),
                 sessionDelta = IsBag(i.Location) ? Math.Max(0, bagTotals.GetValueOrDefault(i.DisplayName) - baseline.GetValueOrDefault(i.DisplayName)) : 0,
             }),
         }, null, tItems.Result.FetchedAt);
@@ -236,12 +238,19 @@ public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManag
         var bag = (tI.Result.Value ?? new()).Where(i => IsBag(i.Location)).GroupBy(i => i.DisplayName).ToDictionary(g => g.Key, g => g.Sum(i => i.Count));
         return new CliData<object>(new
         {
-            works = tA.Result.Value?.Works?.Select(w => new
+            works = tA.Result.Value?.Works?.Select(w =>
             {
-                name = w.DisplayName, facility = w.FacilityName, remainingSeconds = w.RemainingSeconds,
-                done = w.IsCompleted || w.RemainingSeconds <= 0, remainingText = DisplayFormat.RemainingTime(w.RemainingSeconds),
+                var kind = workKinds.Classify(w.DisplayName, w.FacilityName);
+                if (kind == WorkKinds.Other && w.DisplayName != null && _unclassifiedWorks.TryAdd(w.DisplayName, 0))
+                    log.LogInformation("가공 분류표에 없는 가공품: {Name} (작업대 {Facility}) — work_categories.override.json에 더하면 분류됩니다", w.DisplayName, w.FacilityName);
+                return new
+                {
+                    name = w.DisplayName, facility = w.FacilityName, remainingSeconds = w.RemainingSeconds,
+                    done = w.IsCompleted || w.RemainingSeconds <= 0, remainingText = DisplayFormat.RemainingTime(w.RemainingSeconds),
+                    kind, kindLabel = workKinds.LabelOf(kind),
+                };
             }),
-            gatherables = tG.Result.Value?.Items?.Select(g => new { name = g.DisplayName, toolOk = g.ToolOk, inBag = bag.GetValueOrDefault(g.DisplayName) }),
+            gatherables = tG.Result.Value?.Items?.Select(g => new { name = g.DisplayName, toolOk = g.ToolOk, inBag = bag.GetValueOrDefault(g.DisplayName), favorite = favorites.IsGather(g.DisplayName) }),
         }, null, tA.Result.FetchedAt);
     }
 
@@ -257,11 +266,44 @@ public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManag
             myCombatScore = my,
             players = ranked.Select(e => new
             {
-                name = e.Pc.Title, realm = e.Pc.RealmName, job = e.Pc.JobName, level = e.Pc.Level, combatScore = e.Pc.CombatScore,
+                title = e.Pc.Title, realm = e.Pc.RealmName, job = e.Pc.JobName, level = e.Pc.Level, combatScore = e.Pc.CombatScore,
                 distance = Math.Round(e.Pc.Distance, 1), inCombat = e.Pc.IsInCombat, relation = e.Relation, relationLabel = e.RelationLabel,
                 isStronger = e.IsStronger,
             }),
         }, null, r.FetchedAt);
+    }
+
+    /// <summary>
+    /// 내 캐릭터 전체 현황 (FR-AL): 캐릭터 기록(마지막으로 본 값)을 모은다. 게임은 지금 접속한 캐릭터만 알려 주므로
+    /// 지금 캐릭터는 실시간 값, 나머지는 마지막으로 관찰한 값이다.
+    /// </summary>
+    public object Characters()
+    {
+        var current = state.Character is { } cur ? CharacterKey(cur) : null;
+        var list = snapshots.GetAllProfiles().Select(p =>
+        {
+            var last = p.History.LastOrDefault();
+            var live = p.CharacterKey == current ? state.Character : null;
+            var gold = state.Currencies?.FirstOrDefault(c => c.DisplayName == "골드")?.Amount;
+            var deca = state.Currencies?.FirstOrDefault(c => c.DisplayName == "데카")?.Amount;
+            return new
+            {
+                key = p.CharacterKey, realm = p.RealmName, job = p.JobName,
+                nickname = string.IsNullOrWhiteSpace(p.CustomName) ? null : p.CustomName,
+                isCurrent = live != null,
+                level = live?.Level ?? last?.Level ?? 0,
+                title = live?.Title ?? last?.Title ?? "",
+                combat = live?.CombatScore?.Value ?? last?.CombatScore ?? 0,
+                mdef = live?.ArcaneResistance?.Value ?? last?.ArcaneResistance ?? 0,
+                living = live?.LivingScore?.Value ?? last?.LivingScore ?? 0,
+                attract = live?.AttractivenessScore?.Value ?? last?.AttractivenessScore ?? 0,
+                gold = live != null && gold != null ? gold.Value : last?.Gold ?? 0,
+                deca = live != null && deca != null ? deca.Value : last?.Deca ?? 0,
+                lastSeen = new DateTimeOffset(p.LastSeen).ToUniversalTime(),
+            };
+        });
+        // 지금 접속 중인 캐릭터를 맨 앞에, 나머지는 최근에 본 순서
+        return list.OrderByDescending(x => x.isCurrent).ThenByDescending(x => x.lastSeen).ToList();
     }
 
     public static bool IsBag(string? loc) => loc != null && (loc.Equals("Bag", StringComparison.OrdinalIgnoreCase) || loc.Equals("inventory", StringComparison.OrdinalIgnoreCase));

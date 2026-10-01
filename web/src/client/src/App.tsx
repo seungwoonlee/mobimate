@@ -7,6 +7,7 @@ import { queryClient } from './lib/queryClient';
 import { useDevice } from './state/device';
 import { useRouter } from './state/router';
 import { OverviewView } from './features/overview';
+import { CharactersView } from './features/characters';
 import { StatsView } from './features/stats';
 import { CurrenciesView, InventoryView, NearbyView } from './features/inventory';
 import { HomeworkView } from './features/homework';
@@ -50,6 +51,7 @@ function Connected() {
   const route = useRouter(s => s.loc.name);
   return (
     <AppShell>
+      {route === 'characters' && <CharactersView />}
       {route === 'overview' && <OverviewView />}
       {route === 'stats' && <StatsView />}
       {route === 'inventory' && <InventoryView />}

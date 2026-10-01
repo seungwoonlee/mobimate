@@ -47,6 +47,13 @@ builder.Services.ConfigureHttpJsonOptions(o =>
 
 builder.Services.AddSingleton(new ServerIdentity { Port = port, PreferredPort = configuredPort });
 builder.Services.AddSingleton(sp => new WebSettingsStore(Dir(sp)));
+builder.Services.AddSingleton(sp => new FavoritesStore(Dir(sp)));
+builder.Services.AddSingleton(sp =>
+{
+    var c = WorkCategoryCatalog.Load(Dir(sp));
+    foreach (var w in c.Warnings) sp.GetRequiredService<ILogger<WorkCategoryCatalog>>().LogWarning("가공 분류표: {Warning}", w);
+    return c;
+});
 builder.Services.AddSingleton<INetworkProfileSource, NlmNetworkProfileSource>();
 builder.Services.AddSingleton<IPortProbe, TcpPortProbe>();
 builder.Services.AddSingleton<IMdnsAdvertiser, MdnsResponder>();

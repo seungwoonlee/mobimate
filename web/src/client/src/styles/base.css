@@ -70,7 +70,7 @@ button{cursor:pointer}
 
 /* 하단 탭 */
 .tabs{grid-area:tabs;display:none;background:var(--bg-1);border-top:1px solid var(--line);padding:4px 6px calc(4px + env(safe-area-inset-bottom,0px))}
-.app[data-size="compact"]:not([data-posture="tabletop"]) .tabs{display:grid;grid-template-columns:repeat(5,1fr)}
+.app[data-size="compact"]:not([data-posture="tabletop"]) .tabs{display:grid;grid-template-columns:repeat(6,1fr)}
 .tabs button{border:0;background:transparent;display:grid;justify-items:center;gap:2px;padding:6px 0;border-radius:12px;color:var(--text-2);font-size:11.5px;font-weight:500;min-height:52px}
 .tabs button .ic{width:22px;height:22px}
 .tabs button[aria-current="page"]{color:var(--accent)}
@@ -81,7 +81,7 @@ button{cursor:pointer}
 
 /* 본문 */
 .main{grid-area:main;overflow-y:auto;overscroll-behavior-y:contain;container-type:inline-size;container-name:main;min-width:0}
-.main-inner{padding:18px 20px 28px;display:grid;gap:16px;max-width:1280px}
+.main-inner{padding:18px 20px 28px;display:grid;gap:16px;max-width:1840px}
 .app[data-size="compact"] .main-inner{padding:12px 12px 90px;gap:12px}
 .view-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
 .view-head h2{margin:0;font-size:calc(19px * var(--scale));font-weight:700;letter-spacing:-.01em}
@@ -254,12 +254,6 @@ button{cursor:pointer}
 .engine-menu button{display:flex;align-items:center;gap:8px;border:0;background:transparent;border-radius:8px;padding:8px;text-align:left;font-size:13.5px}
 .engine-menu button:hover{background:var(--bg-3)}
 .engine-menu button .nm{flex:1}
-.shelf{display:grid;gap:8px;padding:10px 12px;border-bottom:1px solid var(--line)}
-.shelf.big{grid-template-columns:repeat(2,minmax(0,1fr))}
-.shelf.big button{text-align:left;border:1px solid var(--line);background:var(--bg-2);border-radius:12px;padding:9px 10px;font-size:12.5px;line-height:1.35;color:var(--text-1)}
-.shelf.big button:hover{border-color:var(--accent)}
-.shelf.small{display:flex;overflow-x:auto;scrollbar-width:none}
-.shelf.small button{border:1px solid var(--line);background:var(--bg-2);border-radius:999px;padding:5px 10px;font-size:12px;white-space:nowrap}
 .bubble{max-width:88%;padding:9px 12px;border-radius:14px;font-size:13.5px;line-height:1.5;white-space:pre-wrap}
 .bubble.me{align-self:flex-end;background:var(--accent-soft);color:var(--text-1);border-bottom-right-radius:4px}
 .bubble.ai{align-self:flex-start;background:var(--bg-2);border:1px solid var(--line);border-bottom-left-radius:4px}

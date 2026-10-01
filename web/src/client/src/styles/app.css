@@ -144,3 +144,128 @@ button.toast { border: 0; text-align: left; cursor: pointer; }
 .swatch{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;border:1px solid var(--line);background:var(--bg-2);color:var(--text-2);font-size:13px;font-weight:500}
 .swatch i{width:14px;height:14px;border-radius:50%;display:inline-block;border:1px solid rgba(255,255,255,.25)}
 .swatch[aria-pressed="true"]{border-color:var(--accent);color:var(--text-1);background:var(--accent-soft)}
+
+/* ── 상단 영역 (FR-LY-03·04): 캐릭터·전투력·마도저항을 크게, 위치·날씨·에린 시간은 그림으로 ── */
+.top{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"who act" "scores scene";gap:8px 16px;align-items:center;padding:12px 18px;background:var(--bg-1);border-bottom:1px solid var(--line)}
+.top .who{grid-area:who}
+.top .hero-scores{grid-area:scores}
+.top .scene{grid-area:scene;justify-self:end}
+.top .top-actions{grid-area:act}
+.who-name{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;white-space:normal;overflow:visible;font-size:calc(26px * var(--scale));font-weight:700;line-height:1.1;letter-spacing:-.01em}
+.who-name .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+.who-name .job{font-size:calc(16px * var(--scale));font-weight:600;color:var(--text-2)}
+.who-name .who-title{font-size:13px;margin-left:0}
+.hero-scores{display:flex;gap:12px;flex-wrap:wrap}
+.hs{display:grid;grid-template-columns:auto auto;grid-template-rows:auto auto;column-gap:8px;align-items:baseline;padding:6px 16px 8px;border-radius:14px;background:var(--bg-2);border:1px solid var(--line);min-width:150px}
+.hs .lbl{grid-column:1/-1;font-size:12.5px;font-weight:600;color:var(--text-2);letter-spacing:.02em}
+.hs .v{font-size:calc(38px * var(--scale));font-weight:600;line-height:1}
+.hs .delta{align-self:center}
+/* 위치·날씨·에린 시간 그림 */
+.scene{position:relative;display:grid;grid-template-columns:auto auto;grid-template-rows:auto auto;gap:2px 14px;align-items:center;padding:8px 14px 8px;border-radius:14px;overflow:hidden;border:1px solid var(--line);min-width:300px;max-width:100%;background:linear-gradient(135deg,var(--sky-a),var(--sky-b))}
+.scene[data-phase="day"]{--sky-a:#8FC3EC;--sky-b:#C2DFF5;--scene-text:#102233;--scene-sub:#2D4A64}
+.scene[data-phase="night"],.scene[data-phase="unknown"]{--sky-a:#17203A;--sky-b:#2A2650;--scene-text:#EDEFFA;--scene-sub:#B4B9DA}
+.scene>*{position:relative;color:var(--scene-text)}
+.scene-sky{position:absolute;left:0;top:0;width:100%;height:100%;opacity:.55;pointer-events:none}
+.scene-sky .arc{fill:none;stroke:var(--scene-sub);stroke-width:.8;stroke-dasharray:2 3}
+.scene-sky .horizon{stroke:var(--scene-sub);stroke-width:.5;opacity:.6}
+.scene-sky .sun{fill:#F7B731}
+.scene-sky .moon{fill:#F4F1CF}
+.scene-time{display:grid;gap:0}
+.scene-time .clock{font-size:calc(28px * var(--scale));font-weight:600;line-height:1}
+.scene-time .date{font-size:11.5px;color:var(--scene-sub);white-space:nowrap}
+.scene-wx{display:inline-flex;align-items:center;gap:6px;justify-self:end;font-size:13px;font-weight:600}
+.scene-place{grid-column:1/-1;display:flex;align-items:center;gap:5px;font-size:12.5px;font-weight:500;color:var(--scene-sub);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.scene-place .ic{width:14px;height:14px;flex:none}
+.wx{flex:none}
+.wx-sun{fill:#F7B731}.wx-ray{stroke:#F7B731;stroke-width:1.6;stroke-linecap:round;fill:none}
+.wx-cloud{fill:#C9D3DD;stroke:#8FA0B2;stroke-width:.8}
+.scene[data-phase="night"] .wx-cloud{fill:#8E99B5;stroke:#6C7699}
+.wx-drop{stroke:#4C9BE8;stroke-width:1.6;stroke-linecap:round;fill:none}
+.wx-flake{stroke:#FFFFFF;stroke-width:2;stroke-linecap:round;fill:none}
+.wx-bolt{fill:#F7C531}
+.wx-fog{stroke:#9AA8B7;stroke-width:1.6;stroke-linecap:round;fill:none}
+/* 넓은 화면(폭 1200 이상, 화면 반쪽도 QHD면 해당): 한 줄 */
+.app[data-size="large"] .top{grid-template-columns:minmax(0,1.2fr) auto auto auto;grid-template-areas:"who scores scene act";gap:0 20px}
+/* 중간 폭: 장면은 접고 점수를 크게 유지 */
+.app[data-size="medium"] .top{grid-template-areas:"who act" "scores scores"}
+.app[data-size="medium"] .scene{display:none}
+.app[data-size="compact"] .top{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"who act" "scores scores";padding:8px 12px;gap:6px 8px}
+.app[data-size="compact"] .who-name{font-size:calc(19px * var(--scale))}
+.app[data-size="compact"] .hero-scores{display:flex;gap:8px;flex-wrap:nowrap}
+.app[data-size="compact"] .hs{min-width:0;flex:1;padding:4px 10px 6px}
+.app[data-size="compact"] .hs .v{font-size:calc(26px * var(--scale))}
+.app[data-short="true"] .top{padding-block:6px}
+
+/* ── AI 도우미 바로 가기: 한 줄에 하나, 전체 폭, 가로 스크롤 없음 (FR-AI-21) ── */
+.guide{border-bottom:1px solid var(--line);flex:none;max-height:56%;overflow-y:auto}
+.guide>summary{list-style:none;cursor:pointer;padding:10px 14px;font-size:12.5px;font-weight:600;color:var(--text-2);display:flex;align-items:center;gap:6px}
+.guide>summary::-webkit-details-marker{display:none}
+.guide>summary::after{content:'▾';color:var(--text-3)}
+.guide:not([open])>summary::after{content:'▸'}
+.guide-nav{display:grid;grid-template-columns:1fr;gap:6px;padding:0 12px 12px;overflow-x:hidden}
+.guide-nav.ask{padding:10px 12px;border-bottom:1px solid var(--line);flex:none;max-height:40%;overflow-y:auto}
+.guide-nav button{display:flex;align-items:center;gap:10px;width:100%;min-width:0;text-align:left;border:1px solid var(--line);background:var(--bg-2);color:var(--text-1);border-radius:12px;padding:9px 12px;font-size:13.5px}
+.guide-nav button:hover{border-color:var(--accent)}
+.guide-nav button .ic{width:20px;height:20px;flex:none;color:var(--accent)}
+.guide-nav button>span{display:grid;min-width:0}
+.guide-nav button b{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.guide-nav button .gh{font-size:11.5px;color:var(--text-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.guide-nav.ask button b{white-space:normal;font-weight:500;font-size:12.5px;line-height:1.35}
+
+/* ── 내 캐릭터 전체 현황 (FR-AL) ── */
+.chars{display:grid;gap:14px;grid-template-columns:repeat(auto-fill,minmax(280px,1fr))}
+.card.char{display:grid;gap:8px;align-content:start;padding:16px 18px;text-decoration:none;color:inherit}
+.card.char.cur{border-color:var(--accent)}
+.cc-name{font-size:calc(19px * var(--scale));font-weight:700;color:var(--text-1);letter-spacing:-.01em}
+.cc-job{font-size:13.5px;color:var(--text-2);font-weight:500}
+.cc-title{margin-left:8px;color:var(--text-3);font-weight:400}
+.cc-main{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:2px}
+.cc-main .lbl{display:block;font-size:12px;color:var(--text-2);font-weight:600}
+.cc-main .v{font-size:calc(30px * var(--scale));font-weight:600;line-height:1.1}
+.cc-sub,.cc-wallet{display:flex;gap:6px 14px;flex-wrap:wrap;font-size:13px;color:var(--text-2)}
+.cc-sub span,.cc-wallet span{display:inline-flex;align-items:center;gap:4px}
+.cc-sub b,.cc-wallet b{color:var(--text-1)}
+.cc-wallet{padding-top:8px;border-top:1px solid var(--line)}
+.cc-wallet .gold-text{color:var(--gold)}
+
+/* ── 개요 점수·재화·주변 ── */
+.score-main{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.score-main .lbl{display:block;font-size:12px;color:var(--text-2);font-weight:600;margin-bottom:2px}
+.score-main .big{font-size:calc(40px * var(--scale))}
+.pl-list{display:grid;gap:6px;margin-top:4px}
+.pl-list.big{gap:2px}
+.pl-row{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:8px 4px;border-bottom:1px solid var(--line)}
+.pl-row:last-child{border-bottom:0}
+.pl{display:inline-flex;align-items:baseline;gap:6px;flex-wrap:wrap;min-width:0;font-size:14px}
+.pl-job{font-weight:600}
+.pl-sep{color:var(--text-3)}
+.pl-title{color:var(--text-2)}
+.pl-combat{color:var(--danger);font-size:12px}
+.pl.party .pl-job,.pl.party .pl-lv{font-weight:700;color:var(--accent)}
+.pl.friend,.pl.friend .pl-title{font-weight:700;color:var(--cyan)}
+.pl.guild,.pl.guild .pl-title{font-weight:700;color:var(--lime)}
+.pl.party .pl-title{font-weight:700;color:var(--accent)}
+.pl-cs.stronger{color:var(--warn);font-weight:700}
+.pl.friend .pl-sep,.pl.guild .pl-sep,.pl.party .pl-sep{color:inherit;opacity:.5}
+
+/* ── 스탯·재화 타일 ── */
+.tiles.five{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
+.tiles.core{grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
+.tile.big .v{font-size:calc(34px * var(--scale))}
+.group-h{margin:6px 0 8px;font-size:13px;font-weight:600;color:var(--text-2);letter-spacing:.02em}
+.vitals{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+
+/* ── 가방·채집 즐겨찾기, 가공 종류 묶음 ── */
+.star{border:0;background:transparent;color:var(--text-3);font-size:18px;line-height:1;padding:2px 6px 2px 0;cursor:pointer}
+.star[aria-pressed="true"]{color:var(--gold)}
+.star:hover{color:var(--gold)}
+.row.fav{background:var(--gold-soft)}
+.have{font-size:13.5px;color:var(--text-1)}
+.have b{font-size:16px}
+.wk-groups{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
+.wk{border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:var(--bg-1)}
+.wk-h{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px}
+.wk-h h4{margin:0;font-size:14px}
+
+/* 스크롤되는 본문은 키보드로도 닿아야 한다 (접근성) */
+.main:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}

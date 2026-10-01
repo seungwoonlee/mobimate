@@ -23,3 +23,8 @@ export function scoreTone(kind: ScoreKind, value: number | null | undefined): Sc
 
 /** 값 옆에 붙일 CSS 클래스 이름 */
 export const scoreClass = (kind: ScoreKind, value: number | null | undefined) => `sc-${scoreTone(kind, value)}`;
+
+/** 생명·만복도 막대 색 (FR-DT-12): 넉넉함(ok) / 보통(warn) / 부족(danger) */
+export function vitalLevel(pct: number): 'ok' | 'warn' | 'danger' {
+  return pct >= 50 ? 'ok' : pct >= 25 ? 'warn' : 'danger';
+}

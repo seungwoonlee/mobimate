@@ -39,7 +39,7 @@ export interface CharacterRaw {
 }
 export interface CharacterView { character: CharacterRaw; activity: Record<string, unknown> | null }
 
-export interface InvItem { location: string; name: string; category: string; count: number; locked: boolean; sessionDelta: number }
+export interface InvItem { location: string; name: string; category: string; count: number; locked: boolean; sessionDelta: number; favorite: boolean }
 export interface Inventory { weight: { current: number; max: number; pct: number; level: Level } | null; items: InvItem[] }
 
 export interface Currency { DisplayName: string; Amount: number }
@@ -49,12 +49,12 @@ export interface Mission { Title: string; Description: string; CurrentCount: num
 export interface MissionGroup { done: number; total: number; items: Mission[] }
 export interface Missions { daily: MissionGroup; weekly: MissionGroup }
 
-export interface Work { name: string; facility: string; remainingSeconds: number; done: boolean; remainingText: string }
-export interface Gatherable { name: string; toolOk: boolean; inBag: number }
+export interface Work { name: string; facility: string; remainingSeconds: number; done: boolean; remainingText: string; kind: string; kindLabel: string }
+export interface Gatherable { name: string; toolOk: boolean; inBag: number; favorite: boolean }
 export interface Life { works: Work[] | null; gatherables: Gatherable[] | null }
 
 export interface NearPlayer {
-  name: string; realm: string; job: string; level: number; combatScore: number; distance: number;
+  title: string; realm: string; job: string; level: number; combatScore: number; distance: number;
   inCombat: boolean; relation: 'party' | 'friend' | 'guild' | 'other'; relationLabel: string; isStronger: boolean;
 }
 export interface Nearby { count: number; myCombatScore: number; players: NearPlayer[] }
@@ -80,6 +80,12 @@ export interface Progress { done: number; total: number }
 export interface HomeworkBoard {
   characterKey: string; cards: HomeworkCard[]; daily: Progress; weekly: Progress;
   nextDailyResetUtc: string; nextWeeklyResetUtc: string;
+}
+
+/** 내 캐릭터 전체 현황 카드 (FR-AL). 지금 접속한 캐릭터는 실시간 값, 나머지는 마지막으로 관찰한 값이다. */
+export interface CharacterCard {
+  key: string; realm: string; job: string; nickname: string | null; isCurrent: boolean; level: number; title: string;
+  combat: number; mdef: number; living: number; attract: number; gold: number; deca: number; lastSeen: string;
 }
 
 export interface Overview {

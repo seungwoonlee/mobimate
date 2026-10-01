@@ -48,7 +48,8 @@ export function useServerEvents() {
           const k = (data as { keys?: string[] })?.keys ?? [];
           if (k.includes('lan') || k.includes('settings')) void queryClient.invalidateQueries({ queryKey: keys.meta });
           if (k.includes('settings')) void queryClient.invalidateQueries({ queryKey: keys.settings });
-          if (k.includes('profile')) void queryClient.invalidateQueries({ queryKey: keys.header });
+          if (k.includes('profile')) { void queryClient.invalidateQueries({ queryKey: keys.header }); void queryClient.invalidateQueries({ queryKey: keys.characters }); }
+          if (k.includes('favorites')) { void queryClient.invalidateQueries({ queryKey: keys.inventory }); void queryClient.invalidateQueries({ queryKey: keys.life }); }
           if (k.includes('personas')) void queryClient.invalidateQueries({ queryKey: keys5.personas });
           if (k.includes('engine')) void queryClient.invalidateQueries({ queryKey: keys5.engines });
           break;

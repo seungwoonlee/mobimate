@@ -1,4 +1,4 @@
-import { scoreClass, scoreTone } from './score';
+import { scoreClass, scoreTone, vitalLevel } from './score';
 
 // FR-DT-11: 게임 안의 색 기준과 같게
 describe('점수 색상', () => {
@@ -27,5 +27,16 @@ describe('점수 색상', () => {
     expect(scoreTone('combat', null)).toBe('base');
     expect(scoreTone('attract', undefined)).toBe('att-blue');
     expect(scoreClass('mdef', 5_000)).toBe('sc-mdef');
+  });
+});
+
+describe('생명·만복도 색', () => {
+  it('50% 이상 넉넉함, 25% 이상 보통, 그 아래 부족', () => {
+    expect(vitalLevel(100)).toBe('ok');
+    expect(vitalLevel(50)).toBe('ok');
+    expect(vitalLevel(49.9)).toBe('warn');
+    expect(vitalLevel(25)).toBe('warn');
+    expect(vitalLevel(24.9)).toBe('danger');
+    expect(vitalLevel(0)).toBe('danger');
   });
 });

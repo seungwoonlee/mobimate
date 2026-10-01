@@ -1,16 +1,17 @@
 import { create } from 'zustand';
 
 /** 화면 경로 (상세설계 §4.2). 도크는 경로가 아니라 UI 상태다. */
-export type RouteName = 'overview' | 'stats' | 'homework' | 'inventory' | 'currencies' | 'life' | 'nearby' | 'settings';
+export type RouteName = 'characters' | 'overview' | 'stats' | 'homework' | 'inventory' | 'currencies' | 'life' | 'nearby' | 'settings';
 
 export const ROUTES: { name: RouteName; path: string; label: string; icon: string; key?: string }[] = [
-  { name: 'overview', path: '/', label: '개요', icon: 'home', key: '1' },
-  { name: 'stats', path: '/stats', label: '스탯', icon: 'stats', key: '2' },
-  { name: 'inventory', path: '/inventory', label: '가방', icon: 'bag', key: '3' },
-  { name: 'currencies', path: '/currencies', label: '재화', icon: 'coins', key: '4' },
-  { name: 'homework', path: '/homework', label: '숙제', icon: 'list', key: '5' },
-  { name: 'life', path: '/life', label: '생활', icon: 'leaf', key: '6' },
-  { name: 'nearby', path: '/nearby', label: '레이더', icon: 'radar', key: '7' },
+  { name: 'characters', path: '/', label: '전체', icon: 'users', key: '1' },   // 첫 화면: 내 캐릭터 전체 현황 (FR-AL-01)
+  { name: 'overview', path: '/overview', label: '개요', icon: 'home', key: '2' },
+  { name: 'stats', path: '/stats', label: '스탯', icon: 'stats', key: '3' },
+  { name: 'inventory', path: '/inventory', label: '가방', icon: 'bag', key: '4' },
+  { name: 'currencies', path: '/currencies', label: '재화', icon: 'coins', key: '5' },
+  { name: 'homework', path: '/homework', label: '숙제', icon: 'list', key: '6' },
+  { name: 'life', path: '/life', label: '생활', icon: 'leaf', key: '7' },
+  { name: 'nearby', path: '/nearby', label: '레이더', icon: 'radar', key: '8' },
   { name: 'settings', path: '/settings', label: '설정', icon: 'gear' },
 ];
 
@@ -21,7 +22,7 @@ function parse(): Location {
   if (window.location.pathname.replace(/\/+$/, '') === '/missions') window.history.replaceState(null, '', '/homework?tab=missions');
   const path = window.location.pathname.replace(/\/+$/, '') || '/';
   const r = ROUTES.find(x => x.path === path);
-  return { name: r?.name ?? 'overview', params: new URLSearchParams(window.location.search) };
+  return { name: r?.name ?? 'characters', params: new URLSearchParams(window.location.search) };
 }
 
 interface RouterState {

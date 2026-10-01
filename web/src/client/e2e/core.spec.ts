@@ -13,7 +13,7 @@ async function openDock(page: Page, tab: '게임 채팅' | 'AI 도우미') {
 const toast = (page: Page, text: string | RegExp) => page.locator('.toasts').getByText(text).first();
 
 test.beforeEach(async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/overview');
   await expect(page.getByText(/88,737|89K/).filter({ visible: true }).first()).toBeVisible();   // 가짜 CLI 전투력 (좁은 화면은 축약)
 });
 
@@ -21,7 +21,7 @@ test('개요: 4대 점수·가방·숙제·콘텐츠 추천이 보이고 카드�
   await expect(page.getByText('마도저항').filter({ visible: true }).first()).toBeVisible();
   await expect(page.getByText(/83\.0/).filter({ visible: true }).first()).toBeVisible();
   if (!(await page.locator('.glance').count())) {
-    await expect(page.getByText('콘텐츠 추천')).toBeVisible();
+    await expect(page.locator('.main').getByText('콘텐츠 추천')).toBeVisible();
     await page.getByRole('link', { name: /가방 무게/ }).click();
     await expect(page).toHaveURL(/\/inventory/);
     await expect(page.getByRole('heading', { name: '가방·창고' })).toBeVisible();
@@ -70,3 +70,65 @@ test('AI 도우미: 채집 명령은 확인 카드를 거쳐야 시작된다 (FR
 
 // 연결 끊김 배너·조작 차단(FR-MB-12)은 브라우저 오프라인 전환이 이미 열린 SSE를 끊지 않아 E2E로 재현되지 않는다.
 // 같은 규칙을 src/state/offline.test.ts(단위 테스트)에서 검증한다.
+
+// ── v1.5 화면 (요구사양 §11) ──
+
+test('첫 화면은 내 캐릭터 전체 현황이다 (FR-AL-01·02)', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByRole('heading', { name: /내 캐릭터/ })).toBeVisible();
+  const card = page.locator('.card.char').first();
+  await expect(card).toContainText('아이라');
+  await expect(card).toContainText('접속 중');
+  await expect(card).toContainText('88,737');
+});
+
+test('주변 레이더: 클래스 - 레벨 - 전투력 - 칭호 순서, 요약 줄은 없다 (FR-DT-32~34)', async ({ page }) => {
+  await page.goto('/nearby');
+  await expect(page.getByText('대검전사').filter({ visible: true }).first()).toBeVisible();
+  const row = page.locator('.pl-row').first();
+  await expect(row).toContainText(/대검전사\s*-\s*Lv\.100\s*-\s*92,450(\s*\(나보다 강함\))?\s*-\s*어둠을 가르는/);   // 스크린 리더용 숨김 문구를 포함해서 본다
+  await expect(page.locator('.pill', { hasText: '강함' })).toHaveCount(0);   // 눈에 보이는 배지는 없다
+  await expect(page.getByText(/기준 ·/)).toHaveCount(0);
+});
+
+test('생활: 채집 목표 수량 기본값은 100개 (FR-DT-22)', async ({ page }) => {
+  await page.goto('/life');
+  await expect(page.locator('.stepper .v')).toHaveText('100');
+  await expect(page.getByRole('heading', { name: /금속 가공|가죽 가공|옷감 가공/ }).first()).toBeVisible();   // 종류별 묶음 (FR-DT-20)
+});
+
+test('가방 즐겨찾기: 별을 누르면 맨 위로 오고 즐겨찾기 보기에 모인다 (FR-DT-15)', async ({ page }) => {
+  await page.goto('/inventory');
+  const rows = page.locator('.list .row');
+  await expect(rows.first()).toBeVisible();
+  const last = rows.last();
+  const name = (await last.locator('.t span').last().textContent())!.trim();
+  const star = last.getByRole('button', { name: `${name} 즐겨찾기` });
+  await star.click();
+  await expect(rows.first()).toContainText(name);                      // 즐겨찾기가 맨 위
+  await page.getByRole('button', { name: '★ 즐겨찾기' }).click();
+  await expect(rows).toHaveCount(1);
+  await rows.first().getByRole('button', { name: `${name} 즐겨찾기` }).click();   // 되돌려 두기 (서버 상태를 공유한다)
+  await expect(page.getByText('즐겨찾기한 아이템이 없습니다')).toBeVisible();
+});
+
+test('AI 도우미 바로 가기: 한 줄에 하나, 가로 스크롤 없이 화면으로 바로 이동한다 (FR-AI-20·21)', async ({ page }) => {
+  await openDock(page, 'AI 도우미');
+  const nav = page.locator('.guide-nav').first();
+  await expect(nav).toBeVisible();
+  const box = await nav.evaluate(el => ({ sw: el.scrollWidth, cw: el.clientWidth }));
+  expect(box.sw).toBeLessThanOrEqual(box.cw);                           // 가로 스크롤 없음
+  const tops = await nav.locator('button').evaluateAll(bs => bs.map(b => Math.round(b.getBoundingClientRect().left)));
+  expect(new Set(tops).size).toBe(1);                                   // 모두 같은 열 = 한 줄에 하나
+  await nav.getByRole('button', { name: /^재화/ }).click();
+  await expect(page).toHaveURL(/\/currencies/);
+});
+
+test('다크 모드 색상 패턴을 고를 수 있다 (FR-LY-05)', async ({ page }) => {
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await page.goto('/settings');
+  await page.getByRole('button', { name: '보라' }).click();
+  await expect(page.locator('html')).toHaveAttribute('data-palette', 'violet');
+  await page.getByRole('button', { name: '바다' }).click();
+  await expect(page.locator('html')).not.toHaveAttribute('data-palette', /.+/);
+});
