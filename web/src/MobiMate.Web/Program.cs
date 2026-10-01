@@ -48,6 +48,7 @@ builder.Services.ConfigureHttpJsonOptions(o =>
 builder.Services.AddSingleton(new ServerIdentity { Port = port, PreferredPort = configuredPort });
 builder.Services.AddSingleton(sp => new WebSettingsStore(Dir(sp)));
 builder.Services.AddSingleton(sp => new FavoritesStore(Dir(sp)));
+builder.Services.AddSingleton(sp => new AccountStore(Dir(sp)));
 builder.Services.AddSingleton(sp =>
 {
     var c = WorkCategoryCatalog.Load(Dir(sp));
@@ -93,6 +94,7 @@ builder.Services.AddSingleton<AiService>();
 builder.Services.AddSingleton<StatusMonitor>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<StatusMonitor>());
 builder.Services.AddHostedService<StartupTasks>();
+builder.Services.AddHostedService<CharacterRecorder>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<LanService>());
 builder.Services.AddHostedService<InstancePipeListener>();
 builder.Services.AddHostedService<TrayHost>();

@@ -29,6 +29,7 @@ export default async function globalSetup(config: FullConfig) {
   // 포트가 이미 쓰이면 서버가 다른 포트로 떠 테스트가 엉뚱한 서버를 보게 된다: 먼저 알린다
   if (await listening(Number(port))) throw new Error(`포트 ${port}를 다른 프로그램이 쓰고 있습니다. 이전 E2E 서버를 끄거나 E2E_PORT를 바꾸세요.`);
   const storage = mkdtempSync(join(tmpdir(), 'mm-e2e-'));
+  seedCharacters(storage);
 
   const server = spawn('dotnet', [dll], {
     env: {
@@ -40,6 +41,7 @@ export default async function globalSetup(config: FullConfig) {
       MobiMate__Tray: 'false',
       MobiMate__SingleInstance: 'false',
       MobiMate__Mdns: 'false',
+      MobiMate__RecordInterval: '00:00:00',   // 자동 기록은 끈다 (화면이 읽을 때만 기록)
       MobiMate__Port: port,
       MobiMate__CliPath: cli,
     },
@@ -56,4 +58,26 @@ export default async function globalSetup(config: FullConfig) {
   }
   server.kill();
   throw new Error('서버가 뜨지 않았습니다.');
+}
+
+/**
+ * 가짜 CLI의 현재 캐릭터(아이라_격투가: 데카 10,285 · M캐시 5,619 · 은동전 120 · 마족 공물 9)와 함께 보일 다른 캐릭터들:
+ * 도적 = 같은 계정(예전에 같은 데카·M캐시), 3일 전 접속 → 충전이 가득 차 빨강
+ * 마법사 = 같은 계정, 값이 어긋남(동기화 전), 2시간 전 접속, 충전은 여유 → 진회색
+ * 사제 = 다른 계정, 은동전이 80%를 넘어 노랑
+ */
+function seedCharacters(dir: string) {
+  // 서버는 기록 시각을 PC의 현지 시각(표준시 표기 없이)으로 저장한다: 같은 방식으로 쓴다
+  const ago = (ms: number) => new Date(Date.now() - ms).toLocaleString('sv-SE').replace(' ', 'T');
+  const H = 3_600_000, D = 24 * H;
+  const rec = (at: number, level: number, combat: number, deca: number, mcash: number, silver: number, tribute: number) =>
+    ({ Timestamp: ago(at), Level: level, Title: '', CombatScore: combat, ArcaneResistance: 3000, LivingScore: 1000, AttractivenessScore: 5000, Gold: 500000, Deca: deca, MCash: mcash, SilverCoin: silver, DemonTribute: tribute });
+  const prof = (realm: string, job: string, lastSeen: number, history: object[]) =>
+    ({ CharacterKey: `${realm}_${job}`, RealmName: realm, JobName: job, CustomName: '', FirstSeen: ago(30 * D), LastSeen: ago(lastSeen), History: history });
+  const db = [
+    prof('바람', '도적', 3 * D, [rec(5 * D, 100, 99000, 10285, 5619, 90, 3), rec(3 * D, 100, 99000, 10000, 5619, 100, 4)]),
+    prof('바람', '마법사', 2 * H, [rec(D, 100, 80000, 10285, 5619, 5, 1), rec(2 * H, 100, 80000, 10000, 5619, 10, 1)]),
+    prof('바람', '사제', 1 * H, [rec(1 * H, 95, 60000, 777, 888, 82, 1)]),
+  ];
+  writeFileSync(join(dir, 'character_history_db.json'), JSON.stringify(db));
 }

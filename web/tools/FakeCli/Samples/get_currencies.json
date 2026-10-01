@@ -34,5 +34,13 @@
   {
     "DisplayName": "갱신권",
     "Amount": 673
+  },
+  {
+    "DisplayName": "은동전",
+    "Amount": 120
+  },
+  {
+    "DisplayName": "마족 공물",
+    "Amount": 9
   }
 ]

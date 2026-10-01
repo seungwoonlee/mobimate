@@ -67,7 +67,7 @@ public class CharacterSelectTests
         Assert.Equal(88737, held.GetProperty("scores").GetProperty("combat").GetInt64());          // 전투력 0으로 덮지 않는다
 
         await c.GetAsync("/api/currencies");
-        var list = (await TestHost.Data(await c.GetAsync("/api/characters"))).EnumerateArray().ToList();
+        var list = ViewsTests.Cards(await TestHost.Data(await c.GetAsync("/api/characters")));
         Assert.Single(list);                                                                       // "에린_밀레시안" 같은 가짜 캐릭터가 없다
         Assert.Equal("아이라_격투가", list[0].GetProperty("key").GetString());
     }
@@ -85,7 +85,7 @@ public class CharacterSelectTests
         Assert.Contains("캐릭터를 선택하는 중", await r.Content.ReadAsStringAsync());
 
         await c.GetAsync("/api/currencies");   // 재화만 읽혀도 가짜 캐릭터를 만들지 않는다
-        Assert.Equal(0, (await TestHost.Data(await c.GetAsync("/api/characters"))).GetArrayLength());
+        Assert.Empty(ViewsTests.Cards(await TestHost.Data(await c.GetAsync("/api/characters"))));
     }
 
     [Fact]
@@ -96,13 +96,15 @@ public class CharacterSelectTests
         {
             Directory.CreateDirectory(dir);
             // 이전 버전이 남긴 가짜 기록 (에린_밀레시안, 레벨 1)
-            File.WriteAllText(Path.Combine(dir, "character_db.json"), """
-                { "에린_밀레시안": { "CharacterKey": "에린_밀레시안", "RealmName": "에린", "JobName": "밀레시안", "CustomName": "", "FirstSeen": "2026-09-01T10:00:00", "LastSeen": "2026-09-01T10:00:00",
-                  "History": [ { "Timestamp": "2026-09-01T10:00:00", "Level": 1, "Title": "", "CombatScore": 0, "Gold": 100 } ] } }
+            File.WriteAllText(Path.Combine(dir, "character_history_db.json"), """
+                [ { "CharacterKey": "에린_밀레시안", "RealmName": "에린", "JobName": "밀레시안", "CustomName": "", "FirstSeen": "2026-09-01T10:00:00", "LastSeen": "2026-09-01T10:00:00",
+                  "History": [ { "Timestamp": "2026-09-01T10:00:00", "Level": 1, "Title": "", "CombatScore": 0, "Gold": 100 } ] } ]
                 """);
             using var host = new TestHost(dir) { KeepStorage = true };
             var c = await host.LocalAsync();
-            Assert.Equal(0, (await TestHost.Data(await c.GetAsync("/api/characters"))).GetArrayLength());
+            var keys = ViewsTests.Cards(await TestHost.Data(await c.GetAsync("/api/characters"))).Select(x => x.GetProperty("key").GetString()).ToList();
+            Assert.DoesNotContain("에린_밀레시안", keys);      // 옛 가짜 기록은 숨긴다
+            Assert.Equal(new[] { "아이라_격투가" }, keys);      // 지금 접속한 실제 캐릭터만 남는다
         }
         finally { try { Directory.Delete(dir, true); } catch { } }
     }

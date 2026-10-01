@@ -17,10 +17,12 @@ export interface DevicePrefs {
   autoEmote: boolean | null;
   /** 별칭 안내 말풍선을 이미 닫았는가 */
   nickHintSeen: boolean;
+  /** 전체 현황 정렬: 전투력순 / 접속 시급 순 */
+  charSort: 'combat' | 'urgency';
 }
 
 const KEY = 'mobimate.device.v1';
-const DEFAULTS: DevicePrefs = { theme: 'system', palette: 'navy', scale: 1, glance: true, dockWidth: 360, autoEmote: null, nickHintSeen: false };
+const DEFAULTS: DevicePrefs = { theme: 'system', palette: 'navy', scale: 1, glance: true, dockWidth: 360, autoEmote: null, nickHintSeen: false, charSort: 'combat' };
 
 function load(): DevicePrefs {
   try {
@@ -39,7 +41,7 @@ export const useDevice = create<DeviceState>((set, get) => ({
   ...load(),
   set: p => {
     set(p);
-    const { theme, palette, scale, glance, dockWidth, autoEmote, nickHintSeen } = { ...get(), ...p };
-    try { localStorage.setItem(KEY, JSON.stringify({ theme, palette, scale, glance, dockWidth, autoEmote, nickHintSeen })); } catch { /* 저장 불가: 이번 세션만 */ }
+    const { theme, palette, scale, glance, dockWidth, autoEmote, nickHintSeen, charSort } = { ...get(), ...p };
+    try { localStorage.setItem(KEY, JSON.stringify({ theme, palette, scale, glance, dockWidth, autoEmote, nickHintSeen, charSort })); } catch { /* 저장 불가: 이번 세션만 */ }
   },
 }));
