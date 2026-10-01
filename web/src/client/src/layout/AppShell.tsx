@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Delta, Icon, JobIcon, Toasts } from '../components/ui';
 import { CommandPalette } from '../features/palette';
 import { NicknameEditor } from '../features/nickname';
+import { MembershipChip } from '../features/membership';
 import { useNow } from '../hooks/layout';
 import { keys, useHeader, useStatus } from '../api/queries';
 import { useLayout } from '../hooks/layout';
@@ -139,6 +140,7 @@ function TopBar({ compact }: { compact: boolean }) {
           <div className="who-name">
             <NicknameEditor name={name} current={h?.character.nickname ?? null} />
             {h && <span className="job"><JobIcon job={h.character.job} size={18} /> {h.character.job} Lv.{h.character.level}</span>}
+            {h && !h.selecting && <MembershipChip />}
             {h?.selecting ? <span className="who-title selecting">캐릭터 선택 중</span> : h?.character.title && <span className="who-title">“{h.character.title}”</span>}
           </div>
         </div>

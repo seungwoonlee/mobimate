@@ -76,7 +76,7 @@ test('AI 도우미: 채집 명령은 확인 카드를 거쳐야 시작된다 (FR
 test('첫 화면은 내 캐릭터 전체 현황이다 (FR-AL-01·02)', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByRole('heading', { name: /내 캐릭터/ })).toBeVisible();
-  const card = page.locator('.card.char').first();
+  const card = page.locator('.card.char.cur');
   await expect(card).toContainText('아이라');
   await expect(card).toContainText('접속 중');
   await expect(card).toContainText('88,737');
@@ -209,4 +209,82 @@ test('채팅 기본값: 가로 화면은 열려 있고 세로 화면·폰은 닫
   await expect(app).toHaveAttribute('data-dock-open', String(!wantOpen));
   await toggle.click();
   await expect(app).toHaveAttribute('data-dock-open', String(wantOpen));
+});
+
+// ── 전체 현황: 계정 묶음·충전 재화·멤버십 (v1.5 요청 3·5) ──
+
+test('전체 현황: 같은 계정끼리 묶고 계정 머리글에 데카·M캐시를 보인다', async ({ page }) => {
+  await page.goto('/');
+  const sections = page.locator('section.acct');
+  await expect(sections.first()).toContainText('데카');
+  await expect(sections.first()).toContainText('10,285');
+  await expect(sections.first()).toContainText('5,619');
+  // 지금 접속한 캐릭터의 계정(아이라·도적·마법사)이 맨 위, 계정 안에서는 전투력 순 (도적 99,000 > 마법사 80,000 > 아이라 88,737 → 도적, 아이라, 마법사)
+  const names = await sections.first().locator('.cc-name').allTextContents();
+  expect(names).toEqual(['바람 · 도적', '아이라 · 격투가', '바람 · 마법사']);
+  const jobs = await sections.first().locator('.cc-job').allTextContents();
+  expect(jobs.map(j => j.trim().split(' ')[0])).toEqual(['도적', '격투가', '마법사']);
+  await expect(sections.nth(1)).toContainText('사제');   // 다른 계정
+});
+
+test('전체 현황: 가득 = 빨강 + 설명, 80% 이상 = 노랑, 동기화 안 됨 = 진회색', async ({ page }) => {
+  await page.goto('/');
+  const rogue = page.locator('.card.char', { hasText: '도적' });
+  await expect(rogue).toHaveClass(/tone-red/);
+  await expect(rogue).toContainText('충전이 멈췄어요');
+  await expect(rogue).toContainText('지금 접속해서 사용하세요');
+  await expect(rogue).toContainText('동기화되지 않은');     // 값이 어긋난 계정원이기도 하다 (빨강이 우선)
+  const mage = page.locator('.card.char', { hasText: '마법사' });
+  await expect(mage).toHaveClass(/tone-gray/);
+  await expect(mage).toContainText('같은 계정의 다른 캐릭터와 달라요');
+  const priest = page.locator('.card.char', { hasText: '사제' });
+  await expect(priest).toHaveClass(/tone-yellow/);
+  await expect(priest).toContainText(/은동전이 .* 뒤 가득 차요/);
+  await expect(priest.locator('.coins')).toContainText(/은동전 8\d\/100/);   // 82 + 2시간분 = 약 84
+});
+
+test('전체 현황: 접속 시급 순으로 바꾸면 가득 찬 캐릭터가 먼저 온다', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: '접속 시급 순' }).click();
+  await expect(page.getByRole('button', { name: '접속 시급 순' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('section.acct').first().locator('.card.char').first()).toHaveClass(/tone-red/);
+  await page.getByRole('button', { name: '전투력순' }).click();   // 되돌려 둔다
+});
+
+test('멤버십: 상단에 남은 시간이 보이고, 3일 이내면 붉게, 등록·해제할 수 있다', async ({ page }) => {
+  await page.goto('/overview');
+  const chip = page.locator('.mem-chip');
+  await expect(chip).toContainText('멤버십 미등록');
+  await chip.click();
+  const dlg = page.getByRole('dialog', { name: '멤버십 남은 기간 등록' });
+  await expect(dlg).toContainText('캐시샵');                    // 입력할 곳을 안내한다
+  await dlg.getByLabel('남은 일').fill('27');
+  await dlg.getByLabel('남은 시간').fill('3');
+  await dlg.getByRole('button', { name: '저장' }).click();
+  await expect(chip).toContainText(/멤버십 27일 [23]시간/);       // 남은 시간은 저장한 순간부터 자동으로 줄어든다
+  await expect(chip).not.toHaveClass(/urgent/);
+  await chip.click();
+  await page.getByRole('dialog').getByLabel('남은 일').fill('2');
+  await page.getByRole('dialog').getByRole('button', { name: '저장' }).click();
+  await expect(chip).toHaveClass(/urgent/);                     // 3일 이내 = 붉은 경고
+  await chip.click();
+  await page.getByRole('dialog').getByRole('button', { name: '등록 해제' }).click();
+  await expect(chip).toContainText('멤버십 미등록');
+});
+
+test('계정 편집: 캐릭터를 따로 빼면 계정이 나뉜다', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: '계정 편집' }).click();
+  const count = await page.locator('section.acct').count();
+  expect(count).toBe(2);
+  // 아이라(격투가) 소속을 직접 새 계정으로 뺐다가 되돌린다
+  const me = page.getByLabel('아이라 소속 계정');
+  const original = await me.inputValue();
+  await me.selectOption('new');
+  await page.getByRole('dialog').getByRole('button', { name: '닫기', exact: true }).click();
+  await expect(page.locator('section.acct')).toHaveCount(3);
+  await page.getByRole('button', { name: '계정 편집' }).click();
+  await page.getByLabel('아이라 소속 계정').selectOption(original.startsWith('solo:') ? 'new' : original);
+  await page.getByRole('dialog').getByRole('button', { name: '닫기', exact: true }).click();
+  await expect(page.locator('section.acct')).toHaveCount(2);
 });

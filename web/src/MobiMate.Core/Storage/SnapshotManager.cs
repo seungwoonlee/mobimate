@@ -41,6 +41,11 @@ public class CharacterHistoryRecord
     public long AttractivenessScore { get; set; }
     /// <summary>데카 보유량 (전체 캐릭터 현황 카드용, v1.5)</summary>
     public long Deca { get; set; }
+    /// <summary>M캐시 보유량. 데카와 함께 같은 계정을 알아내는 근거다 (계정 공유 재화)</summary>
+    public long MCash { get; set; }
+    /// <summary>은동전·마족 공물 보유량: 마지막으로 본 값으로 지금 예상 보유량을 계산한다 (CoinForecast)</summary>
+    public long SilverCoin { get; set; }
+    public long DemonTribute { get; set; }
     public long AttackPower { get; set; }
     public long DefencePower { get; set; }
     public double WeightCurrent { get; set; }
@@ -429,9 +434,15 @@ public class SnapshotManager
             var living = ch?.LivingScore?.Value ?? lastRecord?.LivingScore ?? 0;
             var attract = ch?.AttractivenessScore?.Value ?? lastRecord?.AttractivenessScore ?? 0;
             var deca = currencies?.FirstOrDefault(c => c.DisplayName == "데카")?.Amount ?? lastRecord?.Deca ?? 0;
+            // 재화 목록을 받았으면 그 안에 없는 값은 0이다(예: 아직 얻지 못한 재화). 받지 못했으면 이전 기록을 잇는다.
+            long Money(string[] names, long? prev) => currencies == null ? prev ?? 0 : currencies.FirstOrDefault(c => names.Contains(c.DisplayName))?.Amount ?? 0;
+            var mcash = Money(new[] { "M캐시", "M캐쉬" }, lastRecord?.MCash);
+            var silver = Money(new[] { "은동전" }, lastRecord?.SilverCoin);
+            var tribute = Money(new[] { "마족 공물", "마족공물" }, lastRecord?.DemonTribute);
             bool shouldRecord = lastRecord == null ||
                 (attract > 0 && lastRecord.AttractivenessScore != attract) ||
                 (deca > 0 && lastRecord.Deca != deca) ||
+                (currencies != null && (lastRecord.MCash != mcash || lastRecord.SilverCoin != silver || lastRecord.DemonTribute != tribute)) ||
                 (DateTime.Now - lastRecord.Timestamp).TotalMinutes >= 5 ||
                 lastRecord.CombatScore != current.CombatScore ||
                 lastRecord.ArcaneResistance != current.ArcaneResistance ||
@@ -453,6 +464,9 @@ public class SnapshotManager
                     LivingScore = living,
                     AttractivenessScore = attract,
                     Deca = deca,
+                    MCash = mcash,
+                    SilverCoin = silver,
+                    DemonTribute = tribute,
                     AttackPower = ch?.AttackPower?.Value ?? 0,
                     DefencePower = ch?.DefencePower?.Value ?? 0,
                     WeightCurrent = current.WeightCurrent,

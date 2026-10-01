@@ -342,3 +342,48 @@ button.toast { border: 0; text-align: left; cursor: pointer; }
 /* 별칭 안내 말풍선은 이름 줄 안에 작은 알약으로 (다른 내용을 가리지 않게) */
 .nm-hint{position:static;display:inline-flex;margin-left:6px;width:auto;max-width:none;padding:3px 10px;font-size:12.5px;box-shadow:none}
 .pl.party,.pl.party .pl-tag{color:var(--accent)}
+
+/* ── 전체 현황: 계정 묶음, 카드 상태 색, 충전 재화 (v1.5) ── */
+.acct{display:grid;gap:10px}
+.acct+.acct{margin-top:6px}
+.acct-h{display:flex;align-items:baseline;justify-content:space-between;gap:8px 16px;flex-wrap:wrap;padding:0 2px}
+.acct-h h3{margin:0;font-size:15px;font-weight:700}
+.acct-meta b{color:var(--text-1)}
+.cc-right{display:inline-flex;flex-direction:column;align-items:flex-end;gap:4px;text-align:right}
+.coins{display:inline-flex;flex-wrap:wrap;justify-content:flex-end;gap:2px 10px;font-size:12.5px;color:var(--text-2)}
+.coin b{color:var(--text-1);font-size:14px}
+.coin.near b,.coin.near{color:var(--warn)}
+.coin.full b,.coin.full{color:var(--danger);font-weight:700}
+.cc-notes{margin:2px 0 0;padding:8px 10px 8px 24px;border-radius:10px;background:rgba(0,0,0,.18);color:var(--text-1);display:grid;gap:3px;line-height:1.4}
+.card.char.tone-red{background:var(--bg-2);background:color-mix(in srgb,var(--danger) 17%,var(--bg-2));border-color:var(--danger)}
+.card.char.tone-yellow{background:var(--bg-2);background:color-mix(in srgb,var(--warn) 15%,var(--bg-2));border-color:var(--warn)}
+.card.char.tone-gray{background:var(--bg-3);background:color-mix(in srgb,var(--text-3) 24%,var(--bg-2));border-color:var(--line-strong)}
+.cc-wallet{flex-wrap:wrap}
+.view-head .sub .seg{margin-right:4px}
+
+/* 멤버십 표시 (최상단) */
+.mem-chip{display:inline-flex;align-items:center;gap:4px;border:1px solid var(--line);background:var(--bg-2);color:var(--text-2);border-radius:999px;padding:3px 12px;font-size:13px;font-weight:600;align-self:center}
+.mem-chip b{color:var(--text-1)}
+.mem-chip.ok{border-color:var(--ok);color:var(--ok)}
+.mem-chip.ok b{color:var(--ok)}
+.mem-chip.urgent{background:var(--danger-soft);border-color:var(--danger);color:var(--danger)}
+.mem-chip.urgent b{color:var(--danger)}
+.mem-chip.none{border-style:dashed}
+.mem-inputs{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.assign-list{display:grid;gap:8px;max-height:50vh;overflow-y:auto}
+.assign-row{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:14px}
+.assign-row select{font:inherit;color:var(--text-1);background:var(--bg-2);border:1px solid var(--line);border-radius:8px;padding:5px 8px;max-width:55%}
+
+/* 색이 깔린 카드 위의 흐린 글씨는 대비를 높인다 (접근성) */
+.card.char.tone-red .faint,.card.char.tone-yellow .faint,.card.char.tone-gray .faint{color:var(--text-2)}
+.cc-title{color:var(--text-2)}
+
+/* 색이 깔린 카드 위 충전 재화 글씨: 배경이 붉은/노란 색조라 따로 대비를 맞춘다 */
+.coin.full,.coin.full b{color:#9E241E}
+.coin.near,.coin.near b{color:#7A4600}
+:root[data-theme="dark"] .coin.full,:root[data-theme="dark"] .coin.full b{color:#FF918B}
+:root[data-theme="dark"] .coin.near,:root[data-theme="dark"] .coin.near b{color:#FFC067}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]) .coin.full,:root:not([data-theme="light"]) .coin.full b{color:#FF918B}
+  :root:not([data-theme="light"]) .coin.near,:root:not([data-theme="light"]) .coin.near b{color:#FFC067}
+}

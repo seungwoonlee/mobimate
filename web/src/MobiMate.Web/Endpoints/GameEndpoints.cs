@@ -11,6 +11,8 @@ public sealed record HomeworkSetRequest(bool? Completed, int? Count);
 public sealed record HomeworkResetRequest(string? Scope);
 public sealed record NicknameRequest(string? Nickname);
 public sealed record FavoriteRequest(string? Name, bool? Favorite);
+public sealed record MembershipRequest(string? Character, int? Days, int? Hours);
+public sealed record AssignRequest(string? Character, string? Account);
 
 /// <summary>게임 조회·조작·숙제 API (요구사양서 §7).</summary>
 public static class GameEndpoints
@@ -28,7 +30,31 @@ public static class GameEndpoints
         api.MapGet("/missions", (GameViews v, CancellationToken ct) => Respond(v.MissionsAsync(ct)));
         api.MapGet("/life", (GameViews v, CancellationToken ct) => Respond(v.LifeAsync(ct)));
         api.MapGet("/nearby", (GameViews v, CancellationToken ct) => Respond(v.NearbyAsync(ct)));
-        api.MapGet("/characters", (GameViews v) => ApiResults.Ok(v.Characters()));
+        api.MapGet("/characters", async (GameViews v, CancellationToken ct) => ApiResults.Ok(await v.CharactersAsync(ct)));
+
+        // ── 계정 (v1.5): 멤버십 등록(남은 기간 입력), 캐릭터를 계정에 직접 묶기·풀기 ──
+        api.MapPut("/membership", (MembershipRequest req, AccountStore accounts, GameViews v, SseHub hub) =>
+        {
+            if (string.IsNullOrWhiteSpace(req.Character)) return ApiResults.Error(400, "VALIDATION", "캐릭터가 필요합니다.");
+            var days = req.Days ?? 0; var hours = req.Hours ?? 0;
+            if (days is < 0 or > 400 || hours is < 0 or > 23) return ApiResults.Error(400, "VALIDATION", "남은 기간은 0~400일, 0~23시간으로 입력해 주세요.");
+            if (!v.IsKnownCharacter(req.Character)) return ApiResults.Error(404, "NOT_FOUND", "기록에 없는 캐릭터입니다.");
+            DateTime? expires = days == 0 && hours == 0 ? null : DateTime.UtcNow.AddDays(days).AddHours(hours);   // 0일 0시간 = 등록 해제
+            if (!accounts.Update(d => { AccountGrouper.SetMembership(d, req.Character!, expires); return true; }))
+                return ApiResults.Error(503, "STORAGE_UNAVAILABLE", "멤버십을 저장하지 못했습니다.");
+            hub.Broadcast("state.changed", new { keys = new[] { "accounts" } });
+            return ApiResults.Ok(new { expiresAt = expires });
+        });
+        api.MapPut("/accounts/assign", (AssignRequest req, AccountStore accounts, GameViews v, SseHub hub) =>
+        {
+            if (string.IsNullOrWhiteSpace(req.Character)) return ApiResults.Error(400, "VALIDATION", "캐릭터가 필요합니다.");
+            if (!v.IsKnownCharacter(req.Character)) return ApiResults.Error(404, "NOT_FOUND", "기록에 없는 캐릭터입니다.");
+            string? target = null;
+            if (!accounts.Update(d => { target = AccountGrouper.AssignManually(d, req.Character!, req.Account); return true; }))
+                return ApiResults.Error(503, "STORAGE_UNAVAILABLE", "저장하지 못했습니다.");
+            hub.Broadcast("state.changed", new { keys = new[] { "accounts" } });
+            return ApiResults.Ok(new { account = target });
+        });
 
         // ── 즐겨찾기 (FR-DT-15·21): 가방 아이템 / 채집물 ──
         api.MapGet("/favorites", (FavoritesStore f) =>

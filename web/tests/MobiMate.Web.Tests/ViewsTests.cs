@@ -6,6 +6,10 @@ namespace MobiMate.Web.Tests;
 /// <summary>v1.5 화면용 API: 즐겨찾기(FR-DT-15·21), 가공 종류(FR-DT-20), 전체 캐릭터 현황(FR-AL)</summary>
 public class ViewsTests
 {
+    /// <summary>/api/characters 응답({ accounts: [{ members: [...] }] })의 모든 캐릭터 카드</summary>
+    internal static List<System.Text.Json.JsonElement> Cards(System.Text.Json.JsonElement data) =>
+        data.GetProperty("accounts").EnumerateArray().SelectMany(a => a.GetProperty("members").EnumerateArray()).ToList();
+
     [Fact]
     public async Task Favorites_AreSavedAndShownOnInventoryAndGatherables()
     {
@@ -89,7 +93,7 @@ public class ViewsTests
         await c.GetAsync("/api/header");        // 프로필·기록이 생긴다
         await c.GetAsync("/api/currencies");
 
-        var list = (await TestHost.Data(await c.GetAsync("/api/characters"))).EnumerateArray().ToList();
+        var list = Cards(await TestHost.Data(await c.GetAsync("/api/characters")));
         var me = list[0];
         Assert.True(me.GetProperty("isCurrent").GetBoolean());
         Assert.Equal("아이라_격투가", me.GetProperty("key").GetString());
@@ -115,10 +119,9 @@ public class ViewsTests
             }
             using (var host = new TestHost(dir) { KeepStorage = true })
             {
-                var c = await host.LocalAsync();   // 서버를 다시 켠 직후: 아직 게임을 읽기 전
-                var list = (await TestHost.Data(await c.GetAsync("/api/characters"))).EnumerateArray().ToList();
+                var c = await host.LocalAsync();   // 서버를 다시 켠 뒤에도 같은 캐릭터 기록이 이어진다
+                var list = Cards(await TestHost.Data(await c.GetAsync("/api/characters")));
                 var me = Assert.Single(list);
-                Assert.False(me.GetProperty("isCurrent").GetBoolean());
                 Assert.Equal(88737, me.GetProperty("combat").GetInt64());
                 Assert.Equal(19745, me.GetProperty("attract").GetInt64());
                 Assert.True(me.GetProperty("deca").GetInt64() > 0);

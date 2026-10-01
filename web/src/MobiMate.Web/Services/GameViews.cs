@@ -9,7 +9,7 @@ namespace MobiMate.Web.Services;
 /// 헤더를 읽을 때마다 GameStateCache·SnapshotManager(세션 변화량)를 갱신하고 SSE "header"로 다른 기기에도 알린다.
 /// </summary>
 public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManager snapshots, SseHub hub, CutoffCatalog cutoffs,
-    FavoritesStore favorites, WorkCategoryCatalog workKinds, CombatScoreGuard guard, MobiMateOptions options, IHostApplicationLifetime life, ILogger<GameViews> log)
+    FavoritesStore favorites, AccountStore accounts, WorkCategoryCatalog workKinds, CombatScoreGuard guard, MobiMateOptions options, IHostApplicationLifetime life, ILogger<GameViews> log)
 {
     private readonly ConcurrentDictionary<string, Dictionary<string, int>> _bagBaselines = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, byte> _unclassifiedWorks = new();   // 분류표에 없는 가공품은 한 번만 기록한다 (FR-DT-20)
@@ -286,40 +286,112 @@ public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManag
         }, null, r.FetchedAt);
     }
 
+    /// <summary>기록에 있는 캐릭터인가 (멤버십·계정 지정 같은 요청의 대상 확인)</summary>
+    public bool IsKnownCharacter(string key) => snapshots.GetAllProfiles().Any(p => p.CharacterKey == key);
+
+    /// <summary>지금 접속 중인 캐릭터를 읽어 기록에 남긴다(헤더 + 재화). 캐릭터 선택창이면 아무것도 남기지 않는다.</summary>
+    public async Task RecordNowAsync(CancellationToken ct)
+    {
+        var h = await HeaderAsync(ct);
+        if (h.Ok && SnapshotManager.IsRealCharacter(state.Character)) await CurrenciesAsync(ct);
+    }
+
     /// <summary>
-    /// 내 캐릭터 전체 현황 (FR-AL): 캐릭터 기록(마지막으로 본 값)을 모은다. 게임은 지금 접속한 캐릭터만 알려 주므로
-    /// 지금 캐릭터는 실시간 값, 나머지는 마지막으로 관찰한 값이다.
+    /// 내 캐릭터 전체 현황 (FR-AL): 화면이 열려 있는 동안 지금 캐릭터의 값을 새로 읽어 기록한 뒤 현황을 만든다.
+    /// </summary>
+    public async Task<object> CharactersAsync(CancellationToken ct)
+    {
+        try { await RecordNowAsync(ct); }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex) { log.LogDebug(ex, "전체 현황 갱신 중 읽기 실패 (기록된 값으로 보여 줍니다)"); }
+        return Characters();
+    }
+
+    /// <summary>
+    /// 내 캐릭터 전체 현황: 캐릭터 기록(마지막으로 본 값)을 계정별로 묶는다. 게임은 지금 접속한 캐릭터만 알려 주므로
+    /// 지금 캐릭터는 실시간 값, 나머지는 마지막으로 관찰한 값이다. 같은 계정은 데카·M캐시가 같았던 적이 있는 캐릭터끼리 묶는다.
+    /// 은동전·마족 공물은 마지막으로 본 값에서 시간이 지난 만큼 충전된 예상 보유량이다 (CoinForecast).
     /// </summary>
     public object Characters()
     {
-        var current = state.Character is { } cur ? CharacterKey(cur) : null;
-        var list = snapshots.GetAllProfiles()
+        var nowUtc = DateTime.UtcNow;
+        var currentKey = state.Character is { } cur && SnapshotManager.IsRealCharacter(cur) ? CharacterKey(cur) : null;
+        var profiles = snapshots.GetAllProfiles()
             .Where(p => !(p.RealmName == "에린" && p.JobName == "밀레시안") && p.History.Any(h => h.Level > 0))   // 캐릭터 선택창에서 생긴 옛 가짜 기록은 숨긴다
-            .Select(p =>
+            .ToList();
+
+        // 같은 계정 묶기: 한 번 묶이면 이후 값이 어긋나도 유지된다
+        var histories = profiles.Select(p => new CharacterCurrencyHistory(p.CharacterKey,
+            p.History.TakeLast(400).Select(h => (h.Deca, h.MCash)).Distinct().ToList())).ToList();
+        accounts.Update(d => AccountGrouper.Reconcile(d, histories));
+        var data = accounts.Snapshot();
+
+        long Held(Func<CurrencyItem, bool> pick, long? last) => state.Currencies?.FirstOrDefault(pick)?.Amount ?? last ?? 0;
+        var cards = profiles.Select(p =>
         {
             var last = p.History.LastOrDefault();
-            var live = p.CharacterKey == current ? state.Character : null;
-            var gold = state.Currencies?.FirstOrDefault(c => c.DisplayName == "골드")?.Amount;
-            var deca = state.Currencies?.FirstOrDefault(c => c.DisplayName == "데카")?.Amount;
+            var live = p.CharacterKey == currentKey ? state.Character : null;
+            var curr = live != null ? state.Currencies : null;
+            long Cur(string[] names, long? prev) => curr?.FirstOrDefault(c => names.Contains(c.DisplayName))?.Amount ?? prev ?? 0;
+            var lastSeenUtc = live != null ? nowUtc : p.LastSeen.ToUniversalTime();
+            return new CharCard(
+                p.CharacterKey, p.RealmName, p.JobName, string.IsNullOrWhiteSpace(p.CustomName) ? null : p.CustomName, live != null,
+                live?.Level ?? last?.Level ?? 0, live?.Title ?? last?.Title ?? "",
+                live?.CombatScore?.Value ?? last?.CombatScore ?? 0, live?.ArcaneResistance?.Value ?? last?.ArcaneResistance ?? 0,
+                live?.LivingScore?.Value ?? last?.LivingScore ?? 0, live?.AttractivenessScore?.Value ?? last?.AttractivenessScore ?? 0,
+                Cur(new[] { "골드" }, last?.Gold), Cur(new[] { "데카" }, last?.Deca), Cur(new[] { "M캐시", "M캐쉬" }, last?.MCash),
+                Cur(new[] { "은동전" }, last?.SilverCoin), Cur(new[] { "마족 공물", "마족공물" }, last?.DemonTribute), lastSeenUtc);
+        }).ToList();
+
+        var groups = cards.GroupBy(c => AccountGrouper.AccountOf(data, c.Key)).Select(g =>
+        {
+            var id = g.Key;
+            var member = AccountGrouper.IsMember(data, id, nowUtc);
+            var reference = g.OrderByDescending(c => c.LastSeenUtc).First();   // 가장 최근에 본 캐릭터의 값이 계정의 최신 값이다
+            data.Accounts.TryGetValue(id, out var info);
+            var members = g.OrderByDescending(c => c.Combat).Select(c =>
+            {
+                var silver = CoinForecast.Silver(c.Silver, c.LastSeenUtc, nowUtc, member);
+                var tribute = CoinForecast.Tribute(c.Tribute, c.LastSeenUtc, nowUtc, member);
+                var stale = g.Count() > 1 && c.Key != reference.Key && (c.Deca != reference.Deca || c.MCash != reference.MCash);
+                return new
+                {
+                    key = c.Key, realm = c.Realm, job = c.Job, nickname = c.Nickname, isCurrent = c.IsCurrent, level = c.Level, title = c.Title,
+                    combat = c.Combat, mdef = c.Mdef, living = c.Living, attract = c.Attract, gold = c.Gold, deca = c.Deca, mcash = c.MCash,
+                    lastSeen = new DateTimeOffset(c.LastSeenUtc, TimeSpan.Zero),
+                    silver = CoinView(silver), tribute = CoinView(tribute),
+                    stale,   // 데카·M캐시가 계정의 최신 값과 다르다: 그 캐릭터는 마지막 접속 이후 동기화되지 않았다
+                    urgency = Math.Max(silver.Percent, tribute.Percent),
+                };
+            }).ToList();
             return new
             {
-                key = p.CharacterKey, realm = p.RealmName, job = p.JobName,
-                nickname = string.IsNullOrWhiteSpace(p.CustomName) ? null : p.CustomName,
-                isCurrent = live != null,
-                level = live?.Level ?? last?.Level ?? 0,
-                title = live?.Title ?? last?.Title ?? "",
-                combat = live?.CombatScore?.Value ?? last?.CombatScore ?? 0,
-                mdef = live?.ArcaneResistance?.Value ?? last?.ArcaneResistance ?? 0,
-                living = live?.LivingScore?.Value ?? last?.LivingScore ?? 0,
-                attract = live?.AttractivenessScore?.Value ?? last?.AttractivenessScore ?? 0,
-                gold = live != null && gold != null ? gold.Value : last?.Gold ?? 0,
-                deca = live != null && deca != null ? deca.Value : last?.Deca ?? 0,
-                lastSeen = new DateTimeOffset(p.LastSeen).ToUniversalTime(),
+                id,
+                name = members[0].nickname ?? members[0].realm,   // 대표(전투력이 가장 높은) 캐릭터 이름
+                solo = id.StartsWith("solo:", StringComparison.Ordinal),
+                deca = reference.Deca, mcash = reference.MCash,
+                membership = new { expiresAt = info?.MembershipExpiresAtUtc is { } e ? new DateTimeOffset(DateTime.SpecifyKind(e, DateTimeKind.Utc)) : (DateTimeOffset?)null, active = member },
+                caps = new { silver = CoinForecast.SilverCap(member), tribute = CoinForecast.TributeCap(member) },
+                hasCurrent = members.Any(m => m.isCurrent),
+                topCombat = members.Max(m => m.combat),
+                members,
             };
-        });
-        // 지금 접속 중인 캐릭터를 맨 앞에, 나머지는 최근에 본 순서
-        return list.OrderByDescending(x => x.isCurrent).ThenByDescending(x => x.lastSeen).ToList();
+        })
+        // 지금 접속한 캐릭터의 계정을 맨 위에, 나머지는 계정 안 최고 전투력 순
+        .OrderByDescending(g => g.hasCurrent).ThenByDescending(g => g.topCombat).ToList();
+
+        return new { nowUtc = new DateTimeOffset(nowUtc, TimeSpan.Zero), currentAccountId = groups.FirstOrDefault(g => g.hasCurrent)?.id, accounts = groups };
     }
+
+    private sealed record CharCard(string Key, string Realm, string Job, string? Nickname, bool IsCurrent, int Level, string Title, long Combat, long Mdef, long Living, long Attract,
+        long Gold, long Deca, long MCash, long Silver, long Tribute, DateTime LastSeenUtc);
+
+    private static object CoinView(CoinState c) => new
+    {
+        held = c.Held, expected = c.Expected, cap = c.Cap, percent = Math.Round(c.Percent, 4),
+        level = c.Level switch { CoinLevel.Full => "full", CoinLevel.Near => "near", _ => "ok" },
+        minutesToFull = Math.Round(c.MinutesToFull),
+    };
 
     public static bool IsBag(string? loc) => loc != null && (loc.Equals("Bag", StringComparison.OrdinalIgnoreCase) || loc.Equals("inventory", StringComparison.OrdinalIgnoreCase));
 
