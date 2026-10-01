@@ -9,7 +9,6 @@ using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using MobiMate.Web.Hosting;
 using MobiMate.Web.Lan;
-using MobiMate.Web.Security;
 using MobiMate.Tests;
 
 [assembly: CollectionBehavior(DisableTestParallelization = true)]   // 가짜 CLI 환경변수가 프로세스 전역이다
@@ -18,7 +17,7 @@ namespace MobiMate.Web.Tests;
 
 /// <summary>
 /// 테스트용 서버: 임시 저장 폴더 + 가짜 CLI, WPF 가져오기·브라우저 열기 끔.
-/// 요청 헤더 X-Test-Remote-IP로 원격 주소를 흉내 낸다(기본 127.0.0.1 = 게임 PC).
+/// 인증이 없으므로(요구사양 Q8) 클라이언트는 그냥 만들어 쓴다. 요청 헤더 X-Test-Remote-IP로 원격 주소를 흉내 낸다(기본 127.0.0.1 = 게임 PC).
 /// </summary>
 public sealed class TestHost : WebApplicationFactory<Program>
 {
@@ -68,7 +67,7 @@ public sealed class TestHost : WebApplicationFactory<Program>
         });
     }
 
-    /// <summary>서버가 고른 포트. Host·Origin 검사가 포트까지 비교하므로 테스트 요청도 이 포트를 쓴다.</summary>
+    /// <summary>서버가 고른 포트.</summary>
     public int Port => Services.GetRequiredService<ServerIdentity>().Port;
     public string Origin => $"http://localhost:{Port}";
 
@@ -91,25 +90,9 @@ public sealed class TestHost : WebApplicationFactory<Program>
         throw new InvalidOperationException("비어 있는 루프백 포트를 찾지 못했습니다.");
     }
 
-    /// <summary>세션 없는 클라이언트 (쿠키 보관, 자동 리디렉트 안 함).</summary>
-    public HttpClient Anonymous(string? remoteIp = null)
-    {
-        var c = CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, HandleCookies = true, BaseAddress = new Uri(Origin) });
-        c.DefaultRequestHeaders.Add("Origin", Origin);
-        if (remoteIp != null) c.DefaultRequestHeaders.Add(RemoteIpHeader, remoteIp);
-        return c;
-    }
-
-    /// <summary>게임 PC 브라우저: 기동 코드로 세션을 받고 CSRF 헤더를 붙인다.</summary>
-    public async Task<HttpClient> LocalAsync()
-    {
-        var c = Anonymous();
-        var code = Services.GetRequiredService<BootCodes>().Issue(DateTimeOffset.UtcNow);
-        var boot = await c.GetAsync($"/auth/boot?code={code}");
-        Assert.Equal(HttpStatusCode.Redirect, boot.StatusCode);
-        await AttachCsrfAsync(c);
-        return c;
-    }
+    /// <summary>게임 PC 브라우저 (루프백으로 접속, 자동 리디렉트 안 함).</summary>
+    public Task<HttpClient> LocalAsync() =>
+        Task.FromResult(CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, BaseAddress = new Uri(Origin) }));
 
     /// <summary>게임 PC에서 LAN 모드를 켠다 (가짜 네트워크).</summary>
     public async Task EnableLanAsync(HttpClient local)
@@ -118,33 +101,19 @@ public sealed class TestHost : WebApplicationFactory<Program>
         Assert.True(s.GetProperty("active").GetBoolean(), s.ToString());
     }
 
-    /// <summary>LAN 주소로 접속하는 기기 (Host·Origin = LAN IP:포트).</summary>
+    /// <summary>LAN 주소로 접속하는 기기 (Host = LAN IP:포트, 받은 로컬 주소 = LAN IP).</summary>
     public HttpClient LanClient(string remoteIp = "192.168.0.50", string host = LanIp)
     {
-        var origin = $"http://{host}:{Port}";
-        var c = CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, HandleCookies = true, BaseAddress = new Uri(origin) });
-        c.DefaultRequestHeaders.Add("Origin", origin);
+        var c = CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, BaseAddress = new Uri($"http://{host}:{Port}") });
         c.DefaultRequestHeaders.Add(RemoteIpHeader, remoteIp);
         return c;
     }
 
-    /// <summary>LAN 기기(폰): 게임 PC가 LAN을 켜고 페어링을 시작하면, 기기가 LAN 주소로 코드를 확인한다.</summary>
+    /// <summary>LAN 기기(폰): 게임 PC가 LAN을 켜 두면 기기가 LAN 주소로 바로 접속한다.</summary>
     public async Task<HttpClient> LanAsync(HttpClient local, string ip = "192.168.0.50")
     {
         if (!Services.GetRequiredService<LanService>().Status.Active) await EnableLanAsync(local);
-        var code = (await Data(await local.PostAsync("/api/pairing/start", null))).GetProperty("code").GetString();
-        var c = LanClient(ip);
-        var r = await c.PostAsJsonAsync("/api/pairing/confirm", new { code, deviceName = "테스트 폰" });
-        Assert.Equal(HttpStatusCode.OK, r.StatusCode);
-        await AttachCsrfAsync(c);
-        return c;
-    }
-
-    public static async Task AttachCsrfAsync(HttpClient c)
-    {
-        var s = await Data(await c.GetAsync("/api/session"));
-        c.DefaultRequestHeaders.Remove(SecurityMiddleware.CsrfHeader);
-        c.DefaultRequestHeaders.Add(SecurityMiddleware.CsrfHeader, s.GetProperty("csrf").GetString());
+        return LanClient(ip);
     }
 
     public static async Task<JsonElement> Data(HttpResponseMessage r)

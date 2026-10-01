@@ -1,5 +1,5 @@
 using MobiMate.Web.Infrastructure;
-using MobiMate.Web.Security;
+using MobiMate.Web.Lan;
 using MobiMate.Web.Services;
 
 namespace MobiMate.Web.Endpoints;
@@ -114,7 +114,7 @@ public static class GameEndpoints
         {
             if (string.IsNullOrWhiteSpace(req.DisplayName)) return ApiResults.Error(400, "VALIDATION", "displayName이 필요합니다.");
             if (req.Count is < 0 or > 999) return ApiResults.Error(400, "VALIDATION", "count는 0~999입니다.");
-            var (result, job) = await a.StartGatherAsync(req.DisplayName.Trim(), req.Count, SecurityMiddleware.DeviceOf(ctx)!.Id, ct);
+            var (result, job) = await a.StartGatherAsync(req.DisplayName.Trim(), req.Count, ClientId.Of(ctx), ct);
             return result switch
             {
                 StartGatherResult.Started => ApiResults.Accepted(new { jobId = job!.JobId, item = job.Item, count = job.Count }),

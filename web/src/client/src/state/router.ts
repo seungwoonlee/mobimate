@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 
 /** 화면 경로 (상세설계 §4.2). 도크는 경로가 아니라 UI 상태다. */
-export type RouteName = 'overview' | 'stats' | 'homework' | 'inventory' | 'currencies' | 'life' | 'nearby' | 'settings' | 'pair';
+export type RouteName = 'overview' | 'stats' | 'homework' | 'inventory' | 'currencies' | 'life' | 'nearby' | 'settings';
 
 export const ROUTES: { name: RouteName; path: string; label: string; icon: string; key?: string }[] = [
   { name: 'overview', path: '/', label: '개요', icon: 'home', key: '1' },
@@ -12,7 +12,6 @@ export const ROUTES: { name: RouteName; path: string; label: string; icon: strin
   { name: 'life', path: '/life', label: '생활', icon: 'leaf', key: '6' },
   { name: 'nearby', path: '/nearby', label: '레이더', icon: 'radar', key: '7' },
   { name: 'settings', path: '/settings', label: '설정', icon: 'gear' },
-  { name: 'pair', path: '/pair', label: '연결', icon: 'phone' },   // 폰 페어링 착륙(세션 없이 열림)
 ];
 
 export interface Location { name: RouteName; params: URLSearchParams }

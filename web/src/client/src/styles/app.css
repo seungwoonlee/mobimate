@@ -95,10 +95,6 @@ details.fold[open] > summary h3::after { content: '▴'; }
 .card.err { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; border-color: var(--danger-soft); }
 
 /* 인증 안내 */
-.auth { min-height: 100dvh; display: grid; place-items: center; padding: 16px; background: var(--bg-0); }
-.auth-card { max-width: 420px; display: grid; gap: 12px; justify-items: start; }
-.auth-card h1 { margin: 0; font-size: 20px; }
-.auth-card p { margin: 0; color: var(--text-2); }
 
 /* 토스트는 누르면 닫힌다 */
 button.toast { border: 0; text-align: left; cursor: pointer; }
@@ -137,7 +133,4 @@ button.toast { border: 0; text-align: left; cursor: pointer; }
 .qr-empty { display: block; background: var(--bg-3); }
 .sub-title { margin: 12px 0 4px; font-size: 13px; color: var(--text-2); }
 .path { word-break: break-all; max-width: 60%; text-align: right; }
-.pair-form { display: flex; gap: 8px; }
-.pair-form input { flex: 1; min-width: 0; height: 48px; font-size: 24px; letter-spacing: .3em; text-align: center; font-family: var(--f-num); border: 1px solid var(--line); border-radius: 12px; background: var(--bg-2); color: var(--text-1); }
-.pair-form .btn { height: 48px; }
 .dlg .list { max-height: 40vh; overflow-y: auto; }

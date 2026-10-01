@@ -1,11 +1,10 @@
 /**
  * SSE 연결 (상세설계 §3.5, FR-MB-12). EventSource 기본 재연결 대신 직접 지수 백오프(1→2→4…최대 30초)로 다시 붙는다.
  * 화면이 다시 보이면 바로 한 번 시도하고, 45초 동안 아무 이벤트(ping 포함)가 없으면 끊긴 것으로 보고 다시 연결한다.
- * EventSource는 401을 구분해 주지 않으므로 끊기면 /api/session으로 확인하고, 401이면 재시도를 멈춘다.
  *
  * 연결은 언제나 하나만 둔다: 새로 열기 전에 이전 연결·타이머를 정리하고, 세대 번호로 늦게 끝난 재시도 예약을 버린다.
  */
-export type SseState = 'connecting' | 'open' | 'retrying' | 'unauthorized';
+export type SseState = 'connecting' | 'open' | 'retrying';
 export interface SseHandlers {
   onEvent: (type: string, data: unknown) => void;
   onState: (s: SseState, retryAt?: number) => void;
@@ -24,7 +23,7 @@ export function connectSse(h: SseHandlers): () => void {
 
   const kick = (g: number) => {
     window.clearTimeout(watchdog);
-    watchdog = window.setTimeout(() => { if (g === gen) void schedule(); }, SILENCE_MS);
+    watchdog = window.setTimeout(() => { if (g === gen) schedule(); }, SILENCE_MS);
   };
 
   const open = () => {
@@ -46,23 +45,16 @@ export function connectSse(h: SseHandlers): () => void {
         h.onEvent(t, data);
       });
     }
-    src.onerror = () => { if (g === gen) void schedule(); };
+    src.onerror = () => { if (g === gen) schedule(); };
   };
 
-  const schedule = async () => {
+  const schedule = () => {
     if (closed) return;
-    const g = ++gen;
+    ++gen;
     window.clearTimeout(watchdog);
     window.clearTimeout(timer);
     es?.close();
     es = null;
-    try {
-      const r = await fetch('/api/session', { credentials: 'same-origin' });
-      if (g !== gen || closed) return;
-      if (r.status === 401) { h.onState('unauthorized'); return; }
-    } catch {
-      if (g !== gen || closed) return;   // 네트워크 오류: 재시도
-    }
     h.onState('retrying', Date.now() + delay * 1000);
     timer = window.setTimeout(open, delay * 1000);
     delay = Math.min(30, delay * 2);
