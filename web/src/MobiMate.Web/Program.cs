@@ -80,6 +80,7 @@ builder.Services.AddSingleton(sp => new HomeworkStore(Dir(sp)));
 builder.Services.AddSingleton(sp => new HomeworkService(sp.GetRequiredService<HomeworkCatalog>(), sp.GetRequiredService<HomeworkStore>()));
 builder.Services.AddSingleton<HomeworkWatcher>();
 builder.Services.AddSingleton<SseHub>();
+builder.Services.AddSingleton<CombatScoreGuard>();
 builder.Services.AddSingleton<GameViews>();
 builder.Services.AddSingleton<GameActions>();
 builder.Services.AddSingleton<ChatService>();
