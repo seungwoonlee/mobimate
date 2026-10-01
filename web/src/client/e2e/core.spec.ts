@@ -139,14 +139,14 @@ test('다크 모드 색상 패턴을 고를 수 있다 (FR-LY-05)', async ({ pag
 
 test('별칭: 이름 옆 연필로 그 자리에서 고치고 지울 수 있다 (P1)', async ({ page }) => {
   await page.goto('/overview');
-  await page.getByRole('button', { name: '캐릭터 별칭 바꾸기' }).click();
-  const input = page.getByLabel('캐릭터 별칭');
+  await page.getByRole('button', { name: '캐릭터명 바꾸기' }).click();
+  const input = page.getByLabel('캐릭터명', { exact: true });
   await input.fill('모험가 승운');
   await input.press('Enter');
   await expect(page.locator('.who-name .nm')).toHaveText('모험가 승운');
-  await page.getByRole('button', { name: '캐릭터 별칭 바꾸기' }).click();   // 되돌려 두기 (서버 상태를 공유한다)
-  await page.getByLabel('캐릭터 별칭').fill('');
-  await page.getByLabel('캐릭터 별칭').press('Enter');
+  await page.getByRole('button', { name: '캐릭터명 바꾸기' }).click();   // 되돌려 두기 (서버 상태를 공유한다)
+  await page.getByLabel('캐릭터명', { exact: true }).fill('');
+  await page.getByLabel('캐릭터명', { exact: true }).press('Enter');
   await expect(page.locator('.who-name .nm')).toHaveText('아이라');
 });
 
@@ -319,11 +319,55 @@ test('상단 버튼은 좌측 바 아이콘으로 옮겨 가고 긴급 정지가
   expect(ys.at(-1)).toBe(Math.max(...ys));
 });
 
-test('상단 이름·직업·칭호 글자가 커졌고 멤버십은 칭호 다음에 온다', async ({ page }) => {
+test('상단 멤버십은 칭호 다음에 오고, 글자는 기본 크기다', async ({ page }) => {
   test.skip(page.viewportSize()!.width < 840, '넓은 화면에서만 확인');
   const name = Number((await page.locator('.who-name .nm').evaluate(e => parseFloat(getComputedStyle(e).fontSize))));
-  expect(name).toBeGreaterThanOrEqual(50);
+  expect(name).toBeLessThan(50);                                              // 1.5배 확대를 되돌렸다
   const order = await page.locator('.who-name').evaluate(el => [...el.children].map(c => c.className.split(' ')[0]));
-  expect(order.indexOf('who-title')).toBeLessThan(order.indexOf('mem-chip'));   // 칭호 → 멤버십
+  if (order.includes('mem-chip')) expect(order.indexOf('who-title')).toBeLessThan(order.indexOf('mem-chip'));   // 칭호 → 멤버십
   expect(order.indexOf('job')).toBeLessThan(order.indexOf('who-title'));
+});
+
+test('이름 편집 입력칸은 "캐릭터명"이라고 부른다', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: '캐릭터명 바꾸기' }).click();
+  await expect(page.getByPlaceholder('캐릭터명')).toBeVisible();
+  await expect(page.locator('body')).not.toContainText('별칭');
+});
+
+test('전체 탭: 내 순서로 계정 순서를 직접 정한다', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('group', { name: '정렬' }).getByRole('button', { name: '내 순서' }).click();
+  const heads = page.locator('section.acct .acct-h h3');
+  const before = await heads.allTextContents();
+  expect(before.length).toBeGreaterThanOrEqual(2);
+  await page.locator('section.acct').nth(1).getByRole('button', { name: /위로/ }).click();
+  await expect.poll(async () => (await heads.allTextContents())[0]).toBe(before[1]);
+  await page.reload();                                                         // 서버에 저장되어 유지된다
+  await page.getByRole('group', { name: '정렬' }).getByRole('button', { name: '내 순서' }).click();
+  await expect.poll(async () => (await heads.allTextContents())[0]).toBe(before[1]);
+  await page.locator('section.acct').nth(1).getByRole('button', { name: /위로/ }).click();   // 되돌려 두기
+  await expect.poll(async () => (await heads.allTextContents())[0]).toBe(before[0]);
+});
+
+test('전체 탭: 필요 없는 캐릭터를 삭제한다 (접속 중인 캐릭터는 못 지운다)', async ({ page }, info) => {
+  test.skip(info.project.name !== 'pc-1440', '한 번만 지울 수 있어 한 화면에서만 확인');
+  await page.goto('/');
+  await expect(page.locator('.card.char', { hasText: '음유시인' })).toHaveCount(1);
+  await page.getByRole('button', { name: '계정 편집' }).click();
+  const dlg = page.getByRole('dialog');
+  await expect(dlg.getByRole('button', { name: /아이라 격투가 삭제/ })).toHaveCount(0);   // 접속 중: 삭제 버튼 없음
+  await dlg.getByRole('button', { name: /바람 음유시인 삭제/ }).click();
+  await dlg.getByRole('button', { name: '취소' }).click();                       // 확인 단계에서 취소하면 그대로
+  await expect(page.locator('.card.char', { hasText: '음유시인' })).toHaveCount(1);
+  await dlg.getByRole('button', { name: /바람 음유시인 삭제/ }).click();
+  await dlg.getByRole('button', { name: '정말 삭제' }).click();
+  await expect(page.locator('.card.char', { hasText: '음유시인' })).toHaveCount(0);
+});
+
+test('전체 탭: 서버가 여러 곳인 계정은 헤더에 서버를 함께 보여 준다', async ({ page }) => {
+  await page.goto('/');
+  const first = page.locator('section.acct').first();                    // 아이라(격투가) + 바람(도적·마법사)
+  await expect(first.locator('.acct-meta')).toContainText(/서버 .*아이라.*바람|서버 .*바람.*아이라/);
+  await expect(page.locator('section.acct').nth(1).locator('.acct-meta')).not.toContainText('서버');   // 한 서버만
 });

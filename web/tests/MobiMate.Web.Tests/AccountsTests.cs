@@ -172,6 +172,44 @@ public class AccountsTests
     }
 
     [Fact]
+    public async Task AccountOrder_IsSavedAndReturnedAsManualRank()
+    {
+        var dir = Seed(out _);
+        try
+        {
+            using var host = new TestHost(dir) { KeepStorage = true };
+            var c = await host.LocalAsync();
+            var ids = (await TestHost.Data(await c.GetAsync("/api/characters"))).GetProperty("accounts").EnumerateArray().Select(a => a.GetProperty("id").GetString()!).ToList();
+            Assert.Equal(2, ids.Count);
+            Assert.Equal(HttpStatusCode.OK, (await c.PutAsJsonAsync("/api/accounts/order", new { order = new[] { ids[1], ids[0] } })).StatusCode);
+            var accounts = (await TestHost.Data(await c.GetAsync("/api/characters"))).GetProperty("accounts").EnumerateArray().ToList();
+            Assert.Equal(1, accounts.First(a => a.GetProperty("id").GetString() == ids[0]).GetProperty("manualRank").GetInt32());
+            Assert.Equal(0, accounts.First(a => a.GetProperty("id").GetString() == ids[1]).GetProperty("manualRank").GetInt32());
+            Assert.Equal(HttpStatusCode.BadRequest, (await c.PutAsJsonAsync("/api/accounts/order", new { })).StatusCode);
+        }
+        finally { try { Directory.Delete(dir, true); } catch { } }
+    }
+
+    [Fact]
+    public async Task DeleteCharacter_RemovesItsRecord_ButNotTheOneThatIsConnected()
+    {
+        var dir = Seed(out _);
+        try
+        {
+            using var host = new TestHost(dir) { KeepStorage = true };
+            var c = await host.LocalAsync();
+            await c.GetAsync("/api/characters");                                                // 지금 캐릭터를 기록한다
+            Assert.Equal(HttpStatusCode.Conflict, (await c.DeleteAsync("/api/characters?key=" + Uri.EscapeDataString("아이라_격투가"))).StatusCode);
+            Assert.Equal(HttpStatusCode.NotFound, (await c.DeleteAsync("/api/characters?key=" + Uri.EscapeDataString("없는_캐릭터"))).StatusCode);
+            Assert.Equal(HttpStatusCode.OK, (await c.DeleteAsync("/api/characters?key=" + Uri.EscapeDataString("바람_궁수"))).StatusCode);
+            var data = await TestHost.Data(await c.GetAsync("/api/characters"));
+            Assert.DoesNotContain(ViewsTests.Cards(data), x => x.GetProperty("key").GetString() == "바람_궁수");
+            Assert.Equal(1, data.GetProperty("accounts").GetArrayLength());                     // 궁수만 있던 계정도 사라졌다
+        }
+        finally { try { Directory.Delete(dir, true); } catch { } }
+    }
+
+    [Fact]
     public async Task Recorder_RecordsTheCurrentCharacterCoinsAndCurrencies()
     {
         using var host = new TestHost();

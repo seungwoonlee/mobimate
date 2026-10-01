@@ -6,6 +6,8 @@ public sealed class AccountData
     public Dictionary<string, AccountInfo> Accounts { get; set; } = new();
     /// <summary>캐릭터 키 → 소속 계정. 한 번 묶이면 이후 값이 어긋나도 그대로 둔다(동기화가 늦은 것이지 잘못 묶인 게 아니다).</summary>
     public Dictionary<string, AccountAssignment> Assign { get; set; } = new();
+    /// <summary>사용자가 정한 계정 표시 순서(계정 id 목록, 앞이 우선). 목록에 없는 계정은 그 뒤에 온다.</summary>
+    public List<string> Order { get; set; } = new();
 }
 
 public sealed class AccountInfo
@@ -98,6 +100,19 @@ public static class AccountGrouper
             if (dst.MembershipExpiresAtUtc is null || dst.MembershipExpiresAtUtc < exp) dst.MembershipExpiresAtUtc = exp;
         }
         if (!data.Assign.Values.Any(a => a.Account == from)) data.Accounts.Remove(from);
+    }
+
+    /// <summary>계정 표시 순서를 정한다. 중복·빈 값은 버리고 최대 200개까지 둔다.</summary>
+    public static void SetOrder(AccountData data, IEnumerable<string> order) =>
+        data.Order = order.Where(x => !string.IsNullOrWhiteSpace(x)).Distinct().Take(200).ToList();
+
+    /// <summary>캐릭터를 지울 때 계정 정보도 정리한다. 계정에 남은 캐릭터가 없고 멤버십 기록도 없으면 계정도 지운다.</summary>
+    public static void RemoveCharacter(AccountData data, string characterKey)
+    {
+        if (!data.Assign.Remove(characterKey, out var a)) return;
+        if (data.Assign.Values.Any(x => x.Account == a.Account)) return;
+        if (data.Accounts.TryGetValue(a.Account, out var info) && info.MembershipExpiresAtUtc is null) data.Accounts.Remove(a.Account);
+        if (!data.Accounts.ContainsKey(a.Account)) data.Order.Remove(a.Account);
     }
 
     public static string NewAccount(AccountData data)

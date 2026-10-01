@@ -47,11 +47,13 @@ export function membershipLeft(expiresAt: string | null, now = Date.now()): { te
   return { text, urgent: ms <= 3 * 86_400_000 };   // 3일 이내면 붉은색으로 경고
 }
 
-type SortMode = 'combat' | 'urgency';
+type SortMode = 'combat' | 'urgency' | 'manual';
 const sortMembers = (list: CharacterCard[], mode: SortMode) =>
   [...list].sort((a, b) => (mode === 'urgency' ? b.urgency - a.urgency || b.combat - a.combat : b.combat - a.combat));
 const sortAccounts = (list: AccountGroup[], mode: SortMode) =>
-  mode === 'urgency'
+  mode === 'manual'
+    ? [...list].sort((a, b) => (a.manualRank < 0 ? 1e9 : a.manualRank) - (b.manualRank < 0 ? 1e9 : b.manualRank))   // 정하지 않은 계정은 뒤에(서버 순서 유지)
+    : mode === 'urgency'
     ? [...list].sort((a, b) => Math.max(...b.members.map(m => m.urgency)) - Math.max(...a.members.map(m => m.urgency)) || b.topCombat - a.topCombat)
     : list;   // 서버 순서: 지금 접속한 계정 → 계정 안 최고 전투력 순
 
@@ -66,10 +68,22 @@ export function CharactersView() {
   const sort = useDevice(s => s.charSort);
   const setDevice = useDevice(s => s.set);
   const [editing, setEditing] = useState(false);
+  const toast = useUi(s => s.toast);
   if (q.isPending) return <><Skeleton /><Skeleton /></>;
   if (q.isError) return <ErrorCard error={q.error} onRetry={() => q.refetch()} />;
   const data = q.data.data;
   const total = data.accounts.reduce((n, a) => n + a.members.length, 0);
+  const ordered = sortAccounts(data.accounts, sort);
+  const moveAccount = async (list: AccountGroup[], i: number, dir: -1 | 1) => {
+    const ids = list.map(a => a.id);
+    [ids[i], ids[i + dir]] = [ids[i + dir], ids[i]];
+    try {
+      await api.put('/api/accounts/order', { order: ids });
+      await queryClient.invalidateQueries({ queryKey: keys.characters });
+    } catch (e) {
+      toast(e instanceof ApiError ? e.message : '순서를 저장하지 못했습니다', 'warn');
+    }
+  };
 
   return (
     <>
@@ -79,6 +93,7 @@ export function CharactersView() {
           <span className="seg" role="group" aria-label="정렬">
             <button type="button" aria-pressed={sort === 'combat'} onClick={() => setDevice({ charSort: 'combat' })}>전투력순</button>
             <button type="button" aria-pressed={sort === 'urgency'} onClick={() => setDevice({ charSort: 'urgency' })}>접속 시급 순</button>
+            <button type="button" aria-pressed={sort === 'manual'} onClick={() => setDevice({ charSort: 'manual' })}>내 순서</button>
           </span>
           <button type="button" className="btn" onClick={() => setEditing(true)}>계정 편집</button>
           <Fresh at={q.dataUpdatedAt} />
@@ -88,7 +103,11 @@ export function CharactersView() {
         <div className="card muted">아직 확인한 캐릭터가 없습니다. 게임에 접속하면 여기에 모입니다.</div>
       ) : (
         <>
-          {sortAccounts(data.accounts, sort).map(a => <AccountSection key={a.id} a={a} sort={sort} now={now} />)}
+          {ordered.map((a, i) => (
+            <AccountSection key={a.id} a={a} sort={sort} now={now}
+              move={sort === 'manual' && ordered.length > 1 ? { up: i > 0 ? () => void moveAccount(ordered, i, -1) : null, down: i < ordered.length - 1 ? () => void moveAccount(ordered, i, 1) : null } : undefined} />
+          ))}
+          {sort === 'manual' && ordered.length > 1 && <p className="faint small m0">▲▼로 계정 순서를 정하세요. 이 순서는 모든 기기에 같이 적용됩니다.</p>}
           <p className="faint small m0">
             지금 접속한 캐릭터만 실시간입니다. 다른 캐릭터는 마지막으로 접속했을 때 본 값이고, 은동전·마족 공물은 그 뒤 충전된 예상 개수입니다.
             데카·M캐시가 같은 캐릭터는 같은 계정으로 묶입니다.
@@ -100,14 +119,22 @@ export function CharactersView() {
   );
 }
 
-function AccountSection({ a, sort, now }: { a: AccountGroup; sort: SortMode; now: number }) {
+function AccountSection({ a, sort, now, move }: { a: AccountGroup; sort: SortMode; now: number; move?: { up: (() => void) | null; down: (() => void) | null } }) {
   const left = membershipLeft(a.membership.expiresAt, now);
+  const servers = [...new Set(a.members.map(m => m.realm))];   // 서버별로 캐릭터를 만든 계정은 서버를 같이 보여 준다
   return (
     <section className="acct" aria-label={`${a.name} 계정`}>
       <div className="acct-h">
-        <h3>{a.solo ? a.name : `${a.name} 계정`} <span className="faint small num">{a.members.length}명</span></h3>
+        <h3>{a.solo ? a.name : `${a.name} 계정`} <span className="faint small num">{a.members.length}명</span>
+          {move && (
+            <span className="acct-move">
+              <button type="button" className="icon-btn" aria-label={`${a.name} 계정 위로`} disabled={!move.up} onClick={move.up ?? undefined}>▲</button>
+              <button type="button" className="icon-btn" aria-label={`${a.name} 계정 아래로`} disabled={!move.down} onClick={move.down ?? undefined}>▼</button>
+            </span>
+          )}
+        </h3>
         <span className="acct-meta small muted">
-          데카 <b className="num">{fmt(a.deca)}</b> · M캐시 <b className="num">{fmt(a.mcash)}</b>
+          {servers.length > 1 && <>서버 {servers.join('·')} · </>}데카 <b className="num">{fmt(a.deca)}</b> · M캐시 <b className="num">{fmt(a.mcash)}</b>
           {left ? <> · <span className={left.urgent ? 'danger-text' : ''}>멤버십 {left.text} 남음</span></> : <> · 멤버십 미등록</>}
         </span>
       </div>
@@ -151,7 +178,7 @@ function CharacterCardView({ c, now }: { c: CharacterCard; now: number }) {
           </span>
         }
       />
-      <div className="cc-job"><JobIcon job={c.job} size={30} /><span className="cc-jt"><span>{c.job} Lv.{c.level}</span>{c.title && <span className="cc-title">“{c.title}”</span>}</span></div>
+      <div className="cc-job"><JobIcon job={c.job} size={30} /><span className="cc-jt"><span>{c.nickname && <span className="realm-chip">{c.realm}</span>}{c.job} Lv.{c.level}</span>{c.title && <span className="cc-title">“{c.title}”</span>}</span></div>
       <div className="cc-main">
         <div><span className="lbl">전투력</span><b className={`v num ${scoreClass('combat', c.combat)}`}>{fmt(c.combat)}</b></div>
         <div><span className="lbl">마도저항</span><b className={`v num ${scoreClass('mdef', c.mdef)}`}>{fmt(c.mdef)}</b></div>
@@ -179,6 +206,7 @@ function CharacterCardView({ c, now }: { c: CharacterCard; now: number }) {
 function AssignDialog({ data, onClose }: { data: AccountGroup[]; onClose: () => void }) {
   const toast = useUi(s => s.toast);
   const [busy, setBusy] = useState(false);
+  const [confirm, setConfirm] = useState<string | null>(null);
   const chars = data.flatMap(a => a.members.map(m => ({ ...m, account: a.id })));
   const options = data.map(a => ({ id: a.id, label: a.solo ? `${a.name} (혼자)` : `${a.name} 계정` }));
 
@@ -192,19 +220,35 @@ function AssignDialog({ data, onClose }: { data: AccountGroup[]; onClose: () => 
     } finally { setBusy(false); }
   };
 
+  const remove = async (key: string) => {
+    setBusy(true);
+    try {
+      await api.del(`/api/characters?key=${encodeURIComponent(key)}`);
+      setConfirm(null);
+      await queryClient.invalidateQueries({ queryKey: keys.characters });
+    } catch (e) {
+      toast(e instanceof ApiError ? e.message : '캐릭터를 지우지 못했습니다', 'warn');
+    } finally { setBusy(false); }
+  };
+
   return (
     <Dialog title="계정 편집" onClose={onClose}>
       <p className="small muted">
         데카·M캐시가 같았던 캐릭터는 자동으로 같은 계정이 됩니다. 잘못 묶였거나 묶이지 않은 캐릭터는 여기서 직접 정할 수 있고, 직접 정한 캐릭터는 자동으로 바뀌지 않습니다.
+        필요 없이 등록된 캐릭터는 삭제할 수 있습니다(그 캐릭터로 다시 접속하면 새로 기록됩니다).
       </p>
       <div className="assign-list">
         {chars.map(c => (
           <label key={c.key} className="assign-row">
-            <span><JobIcon job={c.job} size={15} /> {c.nickname ?? c.realm} <span className="faint small">{c.job} Lv.{c.level}</span></span>
+            <span><JobIcon job={c.job} size={15} /> {c.nickname ?? c.realm} <span className="faint small">{c.nickname ? `${c.realm} · ` : ''}{c.job} Lv.{c.level}</span></span>
             <select value={c.account} disabled={busy} aria-label={`${c.nickname ?? c.realm} 소속 계정`} onChange={e => void change(c.key, e.target.value)}>
               {options.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
               <option value="new">따로 빼기 (새 계정)</option>
             </select>
+            {c.isCurrent ? <span className="faint small">접속 중</span>
+              : confirm === c.key
+                ? <span className="del-confirm"><button type="button" className="btn danger" disabled={busy} onClick={() => void remove(c.key)}>정말 삭제</button><button type="button" className="btn" disabled={busy} onClick={() => setConfirm(null)}>취소</button></span>
+                : <button type="button" className="btn" disabled={busy} aria-label={`${c.nickname ?? c.realm} ${c.job} 삭제`} onClick={() => setConfirm(c.key)}>삭제</button>}
           </label>
         ))}
       </div>

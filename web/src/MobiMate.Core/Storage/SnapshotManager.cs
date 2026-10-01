@@ -250,6 +250,20 @@ public class SnapshotManager
         }
     }
 
+    /// <summary>필요 없는 캐릭터의 기록을 지운다(승운 요청). 다시 접속하면 새 기록으로 다시 생긴다. 지운 게 있으면 true.</summary>
+    public bool RemoveCharacter(string characterKey)
+    {
+        bool removed;
+        lock (_lock)
+        {
+            removed = _characterDb.Remove(characterKey);
+            removed |= _savedSnapshots.Remove(characterKey);
+            _sessionBaselines.Remove(characterKey);
+        }
+        if (removed) SaveSnapshotsNow();
+        return removed;
+    }
+
     public List<CharacterProfile> GetAllProfiles()
     {
         lock (_lock)

@@ -99,7 +99,7 @@ export interface CharacterCard {
 export interface AccountGroup {
   id: string; name: string; solo: boolean; deca: number; mcash: number;
   membership: { expiresAt: string | null; active: boolean }; caps: { silver: number; tribute: number };
-  hasCurrent: boolean; topCombat: number; members: CharacterCard[];
+  hasCurrent: boolean; topCombat: number; manualRank: number; members: CharacterCard[];
 }
 export interface Characters { nowUtc: string; currentAccountId: string | null; accounts: AccountGroup[] }
 

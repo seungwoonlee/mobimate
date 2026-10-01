@@ -41,5 +41,6 @@ public sealed class AccountStore
     {
         Accounts = d.Accounts.ToDictionary(x => x.Key, x => new AccountInfo { MembershipExpiresAtUtc = x.Value.MembershipExpiresAtUtc }),
         Assign = d.Assign.ToDictionary(x => x.Key, x => new AccountAssignment { Account = x.Value.Account, Manual = x.Value.Manual }),
+        Order = [.. d.Order],
     };
 }
