@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using MobiMate.Web.Hosting;
 using MobiMate.Web.Infrastructure;
 
 namespace MobiMate.Web.Services;
@@ -7,7 +8,8 @@ namespace MobiMate.Web.Services;
 /// 화면용 조회 결과를 만든다 (§7 조회 API). CLI 호출은 모두 GameQueries(캐시·단일 비행)를 거친다.
 /// 헤더를 읽을 때마다 GameStateCache·SnapshotManager(세션 변화량)를 갱신하고 SSE "header"로 다른 기기에도 알린다.
 /// </summary>
-public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManager snapshots, SseHub hub, CutoffCatalog cutoffs)
+public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManager snapshots, SseHub hub, CutoffCatalog cutoffs,
+    CombatScoreGuard guard, MobiMateOptions options, IHostApplicationLifetime life, ILogger<GameViews> log)
 {
     private readonly ConcurrentDictionary<string, Dictionary<string, int>> _bagBaselines = new(StringComparer.OrdinalIgnoreCase);
 
@@ -52,6 +54,51 @@ public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManag
 
     public static string WeightLevel(double pct) => pct >= 100 ? "danger" : pct >= 95 ? "warn" : "ok";
 
+    /// <summary>
+    /// 전투력 재확인 (FR-DT-10): 새로 읽은 전투력이 마지막으로 받아들인 값보다 낮으면 이전 값을 대신 보여 주고
+    /// 잠시 뒤 다시 읽는다. 다시 읽어도 계속 낮으면 실제 하락으로 받아들인다.
+    /// </summary>
+    private CharacterInfo Stabilize(CharacterInfo ch)
+    {
+        if (ch.CombatScore is not { } score) return ch;
+        var key = CharacterKey(ch);
+        var saved = snapshots.GetSavedCombat(string.IsNullOrWhiteSpace(ch.RealmName) ? "에린" : ch.RealmName!, string.IsNullOrWhiteSpace(ch.JobName) ? "밀레시안" : ch.JobName!);
+        var v = guard.Evaluate(key, score.Value, saved);
+        if (!v.Suspect) return ch;
+        if (guard.TryBeginRecheck(key)) _ = Task.Run(() => RecheckCombatAsync(key, v.Value));
+        return ch with { CombatScore = score with { Value = v.Value } };
+    }
+
+    private async Task RecheckCombatAsync(string key, long known)
+    {
+        var stop = life.ApplicationStopping;   // 앱을 끄면 재확인도 멈춘다
+        try
+        {
+            long best = 0;
+            for (var i = 0; i < 2; i++)
+            {
+                await Task.Delay(options.CombatRecheckDelay, stop);
+                q.Invalidate("get_my_info");
+                var r = await q.Get<CharacterInfo>("get_my_info", stop);
+                if (!r.Ok || r.Value == null || CharacterKey(r.Value) != key) continue;   // 읽지 못했거나 캐릭터가 바뀜
+                var now = r.Value.CombatScore?.Value ?? 0;
+                if (now >= known) { best = now; break; }
+                best = Math.Max(best, now);
+            }
+            if (best > 0 && best < known) { guard.ConfirmLow(key, best); log.LogInformation("전투력 {Known} → {Now}: 다시 읽어도 같아 실제 값으로 받아들입니다 ({Key})", known, best, key); }
+            await HeaderAsync(stop);   // 받아들인 값으로 화면을 갱신한다 (SSE header)
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex)
+        {
+            log.LogWarning(ex, "전투력 재확인 실패");
+        }
+        finally
+        {
+            guard.EndRecheck(key);
+        }
+    }
+
     public async Task<CliData<object>> HeaderAsync(CancellationToken ct)
     {
         var tCh = q.Get<CharacterInfo>("get_my_info", ct);
@@ -60,6 +107,7 @@ public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManag
         await Task.WhenAll(tCh, tAct, tEnv);
         var (ch, act, env) = (tCh.Result, tAct.Result, tEnv.Result);
         if (!ch.Ok) return new CliData<object>(null, ch.Failure, ch.FetchedAt);
+        if (ch.Value != null) ch = ch with { Value = Stabilize(ch.Value) };
 
         // 캐릭터가 바뀌었으면 캐시된 재화·미션은 이전 캐릭터 것이다: 새 캐릭터의 세션 기준값에 쓰지 않고 재화 캐시를 비운다
         var switched = state.Character != null && CharacterKey(state.Character) != CharacterKey(ch.Value);
@@ -117,7 +165,8 @@ public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManag
         var tAct = q.Get<ActivityInfo>("get_activity", ct);
         await Task.WhenAll(tCh, tAct);
         if (!tCh.Result.Ok) return new CliData<object>(null, tCh.Result.Failure, tCh.Result.FetchedAt);
-        return new CliData<object>(new { character = tCh.Result.Value, activity = tAct.Result.Value }, null, tCh.Result.FetchedAt);
+        var character = tCh.Result.Value == null ? null : Stabilize(tCh.Result.Value);
+        return new CliData<object>(new { character, activity = tAct.Result.Value }, null, tCh.Result.FetchedAt);
     }
 
     public async Task<CliData<object>> InventoryAsync(CancellationToken ct)
