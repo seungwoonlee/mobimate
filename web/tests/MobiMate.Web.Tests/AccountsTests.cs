@@ -97,7 +97,11 @@ public class AccountsTests
             Assert.Equal("near", me.GetProperty("tribute").GetProperty("level").GetString());
 
             // 멤버십 등록(남은 27일 3시간): 상한이 150 / 15로 늘어 충전이 이어진다
-            Assert.Equal(HttpStatusCode.OK, (await c.PutAsJsonAsync("/api/membership", new { character = "아이라_격투가", days = 27, hours = 3 })).StatusCode);
+            // 남은 일수만 입력한다: 만료 = (오늘 + 27일 − 1일) 다음 새벽 6시
+            var put = await c.PutAsJsonAsync("/api/membership", new { character = "아이라_격투가", days = 27 });
+            Assert.Equal(HttpStatusCode.OK, put.StatusCode);
+            var expiresAt = (await TestHost.Data(put)).GetProperty("expiresAt").GetDateTimeOffset().UtcDateTime;
+            Assert.InRange((expiresAt - MembershipClock.ExpiryLocal(DateTime.Now, 27).ToUniversalTime()).TotalMinutes, -1, 1);
             data = await TestHost.Data(await c.GetAsync("/api/characters"));
             var main = data.GetProperty("accounts")[0];
             Assert.True(main.GetProperty("membership").GetProperty("active").GetBoolean());
@@ -109,7 +113,7 @@ public class AccountsTests
             Assert.Equal("ok", rogue.GetProperty("tribute").GetProperty("level").GetString());     // 10/15 = 67%
 
             // 해제: 0일 0시간
-            await c.PutAsJsonAsync("/api/membership", new { character = "아이라_격투가", days = 0, hours = 0 });
+            await c.PutAsJsonAsync("/api/membership", new { character = "아이라_격투가", days = 0 });
             data = await TestHost.Data(await c.GetAsync("/api/characters"));
             Assert.False(data.GetProperty("accounts")[0].GetProperty("membership").GetProperty("active").GetBoolean());
         }
@@ -123,7 +127,6 @@ public class AccountsTests
         var c = await host.LocalAsync();
         Assert.Equal(HttpStatusCode.BadRequest, (await c.PutAsJsonAsync("/api/membership", new { days = 3 })).StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest, (await c.PutAsJsonAsync("/api/membership", new { character = "a_b", days = 401 })).StatusCode);
-        Assert.Equal(HttpStatusCode.BadRequest, (await c.PutAsJsonAsync("/api/membership", new { character = "a_b", days = 1, hours = 24 })).StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest, (await c.PutAsJsonAsync("/api/membership", new { character = "a_b", days = -1 })).StatusCode);
         // 기록에 없는 캐릭터에는 저장하지 않는다 (남는 계정 항목이 생기지 않게)
         Assert.Equal(HttpStatusCode.NotFound, (await c.PutAsJsonAsync("/api/membership", new { character = "없는_캐릭터", days = 3 })).StatusCode);

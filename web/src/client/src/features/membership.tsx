@@ -35,39 +35,36 @@ export function MembershipChip() {
 function MembershipDialog({ character, onClose }: { character: string; onClose: () => void }) {
   const toast = useUi(s => s.toast);
   const [days, setDays] = useState('');
-  const [hours, setHours] = useState('');
   const [busy, setBusy] = useState(false);
 
-  const save = async (d: number, h: number) => {
+  const save = async (d: number) => {
     setBusy(true);
     try {
-      await api.put('/api/membership', { character, days: d, hours: h });
+      await api.put('/api/membership', { character, days: d });
       await queryClient.invalidateQueries({ queryKey: keys.characters });
-      toast(d === 0 && h === 0 ? '멤버십 등록을 해제했습니다' : `멤버십 ${d}일 ${h}시간 남음으로 등록했습니다`, 'ok');
+      toast(d === 0 ? '멤버십 등록을 해제했습니다' : `멤버십 ${d}일 남음으로 등록했습니다`, 'ok');
       onClose();
     } catch (e) {
       toast(e instanceof ApiError ? e.message : '멤버십을 저장하지 못했습니다', 'warn');
     } finally { setBusy(false); }
   };
 
-  const d = Number(days || 0), h = Number(hours || 0);
-  const valid = Number.isInteger(d) && Number.isInteger(h) && d >= 0 && d <= 400 && h >= 0 && h <= 23 && (d > 0 || h > 0);
+  const d = Number(days || 0);
+  const valid = Number.isInteger(d) && d >= 1 && d <= 400;
   return (
-    <Dialog title="멤버십 남은 기간 등록" onClose={onClose}
+    <Dialog title="멤버십 남은 일수 등록" onClose={onClose}
       actions={<>
-        <button type="button" className="btn" onClick={() => void save(0, 0)} disabled={busy}>등록 해제</button>
+        <button type="button" className="btn" onClick={() => void save(0)} disabled={busy}>등록 해제</button>
         <button type="button" className="btn" onClick={onClose}>취소</button>
         <button type="submit" form="mem-form" className="btn primary" disabled={busy || !valid}>저장</button>
       </>}>
-      <form id="mem-form" className="form" onSubmit={e => { e.preventDefault(); if (valid) void save(d, h); }}>
+      <form id="mem-form" className="form" onSubmit={e => { e.preventDefault(); if (valid) void save(d); }}>
         <p className="small muted">
-          <b>게임 안 캐시샵 메뉴</b>에서 멤버십 남은 기간을 확인해 그대로 입력해 주세요. 멤버십은 계정 단위라 같은 계정의 모든 캐릭터에 적용되고,
-          남은 시간은 이 화면에서 자동으로 줄어듭니다. 멤버십이면 은동전은 150개, 마족 공물은 15개까지, 미가입이면 100개 / 10개까지 충전됩니다.
+          <b>게임 안 캐시샵 메뉴</b>에서 멤버십 <b>남은 일수</b>를 확인해 그 숫자만 입력해 주세요. 멤버십은 계정 단위라 같은 계정의 모든 캐릭터에 적용됩니다.
+          남은 시간은 <b>오늘 + 남은 일수 − 1일</b>이 지난 뒤 첫 <b>새벽 6시</b>까지로 계산해 자동으로 줄어듭니다.
+          멤버십이면 은동전은 150개, 마족 공물은 15개까지, 미가입이면 100개 / 10개까지 충전됩니다.
         </p>
-        <div className="mem-inputs">
-          <label>남은 일 <input inputMode="numeric" value={days} onChange={e => setDays(e.target.value.replace(/\D/g, '').slice(0, 3))} placeholder="예: 27" autoFocus /></label>
-          <label>남은 시간 <input inputMode="numeric" value={hours} onChange={e => setHours(e.target.value.replace(/\D/g, '').slice(0, 2))} placeholder="예: 3 (0~23)" /></label>
-        </div>
+        <label>남은 일수 <input inputMode="numeric" value={days} onChange={e => setDays(e.target.value.replace(/\D/g, '').slice(0, 3))} placeholder="예: 27" autoFocus /></label>
       </form>
     </Dialog>
   );

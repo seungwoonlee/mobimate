@@ -57,18 +57,21 @@ public class CoinForecastTests
     }
 
     [Theory]
-    [InlineData(119, CoinLevel.Ok)]
-    [InlineData(120, CoinLevel.Near)]    // 150의 80%
+    [InlineData(120, CoinLevel.Ok)]      // 150의 80% = 경고 없음
+    [InlineData(121, CoinLevel.Ok)]      // 80.67%
+    [InlineData(122, CoinLevel.Near)]    // 81.33% 부터 경고
     [InlineData(149, CoinLevel.Near)]
     [InlineData(150, CoinLevel.Full)]
-    public void NearIsEightyPercentOfTheCap(long held, CoinLevel level) =>
+    public void NearStartsAt81PercentOfTheCap(long held, CoinLevel level) =>
         Assert.Equal(level, CoinForecast.Silver(held, Now, Now, member: true).Level);
 
     [Theory]
-    [InlineData(11, 15, CoinLevel.Ok)]
-    [InlineData(12, 15, CoinLevel.Near)]   // 15의 80% = 12
-    [InlineData(8, 10, CoinLevel.Near)]    // 미가입 10의 80% = 8
-    [InlineData(7, 10, CoinLevel.Ok)]
+    [InlineData(12, 15, CoinLevel.Ok)]     // 80% = 경고 없음
+    [InlineData(13, 15, CoinLevel.Near)]   // 86.7%
+    [InlineData(8, 10, CoinLevel.Ok)]      // 미가입 10의 80% = 경고 없음
+    [InlineData(9, 10, CoinLevel.Near)]    // 90%
+    [InlineData(80, 100, CoinLevel.Ok)]
+    [InlineData(81, 100, CoinLevel.Near)]
     public void TributeThresholds(long held, long cap, CoinLevel level)
     {
         var s = CoinForecast.Forecast(held, Now, Now, CoinForecast.TributeStep, cap);
@@ -211,5 +214,46 @@ public class AccountGroupingTests
         AccountGrouper.SetMembership(d, "a", null);
         Assert.False(AccountGrouper.IsMember(d, acc, now));
         Assert.False(AccountGrouper.IsMember(d, "solo:zzz", now));
+    }
+}
+
+/// <summary>멤버십 만료 계산 (승운 확정): (오늘 + 남은 일수 − 1일) 다음 새벽 6시</summary>
+public class MembershipClockTests
+{
+    [Fact]
+    public void OneDayLeft_EndsAtTheNext6Am()
+    {
+        var now = new DateTime(2026, 10, 2, 14, 30, 0);                       // 낮 2시 반
+        Assert.Equal(new DateTime(2026, 10, 3, 6, 0, 0), MembershipClock.ExpiryLocal(now, 1));
+    }
+
+    [Fact]
+    public void Days_AddUpFromTheGameDate()
+    {
+        var now = new DateTime(2026, 10, 2, 14, 30, 0);
+        Assert.Equal(new DateTime(2026, 10, 29, 6, 0, 0), MembershipClock.ExpiryLocal(now, 27));   // 10/2 + 27일 = 10/29 새벽 6시
+        Assert.Equal(new DateTime(2026, 10, 5, 6, 0, 0), MembershipClock.ExpiryLocal(now, 3));
+    }
+
+    [Fact]
+    public void Before6Am_StillCountsAsYesterday()
+    {
+        var now = new DateTime(2026, 10, 2, 5, 0, 0);                         // 새벽 5시: 게임은 아직 10/1
+        Assert.Equal(new DateTime(2026, 10, 2, 6, 0, 0), MembershipClock.ExpiryLocal(now, 1));       // 한 시간 뒤
+        Assert.Equal(new DateTime(2026, 10, 3, 6, 0, 0), MembershipClock.ExpiryLocal(now, 2));
+    }
+
+    [Fact]
+    public void Exactly6Am_IsTheNewDay()
+    {
+        var now = new DateTime(2026, 10, 2, 6, 0, 0);
+        Assert.Equal(new DateTime(2026, 10, 3, 6, 0, 0), MembershipClock.ExpiryLocal(now, 1));
+    }
+
+    [Fact]
+    public void ResultIsAlwaysAt6Am()
+    {
+        foreach (var d in new[] { 1, 2, 30, 365 })
+            Assert.Equal(TimeSpan.FromHours(6), MembershipClock.ExpiryLocal(new DateTime(2026, 3, 8, 23, 59, 0), d).TimeOfDay);
     }
 }

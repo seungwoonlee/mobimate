@@ -82,14 +82,15 @@ test('첫 화면은 내 캐릭터 전체 현황이다 (FR-AL-01·02)', async ({ 
   await expect(card).toContainText('88,737');
 });
 
-test('주변 레이더: 친구 > 파티원 > 길드원 > 그 외, 맨 앞 표식, 클래스 - 레벨 - 전투력 - 칭호 (FR-DT-30~34)', async ({ page }) => {
+test('주변 레이더: 친구 > 길드원 > 그 외(파티원 표시 없음), 맨 앞 표식, 클래스 - 레벨 - 전투력 - 칭호 (FR-DT-30~34)', async ({ page }) => {
   await page.goto('/nearby');
   await expect(page.getByText('마법사').filter({ visible: true }).first()).toBeVisible();
   const rows = page.locator('.pl-row');
   await expect(rows.first()).toContainText('(친구)');
   await expect(rows.first()).toContainText(/마법사\s*-\s*Lv\.72\s*-\s*32,100\s*-\s*던바튼 요리사/);
   const tags = await rows.locator('.pl-tag').allTextContents();
-  expect(tags.filter(t => t).join(',')).toBe('(친구),(파티원),(길드원),(길드원)');   // 표식이 있는 줄의 순서
+  expect(tags.filter(t => t).join(',')).toBe('(친구),(길드원),(길드원),(길드원)');   // 표식이 있는 줄의 순서
+  expect(tags.join('')).not.toContain('파티원');          // 게임 정보로는 내 파티원을 알 수 없다 (파티 없이도 파티원으로 오던 오류)
   await expect(page.locator('.pill', { hasText: '강함' })).toHaveCount(0);   // 눈에 보이는 배지는 없다
   await expect(page.getByText(/기준 ·/)).toHaveCount(0);
 });
@@ -256,15 +257,16 @@ test('멤버십: 상단에 남은 시간이 보이고, 3일 이내면 붉게, �
   const chip = page.locator('.mem-chip');
   await expect(chip).toContainText('멤버십 미등록');
   await chip.click();
-  const dlg = page.getByRole('dialog', { name: '멤버십 남은 기간 등록' });
+  const dlg = page.getByRole('dialog', { name: '멤버십 남은 일수 등록' });
   await expect(dlg).toContainText('캐시샵');                    // 입력할 곳을 안내한다
-  await dlg.getByLabel('남은 일').fill('27');
-  await dlg.getByLabel('남은 시간').fill('3');
+  await expect(dlg.getByLabel('남은 시간')).toHaveCount(0);   // 남은 일수만 입력한다
+  await expect(dlg).toContainText('새벽 6시');
+  await dlg.getByLabel('남은 일수').fill('27');
   await dlg.getByRole('button', { name: '저장' }).click();
-  await expect(chip).toContainText(/멤버십 27일 [23]시간/);       // 남은 시간은 저장한 순간부터 자동으로 줄어든다
+  await expect(chip).toContainText(/멤버십 2[67]일 \d+시간/);       // (오늘 + 27일 − 1일) 다음 새벽 6시까지: 시각에 따라 26~27일
   await expect(chip).not.toHaveClass(/urgent/);
   await chip.click();
-  await page.getByRole('dialog').getByLabel('남은 일').fill('2');
+  await page.getByRole('dialog').getByLabel('남은 일수').fill('2');
   await page.getByRole('dialog').getByRole('button', { name: '저장' }).click();
   await expect(chip).toHaveClass(/urgent/);                     // 3일 이내 = 붉은 경고
   await chip.click();
@@ -301,4 +303,27 @@ test('직업 이미지: 내려받아 둔 직업은 전신 이미지로, 없는 �
   const warrior = page.locator('.pl-row', { hasText: '대검전사' }).locator('.pl-job');
   await expect(warrior.locator('svg.ic')).toHaveCount(1);
   await expect(warrior.locator('.jobimg')).toHaveCount(0);
+});
+
+test('상단 버튼은 좌측 바 아이콘으로 옮겨 가고 긴급 정지가 가장 아래에 있다 (폰 제외)', async ({ page }) => {
+  const w = page.viewportSize()!.width;
+  test.skip(w < 600, '폰은 좌측 바가 없어 상단에 둔다');
+  const rail = page.locator('nav.rail');
+  await expect(rail.getByRole('button', { name: /지금 새로고침/ })).toBeVisible();
+  await expect(rail.getByRole('button', { name: '빠른 실행' })).toBeVisible();
+  await expect(rail.getByRole('button', { name: '폰·태블릿으로 보기' })).toBeVisible();
+  await expect(page.locator('header.top .top-actions')).toHaveCount(0);     // 상단 우측에는 더 이상 없다
+  const labels = await rail.locator('button').evaluateAll(bs => bs.map(b => b.getAttribute('aria-label') ?? b.textContent?.trim() ?? ''));
+  expect(labels.at(-1)).toBe('긴급 정지');                                    // 가장 아래
+  const ys = await rail.locator('button').evaluateAll(bs => bs.map(b => Math.round(b.getBoundingClientRect().bottom)));
+  expect(ys.at(-1)).toBe(Math.max(...ys));
+});
+
+test('상단 이름·직업·칭호 글자가 커졌고 멤버십은 칭호 다음에 온다', async ({ page }) => {
+  test.skip(page.viewportSize()!.width < 840, '넓은 화면에서만 확인');
+  const name = Number((await page.locator('.who-name .nm').evaluate(e => parseFloat(getComputedStyle(e).fontSize))));
+  expect(name).toBeGreaterThanOrEqual(50);
+  const order = await page.locator('.who-name').evaluate(el => [...el.children].map(c => c.className.split(' ')[0]));
+  expect(order.indexOf('who-title')).toBeLessThan(order.indexOf('mem-chip'));   // 칭호 → 멤버십
+  expect(order.indexOf('job')).toBeLessThan(order.indexOf('who-title'));
 });
