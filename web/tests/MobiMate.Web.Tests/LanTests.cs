@@ -7,22 +7,22 @@ using MobiMate.Web.Lan;
 
 namespace MobiMate.Web.Tests;
 
-/// <summary>LAN 모드 (NFR-03·04, SEC-01·02·08·10, 상세설계 §3.6). 바인딩 자체는 실행 스모크로 확인한다.</summary>
+/// <summary>LAN 모드 (NFR-03·04, 상세설계 §3.6). 바인딩 자체는 실행 스모크로 확인한다.</summary>
 public class LanTests
 {
     [Fact]
-    public async Task LanOff_PairingStartIs409_AndLanHostIs421()
+    public async Task LanOff_ShareIs409_AndLanHostIs421()
     {
         using var host = new TestHost();
         var local = await host.LocalAsync();
-        var r = await local.PostAsync("/api/pairing/start", null);
+        var r = await local.GetAsync("/api/lan/share");
         Assert.Equal(HttpStatusCode.Conflict, r.StatusCode);
         Assert.Equal("LAN_OFF", await TestHost.ErrorCode(r));
         Assert.Equal((HttpStatusCode)421, (await host.LanClient().GetAsync("/api/ping")).StatusCode);
     }
 
     [Fact]
-    public async Task EnableLan_ExposesHosts_PairingUrls_AndMdnsInCsp()
+    public async Task EnableLan_ExposesHosts_AndShareUrls()
     {
         using var host = new TestHost();
         var local = await host.LocalAsync();
@@ -34,55 +34,43 @@ public class LanTests
         Assert.Equal(TestHost.LanIp, lan.GetProperty("hosts")[0].GetString());
         Assert.Equal("mobimate.local", lan.GetProperty("mdnsName").GetString());
 
-        var p = await TestHost.Data(await local.PostAsync("/api/pairing/start", null));
-        Assert.StartsWith($"http://{TestHost.LanIp}:{host.Port}/pair?code=", p.GetProperty("urlIp").GetString());
-        Assert.EndsWith("&n=mobimate.local", p.GetProperty("urlIp").GetString());
-        Assert.StartsWith($"http://mobimate.local:{host.Port}/pair?code=", p.GetProperty("urlName").GetString());
+        var p = await TestHost.Data(await local.GetAsync("/api/lan/share"));
+        Assert.Equal($"http://{TestHost.LanIp}:{host.Port}/?n=mobimate.local", p.GetProperty("urlIp").GetString());
+        Assert.Equal($"http://mobimate.local:{host.Port}/", p.GetProperty("urlName").GetString());
 
-        var ping = await host.LanClient().GetAsync("/api/ping");
-        Assert.Equal(HttpStatusCode.OK, ping.StatusCode);
-        Assert.Contains($"connect-src 'self' http://mobimate.local:{host.Port}", ping.Headers.GetValues("Content-Security-Policy").Single());
+        Assert.Equal(HttpStatusCode.OK, (await host.LanClient().GetAsync("/api/ping")).StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await host.LanClient(host: "mobimate.local").GetAsync("/api/ping")).StatusCode);
     }
 
     [Fact]
-    public async Task Ping_CorsOnlyForAllowedOrigins()
+    public async Task Ping_AllowsCrossOriginForNameCheck()
     {
         using var host = new TestHost();
         var local = await host.LocalAsync();
         await host.EnableLanAsync(local);
 
-        // IP 주소로 연 페이지가 이름 주소의 /api/ping을 확인하는 경우 (FR-MB-13)
-        var byName = host.LanClient(host: "mobimate.local");
-        byName.DefaultRequestHeaders.Remove("Origin");
-        byName.DefaultRequestHeaders.Add("Origin", $"http://{TestHost.LanIp}:{host.Port}");
-        var ok = await byName.GetAsync("/api/ping");
-        Assert.Equal($"http://{TestHost.LanIp}:{host.Port}", ok.Headers.GetValues("Access-Control-Allow-Origin").Single());
-
-        byName.DefaultRequestHeaders.Remove("Origin");
-        byName.DefaultRequestHeaders.Add("Origin", "http://attacker.example");
-        var bad = await byName.GetAsync("/api/ping");
-        Assert.False(bad.Headers.Contains("Access-Control-Allow-Origin"));
+        // IP 주소로 연 페이지가 이름 주소의 /api/ping을 확인하는 경우 (FR-MB-13): 어느 출처든 읽을 수 있다
+        var ping = await host.LanClient(host: "mobimate.local").GetAsync("/api/ping");
+        Assert.Equal("*", ping.Headers.GetValues("Access-Control-Allow-Origin").Single());
     }
 
     [Fact]
-    public async Task LanConnection_WithLoopbackHostName_Is421()
-    {
-        using var host = new TestHost();
-        var local = await host.LocalAsync();
-        await host.EnableLanAsync(local);
-        var c = host.Anonymous("192.168.0.77");   // Host: localhost
-        c.DefaultRequestHeaders.Add(TestHost.LocalIpHeader, TestHost.LanIp);   // 그러나 LAN 주소로 들어온 연결
-        Assert.Equal((HttpStatusCode)421, (await c.GetAsync("/api/ping")).StatusCode);
-    }
-
-    [Fact]
-    public async Task LanToggle_IsLoopbackOnly()
+    public async Task PhoneSession_IsLan_AndPcSession_IsLocal()
     {
         using var host = new TestHost();
         var local = await host.LocalAsync();
         var phone = await host.LanAsync(local);
-        var r = await phone.PutAsJsonAsync("/api/lan", new { enabled = false });
+        Assert.Equal("local", (await TestHost.Data(await local.GetAsync("/api/session"))).GetProperty("kind").GetString());
+        Assert.Equal("lan", (await TestHost.Data(await phone.GetAsync("/api/session"))).GetProperty("kind").GetString());
+    }
+
+    [Fact]
+    public async Task CliPath_CanOnlyBeChangedFromThePc()
+    {
+        using var host = new TestHost();
+        var local = await host.LocalAsync();
+        var phone = await host.LanAsync(local);
+        var r = await phone.PutAsJsonAsync("/api/settings", new { cliPath = @"C:\x\MabinogiMobile_CLI.exe" });
         Assert.Equal(HttpStatusCode.Forbidden, r.StatusCode);
         Assert.Equal("LOOPBACK_ONLY", await TestHost.ErrorCode(r));
     }
@@ -149,7 +137,7 @@ public class LanTests
         Assert.Equal(new[] { TestHost.LanIp }, s.Addresses);
         Assert.Equal("mobimate-2.local", s.MdnsName);
 
-        var lanHosts = host.Services.GetRequiredService<MobiMate.Web.Security.ILanHosts>().Current;
+        var lanHosts = host.Services.GetRequiredService<ILanHosts>().Current;
         Assert.Contains("mobimate-2.local", lanHosts);
         Assert.DoesNotContain("mobimate.local", lanHosts);
         // .23의 SSE는 그대로: 이벤트(state.changed·ping)가 계속 오고, 스트림 끝(null)이 아니다

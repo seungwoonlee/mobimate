@@ -108,7 +108,7 @@ function TopBar({ compact }: { compact: boolean }) {
   const qc = useQueryClient();
   const bump = useUi(s => s.bumpRefresh);
   const setPairOpen = useUi(s => s.setPairOpen);
-  const local = useSession().data?.kind === 'local';   // 페어링 시작은 게임 PC에서만 (SEC-08)
+  const local = useSession().data?.kind === 'local';   // 폰으로 보기 버튼은 게임 PC에서만
   const h = header.data?.data;
   const state = status.data?.data.state ?? 'unknown';
   const conn = state === 'connected' ? 'ok' : state === 'unknown' ? 'plain' : 'danger';
@@ -166,7 +166,7 @@ function NavRail({ onChat }: { onChat: () => void }) {
   const go = useRouter(s => s.go);
   return (
     <nav className="rail" aria-label="화면">
-      {ROUTES.filter(r => r.name !== 'settings' && r.name !== 'pair').map(r => (
+      {ROUTES.filter(r => r.name !== 'settings').map(r => (
         <button key={r.name} type="button" onClick={() => go(r.name)} aria-current={cur === r.name ? 'page' : undefined} title={r.key ? `${r.label} (${r.key})` : r.label}>
           <Icon name={r.icon} />{r.label}
         </button>

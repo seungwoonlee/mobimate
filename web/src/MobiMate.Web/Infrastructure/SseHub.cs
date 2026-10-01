@@ -6,11 +6,11 @@ using MobiMate.Web.Hosting;
 namespace MobiMate.Web.Infrastructure;
 
 /// <summary>
-/// SSE 허브 (상세설계 §3.5). 연결마다 채널을 두고, 기기를 폐기·만료하면 그 기기의 연결을 즉시 닫는다 (SEC-07).
+/// SSE 허브 (상세설계 §3.5). 연결마다 채널을 두고, LAN을 내리면 그 주소로 들어온 연결을 즉시 닫는다.
 /// 이벤트: hello, status, header, toast, gather, chat.logged, state.changed, homework.changed, ping.
 /// AI 대화는 여기로 보내지 않는다 (FR-AI-04).
 /// </summary>
-public sealed class SseHub(ServerIdentity identity, MobiMateOptions options, MobiMate.Web.Security.DeviceStore devices, ILogger<SseHub> log)
+public sealed class SseHub(ServerIdentity identity, MobiMateOptions options, ILogger<SseHub> log)
 {
     private readonly ConcurrentDictionary<string, Connection> _connections = new();
 
@@ -40,25 +40,12 @@ public sealed class SseHub(ServerIdentity identity, MobiMateOptions options, Mob
         return n;
     }
 
-    public int Disconnect(string deviceId)
-    {
-        var n = 0;
-        foreach (var c in _connections.Values.Where(c => c.DeviceId == deviceId))
-        {
-            c.Channel.Writer.TryComplete();
-            n++;
-        }
-        return n;
-    }
-
     public async Task Serve(HttpContext ctx, string deviceId)
     {
         var conn = new Connection(Guid.NewGuid().ToString("N")[..12], deviceId, ctx.Connection.LocalIpAddress,
             Channel.CreateBounded<string>(new BoundedChannelOptions(256) { FullMode = BoundedChannelFullMode.DropOldest }));
         _connections[conn.Id] = conn;
         var ct = ctx.RequestAborted;
-        // 인증과 등록 사이에 기기가 폐기됐으면 바로 닫는다 (SEC-07).
-        if (!devices.Exists(deviceId)) conn.Channel.Writer.TryComplete();
 
         ctx.Response.Headers.ContentType = "text/event-stream; charset=utf-8";
         ctx.Response.Headers.CacheControl = "no-store";
@@ -86,7 +73,7 @@ public sealed class SseHub(ServerIdentity identity, MobiMateOptions options, Mob
                 }
                 var more = await read;
                 read = null;
-                if (!more) break;   // 채널 완료 = 서버가 연결을 닫음 (기기 폐기 등)
+                if (!more) break;   // 채널 완료 = 서버가 연결을 닫음 (LAN 내리기 등)
                 while (conn.Channel.Reader.TryRead(out var frame)) await ctx.Response.WriteAsync(frame, ct);
                 await ctx.Response.Body.FlushAsync(ct);
             }

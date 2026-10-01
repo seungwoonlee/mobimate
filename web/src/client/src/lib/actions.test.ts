@@ -5,7 +5,7 @@ import { useUi } from '../state/ui';
 describe('끊김 중 조작', () => {
   beforeEach(() => {
     useUi.setState({ everOpen: true, sse: 'retrying', toasts: [] });
-    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ data: { csrf: 'x', collected: 'a' } }), { status: 200, headers: { 'content-type': 'application/json' } })));
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ data: { collected: 'a' } }), { status: 200, headers: { 'content-type': 'application/json' } })));
   });
   afterEach(() => vi.unstubAllGlobals());
 

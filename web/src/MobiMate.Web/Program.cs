@@ -7,7 +7,6 @@ using MobiMate.Web.Endpoints;
 using MobiMate.Web.Hosting;
 using MobiMate.Web.Infrastructure;
 using MobiMate.Web.Lan;
-using MobiMate.Web.Security;
 using MobiMate.Web.Services;
 
 // 콘텐츠 루트를 실행 파일 폴더로 고정한다. 다른 폴더에서 실행해도 wwwroot를 찾게 하기 위해서다.
@@ -48,9 +47,6 @@ builder.Services.ConfigureHttpJsonOptions(o =>
 
 builder.Services.AddSingleton(new ServerIdentity { Port = port, PreferredPort = configuredPort });
 builder.Services.AddSingleton(sp => new WebSettingsStore(Dir(sp)));
-builder.Services.AddSingleton(sp => new DeviceStore(Dir(sp)));
-builder.Services.AddSingleton<BootCodes>();
-builder.Services.AddSingleton<PairingService>();
 builder.Services.AddSingleton<INetworkProfileSource, NlmNetworkProfileSource>();
 builder.Services.AddSingleton<IPortProbe, TcpPortProbe>();
 builder.Services.AddSingleton<IMdnsAdvertiser, MdnsResponder>();
@@ -97,20 +93,13 @@ var app = builder.Build();
 
 app.Use(async (ctx, next) =>
 {
-    // 보안 헤더 (상세설계 §3.2)
     var h = ctx.Response.Headers;
-    h.XContentTypeOptions = "nosniff";
-    h["Referrer-Policy"] = "no-referrer";
-    // connect-src에는 실제로 광고 중인 mDNS 이름을 넣는다. IP 주소로 연 페이지가 이름 주소의 /api/ping을 확인하기 위해서다 (FR-MB-13).
-    var lan = ctx.RequestServices.GetRequiredService<LanService>().Status;
-    var mdnsSrc = lan.MdnsName is { } n ? $" http://{n}:{lan.Port}" : "";
-    h.ContentSecurityPolicy = $"default-src 'self'; img-src 'self' data:; media-src 'self' blob:; style-src 'self' 'unsafe-inline'; connect-src 'self'{mdnsSrc}; frame-ancestors 'none'";
     if (ctx.Request.Path.StartsWithSegments("/api")) h.CacheControl = "no-store";
     else if (ctx.Request.Path.StartsWithSegments("/assets")) h.CacheControl = "public, max-age=31536000, immutable";   // 파일 이름에 해시가 있다
     else h.CacheControl = "no-cache";   // 앱 셸(index.html)은 매번 확인한다: 업그레이드 뒤 옛 화면이 남지 않게
     await next();
 });
-app.UseMiddleware<SecurityMiddleware>();
+app.UseMiddleware<LanGate>();
 // 앱 셸은 exe에 넣은 파일에서 읽는다 (단일 exe, NFR-02). 폴백 라우트(MapFallbackToFile)도 같은 제공자를 쓴다.
 app.Environment.WebRootFileProvider = new EmbeddedWebRoot(typeof(Program).Assembly);
 app.UseDefaultFiles();
@@ -122,8 +111,8 @@ AuthEndpoints.Map(app);
 GameEndpoints.Map(app);
 CommsEndpoints.Map(app);
 
-// 앱 셸 라우팅: /stats 같은 화면 경로는 index.html로 돌려준다. /api·/auth는 제외(없는 API는 404 그대로).
-app.MapFallbackToFile("{*path:regex(^(?!(?i:api/|api$|auth/)).*$)}", "index.html")
+// 앱 셸 라우팅: /stats 같은 화면 경로는 index.html로 돌려준다. /api는 제외(없는 API는 404 그대로).
+app.MapFallbackToFile("{*path:regex(^(?!(?i:api/|api$)).*$)}", "index.html")
     .WithMetadata(new Microsoft.AspNetCore.Routing.HttpMethodMetadata(new[] { "GET", "HEAD" }));
 
 try
@@ -174,7 +163,7 @@ namespace MobiMate.Web.Hosting
         }
     }
 
-    /// <summary>기동 작업: WPF판 기록 가져오기(NFR-13), AI 엔진 감지, 브라우저 열기(NFR-01·SEC-06).</summary>
+    /// <summary>기동 작업: WPF판 기록 가져오기(NFR-13), AI 엔진 감지, 브라우저 열기(NFR-01).</summary>
     public sealed class StartupTasks(IServiceProvider sp, MobiMateOptions options, ILogger<StartupTasks> log) : IHostedService
     {
         public Task StartAsync(CancellationToken ct)
@@ -188,14 +177,7 @@ namespace MobiMate.Web.Hosting
 
             _ = Task.Run(() => sp.GetRequiredService<AiService>().EnsureDiscoveredAsync(), CancellationToken.None);
 
-            if (!string.IsNullOrWhiteSpace(options.BootUrlFile) && sp.GetRequiredService<IHostEnvironment>().IsDevelopment())
-            {
-                // 개발·E2E 전용: 브라우저를 여는 대신 1회용 기동 URL(60초)을 파일로 남긴다. 기본값은 꺼짐.
-                var boot = sp.GetRequiredService<BrowserLauncher>().BootUrl();
-                File.WriteAllText(options.BootUrlFile, boot);
-                log.LogWarning("개발용 기동 URL을 파일로 남겼습니다: {File}", options.BootUrlFile);
-            }
-            else if (options.OpenBrowser)
+            if (options.OpenBrowser)
             {
                 // 기동 작업은 서버가 포트를 열기 전에 돈다. 먼저 열면 첫 접속이 거부되므로 서버가 준비된 뒤에 연다
                 sp.GetRequiredService<IHostApplicationLifetime>().ApplicationStarted.Register(() => sp.GetRequiredService<BrowserLauncher>().Open());

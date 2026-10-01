@@ -32,7 +32,6 @@ export default defineConfig({
   use: {
     baseURL: `http://127.0.0.1:${port}`,
     channel: 'msedge',
-    storageState: './e2e/.auth/state.json',
     locale: 'ko-KR',
     trace: 'retain-on-failure',
   },

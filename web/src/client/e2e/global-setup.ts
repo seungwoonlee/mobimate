@@ -1,15 +1,22 @@
-import { chromium, type FullConfig } from '@playwright/test';
+import { type FullConfig } from '@playwright/test';
 import { spawn } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { createConnection } from 'node:net';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));   // ESM에는 __dirname이 없다
 
+/** 이 포트에서 누가 듣고 있는가 */
+const listening = (port: number) => new Promise<boolean>(res => {
+  const s = createConnection({ host: '127.0.0.1', port });
+  s.once('connect', () => { s.destroy(); res(true); });
+  s.once('error', () => res(false));
+});
+
 /**
- * E2E용 서버: 빌드된 MobiMateWeb.dll을 가짜 CLI·임시 저장 폴더로 띄운다.
- * 개발 환경에서만 되는 BootUrlFile로 1회용 기동 URL을 받아 로그인 상태(쿠키)를 저장해 둔다.
+ * E2E용 서버: 빌드된 MobiMateWeb.dll을 가짜 CLI·임시 저장 폴더로 띄운다. 인증이 없어(요구사양 Q8) 로그인 단계는 없다.
  */
 export default async function globalSetup(config: FullConfig) {
   const web = resolve(here, '../../..');   // web/
@@ -19,8 +26,9 @@ export default async function globalSetup(config: FullConfig) {
 
   const baseURL = config.projects[0].use.baseURL!;
   const port = new URL(baseURL).port;
+  // 포트가 이미 쓰이면 서버가 다른 포트로 떠 테스트가 엉뚱한 서버를 보게 된다: 먼저 알린다
+  if (await listening(Number(port))) throw new Error(`포트 ${port}를 다른 프로그램이 쓰고 있습니다. 이전 E2E 서버를 끄거나 E2E_PORT를 바꾸세요.`);
   const storage = mkdtempSync(join(tmpdir(), 'mm-e2e-'));
-  const bootFile = join(storage, 'boot.txt');
 
   const server = spawn('dotnet', [dll], {
     env: {
@@ -33,7 +41,6 @@ export default async function globalSetup(config: FullConfig) {
       MobiMate__SingleInstance: 'false',
       MobiMate__Mdns: 'false',
       MobiMate__Port: port,
-      MobiMate__BootUrlFile: bootFile,
       MobiMate__CliPath: cli,
     },
     stdio: 'ignore',
@@ -42,20 +49,11 @@ export default async function globalSetup(config: FullConfig) {
   process.env.MM_E2E_STORAGE = storage;
   process.env.MM_E2E_PID = String(server.pid);
 
-  // 서버가 기동 URL을 남길 때까지 기다린다 (최대 20초)
-  for (let i = 0; i < 100 && !existsSync(bootFile); i++) await new Promise(r => setTimeout(r, 200));
-  if (!existsSync(bootFile)) { server.kill(); throw new Error('서버가 뜨지 않았습니다.'); }
-
-  const bootUrl = readFileSync(bootFile, 'utf8').trim();
-  if (new URL(bootUrl).port !== port) {
-    server.kill();
-    throw new Error(`포트 ${port}를 다른 프로그램이 쓰고 있어 서버가 ${new URL(bootUrl).port}로 떴습니다. 이전 E2E 서버를 끄거나 E2E_PORT를 바꾸세요.`);
+  // 서버가 응답할 때까지 기다린다 (최대 20초)
+  for (let i = 0; i < 100; i++) {
+    try { if ((await fetch(`${baseURL}/api/ping`)).ok) return; } catch { /* 아직 안 떴다 */ }
+    await new Promise(r => setTimeout(r, 200));
   }
-  const browser = await chromium.launch({ channel: 'msedge' });
-  const page = await browser.newPage();
-  await page.goto(bootUrl);
-  await page.waitForURL(`${baseURL}/`);
-  mkdirSync(join(here, '.auth'), { recursive: true });
-  await page.context().storageState({ path: join(here, '.auth/state.json') });
-  await browser.close();
+  server.kill();
+  throw new Error('서버가 뜨지 않았습니다.');
 }

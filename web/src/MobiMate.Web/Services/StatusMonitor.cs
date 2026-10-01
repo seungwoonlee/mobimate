@@ -1,6 +1,5 @@
 using MobiMate.Web.Hosting;
 using MobiMate.Web.Infrastructure;
-using MobiMate.Web.Security;
 
 namespace MobiMate.Web.Services;
 
@@ -8,14 +7,11 @@ public enum GameConnection { Unknown, Connected, Disconnected, CliMissing }
 
 /// <summary>
 /// 게임 연결 상태 (FR-CN-01): status를 고정 주기로 확인하고 바뀌면 SSE "status"로 알린다. 서버의 유일한 자체 폴링.
-/// 같은 루프에서 만료된 기기를 정리하고 그 기기의 SSE를 닫는다 (SEC-07).
-/// </summary>
-public sealed class StatusMonitor(IGameCli cli, SseHub hub, DeviceStore devices, MobiMateOptions options, ILogger<StatusMonitor> log) : BackgroundService
+/// /// </summary>
+public sealed class StatusMonitor(IGameCli cli, SseHub hub, MobiMateOptions options, ILogger<StatusMonitor> log) : BackgroundService
 {
-    private static readonly TimeSpan SweepInterval = TimeSpan.FromMinutes(10);
     private readonly object _lock = new();
     private readonly SemaphoreSlim _check = new(1, 1);
-    private DateTimeOffset _lastSweep = DateTimeOffset.MinValue;
 
     public GameConnection State { get; private set; } = GameConnection.Unknown;
     public DateTimeOffset Since { get; private set; } = DateTimeOffset.UtcNow;
@@ -73,7 +69,6 @@ public sealed class StatusMonitor(IGameCli cli, SseHub hub, DeviceStore devices,
             try
             {
                 await CheckNowAsync(stoppingToken);
-                SweepDevices();
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { break; }
             catch (Exception ex)
@@ -81,17 +76,5 @@ public sealed class StatusMonitor(IGameCli cli, SseHub hub, DeviceStore devices,
                 log.LogWarning(ex, "상태 확인 실패");
             }
         } while (await timer.WaitForNextTickAsync(stoppingToken));
-    }
-
-    private void SweepDevices()
-    {
-        var now = DateTimeOffset.UtcNow;
-        if (now - _lastSweep < SweepInterval) return;
-        _lastSweep = now;
-        foreach (var id in devices.SweepExpired(now))
-        {
-            hub.Disconnect(id);
-            log.LogInformation("만료된 기기 정리: {Id}", id);
-        }
     }
 }

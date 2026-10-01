@@ -13,13 +13,11 @@ import type { Header } from '../api/types';
  */
 export function useServerEvents() {
   const setSse = useUi(s => s.setSse);
-  const setUnauthorized = useUi(s => s.setUnauthorized);
   const toast = useUi(s => s.toast);
 
   useEffect(() => connectSse({
     onState: (s, retry) => {
       setSse(s, retry);
-      if (s === 'unauthorized') setUnauthorized(true);
       if (s === 'open') void queryClient.invalidateQueries({ type: 'active' });   // 다시 붙으면 현재 화면을 바로 갱신 (FR-MB-12)
     },
     onEvent: (type, data) => {
@@ -57,5 +55,5 @@ export function useServerEvents() {
         }
       }
     },
-  }), [setSse, setUnauthorized, toast]);
+  }), [setSse, toast]);
 }
