@@ -185,7 +185,7 @@ button.toast { border: 0; text-align: left; cursor: pointer; }
 .wx-bolt{fill:#F7C531}
 .wx-fog{stroke:#9AA8B7;stroke-width:1.6;stroke-linecap:round;fill:none}
 /* 넓은 화면(폭 1200 이상, 화면 반쪽도 QHD면 해당): 한 줄 */
-.app[data-size="large"] .top{grid-template-columns:minmax(0,1.2fr) auto auto auto;grid-template-areas:"who scores scene act";gap:0 20px}
+@media (min-width:1600px){.app[data-size="large"] .top{grid-template-columns:minmax(0,1.2fr) auto auto auto;grid-template-areas:"who scores scene act";gap:0 24px}}
 /* 중간 폭: 장면은 접고 점수를 크게 유지 */
 .app[data-size="medium"] .top{grid-template-areas:"who act" "scores scores"}
 .app[data-size="medium"] .scene{display:none}
@@ -293,3 +293,52 @@ button.toast { border: 0; text-align: left; cursor: pointer; }
 .pal-item[aria-selected="true"] .ic{color:var(--accent)}
 
 .log:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+
+/* ── 상단 영역을 1.5배로 키우고 안의 정보도 키운다 (v1.5) ── */
+.top{padding:20px 26px;gap:14px 26px}
+.who-name{font-size:calc(36px * var(--scale));gap:12px}
+.who-name .job{font-size:calc(21px * var(--scale))}
+.who-name .who-title{font-size:15px;padding:3px 12px}
+.who-name .who-title.selecting{background:var(--warn-soft);color:var(--warn)}
+.top[data-selecting="true"] .hero-scores,.top[data-selecting="true"] .scene{opacity:.55}
+.hs{padding:10px 24px 14px;min-width:220px;border-radius:16px}
+.hs .lbl{font-size:14.5px}
+.hs .v{font-size:calc(60px * var(--scale))}
+.hs .delta{font-size:14px}
+.scene{min-width:430px;padding:14px 22px 14px;gap:4px 20px;border-radius:16px}
+.scene-time .clock{font-size:calc(46px * var(--scale))}
+.scene-time .date{font-size:14px}
+.scene-wx{font-size:16px;gap:8px}
+.scene-wx .wx{width:56px;height:56px}
+.scene-place{font-size:15px}
+.scene-place .ic{width:16px;height:16px}
+.top-actions .icon-btn,.top-actions .refresh{height:44px;min-width:44px}
+.top .stop-btn{height:44px;font-size:15px;padding-inline:18px}
+.app[data-size="medium"] .top{padding:16px 18px}
+.app[data-size="compact"] .top{padding:10px 12px}
+.app[data-size="compact"] .who-name{font-size:calc(22px * var(--scale))}
+.app[data-size="compact"] .hs .v{font-size:calc(30px * var(--scale))}
+
+/* ── 호버·키보드 포커스 말풍선 ── */
+[data-tip]{position:relative}
+[data-tip]::after{content:attr(data-tip);position:absolute;top:calc(100% + 10px);right:0;z-index:90;width:max-content;max-width:min(280px,80vw);padding:8px 11px;border-radius:10px;background:var(--text-1);color:var(--bg-0);font-size:12.5px;font-weight:500;line-height:1.4;white-space:normal;text-align:left;box-shadow:var(--shadow);opacity:0;transform:translateY(-3px);pointer-events:none;transition:opacity .12s,transform .12s}
+[data-tip]::before{content:'';position:absolute;top:calc(100% + 4px);right:14px;z-index:91;border:6px solid transparent;border-bottom-color:var(--text-1);border-top:0;opacity:0;transition:opacity .12s;pointer-events:none}
+[data-tip]:hover::after,[data-tip]:focus-visible::after{opacity:1;transform:none;transition-delay:.25s}
+[data-tip]:hover::before,[data-tip]:focus-visible::before{opacity:1;transition-delay:.25s}
+
+/* 주변 플레이어 표식 (친구)(파티원)(길드원) */
+.pl-tag{font-weight:700;min-width:3.6em}
+.pl.other .pl-tag{display:none}
+
+/* 1600px 아래(화면 반쪽 포함)는 점수 카드를 조금 줄여 두 줄 안에 맞춘다 */
+@media (max-width:1599px){
+  .hs{min-width:190px;padding:8px 20px 12px}
+  .hs .v{font-size:calc(52px * var(--scale))}
+  .scene{min-width:360px}
+  .scene-time .clock{font-size:calc(40px * var(--scale))}
+  .scene-wx .wx{width:48px;height:48px}
+  .hero-scores{flex-wrap:nowrap}
+}
+/* 별칭 안내 말풍선은 이름 줄 안에 작은 알약으로 (다른 내용을 가리지 않게) */
+.nm-hint{position:static;display:inline-flex;margin-left:6px;width:auto;max-width:none;padding:3px 10px;font-size:12.5px;box-shadow:none}
+.pl.party,.pl.party .pl-tag{color:var(--accent)}

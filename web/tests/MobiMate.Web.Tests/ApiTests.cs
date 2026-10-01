@@ -109,7 +109,7 @@ public class ApiTests
         Assert.Equal(JsonValueKind.Object, d.GetProperty("header").ValueKind);
         Assert.True(d.GetProperty("homework").GetProperty("daily").GetProperty("total").GetInt32() > 0);
         Assert.Equal(6, d.GetProperty("nearby").GetProperty("count").GetInt32());
-        Assert.Equal("파티원", d.GetProperty("nearby").GetProperty("players")[0].GetProperty("relationLabel").GetString());
+        Assert.Equal("친구", d.GetProperty("nearby").GetProperty("players")[0].GetProperty("relationLabel").GetString());
     }
 
     [Fact]

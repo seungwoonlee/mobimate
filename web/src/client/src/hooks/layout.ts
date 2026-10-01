@@ -9,6 +9,7 @@ export interface Layout {
   short: boolean;     // 높이 < 480
   coarse: boolean;    // 터치 위주 (FR-MB-07)
   narrow: boolean;    // 폭 < 360: 글랜스 모드 (FR-MB-06)
+  landscape: boolean; // 가로 화면(폭 > 높이): 폰이 아니면 채팅을 기본으로 연다 (v1.5)
   posture: Posture;
   width: number;
 }
@@ -28,14 +29,14 @@ function read(): Layout {
   const w = window.innerWidth, h = window.innerHeight;
   // 화면 구역(Viewport Segments) 지원 기기에서만 자세를 판정한다. 미지원이면 flat (상세설계 §4.5, M5).
   const posture: Posture = mq('(horizontal-viewport-segments: 2)') ? 'book' : mq('(vertical-viewport-segments: 2)') ? 'tabletop' : 'flat';
-  return { size: sizeOf(w), short: h < 480, coarse: mq('(pointer: coarse)'), narrow: w < 360, posture, width: w };
+  return { size: sizeOf(w), short: h < 480, coarse: mq('(pointer: coarse)'), narrow: w < 360, landscape: w > h, posture, width: w };
 }
 
 let cache = read();
 const subs = new Set<() => void>();
 function onResize() {
   const next = read();
-  if (next.size !== cache.size || next.short !== cache.short || next.coarse !== cache.coarse || next.narrow !== cache.narrow || next.posture !== cache.posture) {
+  if (next.size !== cache.size || next.short !== cache.short || next.coarse !== cache.coarse || next.narrow !== cache.narrow || next.landscape !== cache.landscape || next.posture !== cache.posture) {
     cache = next;
     subs.forEach(f => f());
   } else {

@@ -38,14 +38,21 @@ export function WeatherIcon({ kind, size = 40 }: { kind: WeatherKind; size?: num
 
 export const WEATHER_TEXT: Record<WeatherKind, string> = { sunny: '맑음', cloudy: '흐림', rain: '비', snow: '눈', storm: '폭풍', fog: '안개' };
 
-export interface ErinnTime { date: string; hh: number; mm: number; day: boolean }
+export interface ErinnTime { date: string; year: number; month: number; dayOfMonth: number; hh: number; mm: number; day: boolean }
 
 /** "에린 시간 2959-4-23 15:51 ☀️ (낮)" 같은 서버 표시 문자열에서 날짜·시각을 읽는다. 해석하지 못하면 null. */
 export function parseErinn(s: string | null | undefined): ErinnTime | null {
-  const m = s?.match(/(\d+-\d+-\d+)\s+(\d{1,2}):(\d{2})/);
+  const m = s?.match(/(\d+)-(\d+)-(\d+)\s+(\d{1,2}):(\d{2})/);
   if (!m) return null;
-  const hh = Number(m[2]);
-  return { date: m[1], hh, mm: Number(m[3]), day: hh >= 6 && hh < 18 };
+  const hh = Number(m[4]);
+  return { date: `${m[1]}-${m[2]}-${m[3]}`, year: Number(m[1]), month: Number(m[2]), dayOfMonth: Number(m[3]), hh, mm: Number(m[5]), day: hh >= 6 && hh < 18 };
+}
+
+/**
+ * 에린 날짜를 "4월 23일"로 보여 준다. 게임이 월을 0부터 세어 "0월"이 나오므로 +1 한다(0~11 → 1~12월). 연도는 뺀다(전체 날짜는 툴팁).
+ */
+export function erinnDateText(t: ErinnTime): string {
+  return `${t.month + 1}월 ${t.dayOfMonth}일`;
 }
 
 /** 하루 중 위치를 하늘 호(0~1)로: 낮 6~18시는 해, 밤 18~6시는 달이 왼쪽에서 오른쪽으로 지나간다. */
@@ -74,7 +81,7 @@ export function LocationScene({ place, weather, erinn }: { place: string | null 
       </svg>
       <div className="scene-time">
         <span className="clock num" aria-label={t ? `에린 시간 ${t.hh}시 ${t.mm}분` : '에린 시간'}>{t ? `${String(t.hh).padStart(2, '0')}:${String(t.mm).padStart(2, '0')}` : '--:--'}</span>
-        <span className="date">{t ? `에린 ${t.date}` : ''}{t ? <> · {t.day ? '낮' : '밤'}</> : null}</span>
+        <span className="date" title={t ? `에린 시간 ${t.date} (원문)` : undefined}>{t ? `에린 ${erinnDateText(t)}` : ''}{t ? <> · {t.day ? '낮' : '밤'}</> : null}</span>
       </div>
       <div className="scene-wx">
         {kind && <WeatherIcon kind={kind} size={34} />}

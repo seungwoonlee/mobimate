@@ -3,6 +3,8 @@ import { JobIcon } from '../components/ui';
 import { fmt } from '../lib/format';
 
 const REL_TEXT: Record<NearPlayer['relation'], string> = { party: '파티원', friend: '친구', guild: '길드원', other: '' };
+/** 줄 맨 앞 표식 (v1.5): 친구·파티원·길드원은 (친구) 같은 표식을 달아 색만으로 구분하지 않게 한다. */
+export const REL_TAG: Record<NearPlayer['relation'], string> = { party: '(파티원)', friend: '(친구)', guild: '(길드원)', other: '' };
 
 /**
  * 주변 플레이어 한 줄 (FR-DT-32·33, FR-OV-13): 클래스 · 레벨 · 전투력 · 칭호 순서. 캐릭터 이름은 게임이 주지 않아 표시할 수 없다.
@@ -12,7 +14,7 @@ const REL_TEXT: Record<NearPlayer['relation'], string> = { party: '파티원', f
 export function PlayerLine({ p }: { p: NearPlayer }) {
   return (
     <span className={`pl ${p.relation}`}>
-      {p.relation !== 'other' && <span className="sr-only">{REL_TEXT[p.relation]} </span>}
+      <span className="pl-tag" aria-label={REL_TEXT[p.relation] || undefined}>{REL_TAG[p.relation]}</span>
       <span className="pl-job"><JobIcon job={p.job} size={15} />{p.job}</span>
       <span className="pl-sep">-</span>
       <span className="pl-lv num">Lv.{p.level}</span>
