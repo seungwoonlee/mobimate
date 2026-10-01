@@ -14,6 +14,7 @@ import { HomeworkView } from './features/homework';
 import { LifeView } from './features/life';
 import { SettingsView } from './features/settings';
 import { useNameHop } from './features/pairing';
+import { useLiveNotices } from './hooks/useLiveNotices';
 
 export function App() {
   return (
@@ -48,6 +49,7 @@ function Root() {
 
 function Connected() {
   useServerEvents();
+  useLiveNotices();   // 가공 완료·가방 가득·주간 리셋 1시간 전 알림 (FR-MB-14, FR-HW-15)
   const route = useRouter(s => s.loc.name);
   return (
     <AppShell>

@@ -1,10 +1,11 @@
-import { useDeferredValue, useState } from 'react';
+import { useDeferredValue, useEffect, useState } from 'react';
 import { useLife } from '../api/queries';
 import type { Gatherable, Work } from '../api/types';
 import { CardHead, Dialog, ErrorCard, Fresh, Icon, Pill, Skeleton } from '../components/ui';
 import { useNow } from '../hooks/layout';
 import { collect, collectAll, setFavorite, startGather } from '../lib/actions';
 import { fmt, remaining } from '../lib/format';
+import { useRouter } from '../state/router';
 
 const CATS = ['전체', '벌목', '채광', '농축산', '약초', '기타'] as const;
 const PRESETS = [5, 50, 100, 200, 300];
@@ -97,6 +98,16 @@ function GatherHelper({ items }: { items: Gatherable[] }) {
   const search = useDeferredValue(text.trim());
   const [target, setTarget] = useState(DEFAULT_GATHER_TARGET);
   const [confirm, setConfirm] = useState<{ name: string; need: number } | null>(null);
+  const wanted = useRouter(s => s.loc.params.get('gather'));
+  const setParam = useRouter(s => s.setParam);
+
+  // 빠른 실행(Ctrl+K)에서 채집 재료를 고르면 이 화면으로 와서 바로 확인 창을 연다 (FR-AC-04)
+  useEffect(() => {
+    if (!wanted) return;
+    const g = items.find(x => x.name === wanted);
+    if (g && g.toolOk) setConfirm({ name: g.name, need: Math.max(1, target - g.inBag) });
+    setParam('gather', null);
+  }, [wanted]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const rows = items
     .filter(g => cat === '전체' || gatherCategory(g.name) === cat)

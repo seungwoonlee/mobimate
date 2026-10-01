@@ -209,7 +209,7 @@ export function AiPanel() {
             ))}
           </div>
         )}
-      <div className="log" ref={log} aria-live="polite" aria-busy={busy} aria-label="AI 대화">
+      <div className="log" ref={log} aria-live="polite" aria-busy={busy} aria-label="AI 대화" tabIndex={0}>
         {msgs.map(m => <MsgView key={m.id} m={m} />)}
       </div>
       <div className="composer">

@@ -1,4 +1,5 @@
 import type { NearPlayer } from '../api/types';
+import { JobIcon } from '../components/ui';
 import { fmt } from '../lib/format';
 
 const REL_TEXT: Record<NearPlayer['relation'], string> = { party: '파티원', friend: '친구', guild: '길드원', other: '' };
@@ -12,7 +13,7 @@ export function PlayerLine({ p }: { p: NearPlayer }) {
   return (
     <span className={`pl ${p.relation}`}>
       {p.relation !== 'other' && <span className="sr-only">{REL_TEXT[p.relation]} </span>}
-      <span className="pl-job">{p.job}</span>
+      <span className="pl-job"><JobIcon job={p.job} size={15} />{p.job}</span>
       <span className="pl-sep">-</span>
       <span className="pl-lv num">Lv.{p.level}</span>
       <span className="pl-sep">-</span>

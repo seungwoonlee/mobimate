@@ -132,3 +132,41 @@ test('다크 모드 색상 패턴을 고를 수 있다 (FR-LY-05)', async ({ pag
   await page.getByRole('button', { name: '바다' }).click();
   await expect(page.locator('html')).not.toHaveAttribute('data-palette', /.+/);
 });
+
+test('별칭: 이름 옆 연필로 그 자리에서 고치고 지울 수 있다 (P1)', async ({ page }) => {
+  await page.goto('/overview');
+  await page.getByRole('button', { name: '캐릭터 별칭 바꾸기' }).click();
+  const input = page.getByLabel('캐릭터 별칭');
+  await input.fill('모험가 승운');
+  await input.press('Enter');
+  await expect(page.locator('.who-name .nm')).toHaveText('모험가 승운');
+  await page.getByRole('button', { name: '캐릭터 별칭 바꾸기' }).click();   // 되돌려 두기 (서버 상태를 공유한다)
+  await page.getByLabel('캐릭터 별칭').fill('');
+  await page.getByLabel('캐릭터 별칭').press('Enter');
+  await expect(page.locator('.who-name .nm')).toHaveText('아이라');
+});
+
+test('빠른 실행: Ctrl+K로 열고 검색해서 화면으로 이동한다 (FR-AC-04)', async ({ page }) => {
+  await page.keyboard.press('Control+k');
+  const dlg = page.getByRole('dialog', { name: '빠른 실행' });
+  await expect(dlg).toBeVisible();
+  await page.getByLabel('빠른 실행 검색').fill('재화');
+  await page.keyboard.press('Enter');
+  await expect(page).toHaveURL(/\/currencies/);
+  await expect(dlg).toHaveCount(0);
+});
+
+test('빠른 실행: 채집 재료를 고르면 채집 확인 창이 열린다', async ({ page }) => {
+  await page.keyboard.press('Control+k');
+  await page.getByLabel('빠른 실행 검색').fill('사과');
+  await expect(page.getByRole('option', { name: /채집: 사과/ })).toBeVisible();   // 채집 목록을 받은 뒤에 고른다
+  await page.keyboard.press('Enter');
+  await expect(page).toHaveURL(/\/life/);
+  await expect(page.getByRole('dialog', { name: '사과 채집' })).toBeVisible();
+  await page.getByRole('button', { name: '취소' }).click();
+});
+
+test('직업별 아이콘이 레이더 줄에 붙는다', async ({ page }) => {
+  await page.goto('/nearby');
+  await expect(page.locator('.pl-row').first().locator('.pl-job svg')).toHaveCount(1);
+});

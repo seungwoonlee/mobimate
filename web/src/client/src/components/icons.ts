@@ -40,4 +40,13 @@ export const ICONS: Record<string, string> = {
   'plus': '<path d="M12 5v14M5 12h14"/>',
   'minus': '<path d="M5 12h14"/>',
   'reset': '<path d="M4 12a8 8 0 1 0 2.4-5.7"/><path d="M4 4v5h5"/>',
+  'edit': '<path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/>',
+  // 직업 계열 (lib/job.ts): 전사·궁수·마법·힐러·도적/격투·음유·기본
+  'job-warrior': '<path d="M5 19L17 7M14 5h5v5M7 17l-2 2"/><path d="M19 19L7 7M10 5H5v5M17 17l2 2"/>',
+  'job-archer': '<path d="M6 4c8 2 8 14 0 16M6 4v16M6 12h14M16 8l4 4-4 4"/>',
+  'job-mage': '<path d="M5 19l9-9"/><path d="M15 4l1 2.4 2.4 1-2.4 1-1 2.4-1-2.4-2.4-1 2.4-1z"/>',
+  'job-healer': '<circle cx="12" cy="12" r="8"/><path d="M12 8v8M8 12h8"/>',
+  'job-rogue': '<path d="M5 19l8-8M13 11l4-6 2 2-6 4M8 16l-3 3"/>',
+  'job-bard': '<path d="M9 18V6l10-2v12"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="16" r="2"/>',
+  'job-default': '<path d="M12 4l2.4 5 5.4.7-4 3.7 1 5.4-4.8-2.6-4.8 2.6 1-5.4-4-3.7 5.4-.7z"/>',
 };

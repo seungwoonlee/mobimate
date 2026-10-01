@@ -6,6 +6,7 @@ import { useNow as useNowTick } from '../hooks/layout';
 import { agoMs } from '../lib/format';
 import type { Level } from '../api/types';
 import { ROUTES, useRouter, type RouteName } from '../state/router';
+import { jobIconName } from '../lib/job';
 
 /** 아이콘 스프라이트. 앱 루트에 한 번만 둔다. */
 export function IconSprite() {
@@ -75,6 +76,11 @@ export function Ring({ done, total, size = 64, label }: { done: number; total: n
 
 export function Pill({ tone = 'plain', children, title }: { tone?: 'ok' | 'warn' | 'danger' | 'info' | 'gold' | 'cyan' | 'plain' | 'lime' | 'violet'; children: ReactNode; title?: string }) {
   return <span className={`pill ${tone}`} title={title}>{children}</span>;
+}
+
+/** 직업별 아이콘 (직업 이름으로 계열을 고른다). 장식이라 스크린 리더는 건너뛴다. */
+export function JobIcon({ job, size }: { job: string | null | undefined; size?: number }) {
+  return <Icon name={jobIconName(job)} size={size} />;
 }
 
 /** 카드 머리글 */

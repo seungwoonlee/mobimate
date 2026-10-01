@@ -87,7 +87,7 @@ public class ApiTests
         using var host = new TestHost();
         var c = await host.LocalAsync();
         var v = (await TestHost.Data(await c.GetAsync("/api/meta"))).GetProperty("version").GetString();
-        Assert.Matches(@"^0\.9\.\d{4}\.\d{4}$", v);
+        Assert.Matches(@"^1\.0\.\d{4}\.\d{4}$", v);
     }
 
     [Fact]

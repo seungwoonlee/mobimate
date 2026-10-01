@@ -11,10 +11,10 @@
     <AssemblyName>MobiMateWeb</AssemblyName>
     <InvariantGlobalization>false</InvariantGlobalization>
 
-    <!-- 빌드 시각 기반 버전 <주>.<부>.MMdd.HHmm (NFR-16, WPF판 v1.2.0 방식). 첫 릴리스 전까지 0.9 -->
+    <!-- 빌드 시각 기반 버전 <주>.<부>.MMdd.HHmm (NFR-16, WPF판 v1.2.0 방식). 첫 릴리스(1.0) -->
     <BuildStamp>$([System.DateTime]::Now.ToString("MMdd.HHmm"))</BuildStamp>
-    <Version>0.9.$(BuildStamp)</Version>
-    <InformationalVersion>0.9.$(BuildStamp)</InformationalVersion>
+    <Version>1.0.$(BuildStamp)</Version>
+    <InformationalVersion>1.0.$(BuildStamp)</InformationalVersion>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
 
     <!-- 정적 웹 자산(개발 환경에서 프로젝트 폴더를 직접 물림)을 끈다. 앱 셸은 빌드 출력의 wwwroot 하나만 쓴다. -->

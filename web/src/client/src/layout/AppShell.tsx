@@ -1,6 +1,8 @@
 import { useEffect, useRef, type ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { Delta, Icon, Toasts } from '../components/ui';
+import { Delta, Icon, JobIcon, Toasts } from '../components/ui';
+import { CommandPalette } from '../features/palette';
+import { NicknameEditor } from '../features/nickname';
 import { useNow } from '../hooks/layout';
 import { keys, useHeader, useStatus } from '../api/queries';
 import { useLayout } from '../hooks/layout';
@@ -72,6 +74,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       </button>
       <Toasts />
       <PairHost />
+      <CommandPalette />
     </div>
   );
 }
@@ -110,6 +113,7 @@ function TopBar({ compact }: { compact: boolean }) {
   const qc = useQueryClient();
   const bump = useUi(s => s.bumpRefresh);
   const setPairOpen = useUi(s => s.setPairOpen);
+  const setPaletteOpen = useUi(s => s.setPaletteOpen);
   const local = useSession().data?.kind === 'local';   // 폰으로 보기 버튼은 게임 PC에서만
   const h = header.data?.data;
   const state = status.data?.data.state ?? 'unknown';
@@ -127,8 +131,8 @@ function TopBar({ compact }: { compact: boolean }) {
         <span className={`dot ${conn}`} title={state === 'connected' ? '게임 연결됨' : state === 'cli_missing' ? '게임 CLI를 찾을 수 없음' : '게임과 연결 안 됨'} />
         <div className="who-txt">
           <div className="who-name">
-            <span className="nm">{name}</span>
-            {h && <span className="job">{h.character.job} Lv.{h.character.level}</span>}
+            <NicknameEditor name={name} current={h?.character.nickname ?? null} />
+            {h && <span className="job"><JobIcon job={h.character.job} size={18} /> {h.character.job} Lv.{h.character.level}</span>}
             {h?.character.title && <span className="who-title">“{h.character.title}”</span>}
           </div>
         </div>
@@ -143,6 +147,9 @@ function TopBar({ compact }: { compact: boolean }) {
       <div className="top-actions">
         <button type="button" className="refresh" onClick={manualRefresh} title={`자동 갱신: 활동이 없으면 15초씩 늘어납니다 (지금 ${refresh.period}초 주기)`} aria-label={`지금 새로고침 (다음 자동 갱신 ${refresh.left}초 후)`}>
           <Icon name="refresh" /><span className="refresh-txt num">{refresh.left}초</span>
+        </button>
+        <button type="button" className="icon-btn" onClick={() => setPaletteOpen(true)} aria-label="빠른 실행" title="빠른 실행 (Ctrl+K)">
+          <Icon name="search" />
         </button>
         {local && (
           <button type="button" className="icon-btn" onClick={() => setPairOpen(true)} aria-label="폰·태블릿으로 보기" title="폰·태블릿으로 보기 (QR)">
@@ -203,6 +210,12 @@ function useShortcuts(sheetOpen: boolean) {
   const setDock = useUi(s => s.setDock);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key.toLowerCase() === 'k') {   // 빠른 실행 (FR-AC-04)
+        e.preventDefault();
+        const ui = useUi.getState();
+        ui.setPaletteOpen(!ui.paletteOpen);
+        return;
+      }
       if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey) return;
       const t = e.target as HTMLElement;
       const typing = t.closest('input, textarea, select, [contenteditable="true"]') != null;

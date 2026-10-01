@@ -109,7 +109,7 @@ function ChatLog() {
   const entries = q.data?.data ?? [];
   useEffect(() => { box.current?.scrollTo({ top: box.current.scrollHeight }); }, [entries.length]);
   return (
-    <div className="log" ref={box} aria-live="polite" aria-label="게임 채팅 전송 기록">
+    <div className="log" ref={box} aria-live="polite" aria-label="게임 채팅 전송 기록" tabIndex={0}>
       {entries.length === 0 && <p className="faint small">아직 보낸 채팅이 없습니다. 입력창에 쓰고 Enter를 누르면 게임 전체 채팅으로 갑니다.</p>}
       {entries.map((e, i) => <LogItem key={`${e.at}-${i}`} e={e} />)}
     </div>
