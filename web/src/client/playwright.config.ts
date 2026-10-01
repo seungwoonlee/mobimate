@@ -10,6 +10,8 @@ const port = Number(process.env.E2E_PORT ?? 17890);
 
 // 요구사양 TST-05의 뷰포트: PC, 탭 S10 울트라 가로(잠정), 아이패드 에어 4 가로·세로, 트라이폴드 접힘(잠정), 아이폰 12
 const viewports: [string, number, number, boolean][] = [
+  ['half-fhd-960', 960, 1040, false],   // 16:9 FHD 모니터를 좌우로 나눈 반쪽 (FR-LY-01, 1순위 기준 화면)
+  ['half-qhd-1280', 1280, 1400, false],   // QHD 반쪽
   ['pc-1440', 1440, 900, false],
   ['tab-s10-1480', 1480, 924, true],
   ['ipad-1180', 1180, 820, true],

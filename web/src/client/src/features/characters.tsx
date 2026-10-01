@@ -1,6 +1,6 @@
 import { useCharacters } from '../api/queries';
 import type { CharacterCard } from '../api/types';
-import { CardHead, ErrorCard, Fresh, Icon, Pill, Skeleton } from '../components/ui';
+import { CardHead, ErrorCard, Fresh, Icon, JobIcon, Pill, Skeleton } from '../components/ui';
 import { useNow } from '../hooks/layout';
 import { fmt } from '../lib/format';
 import { scoreClass } from '../lib/score';
@@ -55,7 +55,7 @@ function CharacterCardView({ c, now }: { c: CharacterCard; now: number }) {
         title={<span className="cc-name">{name}</span>}
         right={c.isCurrent ? <Pill tone="ok">접속 중</Pill> : <span className="faint small">{lastSeenText(c.lastSeen, now)}</span>}
       />
-      <div className="cc-job">{c.job} Lv.{c.level}{c.title && <span className="cc-title">“{c.title}”</span>}</div>
+      <div className="cc-job"><JobIcon job={c.job} size={16} /> {c.job} Lv.{c.level}{c.title && <span className="cc-title">“{c.title}”</span>}</div>
       <div className="cc-main">
         <div><span className="lbl">전투력</span><b className={`v num ${scoreClass('combat', c.combat)}`}>{fmt(c.combat)}</b></div>
         <div><span className="lbl">마도저항</span><b className={`v num ${scoreClass('mdef', c.mdef)}`}>{fmt(c.mdef)}</b></div>

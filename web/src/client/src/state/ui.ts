@@ -39,6 +39,10 @@ interface UiState {
   aiDraft: string;
   setAiDraft: (v: string) => void;
 
+  /** 빠른 실행(명령 팔레트, Ctrl+K) */
+  paletteOpen: boolean;
+  setPaletteOpen: (v: boolean) => void;
+
   /** 폰으로 보기(QR 페어링) 대화상자 */
   pairOpen: boolean;
   setPairOpen: (v: boolean) => void;
@@ -75,6 +79,9 @@ export const useUi = create<UiState>(set => ({
   setChatDraft: (v, source) => set(s => ({ chatDraft: v, chatDraftSource: source !== undefined ? source : v.trim() ? s.chatDraftSource : null })),
   aiDraft: '',
   setAiDraft: v => set({ aiDraft: v }),
+
+  paletteOpen: false,
+  setPaletteOpen: v => set({ paletteOpen: v }),
 
   pairOpen: false,
   setPairOpen: v => set({ pairOpen: v }),
