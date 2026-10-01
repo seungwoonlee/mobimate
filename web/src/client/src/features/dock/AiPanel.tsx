@@ -7,10 +7,29 @@ import { Dialog, Icon, Pill } from '../../components/ui';
 import { collectAll, startGather } from '../../lib/actions';
 import { Markdown } from '../../lib/markdown';
 import { queryClient } from '../../lib/queryClient';
-import { useRouter } from '../../state/router';
+import { useRouter, type RouteName } from '../../state/router';
 import { isOffline, useUi } from '../../state/ui';
 
-/** 가이드 쉘프 6개 (FR-AI-06, WPF판과 같은 문장) */
+/**
+ * 내장 도우미 바로 가기 (FR-AI-20·21): 글로 된 준비된 답변 대신 앱의 해당 화면으로 바로 이동한다.
+ * 한 줄에 버튼 하나씩 전체 폭으로 쌓는다(가로 스크롤 없음).
+ */
+const GUIDE: { label: string; hint: string; icon: string; to: RouteName; params?: Record<string, string> }[] = [
+  { label: '내 캐릭터 전체 현황', hint: '캐릭터별 전투력·재화', icon: 'users', to: 'characters' },
+  { label: '오늘 한눈에 보기', hint: '점수·가방·가공·주변', icon: 'home', to: 'overview' },
+  { label: '콘텐츠 추천', hint: '입장 가능·추천 난이도', icon: 'trophy', to: 'stats', params: { tab: 'cutoffs' } },
+  { label: '점수와 스탯', hint: '전투력·마도저항·생활력·매력', icon: 'stats', to: 'stats' },
+  { label: '즐겨찾기 아이템', hint: '눈여겨보는 아이템의 개수 변화', icon: 'bag', to: 'inventory', params: { loc: 'fav' } },
+  { label: '가방 다이어트', hint: '무게 줄이기', icon: 'scale', to: 'inventory', params: { loc: 'diet' } },
+  { label: '재화', hint: '골드·데카·M캐시', icon: 'coins', to: 'currencies' },
+  { label: '일일 미션과 요일 던전', hint: '오늘 남은 숙제', icon: 'list', to: 'homework', params: { tab: 'daily' } },
+  { label: '가공 대기열과 수거', hint: '종류별 진행 상황', icon: 'clock', to: 'life' },
+  { label: '채집 도우미', hint: '즐겨찾기 재료 채집', icon: 'leaf', to: 'life' },
+  { label: '주변 플레이어', hint: '친구·길드원 먼저', icon: 'radar', to: 'nearby' },
+  { label: '설정', hint: '테마·색상·LAN', icon: 'gear', to: 'settings' },
+];
+
+/** 가이드 쉘프 6개 (FR-AI-06, AI 엔진 연결 시 질문 예시) */
 const SHELF = [
   '현재 전투력 기준 1티어 룬 세팅 및 무기 각인 공략',
   '일일 미션과 요일 던전 보상으로 골드 빠르게 모으기',
@@ -138,6 +157,24 @@ function bagCount(item: string): number | null {
   return life?.data.gatherables?.find(g => g.name === item)?.inBag ?? null;
 }
 
+/** 바로 가기 목록. 대화가 시작되면 접어서 대화 영역을 넓힌다. */
+function GuideNav({ open }: { open: boolean }) {
+  const go = useRouter(s => s.go);
+  return (
+    <details className="guide" open={open}>
+      <summary>바로 가기</summary>
+      <nav className="guide-nav" aria-label="바로 가기">
+        {GUIDE.map(g => (
+          <button key={g.label} type="button" onClick={() => go(g.to, g.params)}>
+            <Icon name={g.icon} />
+            <span><b>{g.label}</b><span className="gh">{g.hint}</span></span>
+          </button>
+        ))}
+      </nav>
+    </details>
+  );
+}
+
 export function AiPanel() {
   const draft = useUi(s => s.aiDraft);
   const setDraft = useUi(s => s.setAiDraft);
@@ -163,11 +200,15 @@ export function AiPanel() {
   return (
     <>
       <EnginePicker />
-      <div className={`shelf ${bigShelf ? 'big' : 'small'}`}>
-        {SHELF.map(q => (
-          <button key={q} type="button" onClick={() => submit(q)} disabled={busy} title={q}>{bigShelf ? q : `${q.split(' ').slice(0, 3).join(' ')}…`}</button>
-        ))}
-      </div>
+      {builtin
+        ? <GuideNav open={bigShelf} />
+        : (
+          <div className="guide-nav ask" role="group" aria-label="질문 예시">
+            {SHELF.map(q => (
+              <button key={q} type="button" onClick={() => submit(q)} disabled={busy} title={q}><span><b>{q}</b></span></button>
+            ))}
+          </div>
+        )}
       <div className="log" ref={log} aria-live="polite" aria-busy={busy} aria-label="AI 대화">
         {msgs.map(m => <MsgView key={m.id} m={m} />)}
       </div>

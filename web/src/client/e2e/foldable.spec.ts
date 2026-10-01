@@ -23,7 +23,7 @@ test('접었다 펴도 입력 초안·도크·화면이 유지된다', async ({ 
 test('좁은 커버 화면(344px)은 글랜스 모드로 핵심 4개만 보인다 (FR-MB-06)', async ({ page }, info) => {
   test.skip(info.project.name !== 'pc-1440', '뷰포트를 직접 바꾸는 테스트');
   await page.setViewportSize({ width: 344, height: 882 });
-  await page.goto('/');
+  await page.goto('/overview');
   await expect(page.locator('.glance')).toBeVisible();
   await expect(page.getByText('89K')).toBeVisible();   // 88,737 → 축약
   await page.getByRole('button', { name: '전체 개요 보기' }).click();

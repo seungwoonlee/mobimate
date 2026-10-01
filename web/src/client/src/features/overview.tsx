@@ -5,9 +5,14 @@ import { CardHead, Delta, Dialog, ErrorCard, Fresh, Gauge, Icon, LevelState, Lin
 import { useLayout, useNow } from '../hooks/layout';
 import { collectAll, stopAction } from '../lib/actions';
 import { fmt, remaining, short, until } from '../lib/format';
+import { scoreClass } from '../lib/score';
 import { useDevice } from '../state/device';
 import { useRouter } from '../state/router';
 import { CUTOFF_STATUS } from './cutoffs';
+import { PlayerLine } from './players';
+
+/** 가공 종류 순서 (서버 WorkKinds.Order와 같다) */
+const WORK_KIND_ORDER = ['metal', 'wood', 'leather', 'cloth', 'medicine', 'food', 'other'];
 
 /** 개요 (FR-OV-01~03): 경고 스트립 → 핵심 수치 → 진행 카드 → 콘텐츠 추천 → 퀵 액션. */
 export function OverviewView() {
@@ -67,17 +72,19 @@ function Alerts({ d }: { d: OverviewData }) {
   return <div className="alerts" role="group" aria-label="확인이 필요한 항목">{chips}</div>;
 }
 
-/** 4대 점수 (WPF v1.2.0): 전투력·마도저항은 세션 변화량 포함 */
+/** 점수 (FR-OV-10): 전투력·마도저항을 가장 크게, 그다음 생활력·매력. 색은 게임과 같은 기준(FR-DT-11) */
 function ScoresCard({ h }: { h: Header }) {
   const s = h.scores;
   return (
     <LinkCard to="stats" className="scores">
-      <CardHead icon="sword" title="전투력" right={<Delta value={s.combatDelta} />} />
-      <div className="big num">{fmt(s.combat)}</div>
+      <CardHead icon="sword" title="점수" />
+      <div className="score-main">
+        <div><span className="lbl">전투력</span><div className={`big num ${scoreClass('combat', s.combat)}`}>{fmt(s.combat)}</div><Delta value={s.combatDelta} /></div>
+        <div><span className="lbl">마도저항</span><div className={`big num ${scoreClass('mdef', s.mdef)}`}>{fmt(s.mdef)}</div><Delta value={s.mdefDelta} /></div>
+      </div>
       <div className="score-row">
-        <span><Icon name="shield" size={14} />마도저항 <b className="num">{fmt(s.mdef)}</b> <Delta value={s.mdefDelta} hideZero /></span>
         <span><Icon name="hammer" size={14} />생활력 <b className="num">{fmt(s.living)}</b></span>
-        <span><Icon name="heart" size={14} />매력 <b className="num">{fmt(s.attract)}</b></span>
+        <span><Icon name="heart" size={14} />매력 <b className={`num ${scoreClass('attract', s.attract)}`}>{fmt(s.attract)}</b></span>
       </div>
     </LinkCard>
   );
@@ -101,7 +108,7 @@ function WeightCard({ h }: { h: Header }) {
 
 function CurrencyCard({ d }: { d: OverviewData }) {
   const items = d.currencies?.items ?? [];
-  const amount = (n: string) => items.find(c => c.DisplayName === n)?.Amount;
+  const amount = (...names: string[]) => items.find(c => names.includes(c.DisplayName))?.Amount;
   const s = d.header.session;
   return (
     <LinkCard to="currencies" className="gold">
@@ -112,8 +119,9 @@ function CurrencyCard({ d }: { d: OverviewData }) {
           <div className="mt-6"><Delta value={s.gold} unit=" G" /></div>
         </div>
         <div className="mt-10">
+          <div className="kv"><span className="muted">데카</span><span className="v num">{fmt(amount('데카'))}</span></div>
+          <div className="kv"><span className="muted">M캐시</span><span className="v num">{fmt(amount('M캐시', 'M캐쉬'))}</span></div>
           <div className="kv"><span className="muted">정령의 날개</span><span className="v num">{fmt(amount('정령의 날개'))} <Delta value={s.wings} hideZero /></span></div>
-          <div className="kv"><span className="muted">냥 토큰</span><span className="v num">{fmt(amount('냥 토큰'))} <Delta value={s.nyang} hideZero /></span></div>
         </div>
       </div>
     </LinkCard>
@@ -141,46 +149,50 @@ function HomeworkRingCard({ kind, d, onOpen }: { kind: 'daily' | 'weekly'; d: Ov
   );
 }
 
+/** 가공 대기열 (FR-OV-12): 가공 종류별로 묶어 건수·수거 가능·가장 먼저 끝나는 시간만 보여 준다. */
 function WorksCard({ life, at }: { life: Life | null; at: number }) {
   const now = useNow();
   const base = at;   // 남은 시간은 이 기기가 받은 시각 기준으로 1초씩 줄인다 (기기·서버 시계 차이 영향 없음)
   const works = life?.works ?? [];
-  const ready = works.filter(w => w.done).length;
-  const left = (s: number) => Math.max(0, s - Math.floor((now - base) / 1000));
-  const next = works.filter(w => !w.done).sort((a, b) => a.remainingSeconds - b.remainingSeconds)[0];
+  const left = (sec: number) => Math.max(0, sec - Math.floor((now - base) / 1000));
+  const groups = WORK_KIND_ORDER.map(kind => {
+    const list = works.filter(w => (WORK_KIND_ORDER.includes(w.kind) ? w.kind : 'other') === kind);
+    const waiting = list.filter(w => w.done || left(w.remainingSeconds) === 0).length;
+    const next = list.filter(w => !(w.done || left(w.remainingSeconds) === 0)).map(w => left(w.remainingSeconds)).sort((a, b) => a - b)[0];
+    return { kind, label: list[0]?.kindLabel ?? kind, total: list.length, waiting, next };
+  }).filter(g => g.total > 0);
+  const ready = groups.reduce((n, g) => n + g.waiting, 0);
   return (
     <LinkCard to="life">
       <CardHead icon="clock" title="가공 대기열" right={ready > 0 && <Pill tone="ok">수거 {ready}</Pill>} />
-      {works.length === 0 && <p className="muted small">진행 중인 가공이 없습니다.</p>}
-      {works.slice(0, 3).map(w => (
-        <div className="work" key={w.facility + w.name}>
-          <span className="n">{w.name}</span>
-          {w.done || left(w.remainingSeconds) === 0 ? <Pill tone="ok">수거 대기</Pill> : <span className="num muted">{remaining(left(w.remainingSeconds))}</span>}
+      {groups.length === 0 && <p className="muted small">진행 중인 가공이 없습니다.</p>}
+      {groups.map(g => (
+        <div className="work" key={g.kind}>
+          <span className="n">{g.label} <span className="faint num">{g.total}건</span></span>
+          {g.waiting > 0 && <Pill tone="ok">수거 {g.waiting}</Pill>}
+          {g.next !== undefined && <span className="num muted">{remaining(g.next)}</span>}
         </div>
       ))}
-      {next && <div className="faint small mt-4">다음 완료 · {next.name}</div>}
     </LinkCard>
   );
 }
 
 function NearbyCard({ nearby }: { nearby: Nearby | null }) {
   const p = nearby?.players ?? [];
-  const n = (r: string) => p.filter(x => x.relation === r).length;
+  const shown = p.slice(0, 5);
   return (
     <LinkCard to="nearby">
-      <CardHead icon="users" title="주변" />
-      <div className="mid num">{nearby?.count ?? 0}<span className="muted unit"> 명</span></div>
-      <div className="pills mt-8">
-        {n('party') > 0 && <Pill tone="info">파티 {n('party')}</Pill>}
-        {n('friend') > 0 && <Pill tone="cyan">친구 {n('friend')}</Pill>}
-        {n('guild') > 0 && <Pill tone="ok">길드원 {n('guild')}</Pill>}
-        {p.some(x => x.isStronger) && <Pill tone="warn">강한 유저 {p.filter(x => x.isStronger).length}</Pill>}
+      <CardHead icon="users" title="주변" right={<span className="num muted">{nearby?.count ?? 0}명</span>} />
+      {p.length === 0 && <p className="muted small">주변에 플레이어가 없습니다.</p>}
+      <div className="pl-list">
+        {shown.map((x, i) => <PlayerLine key={`${x.job}|${x.level}|${x.combatScore}|${i}`} p={x} />)}
       </div>
+      {p.length > shown.length && <div className="faint small mt-4">외 {p.length - shown.length}명</div>}
     </LinkCard>
   );
 }
 
-/** 콘텐츠 추천 요약 (FR-CO-07): 콘텐츠당 한 줄 */
+/** 콘텐츠 추천 요약 (FR-CO-07, FR-OV-14): 콘텐츠당 한 줄, `입장 가능: 지옥1 · 추천: 매우 어려움` */
 function CutoffSummary({ contents }: { contents: CutoffContent[] }) {
   return (
     <LinkCard to="stats" params={{ tab: 'cutoffs' }}>
@@ -191,7 +203,7 @@ function CutoffSummary({ contents }: { contents: CutoffContent[] }) {
           return (
             <div key={c.id} className="cut-mini-row">
               <span className="nm">{c.name}</span>
-              <span className="tier">{c.recommendedTier ?? '입장 불가'}</span>
+              <span className="tier">{c.status === 'locked' ? '입장 불가' : <>입장 가능: <b>{c.maxEntryTier}</b> · 추천: <b>{c.recommendedTier}</b></>}</span>
               <Pill tone={st.tone}>{st.label}</Pill>
             </div>
           );
@@ -251,7 +263,7 @@ function Glance({ d, onPeek, onFull, tabletop, peek, closePeek }: {
   const w = d.header.weight;
   return (
     <div className="glance">
-      <div className="card"><CardHead icon="sword" title="전투력" right={<Delta value={d.header.scores.combatDelta} hideZero />} /><div className="big num">{short(d.header.scores.combat)}</div></div>
+      <div className="card"><CardHead icon="sword" title="전투력" right={<Delta value={d.header.scores.combatDelta} hideZero />} /><div className={`big num ${scoreClass('combat', d.header.scores.combat)}`}>{short(d.header.scores.combat)}</div></div>
       {w && <div className="card"><CardHead icon="bag" title="가방" /><div className="big num">{w.pct.toFixed(1)}%</div><Gauge pct={w.pct} level={w.level} label="가방 무게" /></div>}
       <button type="button" className="card link" onClick={() => onPeek('daily')} aria-haspopup="dialog">
         <CardHead title="일일 숙제" /><div className="ring-row"><Ring done={d.homework.daily.done} total={d.homework.daily.total} size={56} label="일일 숙제" /></div>

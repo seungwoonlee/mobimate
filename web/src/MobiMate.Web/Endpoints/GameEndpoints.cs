@@ -1,3 +1,4 @@
+using MobiMate.Web.Hosting;
 using MobiMate.Web.Infrastructure;
 using MobiMate.Web.Lan;
 using MobiMate.Web.Services;
@@ -9,6 +10,7 @@ public sealed record CollectRequest(string? DisplayName);
 public sealed record HomeworkSetRequest(bool? Completed, int? Count);
 public sealed record HomeworkResetRequest(string? Scope);
 public sealed record NicknameRequest(string? Nickname);
+public sealed record FavoriteRequest(string? Name, bool? Favorite);
 
 /// <summary>게임 조회·조작·숙제 API (요구사양서 §7).</summary>
 public static class GameEndpoints
@@ -26,6 +28,25 @@ public static class GameEndpoints
         api.MapGet("/missions", (GameViews v, CancellationToken ct) => Respond(v.MissionsAsync(ct)));
         api.MapGet("/life", (GameViews v, CancellationToken ct) => Respond(v.LifeAsync(ct)));
         api.MapGet("/nearby", (GameViews v, CancellationToken ct) => Respond(v.NearbyAsync(ct)));
+        api.MapGet("/characters", (GameViews v) => ApiResults.Ok(v.Characters()));
+
+        // ── 즐겨찾기 (FR-DT-15·21): 가방 아이템 / 채집물 ──
+        api.MapGet("/favorites", (FavoritesStore f) =>
+        {
+            var (items, gather) = f.Snapshot();
+            return ApiResults.Ok(new { items, gather });
+        });
+        api.MapPut("/favorites/{kind}", (string kind, FavoriteRequest req, FavoritesStore f, SseHub hub) =>
+        {
+            if (!Enum.TryParse<FavoriteKind>(kind, ignoreCase: true, out var k)) return ApiResults.Error(404, "NOT_FOUND", "알 수 없는 즐겨찾기 종류입니다.");
+            var name = req.Name?.Trim();
+            if (string.IsNullOrEmpty(name) || name.Length > 100 || req.Favorite == null) return ApiResults.Error(400, "VALIDATION", "이름과 favorite 값이 필요합니다.");
+            if (!f.Set(k, name, req.Favorite.Value, out var tooMany))
+                return tooMany ? ApiResults.Error(400, "VALIDATION", $"즐겨찾기는 {FavoritesStore.MaxPerKind}개까지입니다.") : ApiResults.Error(503, "STORAGE_UNAVAILABLE", "즐겨찾기를 저장하지 못했습니다.");
+            hub.Broadcast("state.changed", new { keys = new[] { "favorites" } });
+            return ApiResults.Ok(new { name, favorite = req.Favorite.Value });
+        });
+
         api.MapGet("/cutoffs", (GameViews v, CancellationToken ct) => Respond(v.CutoffsAsync(ct)));
 
         // 개요 (FR-OV-01): 한 번에 여러 조회를 묶는다. 헤더 외 항목은 실패해도 null로 두고 나머지를 보여 준다.

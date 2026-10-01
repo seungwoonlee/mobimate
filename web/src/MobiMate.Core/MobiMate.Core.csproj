@@ -17,6 +17,7 @@
   <ItemGroup>
     <EmbeddedResource Include="Homework\homework_catalog.json" LogicalName="MobiMate.Homework.homework_catalog.json" />
     <EmbeddedResource Include="Cutoff\cutoff_catalog.json" LogicalName="MobiMate.Cutoff.cutoff_catalog.json" />
+    <EmbeddedResource Include="Life\work_categories.json" LogicalName="MobiMate.Life.work_categories.json" />
   </ItemGroup>
 
   <ItemGroup>

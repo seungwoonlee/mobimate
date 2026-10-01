@@ -11,13 +11,15 @@ import { useOffline, useUi } from '../state/ui';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/http';
 import { stopAction } from '../lib/actions';
-import { fmt, weather } from '../lib/format';
+import { fmt } from '../lib/format';
+import { scoreClass } from '../lib/score';
+import { LocationScene } from '../components/Scenery';
 import { Dock } from './Dock';
 import { PairDialog } from '../features/pairing';
 import { useSession } from '../api/queries';
 
-/** 하단 탭(Compact)에 둘 화면 (시안: 개요·가방·숙제·생활 + 채팅) */
-const TAB_ROUTES: RouteName[] = ['overview', 'inventory', 'homework', 'life'];
+/** 하단 탭(Compact)에 둘 화면 (전체·개요·가방·숙제·생활 + 채팅) */
+const TAB_ROUTES: RouteName[] = ['characters', 'overview', 'inventory', 'homework', 'life'];
 
 export function AppShell({ children }: { children: ReactNode }) {
   const layout = useLayout();
@@ -58,7 +60,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       <TopBar compact={layout.size === 'compact'} />
       {offline && <OfflineBanner />}
       <NavRail onChat={() => setDock(true)} />
-      <main className="main" ref={main}>
+      <main className="main" ref={main} tabIndex={0} aria-label="본문">
         <div className="main-inner">{children}</div>
       </main>
       <div className="hinge" aria-hidden="true" />
@@ -113,7 +115,6 @@ function TopBar({ compact }: { compact: boolean }) {
   const state = status.data?.data.state ?? 'unknown';
   const conn = state === 'connected' ? 'ok' : state === 'unknown' ? 'plain' : 'danger';
   const name = h ? (h.character.nickname ?? h.character.realm) : '…';
-  const w = weather(h?.location.weather);
 
   const manualRefresh = () => {
     void qc.invalidateQueries({ type: 'active' });
@@ -126,22 +127,19 @@ function TopBar({ compact }: { compact: boolean }) {
         <span className={`dot ${conn}`} title={state === 'connected' ? '게임 연결됨' : state === 'cli_missing' ? '게임 CLI를 찾을 수 없음' : '게임과 연결 안 됨'} />
         <div className="who-txt">
           <div className="who-name">
-            {name} <span className="job">{h ? `${h.character.job} Lv.${h.character.level}` : ''}</span>
+            <span className="nm">{name}</span>
+            {h && <span className="job">{h.character.job} Lv.{h.character.level}</span>}
             {h?.character.title && <span className="who-title">“{h.character.title}”</span>}
-          </div>
-          <div className="who-where">
-            <Icon name="pin" />
-            {[h?.location.space ?? h?.location.channel, w].filter(Boolean).join(' · ')}
-            {h && <> · <Icon name={/🌙/.test(h.location.erinn) ? 'moon' : 'sun'} />{h.location.erinn.replace(/^에린 시간 /, '에린 ').replace(/ [☀️🌙].*$/u, '')}</>}
           </div>
         </div>
       </div>
       {h && (
-        <div className="top-kpi" title="이번 접속 누적 변화">
-          <span className="lbl">전투력</span><span className="v num">{fmt(h.scores.combat)}</span><Delta value={h.scores.combatDelta} hideZero />
-          <span className="lbl" style={{ marginLeft: 8 }}>마도저항</span><span className="v num">{fmt(h.scores.mdef)}</span><Delta value={h.scores.mdefDelta} hideZero />
+        <div className="hero-scores" title="이번 접속 누적 변화">
+          <div className="hs"><span className="lbl">전투력</span><span className={`v num ${scoreClass('combat', h.scores.combat)}`}>{fmt(h.scores.combat)}</span><Delta value={h.scores.combatDelta} hideZero /></div>
+          <div className="hs"><span className="lbl">마도저항</span><span className={`v num ${scoreClass('mdef', h.scores.mdef)}`}>{fmt(h.scores.mdef)}</span><Delta value={h.scores.mdefDelta} hideZero /></div>
         </div>
       )}
+      {h && !compact && <LocationScene place={h.location.space ?? h.location.channel} weather={h.location.weather} erinn={h.location.erinn} />}
       <div className="top-actions">
         <button type="button" className="refresh" onClick={manualRefresh} title={`자동 갱신: 활동이 없으면 15초씩 늘어납니다 (지금 ${refresh.period}초 주기)`} aria-label={`지금 새로고침 (다음 자동 갱신 ${refresh.left}초 후)`}>
           <Icon name="refresh" /><span className="refresh-txt num">{refresh.left}초</span>
@@ -197,8 +195,8 @@ function BottomTabs({ onChat }: { onChat: () => void }) {
 }
 
 /**
- * 단축키 (FR-AC-03): Esc = 긴급 정지(단, 대화상자·입력창이 먼저), 1~7 = 화면 전환, / = 채팅 입력.
- * 1~7과 /는 입력 요소에 포커스가 있으면 동작하지 않는다.
+ * 단축키 (FR-AC-03): Esc = 긴급 정지(단, 대화상자·입력창이 먼저), 1~8 = 화면 전환, / = 채팅 입력.
+ * 1~8과 /는 입력 요소에 포커스가 있으면 동작하지 않는다.
  */
 function useShortcuts(sheetOpen: boolean) {
   const go = useRouter(s => s.go);

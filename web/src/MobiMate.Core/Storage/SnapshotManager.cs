@@ -37,6 +37,10 @@ public class CharacterHistoryRecord
     public long CombatScore { get; set; }
     public long ArcaneResistance { get; set; }
     public long LivingScore { get; set; }
+    /// <summary>매력 점수 (전체 캐릭터 현황 카드용, v1.5)</summary>
+    public long AttractivenessScore { get; set; }
+    /// <summary>데카 보유량 (전체 캐릭터 현황 카드용, v1.5)</summary>
+    public long Deca { get; set; }
     public long AttackPower { get; set; }
     public long DefencePower { get; set; }
     public double WeightCurrent { get; set; }
@@ -409,7 +413,13 @@ public class SnapshotManager
 
             // 히스토리 중복 방지 (수치 변동 또는 최소 5분 경과 시 누적 기록)
             var lastRecord = profile.History.LastOrDefault();
+            // 이번에 받지 못한 값은 이전 기록 값을 이어 간다 (재화·캐릭터 정보는 따로 조회되므로)
+            var living = ch?.LivingScore?.Value ?? lastRecord?.LivingScore ?? 0;
+            var attract = ch?.AttractivenessScore?.Value ?? lastRecord?.AttractivenessScore ?? 0;
+            var deca = currencies?.FirstOrDefault(c => c.DisplayName == "데카")?.Amount ?? lastRecord?.Deca ?? 0;
             bool shouldRecord = lastRecord == null ||
+                (attract > 0 && lastRecord.AttractivenessScore != attract) ||
+                (deca > 0 && lastRecord.Deca != deca) ||
                 (DateTime.Now - lastRecord.Timestamp).TotalMinutes >= 5 ||
                 lastRecord.CombatScore != current.CombatScore ||
                 lastRecord.ArcaneResistance != current.ArcaneResistance ||
@@ -428,7 +438,9 @@ public class SnapshotManager
                     Title = current.Title,
                     CombatScore = current.CombatScore,
                     ArcaneResistance = current.ArcaneResistance,
-                    LivingScore = ch?.LivingScore?.Value ?? 0,
+                    LivingScore = living,
+                    AttractivenessScore = attract,
+                    Deca = deca,
                     AttackPower = ch?.AttackPower?.Value ?? 0,
                     DefencePower = ch?.DefencePower?.Value ?? 0,
                     WeightCurrent = current.WeightCurrent,

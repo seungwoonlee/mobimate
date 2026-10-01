@@ -7,6 +7,7 @@ import { queryClient } from './lib/queryClient';
 import { useDevice } from './state/device';
 import { useRouter } from './state/router';
 import { OverviewView } from './features/overview';
+import { CharactersView } from './features/characters';
 import { StatsView } from './features/stats';
 import { CurrenciesView, InventoryView, NearbyView } from './features/inventory';
 import { HomeworkView } from './features/homework';
@@ -25,12 +26,19 @@ export function App() {
 
 function Root() {
   const theme = useDevice(s => s.theme);
+  const palette = useDevice(s => s.palette);
 
   // 테마: 시스템을 따르거나 이 기기에서 고정 (FR-MB-16)
   useEffect(() => {
     const el = document.documentElement;
     if (theme === 'system') el.removeAttribute('data-theme'); else el.setAttribute('data-theme', theme);
   }, [theme]);
+
+  // 다크 모드 색상 패턴 (FR-LY-05)
+  useEffect(() => {
+    const el = document.documentElement;
+    if (palette === 'navy') el.removeAttribute('data-palette'); else el.setAttribute('data-palette', palette);
+  }, [palette]);
 
   // QR(IP 주소)로 열렸고 이름 주소(mobimate.local)가 같은 PC로 풀리면 이름 주소로 옮겨 간다 (FR-MB-13)
   useNameHop();
@@ -43,6 +51,7 @@ function Connected() {
   const route = useRouter(s => s.loc.name);
   return (
     <AppShell>
+      {route === 'characters' && <CharactersView />}
       {route === 'overview' && <OverviewView />}
       {route === 'stats' && <StatsView />}
       {route === 'inventory' && <InventoryView />}

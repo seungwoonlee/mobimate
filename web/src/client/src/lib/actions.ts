@@ -2,7 +2,7 @@ import { api, ApiError } from '../api/http';
 import { keys } from '../api/queries';
 import { queryClient } from './queryClient';
 import { isOffline, useUi } from '../state/ui';
-import type { Envelope, HomeworkBoard } from '../api/types';
+import type { Envelope, HomeworkBoard, Inventory, Life } from '../api/types';
 
 const toast = (m: string, l?: 'ok' | 'warn' | 'danger' | 'info') => useUi.getState().toast(m, l);
 
@@ -61,6 +61,28 @@ export async function startGather(name: string, count: number | null): Promise<b
   } catch (e) {
     toast(`채집을 시작하지 못했습니다: ${msg(e)}`, 'warn');
     return false;
+  }
+}
+
+/**
+ * 즐겨찾기 켜기·끄기 (FR-DT-15·21): 가방 아이템 / 채집물. 이름 기준이라 같은 이름은 모두 바뀐다.
+ * 화면은 먼저 바꾸고(낙관적 갱신) 서버 저장이 실패하면 되돌린다.
+ */
+export async function setFavorite(kind: 'items' | 'gather', name: string, favorite: boolean): Promise<void> {
+  if (blockedOffline()) return;
+  const apply = (value: boolean) => {
+    if (kind === 'items') {
+      queryClient.setQueryData<Envelope<Inventory>>(keys.inventory, old => old && { ...old, data: { ...old.data, items: old.data.items.map(i => (i.name === name ? { ...i, favorite: value } : i)) } });
+    } else {
+      queryClient.setQueryData<Envelope<Life>>(keys.life, old => old && { ...old, data: { ...old.data, gatherables: old.data.gatherables?.map(g => (g.name === name ? { ...g, favorite: value } : g)) ?? null } });
+    }
+  };
+  apply(favorite);
+  try {
+    await api.put(`/api/favorites/${kind}`, { name, favorite });
+  } catch (e) {
+    apply(!favorite);
+    toast(`즐겨찾기를 저장하지 못했습니다: ${msg(e)}`, 'warn');
   }
 }
 
