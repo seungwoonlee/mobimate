@@ -17,6 +17,8 @@ export interface Status { state: ConnState; since: string }
 export type Level = 'ok' | 'warn' | 'danger';
 export interface Header {
   characterKey: string;
+  /** 캐릭터 선택창: 아래 값은 마지막으로 본 캐릭터의 것이다 */
+  selecting: boolean;
   character: { realm: string; job: string; level: number; title: string; nickname: string | null; combatScore: number; combatDelta: number };
   scores: { combat: number; combatDelta: number; mdef: number; mdefDelta: number; living: number; attract: number };
   activity: { text: string; inCombat: boolean; canStop: boolean };

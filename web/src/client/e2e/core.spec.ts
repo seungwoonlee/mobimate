@@ -82,11 +82,14 @@ test('첫 화면은 내 캐릭터 전체 현황이다 (FR-AL-01·02)', async ({ 
   await expect(card).toContainText('88,737');
 });
 
-test('주변 레이더: 클래스 - 레벨 - 전투력 - 칭호 순서, 요약 줄은 없다 (FR-DT-32~34)', async ({ page }) => {
+test('주변 레이더: 친구 > 파티원 > 길드원 > 그 외, 맨 앞 표식, 클래스 - 레벨 - 전투력 - 칭호 (FR-DT-30~34)', async ({ page }) => {
   await page.goto('/nearby');
-  await expect(page.getByText('대검전사').filter({ visible: true }).first()).toBeVisible();
-  const row = page.locator('.pl-row').first();
-  await expect(row).toContainText(/대검전사\s*-\s*Lv\.100\s*-\s*92,450(\s*\(나보다 강함\))?\s*-\s*어둠을 가르는/);   // 스크린 리더용 숨김 문구를 포함해서 본다
+  await expect(page.getByText('마법사').filter({ visible: true }).first()).toBeVisible();
+  const rows = page.locator('.pl-row');
+  await expect(rows.first()).toContainText('(친구)');
+  await expect(rows.first()).toContainText(/마법사\s*-\s*Lv\.72\s*-\s*32,100\s*-\s*던바튼 요리사/);
+  const tags = await rows.locator('.pl-tag').allTextContents();
+  expect(tags.filter(t => t).join(',')).toBe('(친구),(파티원),(길드원),(길드원)');   // 표식이 있는 줄의 순서
   await expect(page.locator('.pill', { hasText: '강함' })).toHaveCount(0);   // 눈에 보이는 배지는 없다
   await expect(page.getByText(/기준 ·/)).toHaveCount(0);
 });
@@ -169,4 +172,41 @@ test('빠른 실행: 채집 재료를 고르면 채집 확인 창이 열린다',
 test('직업별 아이콘이 레이더 줄에 붙는다', async ({ page }) => {
   await page.goto('/nearby');
   await expect(page.locator('.pl-row').first().locator('.pl-job svg')).toHaveCount(1);
+});
+
+test('상단 에린 날짜에 0월이 나오지 않고 "N월 D일"로 보인다', async ({ page }) => {
+  test.skip(page.viewportSize()!.width < 600, '폰 폭에서는 그림을 접는다');
+  await expect(page.locator('.scene .date')).toHaveText(/에린 \d{1,2}월 \d{1,2}일 · (낮|밤)/);
+  await expect(page.locator('.scene .date')).not.toContainText('0월');
+});
+
+test('호버하면 QR·빠른 실행 말풍선이 뜬다', async ({ page }, info) => {
+  test.skip(info.project.name !== 'pc-1440', '마우스 호버는 PC에서만');
+  const qr = page.getByRole('button', { name: '폰·태블릿으로 보기' });
+  await expect(qr).toHaveAttribute('data-tip', /QR코드로 모바일 접속이 가능합니다/);
+  await qr.hover();
+  await page.waitForTimeout(450);
+  const shown = await qr.evaluate(el => getComputedStyle(el, '::after').opacity);
+  expect(Number(shown)).toBeGreaterThan(0.9);
+  await expect(page.getByRole('button', { name: '빠른 실행' })).toHaveAttribute('data-tip', /Ctrl\+K/);
+});
+
+test('채팅 기본값: 가로 화면은 열려 있고 세로 화면·폰은 닫혀 있다, 채팅 아이콘으로 열고 닫는다', async ({ page }, info) => {
+  await page.evaluate(() => localStorage.removeItem('mobimate.dock.v1'));
+  await page.reload();
+  const w = page.viewportSize()!;
+  const phone = w.width < 600;
+  const portrait = w.width <= w.height;
+  const app = page.locator('.app');
+  await expect(app).toHaveAttribute('data-dock-mode', /side|sheet|split/);
+  const mode = await app.getAttribute('data-dock-mode');
+  const wantOpen = mode === 'side' && !portrait && !phone;
+  await expect(app).toHaveAttribute('data-dock-open', String(wantOpen));
+  if (mode !== 'side') return;   // 시트 모드(폰·낮은 가로 화면)는 아래 토글 확인을 건너뛴다
+  const toggle = page.getByRole('button', { name: '채팅', exact: true }).filter({ visible: true }).first();
+  await expect(toggle).toBeVisible();                                   // 열려 있어도 아이콘이 보인다
+  await toggle.click();
+  await expect(app).toHaveAttribute('data-dock-open', String(!wantOpen));
+  await toggle.click();
+  await expect(app).toHaveAttribute('data-dock-open', String(wantOpen));
 });

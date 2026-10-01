@@ -1,6 +1,6 @@
 namespace MobiMate;
 
-public enum NearbyRelation { Party = 0, Friend = 1, Guild = 2, Other = 3 }
+public enum NearbyRelation { Friend = 0, Party = 1, Guild = 2, Other = 3 }
 
 /// <param name="IsStronger">내 전투력보다 높으면 true (내 전투력을 모르면 false)</param>
 public sealed record NearbyEntry(NearPcItem Pc, NearbyRelation Relation, bool IsStronger)
@@ -15,12 +15,12 @@ public sealed record NearbyEntry(NearPcItem Pc, NearbyRelation Relation, bool Is
     };
 }
 
-/// <summary>주변 플레이어 정렬 (WPF판 v1.1.0 규칙): 관계(파티 > 친구 > 길드원 > 기타) → 전투력 높은 순 → 가까운 순.</summary>
+/// <summary>주변 플레이어 정렬 (v1.5, 承雲 확정): 관계(친구 > 파티원 > 길드원 > 기타) → 전투력 높은 순 → 가까운 순. 친구이면서 파티원이면 친구로 본다.</summary>
 public static class NearbyRanker
 {
     public static NearbyRelation RelationOf(NearPcItem p) =>
-        p.IsInParty ? NearbyRelation.Party
-        : p.IsFriend ? NearbyRelation.Friend
+        p.IsFriend ? NearbyRelation.Friend
+        : p.IsInParty ? NearbyRelation.Party
         : p.IsSameGuild ? NearbyRelation.Guild
         : NearbyRelation.Other;
 

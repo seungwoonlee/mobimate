@@ -28,22 +28,28 @@ export function AppShell({ children }: { children: ReactNode }) {
   const scale = useDevice(s => s.scale);
   // 선택자로 필요한 값만 구독한다(토스트마다 셸 전체를 다시 그리지 않게)
   const dockOpen = useUi(s => s.dockOpen);
+  const dockPref = useUi(s => s.dockPref);
   const dockTab = useUi(s => s.dockTab);
   const setDock = useUi(s => s.setDock);
+  const closeSheet = useUi(s => s.closeSheet);
   const offline = useOffline();
   const route = useRouter(s => s.loc.name);
   const main = useRef<HTMLElement>(null);
 
   // 도크: Expanded 이상은 옆 패널(기본 열림), 그 아래·높이가 낮으면 시트 (상세설계 §4.5)
   const dockMode = layout.posture === 'book' ? 'split' : (layout.size === 'expanded' || layout.size === 'large') && !layout.short ? 'side' : 'sheet';
-  const dockVisible = dockMode === 'split' || dockOpen;
+  // 채팅 기본값 (v1.5): 가로 화면이면(폰 제외) 옆 패널이 기본으로 열려 있다. 세로 화면은 기본으로 닫혀 있다. 사용자가 고르면 그 선택을 기억한다.
+  // 폰(Compact)은 채팅을 한 화면 가득 시트로 연다.
+  const defaultOpen = dockMode === 'side' && layout.landscape && layout.size !== 'compact';
+  const dockVisible = dockMode === 'split' || (dockMode === 'side' ? (dockPref ?? defaultOpen) : dockOpen);
+  const toggleChat = () => setDock(!dockVisible);
 
   useShortcuts(dockMode === 'sheet' && dockOpen);
 
   // 화면을 바꾸면 맨 위로, 시트 도크는 닫는다
   useEffect(() => {
     main.current?.scrollTo({ top: 0 });
-    if (dockMode === 'sheet') setDock(false);
+    if (dockMode === 'sheet') closeSheet();
   }, [route]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
@@ -61,14 +67,14 @@ export function AppShell({ children }: { children: ReactNode }) {
     >
       <TopBar compact={layout.size === 'compact'} />
       {offline && <OfflineBanner />}
-      <NavRail onChat={() => setDock(true)} />
+      <NavRail chatOpen={dockVisible} canToggle={dockMode !== 'split'} onChat={toggleChat} />
       <main className="main" ref={main} tabIndex={0} aria-label="본문">
         <div className="main-inner">{children}</div>
       </main>
       <div className="hinge" aria-hidden="true" />
       {dockMode === 'sheet' && dockOpen && <div className="scrim" onClick={() => setDock(false)} />}
       <Dock mode={dockMode} onClose={() => setDock(false)} />
-      <BottomTabs onChat={() => setDock(true)} />
+      <BottomTabs chatOpen={dockVisible} onChat={toggleChat} />
       <button type="button" className="fab-stop" onClick={stopAction} aria-label="긴급 정지">
         <Icon name="stop" />
       </button>
@@ -126,14 +132,14 @@ function TopBar({ compact }: { compact: boolean }) {
   };
 
   return (
-    <header className="top">
+    <header className="top" data-selecting={h?.selecting ? 'true' : undefined}>
       <div className="who">
         <span className={`dot ${conn}`} title={state === 'connected' ? '게임 연결됨' : state === 'cli_missing' ? '게임 CLI를 찾을 수 없음' : '게임과 연결 안 됨'} />
         <div className="who-txt">
           <div className="who-name">
             <NicknameEditor name={name} current={h?.character.nickname ?? null} />
             {h && <span className="job"><JobIcon job={h.character.job} size={18} /> {h.character.job} Lv.{h.character.level}</span>}
-            {h?.character.title && <span className="who-title">“{h.character.title}”</span>}
+            {h?.selecting ? <span className="who-title selecting">캐릭터 선택 중</span> : h?.character.title && <span className="who-title">“{h.character.title}”</span>}
           </div>
         </div>
       </div>
@@ -148,11 +154,11 @@ function TopBar({ compact }: { compact: boolean }) {
         <button type="button" className="refresh" onClick={manualRefresh} title={`자동 갱신: 활동이 없으면 15초씩 늘어납니다 (지금 ${refresh.period}초 주기)`} aria-label={`지금 새로고침 (다음 자동 갱신 ${refresh.left}초 후)`}>
           <Icon name="refresh" /><span className="refresh-txt num">{refresh.left}초</span>
         </button>
-        <button type="button" className="icon-btn" onClick={() => setPaletteOpen(true)} aria-label="빠른 실행" title="빠른 실행 (Ctrl+K)">
+        <button type="button" className="icon-btn" onClick={() => setPaletteOpen(true)} aria-label="빠른 실행" data-tip="빠른 실행 (Ctrl+K) — 화면 이동·채집·페르소나를 검색해서 바로 실행합니다">
           <Icon name="search" />
         </button>
         {local && (
-          <button type="button" className="icon-btn" onClick={() => setPairOpen(true)} aria-label="폰·태블릿으로 보기" title="폰·태블릿으로 보기 (QR)">
+          <button type="button" className="icon-btn" onClick={() => setPairOpen(true)} aria-label="폰·태블릿으로 보기" data-tip="QR코드로 모바일 접속이 가능합니다">
             <Icon name="phone" />
           </button>
         )}
@@ -166,7 +172,7 @@ function TopBar({ compact }: { compact: boolean }) {
   );
 }
 
-function NavRail({ onChat }: { onChat: () => void }) {
+function NavRail({ onChat, chatOpen, canToggle }: { onChat: () => void; chatOpen: boolean; canToggle: boolean }) {
   const cur = useRouter(s => s.loc.name);
   const go = useRouter(s => s.go);
   return (
@@ -177,13 +183,13 @@ function NavRail({ onChat }: { onChat: () => void }) {
         </button>
       ))}
       <span className="sp" />
-      <button type="button" className="chat-toggle" onClick={onChat}><Icon name="chat" />채팅</button>
+      {canToggle && <button type="button" className="chat-toggle" onClick={onChat} aria-pressed={chatOpen} title={chatOpen ? '채팅 닫기' : '채팅 열기'}><Icon name="chat" />채팅</button>}
       <button type="button" onClick={() => go('settings')} aria-current={cur === 'settings' ? 'page' : undefined}><Icon name="gear" />설정</button>
     </nav>
   );
 }
 
-function BottomTabs({ onChat }: { onChat: () => void }) {
+function BottomTabs({ onChat, chatOpen }: { onChat: () => void; chatOpen: boolean }) {
   const cur = useRouter(s => s.loc.name);
   const go = useRouter(s => s.go);
   return (
@@ -196,7 +202,7 @@ function BottomTabs({ onChat }: { onChat: () => void }) {
           </button>
         );
       })}
-      <button type="button" onClick={onChat}><Icon name="chat" />채팅</button>
+      <button type="button" onClick={onChat} aria-pressed={chatOpen}><Icon name="chat" />채팅</button>
     </nav>
   );
 }

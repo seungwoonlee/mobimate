@@ -8,9 +8,15 @@ export type DockTab = 'game' | 'ai';
 
 interface UiState {
   // 도크: 라우트가 아니라 UI 상태다. 화면을 오가거나 접었다 펴도 유지된다 (상세설계 §4.2, FR-MB-03).
+  /** 시트(오버레이)로 열린 상태. 이 세션에서만 유지한다. */
   dockOpen: boolean;
+  /** 옆 패널 도크를 이 기기에서 열어 둘지 닫아 둘지 고른 값. 고른 적이 없으면 null = 기본값(가로 화면이면 열림). 기억해 둔다. */
+  dockPref: boolean | null;
   dockTab: DockTab;
+  /** 사용자가 열거나 닫는다: 시트 상태와 옆 패널 선택을 함께 바꾼다 */
   setDock: (open: boolean, tab?: DockTab) => void;
+  /** 화면을 옮길 때 시트만 닫는다 (옆 패널 선택은 건드리지 않는다) */
+  closeSheet: () => void;
 
   toasts: Toast[];
   toast: (message: string, level?: ToastLevel) => void;
@@ -48,12 +54,22 @@ interface UiState {
   setPairOpen: (v: boolean) => void;
 }
 
+const DOCK_KEY = 'mobimate.dock.v1';
+function loadDockPref(): boolean | null {
+  try { const v = localStorage.getItem(DOCK_KEY); return v === 'open' ? true : v === 'closed' ? false : null; } catch { return null; }
+}
+function saveDockPref(open: boolean) {
+  try { localStorage.setItem(DOCK_KEY, open ? 'open' : 'closed'); } catch { /* 저장 불가: 이번 세션만 */ }
+}
+
 let nextId = 1;
 
 export const useUi = create<UiState>(set => ({
   dockOpen: false,
+  dockPref: loadDockPref(),
   dockTab: 'game',
-  setDock: (open, tab) => set(s => ({ dockOpen: open, dockTab: tab ?? s.dockTab })),
+  setDock: (open, tab) => { saveDockPref(open); set(s => ({ dockOpen: open, dockPref: open, dockTab: tab ?? s.dockTab })); },
+  closeSheet: () => set({ dockOpen: false }),
 
   toasts: [],
   toast: (message, level = 'ok') => {

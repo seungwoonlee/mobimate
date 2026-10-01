@@ -293,11 +293,23 @@ public class SnapshotManager
         return copied;
     }
 
+    /// <summary>
+    /// 실제 캐릭터의 정보인가. 캐릭터 선택창에서는 서버·직업이 비고 레벨이 0인 정보가 들어온다. 그런 정보는 캐릭터가 아니다.
+    /// </summary>
+    public static bool IsRealCharacter(CharacterInfo? ch) =>
+        ch != null && !string.IsNullOrWhiteSpace(ch.RealmName) && !string.IsNullOrWhiteSpace(ch.JobName) && ch.Level > 0;
+
     public SessionDelta UpdateSnapshot(
         CharacterInfo? ch,
         List<CurrencyItem>? currencies,
         List<MissionItem>? dailyMissions)
     {
+        if (!IsRealCharacter(ch))
+        {
+            // 기록하지 않는다: "에린 · 밀레시안 · Lv.0" 같은 가짜 캐릭터가 생기지 않게 한다
+            var empty = new CharacterSnapshot();
+            return new SessionDelta(empty, empty);
+        }
         var realm = string.IsNullOrWhiteSpace(ch?.RealmName) ? "에린" : ch.RealmName;
         var job = string.IsNullOrWhiteSpace(ch?.JobName) ? "밀레시안" : ch.JobName;
         var level = ch?.Level ?? 1;

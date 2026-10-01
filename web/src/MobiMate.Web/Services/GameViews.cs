@@ -61,6 +61,7 @@ public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManag
     /// </summary>
     private CharacterInfo Stabilize(CharacterInfo ch)
     {
+        if (!SnapshotManager.IsRealCharacter(ch)) return ch;   // 캐릭터 선택창의 빈 정보는 재확인 대상이 아니다
         if (ch.CombatScore is not { } score) return ch;
         var key = CharacterKey(ch);
         var saved = snapshots.GetSavedCombat(string.IsNullOrWhiteSpace(ch.RealmName) ? "에린" : ch.RealmName!, string.IsNullOrWhiteSpace(ch.JobName) ? "밀레시안" : ch.JobName!);
@@ -108,6 +109,17 @@ public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManag
         await Task.WhenAll(tCh, tAct, tEnv);
         var (ch, act, env) = (tCh.Result, tAct.Result, tEnv.Result);
         if (!ch.Ok) return new CliData<object>(null, ch.Failure, ch.FetchedAt);
+
+        // 캐릭터 선택창: 서버·직업이 비고 레벨 0인 정보가 들어온다. 캐릭터로 치지 않고 마지막 실제 캐릭터를 흐리게 보여 준다.
+        if (!SnapshotManager.IsRealCharacter(ch.Value))
+        {
+            if (state.Character is not { } last)
+                return new CliData<object>(null, new CliFailure(CliFailureKind.Failed, "캐릭터를 선택하는 중입니다. 게임에서 캐릭터를 고르면 보입니다."), ch.FetchedAt);
+            var emptySnap = new CharacterSnapshot();
+            var held = BuildHeader(last, state.Activity, state.Environment, new SessionDelta(emptySnap, emptySnap), selecting: true);
+            hub.Broadcast("header", held);
+            return new CliData<object>(held, null, ch.FetchedAt);
+        }
         if (ch.Value != null) ch = ch with { Value = Stabilize(ch.Value) };
 
         // 캐릭터가 바뀌었으면 캐시된 재화·미션은 이전 캐릭터 것이다: 새 캐릭터의 세션 기준값에 쓰지 않고 재화 캐시를 비운다
@@ -124,7 +136,7 @@ public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManag
         return new CliData<object>(dto, null, ch.FetchedAt);
     }
 
-    private object BuildHeader(CharacterInfo ch, ActivityInfo? act, EnvironmentInfo? env, SessionDelta delta)
+    private object BuildHeader(CharacterInfo ch, ActivityInfo? act, EnvironmentInfo? env, SessionDelta delta, bool selecting = false)
     {
         var v = ch.Vitals;
         var pct = v is { WeightMax: > 0 } ? v.WeightCurrent / v.WeightMax * 100 : 0;
@@ -132,6 +144,7 @@ public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManag
         return new
         {
             characterKey = CharacterKey(ch),
+            selecting,   // 캐릭터 선택창: 아래 값은 마지막으로 본 캐릭터의 것이다
             character = new
             {
                 realm = ch.RealmName, job = ch.JobName, level = ch.Level, title = ch.Title,
@@ -280,7 +293,9 @@ public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManag
     public object Characters()
     {
         var current = state.Character is { } cur ? CharacterKey(cur) : null;
-        var list = snapshots.GetAllProfiles().Select(p =>
+        var list = snapshots.GetAllProfiles()
+            .Where(p => !(p.RealmName == "에린" && p.JobName == "밀레시안") && p.History.Any(h => h.Level > 0))   // 캐릭터 선택창에서 생긴 옛 가짜 기록은 숨긴다
+            .Select(p =>
         {
             var last = p.History.LastOrDefault();
             var live = p.CharacterKey == current ? state.Character : null;

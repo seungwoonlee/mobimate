@@ -65,8 +65,7 @@ button{cursor:pointer}
 .rail button:hover{background:var(--bg-3);color:var(--text-1)}
 .rail button[aria-current="page"]{background:var(--accent-soft);color:var(--accent)}
 .rail .sp{flex:1}
-.rail .chat-toggle{display:none}
-.app[data-dock-mode="sheet"] .rail .chat-toggle,.app[data-dock-mode="side"][data-dock-open="false"] .rail .chat-toggle{display:grid}
+.rail .chat-toggle[aria-pressed="true"]{background:var(--accent-soft);color:var(--accent)}
 
 /* 하단 탭 */
 .tabs{grid-area:tabs;display:none;background:var(--bg-1);border-top:1px solid var(--line);padding:4px 6px calc(4px + env(safe-area-inset-bottom,0px))}
@@ -197,7 +196,7 @@ button{cursor:pointer}
 .dock{grid-area:dock;display:flex;flex-direction:column;min-height:0;background:var(--bg-1);border-left:1px solid var(--line)}
 .app[data-dock-mode="side"][data-dock-open="false"] .dock{display:none}
 .app[data-dock-mode="sheet"] .dock{position:absolute;z-index:60;border:1px solid var(--line);box-shadow:var(--shadow);transition:transform .22s ease,opacity .22s ease}
-.app[data-dock-mode="sheet"][data-size="compact"] .dock{left:0;right:0;bottom:0;top:44px;border-radius:20px 20px 0 0}
+.app[data-dock-mode="sheet"][data-size="compact"] .dock{left:0;right:0;bottom:0;top:0;border-radius:0}   /* 폰: 채팅은 한 화면 가득 */
 .app[data-dock-mode="sheet"]:not([data-size="compact"]) .dock{top:0;right:0;bottom:0;width:min(420px,90%);border-radius:18px 0 0 18px}
 .app[data-dock-mode="sheet"][data-dock-open="false"] .dock{transform:translateY(105%);opacity:0;pointer-events:none}
 .app[data-dock-mode="sheet"]:not([data-size="compact"])[data-dock-open="false"] .dock{transform:translateX(105%)}
