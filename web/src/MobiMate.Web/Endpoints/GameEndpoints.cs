@@ -30,6 +30,15 @@ public static class GameEndpoints
         api.MapGet("/missions", (GameViews v, CancellationToken ct) => Respond(v.MissionsAsync(ct)));
         api.MapGet("/life", (GameViews v, CancellationToken ct) => Respond(v.LifeAsync(ct)));
         api.MapGet("/nearby", (GameViews v, CancellationToken ct) => Respond(v.NearbyAsync(ct)));
+        // 직업 이미지: 첫 실행 때 내려받아 둔 전신 일러스트. 없으면 404(화면이 SVG 아이콘으로 대신한다)
+        api.MapGet("/class-image/{id}", (string id, ClassImages images, HttpContext ctx) =>
+        {
+            if (images.Existing(id) is not { } path) return Results.NotFound();
+            ctx.Response.Headers.CacheControl = "public, max-age=86400";
+            return Results.File(path, "image/png");
+        });
+        api.MapGet("/class-images", (ClassImages images) => ApiResults.Ok(images.Status().Select(s => new { id = s.Id, available = s.Available })));
+
         api.MapGet("/characters", async (GameViews v, CancellationToken ct) => ApiResults.Ok(await v.CharactersAsync(ct)));
 
         // ── 계정 (v1.5): 멤버십 등록(남은 기간 입력), 캐릭터를 계정에 직접 묶기·풀기 ──

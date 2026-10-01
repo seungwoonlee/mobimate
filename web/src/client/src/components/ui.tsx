@@ -6,7 +6,8 @@ import { useNow as useNowTick } from '../hooks/layout';
 import { agoMs } from '../lib/format';
 import type { Level } from '../api/types';
 import { ROUTES, useRouter, type RouteName } from '../state/router';
-import { jobIconName } from '../lib/job';
+import { classImageId, figureStyle, jobIconName } from '../lib/job';
+import { useClassImage } from '../lib/classImage';
 
 /** 아이콘 스프라이트. 앱 루트에 한 번만 둔다. */
 export function IconSprite() {
@@ -80,7 +81,11 @@ export function Pill({ tone = 'plain', children, title }: { tone?: 'ok' | 'warn'
 
 /** 직업별 아이콘 (직업 이름으로 계열을 고른다). 장식이라 스크린 리더는 건너뛴다. */
 export function JobIcon({ job, size }: { job: string | null | undefined; size?: number }) {
-  return <Icon name={jobIconName(job)} size={size} />;
+  const id = classImageId(job);
+  const has = useClassImage(id);
+  if (!id || has !== 'ok') return <Icon name={jobIconName(job)} size={size} />;
+  const h = Math.round((size ?? 16) * 2.6);   // 실루엣이 알아보이도록 아이콘보다 훨씬 크게 (세로가 긴 전신)
+  return <span className="jobimg" role="img" aria-label={`${job ?? ''} 클래스`} style={{ height: h, width: Math.round(h * 0.7), ...figureStyle(id) }} />;
 }
 
 /** 카드 머리글 */

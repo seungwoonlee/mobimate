@@ -15,7 +15,7 @@ export function PlayerLine({ p }: { p: NearPlayer }) {
   return (
     <span className={`pl ${p.relation}`}>
       <span className="pl-tag" aria-label={REL_TEXT[p.relation] || undefined}>{REL_TAG[p.relation]}</span>
-      <span className="pl-job"><JobIcon job={p.job} size={15} />{p.job}</span>
+      <span className="pl-job"><JobIcon job={p.job} size={17} />{p.job}</span>
       <span className="pl-sep">-</span>
       <span className="pl-lv num">Lv.{p.level}</span>
       <span className="pl-sep">-</span>

@@ -288,3 +288,17 @@ test('계정 편집: 캐릭터를 따로 빼면 계정이 나뉜다', async ({ p
   await page.getByRole('dialog').getByRole('button', { name: '닫기', exact: true }).click();
   await expect(page.locator('section.acct')).toHaveCount(2);
 });
+
+test('직업 이미지: 내려받아 둔 직업은 전신 이미지로, 없는 직업은 SVG 아이콘으로 보인다 (v1.5)', async ({ page }) => {
+  await page.goto('/nearby');
+  await expect(page.locator('.pl-row').first()).toBeVisible();
+  // 격투가는 이미지가 있다 (자르지 않은 전신)
+  const rogue = page.locator('.pl-row', { hasText: '격투가' }).locator('.pl-job');
+  await expect(rogue.locator('.jobimg')).toHaveCount(1);
+  await expect(rogue.locator('.jobimg')).toHaveCSS('background-image', /\/api\/class-image\/thief_3/);
+  await expect(rogue.locator('.jobimg')).toHaveCSS('background-size', 'contain');
+  // 대검전사는 이미지를 아직 못 받아 SVG 아이콘이다
+  const warrior = page.locator('.pl-row', { hasText: '대검전사' }).locator('.pl-job');
+  await expect(warrior.locator('svg.ic')).toHaveCount(1);
+  await expect(warrior.locator('.jobimg')).toHaveCount(0);
+});

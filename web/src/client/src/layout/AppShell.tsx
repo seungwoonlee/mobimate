@@ -136,10 +136,11 @@ function TopBar({ compact }: { compact: boolean }) {
     <header className="top" data-selecting={h?.selecting ? 'true' : undefined}>
       <div className="who">
         <span className={`dot ${conn}`} title={state === 'connected' ? '게임 연결됨' : state === 'cli_missing' ? '게임 CLI를 찾을 수 없음' : '게임과 연결 안 됨'} />
+        {h && <span className="who-fig"><JobIcon job={h.character.job} size={compact ? 18 : 36} /></span>}
         <div className="who-txt">
           <div className="who-name">
             <NicknameEditor name={name} current={h?.character.nickname ?? null} />
-            {h && <span className="job"><JobIcon job={h.character.job} size={18} /> {h.character.job} Lv.{h.character.level}</span>}
+            {h && <span className="job">{h.character.job} Lv.{h.character.level}</span>}
             {h && !h.selecting && <MembershipChip />}
             {h?.selecting ? <span className="who-title selecting">캐릭터 선택 중</span> : h?.character.title && <span className="who-title">“{h.character.title}”</span>}
           </div>

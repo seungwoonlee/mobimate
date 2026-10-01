@@ -387,3 +387,20 @@ button.toast { border: 0; text-align: left; cursor: pointer; }
   :root:not([data-theme="light"]) .coin.full,:root:not([data-theme="light"]) .coin.full b{color:#FF918B}
   :root:not([data-theme="light"]) .coin.near,:root:not([data-theme="light"]) .coin.near b{color:#FFC067}
 }
+
+/* 직업 이미지(전신 실루엣 그대로) */
+.jobimg{display:inline-block;flex:none;background-repeat:no-repeat;background-size:contain;background-position:center bottom;vertical-align:middle}
+.who-name .job .jobimg{margin-right:2px}
+.pl-job .jobimg{margin-right:2px}
+.cc-job{display:flex;align-items:center;gap:6px}
+.pl{align-items:center}
+.who-fig{display:inline-flex;align-items:flex-end;flex:none}
+.cc-job{align-items:center;gap:10px}
+.cc-jt{display:grid;gap:2px}
+
+/* 상단 이름이 그림 때문에 잘리지 않게: 이름 줄은 줄바꿈을 허용하고 안내 말풍선은 이름 아래로 */
+.who{flex-wrap:nowrap}
+.who-txt{min-width:0;flex:1 1 auto}
+.who-name .nm-wrap{max-width:none}
+.who-name .nm{max-width:none;overflow:visible;text-overflow:clip}
+.who-name .nm-hint{flex-basis:100%;width:fit-content}
