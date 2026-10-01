@@ -155,6 +155,9 @@ function CoinChip({ label, c }: { label: string; c: CoinView }) {
 
 function CharacterCardView({ c, now }: { c: CharacterCard; now: number }) {
   const go = useRouter(s => s.go);
+  const toast = useUi(s => s.toast);
+  const [asking, setAsking] = useState(false);
+  const [busy, setBusy] = useState(false);
   const name = c.nickname ?? `${c.realm} · ${c.job}`;   // 게임이 캐릭터 이름을 주지 않아 서버·직업으로 구분한다
   const tone = cardTone(c);
   const seen = c.isCurrent ? '접속 중' : lastSeenText(c.lastSeen, now);
@@ -170,7 +173,9 @@ function CharacterCardView({ c, now }: { c: CharacterCard; now: number }) {
   const body = (
     <>
       <CardHead
-        title={<span className="cc-name">{name}</span>}
+        title={<span className="cc-name">{name}
+          {!c.isCurrent && <button type="button" className="cc-del" aria-label={`${name} 삭제`} title="이 캐릭터 삭제" onClick={() => setAsking(true)}><Icon name="x" size={12} /></button>}
+        </span>}
         right={
           <span className="cc-right">
             {c.isCurrent ? <Pill tone="ok">접속 중</Pill> : <span className={`seen small ${days >= 7 ? 'danger-text' : 'faint'}`}>{seen} 접속</span>}
@@ -193,8 +198,29 @@ function CharacterCardView({ c, now }: { c: CharacterCard; now: number }) {
         <span className="muted">M캐시 <b className="num">{fmt(c.mcash)}</b></span>
       </div>
       {notes.length > 0 && <ul className="cc-notes small">{notes.map(n => <li key={n}>{n}</li>)}</ul>}
+      {asking && (
+        <Dialog title="캐릭터 삭제" onClose={() => setAsking(false)}
+          actions={<>
+            <button type="button" className="btn" disabled={busy} onClick={() => setAsking(false)}>아니오</button>
+            <button type="button" className="btn danger" disabled={busy} onClick={() => void remove()}>예</button>
+          </>}>
+          <p>“{name}”({c.job} Lv.{c.level}) 캐릭터를 목록에서 삭제할까요?</p>
+          <p className="small muted m0">저장된 기록이 지워지며, 이 캐릭터로 다시 접속하면 새로 기록됩니다.</p>
+        </Dialog>
+      )}
     </>
   );
+  const remove = async () => {
+    setBusy(true);
+    try {
+      await api.del(`/api/characters?key=${encodeURIComponent(c.key)}`);
+      setAsking(false);
+      await queryClient.invalidateQueries({ queryKey: keys.characters });
+    } catch (e) {
+      toast(e instanceof ApiError ? e.message : '캐릭터를 지우지 못했습니다', 'warn');
+      setBusy(false);
+    }
+  };
   const cls = `card char tone-${tone} ${c.isCurrent ? 'cur' : ''}`;
   // 지금 접속한 캐릭터는 누르면 자세한 개요로 간다. 나머지는 게임이 정보를 주지 않아 이동할 곳이 없다.
   return c.isCurrent
@@ -206,7 +232,6 @@ function CharacterCardView({ c, now }: { c: CharacterCard; now: number }) {
 function AssignDialog({ data, onClose }: { data: AccountGroup[]; onClose: () => void }) {
   const toast = useUi(s => s.toast);
   const [busy, setBusy] = useState(false);
-  const [confirm, setConfirm] = useState<string | null>(null);
   const chars = data.flatMap(a => a.members.map(m => ({ ...m, account: a.id })));
   const options = data.map(a => ({ id: a.id, label: a.solo ? `${a.name} (혼자)` : `${a.name} 계정` }));
 
@@ -220,22 +245,10 @@ function AssignDialog({ data, onClose }: { data: AccountGroup[]; onClose: () => 
     } finally { setBusy(false); }
   };
 
-  const remove = async (key: string) => {
-    setBusy(true);
-    try {
-      await api.del(`/api/characters?key=${encodeURIComponent(key)}`);
-      setConfirm(null);
-      await queryClient.invalidateQueries({ queryKey: keys.characters });
-    } catch (e) {
-      toast(e instanceof ApiError ? e.message : '캐릭터를 지우지 못했습니다', 'warn');
-    } finally { setBusy(false); }
-  };
-
   return (
     <Dialog title="계정 편집" onClose={onClose}>
       <p className="small muted">
         데카·M캐시가 같았던 캐릭터는 자동으로 같은 계정이 됩니다. 잘못 묶였거나 묶이지 않은 캐릭터는 여기서 직접 정할 수 있고, 직접 정한 캐릭터는 자동으로 바뀌지 않습니다.
-        필요 없이 등록된 캐릭터는 삭제할 수 있습니다(그 캐릭터로 다시 접속하면 새로 기록됩니다).
       </p>
       <div className="assign-list">
         {chars.map(c => (
@@ -245,10 +258,6 @@ function AssignDialog({ data, onClose }: { data: AccountGroup[]; onClose: () => 
               {options.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
               <option value="new">따로 빼기 (새 계정)</option>
             </select>
-            {c.isCurrent ? <span className="faint small">접속 중</span>
-              : confirm === c.key
-                ? <span className="del-confirm"><button type="button" className="btn danger" disabled={busy} onClick={() => void remove(c.key)}>정말 삭제</button><button type="button" className="btn" disabled={busy} onClick={() => setConfirm(null)}>취소</button></span>
-                : <button type="button" className="btn" disabled={busy} aria-label={`${c.nickname ?? c.realm} ${c.job} 삭제`} onClick={() => setConfirm(c.key)}>삭제</button>}
           </label>
         ))}
       </div>

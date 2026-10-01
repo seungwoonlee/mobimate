@@ -423,3 +423,15 @@ button.toast { border: 0; text-align: left; cursor: pointer; }
 .assign-row select{max-width:42%}
 .btn.danger{background:var(--danger);color:var(--on-danger);border-color:transparent}
 .realm-chip{display:inline-block;margin-right:6px;padding:0 8px;border-radius:999px;border:1px solid var(--line);background:var(--bg-2);color:var(--text-2);font-size:12px;font-weight:600;vertical-align:1px}
+/* 카드 이름 옆 삭제 x */
+.cc-del{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;margin-left:8px;padding:0;border:1px solid var(--line);border-radius:4px;background:transparent;color:var(--text-2);vertical-align:2px;cursor:pointer}
+.cc-del:hover,.cc-del:focus-visible{color:var(--danger);border-color:var(--danger)}
+.app[data-touch="true"] .cc-del{width:28px;height:28px;min-height:0}
+
+/* 캐릭터명·직업·레벨·칭호 같은 주요 문자열은 중간에서 줄바꿈하지 않는다 (넘치면 말줄임) */
+.who-name .nm,.who-name .job,.who-name .who-title,.who-name .mem-chip,
+.cc-name,.cc-jt>span,.cc-title,.acct-h h3,.realm-chip,.assign-row>span,
+.pl-tag,.pl-job,.pl-lv,.pl-cs,.pl-title,.pl-combat{white-space:nowrap}
+.pl-title,.cc-title{overflow:hidden;text-overflow:ellipsis;min-width:0;max-width:100%}
+.cc-jt>span{overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.cc-head .cc-name,.cc-name{display:inline-block;max-width:100%;overflow:hidden;text-overflow:ellipsis;vertical-align:bottom}

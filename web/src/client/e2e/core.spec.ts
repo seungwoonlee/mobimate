@@ -350,18 +350,20 @@ test('전체 탭: 내 순서로 계정 순서를 직접 정한다', async ({ pag
   await expect.poll(async () => (await heads.allTextContents())[0]).toBe(before[0]);
 });
 
-test('전체 탭: 필요 없는 캐릭터를 삭제한다 (접속 중인 캐릭터는 못 지운다)', async ({ page }, info) => {
+test('전체 탭: 카드의 x 아이콘으로 캐릭터를 삭제한다 (예/아니오, 기본 아니오, 접속 중은 x 없음)', async ({ page }, info) => {
   test.skip(info.project.name !== 'pc-1440', '한 번만 지울 수 있어 한 화면에서만 확인');
   await page.goto('/');
-  await expect(page.locator('.card.char', { hasText: '음유시인' })).toHaveCount(1);
-  await page.getByRole('button', { name: '계정 편집' }).click();
-  const dlg = page.getByRole('dialog');
-  await expect(dlg.getByRole('button', { name: /아이라 격투가 삭제/ })).toHaveCount(0);   // 접속 중: 삭제 버튼 없음
-  await dlg.getByRole('button', { name: /바람 음유시인 삭제/ }).click();
-  await dlg.getByRole('button', { name: '취소' }).click();                       // 확인 단계에서 취소하면 그대로
-  await expect(page.locator('.card.char', { hasText: '음유시인' })).toHaveCount(1);
-  await dlg.getByRole('button', { name: /바람 음유시인 삭제/ }).click();
-  await dlg.getByRole('button', { name: '정말 삭제' }).click();
+  const bard = page.locator('.card.char', { hasText: '음유시인' });
+  await expect(bard).toHaveCount(1);
+  await expect(page.locator('.card.char.cur .cc-del')).toHaveCount(0);          // 접속 중인 캐릭터는 x가 없다
+  await bard.locator('.cc-del').click();
+  const dlg = page.getByRole('dialog', { name: '캐릭터 삭제' });
+  await expect(dlg.getByRole('button', { name: '아니오' })).toBeFocused();       // 기본값은 아니오
+  await page.keyboard.press('Enter');
+  await expect(dlg).toHaveCount(0);
+  await expect(bard).toHaveCount(1);                                            // 아니오 = 그대로
+  await bard.locator('.cc-del').click();
+  await dlg.getByRole('button', { name: '예' }).click();
   await expect(page.locator('.card.char', { hasText: '음유시인' })).toHaveCount(0);
 });
 
