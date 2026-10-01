@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using Xunit;
 
 namespace MobiMate.Tests;
@@ -45,5 +47,41 @@ public class RealCharacterTests : IDisposable
         var m = new SnapshotManager(_dir);
         m.UpdateSnapshot(Info("아이라", "격투가", 100, 88000), null, null);
         Assert.Single(m.GetAllProfiles());
+    }
+
+    [Fact]
+    public void SameServerAndJob_WithDifferentLevelAndCurrencies_GetsSeparateProfiles_AndSurvivesARestart()
+    {
+        var m = new SnapshotManager(_dir);
+        var accountA = new List<CurrencyItem> { new("데카", 10285), new("M캐시", 5619) };
+        var accountB = new List<CurrencyItem> { new("데카", 777), new("M캐시", 888) };
+        m.UpdateSnapshot(Info("아이라", "사제", 100, 90000), accountA, null);
+        m.UpdateSnapshot(Info("아이라", "사제", 80, 50000), accountB, null);            // 레벨이 낮고 계정이 다르다 = 다른 캐릭터
+        m.UpdateSnapshot(Info("아이라", "사제", 100, 91000), accountA, null);
+        m.UpdateSnapshot(Info("아이라", "사제", 80, 51000), accountB, null);
+        var keys = m.GetAllProfiles().Select(p => p.CharacterKey).OrderBy(k => k).ToList();
+        Assert.Equal(new[] { "아이라_사제", "아이라_사제#2" }, keys);
+        Assert.Equal(91000, m.GetSavedCombat("아이라_사제"));
+        Assert.Equal(51000, m.GetSavedCombat("아이라_사제#2"));
+        m.SaveSnapshotsNow();
+
+        var again = new SnapshotManager(_dir);                                          // 다시 켜도 저장된 두 캐릭터가 그대로다
+        Assert.Equal(91000, again.GetSavedCombat("아이라_사제"));
+        Assert.Equal(51000, again.GetSavedCombat("아이라_사제#2"));
+    }
+
+    [Fact]
+    public void SplitLatest_MovesTheNewestRecordToANewCharacter()
+    {
+        var m = new SnapshotManager(_dir);
+        var cur = new List<CurrencyItem> { new("데카", 10285), new("M캐시", 5619) };
+        m.UpdateSnapshot(Info("아이라", "사제", 100, 90000), cur, null);
+        m.UpdateSnapshot(Info("아이라", "사제", 100, 99000), cur, null);                // 전투력이 달라져 기록이 하나 더 쌓인다
+        Assert.Null(m.SplitLatest("없는_키"));
+        var created = m.SplitLatest("아이라_사제");
+        Assert.Equal("아이라_사제#2", created);
+        Assert.Equal(99000, m.GetProfileByKey("아이라_사제#2")!.History.Last().CombatScore);
+        Assert.Equal(90000, m.GetProfileByKey("아이라_사제")!.History.Last().CombatScore);
+        Assert.Null(m.SplitLatest("아이라_사제#2"));                                    // 기록이 하나뿐이면 나눌 것이 없다
     }
 }

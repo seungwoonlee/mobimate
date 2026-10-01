@@ -88,7 +88,7 @@ export interface HomeworkBoard {
 /** 충전 재화(은동전·마족 공물)의 예상 보유 상태. 가득이면 충전이 멈춰 있다. */
 export interface CoinView { held: number; expected: number; cap: number; percent: number; level: 'ok' | 'near' | 'full'; minutesToFull: number }
 export interface CharacterCard {
-  key: string; realm: string; job: string; nickname: string | null; isCurrent: boolean; level: number; title: string;
+  key: string; /** 같은 서버·직업의 몇 번째 캐릭터인가 (기본 1) */ variant: number; realm: string; job: string; nickname: string | null; isCurrent: boolean; level: number; title: string;
   combat: number; mdef: number; living: number; attract: number; gold: number; deca: number; mcash: number; lastSeen: string;
   silver: CoinView; tribute: CoinView;
   /** 데카·M캐시가 같은 계정의 최신 값과 다르다 = 마지막 접속 이후 동기화되지 않았다 */

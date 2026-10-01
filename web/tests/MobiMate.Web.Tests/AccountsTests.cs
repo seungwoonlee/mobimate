@@ -210,6 +210,49 @@ public class AccountsTests
     }
 
     [Fact]
+    public async Task SameServerAndJobOnAnotherAccount_BecomesASeparateCharacter_NotMergedIntoTheExistingOne()
+    {
+        // 접속 중: 아이라_격투가 Lv.100 · 생활력 23,011 · 데카 10,285 · M캐시 5,619. 기록에는 다른 계정의 아이라_격투가(Lv.100, 데카·M캐시가 다르다)가 있다
+        var dir = Path.Combine(Path.GetTempPath(), "mm-id-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var t = DateTime.Now.AddDays(-1);
+            File.WriteAllText(Path.Combine(dir, "character_history_db.json"),
+                "[" + Profile("아이라", "격투가", t, Record(t, 100, 40000, 777, 888, 10, 1)) + "]");
+            using var host = new TestHost(dir) { KeepStorage = true };
+            var c = await host.LocalAsync();
+            var data = await TestHost.Data(await c.GetAsync("/api/characters"));
+            var keys = ViewsTests.Cards(data).Select(x => x.GetProperty("key").GetString()).OrderBy(x => x).ToList();
+            Assert.Equal(new[] { "아이라_격투가", "아이라_격투가#2" }, keys);
+            Assert.Equal(2, data.GetProperty("accounts").GetArrayLength());
+            Assert.True(Card(data, "아이라_격투가#2").GetProperty("isCurrent").GetBoolean());
+            Assert.Equal(2, Card(data, "아이라_격투가#2").GetProperty("variant").GetInt32());
+            Assert.False(Card(data, "아이라_격투가").GetProperty("isCurrent").GetBoolean());
+        }
+        finally { try { Directory.Delete(dir, true); } catch { } }
+    }
+
+    [Fact]
+    public async Task SameServerAndJobAndSameAccountValues_StaysOneCharacter()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "mm-id-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var t = DateTime.Now.AddDays(-1);
+            File.WriteAllText(Path.Combine(dir, "character_history_db.json"),
+                "[" + Profile("아이라", "격투가", t, Record(t, 99, 85000, 10285, 5619, 10, 1)) + "]");
+            using var host = new TestHost(dir) { KeepStorage = true };
+            var c = await host.LocalAsync();
+            var data = await TestHost.Data(await c.GetAsync("/api/characters"));
+            Assert.Single(ViewsTests.Cards(data));
+            Assert.Equal("아이라_격투가", ViewsTests.Cards(data).Single().GetProperty("key").GetString());
+        }
+        finally { try { Directory.Delete(dir, true); } catch { } }
+    }
+
+    [Fact]
     public async Task Recorder_RecordsTheCurrentCharacterCoinsAndCurrencies()
     {
         using var host = new TestHost();

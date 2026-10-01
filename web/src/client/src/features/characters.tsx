@@ -158,7 +158,7 @@ function CharacterCardView({ c, now }: { c: CharacterCard; now: number }) {
   const toast = useUi(s => s.toast);
   const [asking, setAsking] = useState(false);
   const [busy, setBusy] = useState(false);
-  const name = c.nickname ?? `${c.realm} · ${c.job}`;   // 게임이 캐릭터 이름을 주지 않아 서버·직업으로 구분한다
+  const name = charName(c);   // 게임이 캐릭터 이름을 주지 않아 서버·직업으로 구분한다
   const tone = cardTone(c);
   const seen = c.isCurrent ? '접속 중' : lastSeenText(c.lastSeen, now);
   const days = Math.floor((now - new Date(c.lastSeen).getTime()) / 86_400_000);
@@ -228,10 +228,15 @@ function CharacterCardView({ c, now }: { c: CharacterCard; now: number }) {
     : <article className={cls}>{body}</article>;
 }
 
+/** 카드·목록에서 쓰는 이름: 캐릭터명이 없으면 서버 · 직업(같은 서버·직업의 다른 캐릭터는 #2) */
+const charName = (c: Pick<CharacterCard, 'nickname' | 'realm' | 'job' | 'variant'>) =>
+  c.nickname ?? `${c.realm} · ${c.job}${c.variant > 1 ? ` #${c.variant}` : ''}`;
+
 /** 계정 편집: 자동으로 묶인 계정이 틀렸을 때 캐릭터를 직접 다른 계정에 묶거나 따로 뺀다. 직접 정한 건 자동으로 바뀌지 않는다. */
 function AssignDialog({ data, onClose }: { data: AccountGroup[]; onClose: () => void }) {
   const toast = useUi(s => s.toast);
   const [busy, setBusy] = useState(false);
+  const [splitAsk, setSplitAsk] = useState(false);
   const chars = data.flatMap(a => a.members.map(m => ({ ...m, account: a.id })));
   const options = data.map(a => ({ id: a.id, label: a.solo ? `${a.name} (혼자)` : `${a.name} 계정` }));
 
@@ -245,6 +250,19 @@ function AssignDialog({ data, onClose }: { data: AccountGroup[]; onClose: () => 
     } finally { setBusy(false); }
   };
 
+  // 같은 서버·직업의 다른 계정 캐릭터가 한 카드로 합쳐졌을 때: 지금 접속한 캐릭터를 따로 뗀다
+  const split = async (key: string) => {
+    setBusy(true);
+    try {
+      await api.post('/api/characters/split', { key });
+      setSplitAsk(false);
+      await queryClient.invalidateQueries({ queryKey: keys.characters });
+      toast('다른 캐릭터로 나눴습니다', 'ok');
+    } catch (e) {
+      toast(e instanceof ApiError ? e.message : '나누지 못했습니다', 'warn');
+    } finally { setBusy(false); }
+  };
+
   return (
     <Dialog title="계정 편집" onClose={onClose}>
       <p className="small muted">
@@ -253,11 +271,14 @@ function AssignDialog({ data, onClose }: { data: AccountGroup[]; onClose: () => 
       <div className="assign-list">
         {chars.map(c => (
           <label key={c.key} className="assign-row">
-            <span><JobIcon job={c.job} size={15} /> {c.nickname ?? c.realm} <span className="faint small">{c.nickname ? `${c.realm} · ` : ''}{c.job} Lv.{c.level}</span></span>
-            <select value={c.account} disabled={busy} aria-label={`${c.nickname ?? c.realm} 소속 계정`} onChange={e => void change(c.key, e.target.value)}>
+            <span><JobIcon job={c.job} size={15} /> {c.nickname ?? `${c.realm}${c.variant > 1 ? ` #${c.variant}` : ''}`} <span className="faint small">{c.nickname ? `${c.realm} · ` : ''}{c.job} Lv.{c.level}</span></span>
+            <select value={c.account} disabled={busy} aria-label={`${c.nickname ?? c.realm}${c.variant > 1 ? ` #${c.variant}` : ''} 소속 계정`} onChange={e => void change(c.key, e.target.value)}>
               {options.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
               <option value="new">따로 빼기 (새 계정)</option>
             </select>
+            {c.isCurrent && (splitAsk
+              ? <span className="del-confirm"><button type="button" className="btn" disabled={busy} onClick={() => setSplitAsk(false)}>아니오</button><button type="button" className="btn danger" disabled={busy} onClick={() => void split(c.key)}>예, 나눕니다</button></span>
+              : <button type="button" className="btn" disabled={busy} title="다른 계정의 같은 서버·직업 캐릭터가 이 카드에 합쳐져 있을 때" onClick={() => setSplitAsk(true)}>다른 캐릭터로 나누기</button>)}
           </label>
         ))}
       </div>
