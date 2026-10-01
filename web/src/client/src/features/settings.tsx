@@ -6,7 +6,7 @@ import { keys, useMeta, useSettings } from '../api/queries';
 import type { LanView } from '../api/types';
 import { CardHead, Pill } from '../components/ui';
 import { queryClient } from '../lib/queryClient';
-import { useDevice, type Theme } from '../state/device';
+import { PALETTES, useDevice, type Palette, type Theme } from '../state/device';
 import { useUi } from '../state/ui';
 
 const LAN_ERROR: Record<string, string> = {
@@ -36,6 +36,16 @@ export function SettingsView() {
           <Row label="테마">
             <Seg value={dev.theme} options={[['system', '시스템'], ['dark', '다크'], ['light', '라이트']]} onChange={v => dev.set({ theme: v as Theme })} />
           </Row>
+          <Row label="다크 모드 색상">
+            <span className="palette" role="group" aria-label="다크 모드 색상 패턴">
+              {PALETTES.map(([id, label, color]) => (
+                <button key={id} type="button" className="swatch" aria-pressed={dev.palette === id} onClick={() => dev.set({ palette: id as Palette })} title={label}>
+                  <i style={{ background: color }} />{label}
+                </button>
+              ))}
+            </span>
+          </Row>
+          <p className="faint small">색상 패턴은 다크 모드에서 적용됩니다.</p>
           <Row label="글자 크기">
             <Seg value={String(dev.scale)} options={[['1', '보통'], ['1.15', '크게'], ['1.3', '아주 크게']]} onChange={v => dev.set({ scale: Number(v) as 1 | 1.15 | 1.3 })} />
           </Row>

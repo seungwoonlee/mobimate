@@ -15,6 +15,7 @@
   --gold:#7A4F00; --gold-soft:#F5E8CB; --lime:#1A7F37; --lime-soft:#DCF3E2; --violet:#6E40C9; --violet-soft:#EDE4FB;
   --cyan:#0F5F86; --cyan-soft:#D8ECF5;
   --ok:#17744A; --ok-soft:#DBF2E6; --warn:#8F5200; --warn-soft:#FAEACF; --danger:#B8312A; --danger-soft:#FADCD9; --on-danger:#FFFFFF; --qr-bg:#FFFFFF; --qr-fg:#0B0F13;
+  --sc-combat:#6B3FD0; --sc-mdef:#C0302A; --sc-att-blue:#1560B0; --sc-att-purple:#7A3FC9; --sc-att-pink:#B8307A; --sc-att-gold:#8A5A00;
   --shadow:0 1px 2px rgba(20,32,43,.06),0 8px 24px rgba(20,32,43,.08);
   --scrim:rgba(10,16,22,.45);
   --f-body:"IBM Plex Sans KR","Pretendard","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
@@ -30,6 +31,7 @@
     --gold:#E9B65A; --gold-soft:rgba(233,182,90,.13); --lime:#39D353; --lime-soft:rgba(57,211,83,.13); --violet:#B79CF7; --violet-soft:rgba(183,156,247,.14);
     --cyan:#62B9E0; --cyan-soft:rgba(98,185,224,.13);
     --ok:#4BC78C; --ok-soft:rgba(75,199,140,.14); --warn:#EFA43F; --warn-soft:rgba(239,164,63,.15); --danger:#EF615B; --danger-soft:rgba(239,97,91,.15); --on-danger:#1C0706;
+    --sc-combat:#C9B6FF; --sc-mdef:#FF7A74; --sc-att-blue:#6DB6FF; --sc-att-purple:#BC93FF; --sc-att-pink:#FF93CB; --sc-att-gold:#F4C65B;
     --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 30px rgba(0,0,0,.35);
     --scrim:rgba(0,0,0,.55);
     color-scheme:dark;
@@ -43,6 +45,7 @@
   --gold:#E9B65A; --gold-soft:rgba(233,182,90,.13); --lime:#39D353; --lime-soft:rgba(57,211,83,.13); --violet:#B79CF7; --violet-soft:rgba(183,156,247,.14);
   --cyan:#62B9E0; --cyan-soft:rgba(98,185,224,.13);
   --ok:#4BC78C; --ok-soft:rgba(75,199,140,.14); --warn:#EFA43F; --warn-soft:rgba(239,164,63,.15); --danger:#EF615B; --danger-soft:rgba(239,97,91,.15); --on-danger:#1C0706;
+  --sc-combat:#C9B6FF; --sc-mdef:#FF7A74; --sc-att-blue:#6DB6FF; --sc-att-purple:#BC93FF; --sc-att-pink:#FF93CB; --sc-att-gold:#F4C65B;
   --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 30px rgba(0,0,0,.35);
   --scrim:rgba(0,0,0,.55);
   color-scheme:dark;

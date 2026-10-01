@@ -134,3 +134,13 @@ button.toast { border: 0; text-align: left; cursor: pointer; }
 .sub-title { margin: 12px 0 4px; font-size: 13px; color: var(--text-2); }
 .path { word-break: break-all; max-width: 60%; text-align: right; }
 .dlg .list { max-height: 40vh; overflow-y: auto; }
+
+/* 점수 색상 (FR-DT-11) */
+.sc-combat{color:var(--sc-combat)} .sc-mdef{color:var(--sc-mdef)}
+.sc-att-blue{color:var(--sc-att-blue)} .sc-att-purple{color:var(--sc-att-purple)} .sc-att-pink{color:var(--sc-att-pink)} .sc-att-gold{color:var(--sc-att-gold)}
+
+/* 다크 모드 색상 패턴 선택 */
+.palette{display:inline-flex;gap:6px;flex-wrap:wrap}
+.swatch{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;border:1px solid var(--line);background:var(--bg-2);color:var(--text-2);font-size:13px;font-weight:500}
+.swatch i{width:14px;height:14px;border-radius:50%;display:inline-block;border:1px solid rgba(255,255,255,.25)}
+.swatch[aria-pressed="true"]{border-color:var(--accent);color:var(--text-1);background:var(--accent-soft)}
