@@ -3,20 +3,18 @@ using System.IO.Pipes;
 using System.Security.Principal;
 using System.Text;
 using MobiMate.Web.Lan;
-using MobiMate.Web.Security;
 using WinForms = System.Windows.Forms;
 
 namespace MobiMate.Web.Hosting;
 
-/// <summary>기동 코드를 새로 받아 기본 브라우저로 연다 (SEC-06). 트레이·두 번째 실행·기동 작업이 같이 쓴다.</summary>
-public sealed class BrowserLauncher(BootCodes boot, ServerIdentity identity, ILogger<BrowserLauncher> log)
+/// <summary>기본 브라우저로 화면을 연다. 트레이·두 번째 실행·기동 작업이 같이 쓴다.</summary>
+public sealed class BrowserLauncher(ServerIdentity identity, ILogger<BrowserLauncher> log)
 {
-    public string BootUrl(string fragment = "") =>
-        $"http://127.0.0.1:{identity.Port}/auth/boot?code={boot.Issue(DateTimeOffset.UtcNow)}{fragment}";
+    public string Url(string fragment = "") => $"http://127.0.0.1:{identity.Port}/{fragment}";
 
     public void Open(string fragment = "")
     {
-        var url = BootUrl(fragment);
+        var url = Url(fragment);
         try { Process.Start(new ProcessStartInfo(url) { UseShellExecute = true }); }
         catch (Exception ex) { log.LogWarning(ex, "브라우저를 열지 못했습니다. 직접 여세요: http://127.0.0.1:{Port}", identity.Port); }
     }

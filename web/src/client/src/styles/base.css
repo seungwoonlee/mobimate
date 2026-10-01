@@ -291,9 +291,7 @@ button{cursor:pointer}
 .dlg .acts{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap}
 .qr-wrap{display:grid;grid-template-columns:auto 1fr;gap:16px;align-items:center}
 .qr{width:148px;height:148px;background:var(--qr-bg);border-radius:12px;padding:8px;image-rendering:pixelated}
-.code{font-size:34px;font-weight:600;letter-spacing:.08em}
 .url{font-family:ui-monospace,Consolas,monospace;font-size:12px;color:var(--text-2);word-break:break-all;background:var(--bg-inset);border:1px solid var(--line);border-radius:8px;padding:6px 8px}
-.dev{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13px;padding:8px 0;border-top:1px solid var(--line)}
 @media (max-width:480px){.qr-wrap{grid-template-columns:1fr;justify-items:center;text-align:center}}
 .app.no-anim .dock{transition:none}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}

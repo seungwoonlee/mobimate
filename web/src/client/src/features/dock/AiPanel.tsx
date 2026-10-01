@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { create } from 'zustand';
-import { api, ApiError, csrfToken } from '../../api/http';
+import { api, ApiError } from '../../api/http';
 import { keys, keys5, useEngines } from '../../api/queries';
 import type { AskEvent, Engine, Envelope, Life } from '../../api/types';
 import { Dialog, Icon, Pill } from '../../components/ui';
@@ -66,11 +66,10 @@ async function ask(text: string) {
   abort = new AbortController();
   try {
     const res = await fetch('/api/ai/ask', {
-      method: 'POST', credentials: 'same-origin', signal: abort.signal,
-      headers: { 'Content-Type': 'application/json', 'X-MobiMate-Csrf': await csrfToken() },
+      method: 'POST', signal: abort.signal,
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text }),
     });
-    if (res.status === 401) useUi.getState().setUnauthorized(true);
     if (!res.ok || !res.body) {
       const body = await res.json().catch(() => null) as { error?: { message?: string } } | null;
       throw new ApiError(res.status, 'ASK', body?.error?.message ?? `질문을 보내지 못했습니다 (${res.status})`);

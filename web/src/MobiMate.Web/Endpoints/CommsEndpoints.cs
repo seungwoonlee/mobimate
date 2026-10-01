@@ -1,7 +1,7 @@
 using System.Collections.Concurrent;
 using MobiMate.Web.Hosting;
 using MobiMate.Web.Infrastructure;
-using MobiMate.Web.Security;
+using MobiMate.Web.Lan;
 using MobiMate.Web.Services;
 
 namespace MobiMate.Web.Endpoints;
@@ -34,7 +34,7 @@ public static class CommsEndpoints
         {
             // 출처는 "직접" 또는 "아무말 · <페르소나>"만 받는다 (FR-GC-05). 그 밖의 값은 "직접"으로 둔다
             var source = req.Source is { Length: <= 40 } src && src.StartsWith("아무말", StringComparison.Ordinal) ? src : "직접";
-            var (status, entry) = await chat.SendAsync(req.Text, req.AutoEmote ?? s.Current.AutoEmoteDefault, source, SecurityMiddleware.DeviceOf(ctx)!.Id, ct);
+            var (status, entry) = await chat.SendAsync(req.Text, req.AutoEmote ?? s.Current.AutoEmoteDefault, source, ClientId.Of(ctx), ct);
             return status switch
             {
                 ChatSendStatus.Sent => ApiResults.Ok(entry),
@@ -157,7 +157,7 @@ public static class CommsEndpoints
             if (req.ChatterPersona != null && !IsPersonaValue(req.ChatterPersona)) return ApiResults.Error(400, "VALIDATION", "알 수 없는 페르소나입니다.");
             if (req.CliPath != null)
             {
-                if (!AuthEndpoints.IsLoopback(ctx)) return ApiResults.Error(403, "LOOPBACK_ONLY", "CLI 경로는 게임 PC에서만 바꿀 수 있습니다.");
+                if (!ClientId.IsLocal(ctx)) return ApiResults.Error(403, "LOOPBACK_ONLY", "CLI 경로는 게임 PC에서만 바꿀 수 있습니다.");
                 if (CliPathValidator.Validate(req.CliPath) is { } why) return ApiResults.Error(400, "VALIDATION", why);
             }
             if (!s.Update(x =>
@@ -181,7 +181,7 @@ public static class CommsEndpoints
         // ── 클라이언트 오류 보고 (FR-ST-03): 기기별 분당 10건 ──
         api.MapPost("/client-errors", (HttpContext ctx, ClientErrorRequest req, ILogger<ClientErrorRequest> log) =>
         {
-            var id = SecurityMiddleware.DeviceOf(ctx)!.Id;
+            var id = ClientId.Of(ctx);
             var now = DateTimeOffset.UtcNow;
             var cur = ClientErrorRate.AddOrUpdate(id, _ => (1, now), (_, v) => now - v.Window > TimeSpan.FromMinutes(1) ? (1, now) : (v.Count + 1, v.Window));
             if (cur.Count > 10) return ApiResults.Error(429, "RATE_LIMITED", "오류 보고가 너무 많습니다.");
@@ -190,7 +190,7 @@ public static class CommsEndpoints
         });
 
         // ── SSE ──
-        api.MapGet("/events", (HttpContext ctx, SseHub hub) => hub.Serve(ctx, SecurityMiddleware.DeviceOf(ctx)!.Id));
+        api.MapGet("/events", (HttpContext ctx, SseHub hub) => hub.Serve(ctx, ClientId.Of(ctx)));
     }
 
     private static bool IsPersonaValue(string v) =>

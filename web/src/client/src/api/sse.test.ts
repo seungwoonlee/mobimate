@@ -24,31 +24,18 @@ describe('connectSse (FR-MB-12)', () => {
     vi.unstubAllGlobals();
   });
 
-  it('재연결 확인 중에 화면이 다시 보여도 연결은 하나만 남는다', async () => {
-    let release!: (r: Response) => void;
-    vi.stubGlobal('fetch', vi.fn(() => new Promise<Response>(r => { release = r; })));
+  it('재연결을 기다리는 중에 화면이 다시 보여도 연결은 하나만 남는다', async () => {
     const states: string[] = [];
     const stop = connectSse({ onEvent: () => {}, onState: s => states.push(s) });
 
-    FakeEs.all[0].onerror!();                                  // 끊김 → /api/session 확인 중
+    FakeEs.all[0].onerror!();                                  // 끊김 → 재시도 예약
     Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true });
     document.dispatchEvent(new Event('visibilitychange'));     // 폰이 깨어남 → 바로 연결
-    release(new Response('{}', { status: 200 }));              // 늦게 끝난 확인
-    await vi.advanceTimersByTimeAsync(2000);   // 감시 타이머(45초)까지는 가지 않는다
+    await vi.advanceTimersByTimeAsync(2000);                   // 예약된 재시도가 와도 하나만 남아야 한다 (감시 타이머 45초까지는 가지 않는다)
 
     expect(FakeEs.open().length).toBe(1);
+    expect(states).toContain('retrying');
     stop();
     expect(FakeEs.open().length).toBe(0);
-  });
-
-  it('세션이 없으면(401) 재시도를 멈춘다', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => new Response('', { status: 401 })));
-    const states: string[] = [];
-    const stop = connectSse({ onEvent: () => {}, onState: s => states.push(s) });
-    FakeEs.all[0].onerror!();
-    await vi.runAllTimersAsync();
-    expect(states.at(-1)).toBe('unauthorized');
-    expect(FakeEs.open().length).toBe(0);
-    stop();
   });
 });

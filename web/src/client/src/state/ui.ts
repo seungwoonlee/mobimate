@@ -23,10 +23,6 @@ interface UiState {
   everOpen: boolean;
   setSse: (s: SseState, retryAt?: number) => void;
 
-  /** 401을 받았다 → 인증 안내 화면 */
-  unauthorized: boolean;
-  setUnauthorized: (v: boolean) => void;
-
   /** 가장 최근 네트워크 오류(PC 연결 끊김) */
   offline: boolean;
   setOffline: (v: boolean) => void;
@@ -66,9 +62,6 @@ export const useUi = create<UiState>(set => ({
   sse: 'connecting',
   everOpen: false,
   setSse: (sse, retryAt) => set(s => ({ sse, retryAt, everOpen: s.everOpen || sse === 'open' })),
-
-  unauthorized: false,
-  setUnauthorized: v => set({ unauthorized: v }),
 
   offline: false,
   setOffline: v => set({ offline: v }),

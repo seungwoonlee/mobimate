@@ -3,7 +3,6 @@ import { useLayout } from '../hooks/layout';
 import { useQuery } from '@tanstack/react-query';
 import { api, ApiError, session } from '../api/http';
 import { keys, useMeta, useSettings } from '../api/queries';
-import { DeviceList } from './pairing';
 import type { LanView } from '../api/types';
 import { CardHead, Pill } from '../components/ui';
 import { queryClient } from '../lib/queryClient';
@@ -21,7 +20,7 @@ const LAN_ERROR: Record<string, string> = {
   BindFailed: '연결을 열지 못했습니다',
 };
 
-/** 설정 (FR-ST, FR-MB-16). 이 기기 설정은 localStorage, PC 서버 설정은 서버에 둔다. 기기 관리·페어링은 S5. */
+/** 설정 (FR-ST, FR-MB-16). 이 기기 설정은 localStorage, PC 서버 설정은 서버에 둔다. */
 export function SettingsView() {
   const dev = useDevice();
   const meta = useMeta();
@@ -43,7 +42,7 @@ export function SettingsView() {
           <Row label="좁은 화면 글랜스 모드">
             <Seg value={dev.glance ? 'on' : 'off'} options={[['on', '켜기'], ['off', '끄기']]} onChange={v => dev.set({ glance: v === 'on' })} />
           </Row>
-          <p className="faint small">이 기기에만 저장됩니다. 기기: {me.data?.deviceName ?? '…'}</p>
+          <p className="faint small">이 기기에만 저장됩니다.</p>
           <ScreenInfo />
         </div>
         <div className="card">
@@ -54,7 +53,6 @@ export function SettingsView() {
           <ServerSettings canChangeCli={local} />
         </div>
       </div>
-      {local && <div className="card"><DeviceList /></div>}
     </>
   );
 }
@@ -90,7 +88,7 @@ function LanRow({ lan, canChange }: { lan: LanView; canChange: boolean }) {
   );
 }
 
-/** PC 서버 설정 (FR-ST): 자동 갱신 최대 주기, 자동 이모티콘 기본값, 게임 CLI 경로(게임 PC 전용, SEC-08·09) */
+/** PC 서버 설정 (FR-ST): 자동 갱신 최대 주기, 자동 이모티콘 기본값, 게임 CLI 경로(게임 PC 전용) */
 function ServerSettings({ canChangeCli }: { canChangeCli: boolean }) {
   const q = useSettings();
   const toast = useUi(s => s.toast);

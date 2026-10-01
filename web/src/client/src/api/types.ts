@@ -3,7 +3,7 @@
 export interface Envelope<T> { data: T; fetchedAt: string }
 export interface ErrorBody { error: { code: string; message: string } }
 
-export interface Session { deviceId: string; deviceName: string; kind: 'local' | 'lan'; csrf: string; expiresAt: string | null }
+export interface Session { kind: 'local' | 'lan' }
 
 export interface LanView {
   enabled: boolean; active: boolean; hosts: string[]; mdnsName: string | null; port: number;
@@ -103,8 +103,8 @@ export type CostTier = 'builtin' | 'localFree' | 'paid';
 export interface Engine { id: string; name: string; type: string; costTier: CostTier; description: string }
 export interface Engines { current: string | null; engines: Engine[] }
 
-export interface Device { id: string; name: string; kind: 'local' | 'lan'; createdAt: string; lastSeenAt: string; expiresAt: string | null }
-export interface PairingStart { code: string; expiresAt: string; urlIp: string; urlName: string | null; addresses: string[] }
+/** 폰·태블릿 접속 주소 (QR용) */
+export interface LanShare { urlIp: string; urlName: string | null; addresses: string[] }
 export interface Settings { maxRefreshSec: number; autoEmoteDefault: boolean; lanEnabled?: boolean; chatterPersona: string; cliPath: string | null; cliAvailable: boolean }
 
 /** POST /api/ai/ask 응답(NDJSON) 한 줄 */
