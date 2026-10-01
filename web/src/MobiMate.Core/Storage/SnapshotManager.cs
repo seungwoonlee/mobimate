@@ -210,6 +210,15 @@ public class SnapshotManager
         }
     }
 
+    /// <summary>마지막으로 저장된 전투력 (서버를 다시 켠 직후 전투력 재확인의 기준, FR-DT-10). 없으면 null.</summary>
+    public long? GetSavedCombat(string realm, string job)
+    {
+        lock (_lock)
+        {
+            return _savedSnapshots.TryGetValue($"{realm}_{job}", out var s) && s.CombatScore > 0 ? s.CombatScore : null;
+        }
+    }
+
     public void SetCustomName(string realm, string job, string customName)
     {
         var key = $"{realm}_{job}";

@@ -36,6 +36,9 @@ public sealed class MobiMateOptions
     /// <summary>게임 상태(status) 확인 주기 (FR-CN-01).</summary>
     public TimeSpan StatusInterval { get; set; } = TimeSpan.FromSeconds(10);
 
+    /// <summary>전투력이 낮게 읽혔을 때 다시 읽기까지의 간격 (FR-DT-10). 최대 두 번 다시 읽는다.</summary>
+    public TimeSpan CombatRecheckDelay { get; set; } = TimeSpan.FromSeconds(5);
+
     public TimeSpan QueryCacheTtl { get; set; } = TimeSpan.FromSeconds(3);
     public TimeSpan SsePingInterval { get; set; } = TimeSpan.FromSeconds(20);
 }
