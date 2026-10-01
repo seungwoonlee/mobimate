@@ -14,6 +14,7 @@ public sealed record FavoriteRequest(string? Name, bool? Favorite);
 public sealed record MembershipRequest(string? Character, int? Days);
 public sealed record AssignRequest(string? Character, string? Account);
 public sealed record OrderRequest(List<string>? Order);
+public sealed record SplitRequest(string? Key);
 
 /// <summary>게임 조회·조작·숙제 API (요구사양서 §7).</summary>
 public static class GameEndpoints
@@ -76,6 +77,17 @@ public static class GameEndpoints
             hub.Broadcast("state.changed", new { keys = new[] { "accounts" } });
             return ApiResults.Ok(new { order = req.Order });
         });
+        // 같은 서버·직업의 다른 캐릭터가 한 기록으로 합쳐졌을 때, 지금 접속한 캐릭터를 새 캐릭터로 떼어 낸다.
+        api.MapPost("/characters/split", (SplitRequest req, GameViews v, GameStateCache state, SnapshotManager snapshots, SseHub hub) =>
+        {
+            if (string.IsNullOrWhiteSpace(req.Key)) return ApiResults.Error(400, "VALIDATION", "캐릭터가 필요합니다.");
+            if (!v.IsCurrentCharacter(req.Key)) return ApiResults.Error(409, "CONFLICT", "지금 접속한 캐릭터만 나눌 수 있습니다.");
+            var created = snapshots.SplitLatest(req.Key);
+            if (created == null) return ApiResults.Error(409, "CONFLICT", "나눌 기록이 부족합니다. 기록이 두 개 이상 쌓인 뒤에 다시 시도해 주세요.");
+            state.SetCurrentKey(created);
+            hub.Broadcast("state.changed", new { keys = new[] { "accounts", "header" } });
+            return ApiResults.Ok(new { key = created });
+        });
         // 필요 없는 캐릭터 기록 삭제. 접속 중인 캐릭터는 곧바로 다시 기록되므로 지울 수 없다.
         api.MapDelete("/characters", (string? key, GameViews v, SseHub hub) =>
         {
@@ -117,7 +129,7 @@ public static class GameEndpoints
             var tNear = v.NearbyAsync(ct);
             var tHw = hw.ObserveAsync(ct);
             await Task.WhenAll(tCur, tMis, tLife, tNear, tHw);
-            var key = tHw.Result ?? GameViews.CharacterKey(state.Character);
+            var key = tHw.Result ?? state.CurrentKey ?? GameViews.CharacterKey(state.Character);
 
             var board = hw.Service.GetBoard(key);
             return ApiResults.Ok(new
@@ -143,7 +155,7 @@ public static class GameEndpoints
             }
             var observed = await hw.ObserveAsync(ct);
             if (observed == null && state.Character == null) return NoCharacter();
-            var key = observed ?? GameViews.CharacterKey(state.Character);
+            var key = observed ?? state.CurrentKey ?? GameViews.CharacterKey(state.Character);
             var board = hw.Service.GetBoard(key, string.IsNullOrWhiteSpace(category) ? null : category);
             return ApiResults.Ok(new { characterKey = key, board.Cards, board.Daily, board.Weekly, board.NextDailyResetUtc, board.NextWeeklyResetUtc });
         });
@@ -154,7 +166,7 @@ public static class GameEndpoints
             if (req.Completed == null && req.Count == null) return ApiResults.Error(400, "VALIDATION", "completed 또는 count가 필요합니다.");
             try
             {
-                var change = hw.Service.Set(GameViews.CharacterKey(state.Character), id, req.Completed, req.Count);
+                var change = hw.Service.Set(state.CurrentKey ?? GameViews.CharacterKey(state.Character), id, req.Completed, req.Count);
                 hw.Notify(change);
                 return ApiResults.Ok(change);
             }
@@ -174,7 +186,7 @@ public static class GameEndpoints
             if (includeAccount == null) return ApiResults.Error(400, "VALIDATION", "scope는 character 또는 characterAndAccount입니다.");
             try
             {
-                var change = hw.Service.ResetAll(GameViews.CharacterKey(state.Character), includeAccount.Value);
+                var change = hw.Service.ResetAll(state.CurrentKey ?? GameViews.CharacterKey(state.Character), includeAccount.Value);
                 hw.Notify(change);
                 return ApiResults.Ok(change);
             }
@@ -214,7 +226,7 @@ public static class GameEndpoints
             if (ch == null) return NoCharacter();
             var nick = (req.Nickname ?? "").Trim();
             if (nick.Length > 20) return ApiResults.Error(400, "VALIDATION", "별칭은 20자 이하입니다.");
-            snapshots.SetCustomName(ch.RealmName ?? "에린", ch.JobName ?? "밀레시안", nick);
+            snapshots.SetCustomName(state.CurrentKey ?? GameViews.CharacterKey(ch), ch.RealmName ?? "에린", ch.JobName ?? "밀레시안", nick);
             hub.Broadcast("state.changed", new { keys = new[] { "header" } });
             return ApiResults.Ok(new { nickname = nick.Length == 0 ? null : nick });
         });

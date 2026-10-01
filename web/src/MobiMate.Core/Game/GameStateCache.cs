@@ -20,6 +20,10 @@ public sealed class GameStateCache
     public IReadOnlyList<GatherableItem>? Gatherables { get; private set; }
     public DateTimeOffset? HeaderFetchedAt { get; private set; }
 
+    /// <summary>지금 캐릭터의 기록 이름 ("서버_직업" 또는 같은 서버·직업의 다른 캐릭터면 "서버_직업#2"). 모르면 null.</summary>
+    public string? CurrentKey { get; private set; }
+    public void SetCurrentKey(string? key) => CurrentKey = key;
+
     public bool IsHeaderStale => HeaderFetchedAt is null || _now() - HeaderFetchedAt > StaleAfter;
 
     public void UpdateHeader(CharacterInfo? ch, ActivityInfo? act, EnvironmentInfo? env)

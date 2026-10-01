@@ -59,12 +59,11 @@ public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManag
     /// 전투력 재확인 (FR-DT-10): 새로 읽은 전투력이 마지막으로 받아들인 값보다 낮으면 이전 값을 대신 보여 주고
     /// 잠시 뒤 다시 읽는다. 다시 읽어도 계속 낮으면 실제 하락으로 받아들인다.
     /// </summary>
-    private CharacterInfo Stabilize(CharacterInfo ch)
+    private CharacterInfo Stabilize(CharacterInfo ch, string key)
     {
         if (!SnapshotManager.IsRealCharacter(ch)) return ch;   // 캐릭터 선택창의 빈 정보는 재확인 대상이 아니다
         if (ch.CombatScore is not { } score) return ch;
-        var key = CharacterKey(ch);
-        var saved = snapshots.GetSavedCombat(string.IsNullOrWhiteSpace(ch.RealmName) ? "에린" : ch.RealmName!, string.IsNullOrWhiteSpace(ch.JobName) ? "밀레시안" : ch.JobName!);
+        var saved = snapshots.GetSavedCombat(key);
         var v = guard.Evaluate(key, score.Value, saved);
         if (!v.Suspect) return ch;
         if (guard.TryBeginRecheck(key)) _ = Task.Run(() => RecheckCombatAsync(key, v.Value));
@@ -82,7 +81,7 @@ public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManag
                 await Task.Delay(options.CombatRecheckDelay, stop);
                 q.Invalidate("get_my_info");
                 var r = await q.Get<CharacterInfo>("get_my_info", stop);
-                if (!r.Ok || r.Value == null || CharacterKey(r.Value) != key) continue;   // 읽지 못했거나 캐릭터가 바뀜
+                if (!r.Ok || r.Value == null || snapshots.ResolveKey(r.Value, state.Currencies) != key) continue;   // 읽지 못했거나 캐릭터가 바뀜
                 var now = r.Value.CombatScore?.Value ?? 0;
                 if (now >= known) { best = now; break; }
                 best = Math.Max(best, now);
@@ -116,34 +115,46 @@ public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManag
             if (state.Character is not { } last)
                 return new CliData<object>(null, new CliFailure(CliFailureKind.Failed, "캐릭터를 선택하는 중입니다. 게임에서 캐릭터를 고르면 보입니다."), ch.FetchedAt);
             var emptySnap = new CharacterSnapshot();
-            var held = BuildHeader(last, state.Activity, state.Environment, new SessionDelta(emptySnap, emptySnap), selecting: true);
+            var held = BuildHeader(last, state.CurrentKey ?? CharacterKey(last), state.Activity, state.Environment, new SessionDelta(emptySnap, emptySnap), selecting: true);
             hub.Broadcast("header", held);
             return new CliData<object>(held, null, ch.FetchedAt);
         }
-        if (ch.Value != null) ch = ch with { Value = Stabilize(ch.Value) };
+        // 같은 서버·직업의 캐릭터가 여럿일 수 있다: 이전 읽기와 달라 보이면 재화(데카·M캐시)를 새로 읽어 어느 캐릭터인지 정한다
+        var key = await ResolveKeyAsync(ch.Value!, ct);
+        if (ch.Value != null) ch = ch with { Value = Stabilize(ch.Value, key) };
 
         // 캐릭터가 바뀌었으면 캐시된 재화·미션은 이전 캐릭터 것이다: 새 캐릭터의 세션 기준값에 쓰지 않고 재화 캐시를 비운다
-        var switched = state.Character != null && CharacterKey(state.Character) != CharacterKey(ch.Value);
+        var switched = state.Character != null && (state.CurrentKey ?? CharacterKey(state.Character)) != key;
         if (switched)
         {
             q.Invalidate("get_currencies", "get_daily_missions");
             state.ClearPerCharacter();
         }
         state.UpdateHeader(ch.Value, act.Value, env.Value);
-        var delta = snapshots.UpdateSnapshot(ch.Value, switched ? null : state.Currencies?.ToList(), switched ? null : state.DailyMissions?.ToList());
-        var dto = BuildHeader(ch.Value!, act.Value, env.Value, delta);
+        state.SetCurrentKey(key);
+        var delta = snapshots.UpdateSnapshot(ch.Value, switched ? null : state.Currencies?.ToList(), switched ? null : state.DailyMissions?.ToList(), key);
+        var dto = BuildHeader(ch.Value!, key, act.Value, env.Value, delta);
         hub.Broadcast("header", dto);
         return new CliData<object>(dto, null, ch.FetchedAt);
     }
 
-    private object BuildHeader(CharacterInfo ch, ActivityInfo? act, EnvironmentInfo? env, SessionDelta delta, bool selecting = false)
+    /// <summary>지금 읽은 캐릭터의 기록 이름. 직전 읽기와 같아 보이면 그대로, 아니면 재화를 새로 읽어 정한다 (CharacterIdentity).</summary>
+    private async Task<string> ResolveKeyAsync(CharacterInfo ch, CancellationToken ct)
+    {
+        if (state.CurrentKey is { } known && CharacterIdentity.SameReading(state.Character, ch)) return known;
+        q.Invalidate("get_currencies");
+        var cr = await q.Get<List<CurrencyItem>>("get_currencies", ct);
+        return snapshots.ResolveKey(ch, cr.Ok ? cr.Value : null);
+    }
+
+    private object BuildHeader(CharacterInfo ch, string key, ActivityInfo? act, EnvironmentInfo? env, SessionDelta delta, bool selecting = false)
     {
         var v = ch.Vitals;
         var pct = v is { WeightMax: > 0 } ? v.WeightCurrent / v.WeightMax * 100 : 0;
-        var profile = snapshots.GetProfile(ch.RealmName ?? "에린", ch.JobName ?? "밀레시안");
+        var profile = snapshots.GetProfileByKey(key);
         return new
         {
-            characterKey = CharacterKey(ch),
+            characterKey = key,
             selecting,   // 캐릭터 선택창: 아래 값은 마지막으로 본 캐릭터의 것이다
             character = new
             {
@@ -179,7 +190,7 @@ public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManag
         var tAct = q.Get<ActivityInfo>("get_activity", ct);
         await Task.WhenAll(tCh, tAct);
         if (!tCh.Result.Ok) return new CliData<object>(null, tCh.Result.Failure, tCh.Result.FetchedAt);
-        var character = tCh.Result.Value == null ? null : Stabilize(tCh.Result.Value);
+        var character = tCh.Result.Value == null ? null : Stabilize(tCh.Result.Value, state.CurrentKey ?? CharacterKey(tCh.Result.Value));
         return new CliData<object>(new { character, activity = tAct.Result.Value }, null, tCh.Result.FetchedAt);
     }
 
@@ -191,7 +202,7 @@ public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManag
         if (!tItems.Result.Ok) return new CliData<object>(null, tItems.Result.Failure, tItems.Result.FetchedAt);
 
         var items = tItems.Result.Value ?? new();
-        var baseline = _bagBaselines.GetOrAdd(CharacterKey(tCh.Result.Value), _ =>
+        var baseline = _bagBaselines.GetOrAdd(state.CurrentKey ?? CharacterKey(tCh.Result.Value), _ =>
             items.Where(i => IsBag(i.Location)).GroupBy(i => i.DisplayName).ToDictionary(g => g.Key, g => g.Sum(i => i.Count)));
         var bagTotals = items.Where(i => IsBag(i.Location)).GroupBy(i => i.DisplayName).ToDictionary(g => g.Key, g => g.Sum(i => i.Count));
 
@@ -214,7 +225,7 @@ public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManag
         var r = await q.Get<List<CurrencyItem>>("get_currencies", ct);
         if (!r.Ok) return new CliData<object>(null, r.Failure, r.FetchedAt);
         state.UpdateCurrencies(r.Value);
-        var delta = snapshots.UpdateSnapshot(state.Character, r.Value, state.DailyMissions?.ToList());
+        var delta = snapshots.UpdateSnapshot(state.Character, r.Value, state.DailyMissions?.ToList(), state.CurrentKey);
         return new CliData<object>(new
         {
             items = r.Value,
@@ -290,7 +301,7 @@ public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManag
     public bool IsKnownCharacter(string key) => snapshots.GetAllProfiles().Any(p => p.CharacterKey == key);
 
     /// <summary>지금 접속 중인 캐릭터인가 (접속 중인 캐릭터는 지울 수 없다: 곧바로 다시 기록된다)</summary>
-    public bool IsCurrentCharacter(string key) => state.Character is { } c && SnapshotManager.IsRealCharacter(c) && CharacterKey(c) == key;
+    public bool IsCurrentCharacter(string key) => state.Character is { } c && SnapshotManager.IsRealCharacter(c) && (state.CurrentKey ?? CharacterKey(c)) == key;
 
     /// <summary>캐릭터 기록과 계정 정보를 지운다. 기록에 없으면 false.</summary>
     public bool RemoveCharacter(string key)
@@ -326,7 +337,7 @@ public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManag
     public object Characters()
     {
         var nowUtc = DateTime.UtcNow;
-        var currentKey = state.Character is { } cur && SnapshotManager.IsRealCharacter(cur) ? CharacterKey(cur) : null;
+        var currentKey = state.Character is { } cur && SnapshotManager.IsRealCharacter(cur) ? state.CurrentKey ?? CharacterKey(cur) : null;
         var profiles = snapshots.GetAllProfiles()
             .Where(p => !(p.RealmName == "에린" && p.JobName == "밀레시안") && p.History.Any(h => h.Level > 0))   // 캐릭터 선택창에서 생긴 옛 가짜 기록은 숨긴다
             .ToList();
@@ -367,7 +378,7 @@ public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManag
                 var stale = g.Count() > 1 && c.Key != reference.Key && (c.Deca != reference.Deca || c.MCash != reference.MCash);
                 return new
                 {
-                    key = c.Key, realm = c.Realm, job = c.Job, nickname = c.Nickname, isCurrent = c.IsCurrent, level = c.Level, title = c.Title,
+                    key = c.Key, variant = VariantOf(c.Key), realm = c.Realm, job = c.Job, nickname = c.Nickname, isCurrent = c.IsCurrent, level = c.Level, title = c.Title,
                     combat = c.Combat, mdef = c.Mdef, living = c.Living, attract = c.Attract, gold = c.Gold, deca = c.Deca, mcash = c.MCash,
                     lastSeen = new DateTimeOffset(c.LastSeenUtc, TimeSpan.Zero),
                     silver = CoinView(silver), tribute = CoinView(tribute),
@@ -394,6 +405,9 @@ public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManag
 
         return new { nowUtc = new DateTimeOffset(nowUtc, TimeSpan.Zero), currentAccountId = groups.FirstOrDefault(g => g.hasCurrent)?.id, accounts = groups };
     }
+
+    /// <summary>같은 서버·직업의 몇 번째 캐릭터인가 (기본 1, "…#2"는 2)</summary>
+    private static int VariantOf(string key) => key.LastIndexOf('#') is var i and >= 0 && int.TryParse(key[(i + 1)..], out var n) ? n : 1;
 
     private sealed record CharCard(string Key, string Realm, string Job, string? Nickname, bool IsCurrent, int Level, string Title, long Combat, long Mdef, long Living, long Attract,
         long Gold, long Deca, long MCash, long Silver, long Tribute, DateTime LastSeenUtc);

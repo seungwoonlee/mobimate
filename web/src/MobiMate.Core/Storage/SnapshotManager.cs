@@ -24,7 +24,10 @@ public class CharacterSnapshot
     public bool HasMissionBaseline { get; set; }
     public DateTime Timestamp { get; set; } = DateTime.Now;
 
-    public string GetKey() => $"{RealmName}_{JobName}";
+    /// <summary>같은 서버·직업의 다른 캐릭터를 구분하는 뒤꼬리("#2" 등). 기본 캐릭터는 비어 있다.</summary>
+    public string KeySuffix { get; set; } = "";
+
+    public string GetKey() => $"{RealmName}_{JobName}{KeySuffix}";
 
     public CharacterSnapshot Clone() => (CharacterSnapshot)MemberwiseClone();
 }
@@ -210,27 +213,91 @@ public class SnapshotManager
         Task.Run(SaveSnapshotsNow);
     }
 
-    public CharacterProfile? GetProfile(string realm, string job)
+    public CharacterProfile? GetProfile(string realm, string job) => GetProfileByKey($"{realm}_{job}");
+
+    public CharacterProfile? GetProfileByKey(string key)
     {
-        var key = $"{realm}_{job}";
         lock (_lock)
         {
             return _characterDb.TryGetValue(key, out var p) ? p : null;
         }
     }
 
+    /// <summary>
+    /// 지금 읽은 캐릭터가 어느 기록인지 정한다 (같은 서버·직업의 캐릭터가 여럿일 수 있다, CharacterIdentity).
+    /// 재화를 읽지 못했으면 null을 넘긴다: 그때는 레벨·생활력만으로 판단한다. 읽기만 하고 기록은 만들지 않는다.
+    /// </summary>
+    public string ResolveKey(CharacterInfo? ch, IEnumerable<CurrencyItem>? currencies = null)
+    {
+        var baseKey = CharacterIdentity.BaseKey(ch?.RealmName, ch?.JobName);
+        long? deca = null, mcash = null;
+        if (currencies != null)
+        {
+            var list = currencies as IList<CurrencyItem> ?? currencies.ToList();
+            deca = list.FirstOrDefault(c => c.DisplayName == "데카")?.Amount ?? 0;
+            mcash = list.FirstOrDefault(c => c.DisplayName is "M캐시" or "M캐쉬")?.Amount ?? 0;
+        }
+        List<IdentityCandidate> cands;
+        lock (_lock)
+        {
+            cands = _characterDb.Values.Where(p => CharacterIdentity.IsVariantOf(p.CharacterKey, baseKey)).Select(p =>
+            {
+                var last = p.History.LastOrDefault();
+                var pair = p.History.AsEnumerable().Reverse().Take(30).FirstOrDefault(h => AccountGrouper.IsDistinctive((h.Deca, h.MCash)));   // 가장 최근의 쓸 만한 값
+                return new IdentityCandidate(p.CharacterKey, last?.Level ?? 0, last?.LivingScore ?? 0, last?.CombatScore ?? 0, pair?.Deca ?? 0, pair?.MCash ?? 0, p.LastSeen);
+            }).ToList();
+        }
+        return CharacterIdentity.Resolve(baseKey, cands, new IdentityReading(ch?.Level ?? 0, ch?.LivingScore?.Value ?? 0, ch?.CombatScore?.Value ?? 0, deca, mcash));
+    }
+
+    /// <summary>
+    /// 한 기록에 두 캐릭터가 섞였을 때(같은 서버·직업) 가장 최근 값을 새 캐릭터로 떼어 낸다. 기록이 하나뿐이면 null.
+    /// 이후에는 그 값과 가까운 읽기가 새 캐릭터로 이어진다.
+    /// </summary>
+    public string? SplitLatest(string key)
+    {
+        string? newKey = null;
+        lock (_lock)
+        {
+            if (!_characterDb.TryGetValue(key, out var p) || p.History.Count < 2) return null;
+            var last = p.History[^1];
+            p.History.RemoveAt(p.History.Count - 1);
+            var baseKey = CharacterIdentity.BaseKey(p.RealmName, p.JobName);
+            newKey = CharacterIdentity.NextKey(baseKey, _characterDb.Keys.Where(k => CharacterIdentity.IsVariantOf(k, baseKey)));
+            _characterDb[newKey] = new CharacterProfile
+            {
+                CharacterKey = newKey, RealmName = p.RealmName, JobName = p.JobName,
+                FirstSeen = last.Timestamp, LastSeen = DateTime.Now, History = new List<CharacterHistoryRecord> { last },
+            };
+            var prev = p.History[^1];
+            if (_savedSnapshots.TryGetValue(key, out var snap))
+            {
+                var moved = snap.Clone(); moved.KeySuffix = newKey[baseKey.Length..];
+                _savedSnapshots[newKey] = moved;
+                snap.Level = prev.Level; snap.CombatScore = prev.CombatScore; snap.ArcaneResistance = prev.ArcaneResistance; snap.Title = prev.Title;
+            }
+            _sessionBaselines.Remove(key);
+            p.LastSeen = prev.Timestamp;
+        }
+        SaveSnapshotsNow();
+        return newKey;
+    }
+
     /// <summary>마지막으로 저장된 전투력 (서버를 다시 켠 직후 전투력 재확인의 기준, FR-DT-10). 없으면 null.</summary>
-    public long? GetSavedCombat(string realm, string job)
+    public long? GetSavedCombat(string realm, string job) => GetSavedCombat($"{realm}_{job}");
+
+    public long? GetSavedCombat(string key)
     {
         lock (_lock)
         {
-            return _savedSnapshots.TryGetValue($"{realm}_{job}", out var s) && s.CombatScore > 0 ? s.CombatScore : null;
+            return _savedSnapshots.TryGetValue(key, out var s) && s.CombatScore > 0 ? s.CombatScore : null;
         }
     }
 
-    public void SetCustomName(string realm, string job, string customName)
+    public void SetCustomName(string realm, string job, string customName) => SetCustomName($"{realm}_{job}", realm, job, customName);
+
+    public void SetCustomName(string key, string realm, string job, string customName)
     {
-        var key = $"{realm}_{job}";
         lock (_lock)
         {
             if (!_characterDb.TryGetValue(key, out var p))
@@ -321,7 +388,8 @@ public class SnapshotManager
     public SessionDelta UpdateSnapshot(
         CharacterInfo? ch,
         List<CurrencyItem>? currencies,
-        List<MissionItem>? dailyMissions)
+        List<MissionItem>? dailyMissions,
+        string? characterKey = null)
     {
         if (!IsRealCharacter(ch))
         {
@@ -337,7 +405,8 @@ public class SnapshotManager
         var mdef = ch?.ArcaneResistance?.Value ?? 0;
         var weight = ch?.Vitals?.WeightCurrent ?? 0.0;
 
-        var key = $"{realm}_{job}";
+        var key = characterKey ?? ResolveKey(ch, currencies);   // 같은 서버·직업의 다른 캐릭터는 "서버_직업#2"로 구분한다
+        var suffix = key.StartsWith($"{realm}_{job}", StringComparison.Ordinal) ? key[$"{realm}_{job}".Length..] : "";
 
         lock (_lock)
         {
@@ -352,6 +421,7 @@ public class SnapshotManager
 
             current.RealmName = realm;
             current.JobName = job;
+            current.KeySuffix = suffix;
             current.Level = level;
             current.Title = title;
             current.CombatScore = combatScore;
