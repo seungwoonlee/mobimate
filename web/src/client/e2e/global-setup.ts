@@ -67,6 +67,7 @@ export default async function globalSetup(config: FullConfig) {
  * 도적 = 같은 계정(예전에 같은 데카·M캐시), 3일 전 접속 → 충전이 가득 차 빨강
  * 마법사 = 같은 계정, 값이 어긋남(동기화 전), 2시간 전 접속, 충전은 여유 → 진회색
  * 사제 = 다른 계정, 은동전이 80%를 넘어 노랑
+ * 음유시인 = 사제와 같은 계정, 지워도 되는 캐릭터(삭제 시험)
  */
 function seedCharacters(dir: string) {
   // 서버는 기록 시각을 PC의 현지 시각(표준시 표기 없이)으로 저장한다: 같은 방식으로 쓴다
@@ -80,6 +81,7 @@ function seedCharacters(dir: string) {
     prof('바람', '도적', 3 * D, [rec(5 * D, 100, 99000, 10285, 5619, 90, 3), rec(3 * D, 100, 99000, 10000, 5619, 100, 4)]),
     prof('바람', '마법사', 2 * H, [rec(D, 100, 80000, 10285, 5619, 5, 1), rec(2 * H, 100, 80000, 10000, 5619, 10, 1)]),
     prof('바람', '사제', 1 * H, [rec(1 * H, 95, 60000, 777, 888, 82, 1)]),
+    prof('바람', '음유시인', 6 * H, [rec(6 * H, 20, 5000, 777, 888, 10, 1)]),   // 삭제 시험용: 사제와 같은 계정
   ];
   writeFileSync(join(dir, 'character_history_db.json'), JSON.stringify(db));
 }

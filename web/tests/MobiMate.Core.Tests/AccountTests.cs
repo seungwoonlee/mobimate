@@ -257,3 +257,30 @@ public class MembershipClockTests
             Assert.Equal(TimeSpan.FromHours(6), MembershipClock.ExpiryLocal(new DateTime(2026, 3, 8, 23, 59, 0), d).TimeOfDay);
     }
 }
+
+public class AccountOrderAndRemoveTests
+{
+    [Fact]
+    public void SetOrder_DropsBlanksAndDuplicates()
+    {
+        var d = new AccountData();
+        AccountGrouper.SetOrder(d, new[] { "b", "a", "b", "", " " });
+        Assert.Equal(new[] { "b", "a" }, d.Order);
+    }
+
+    [Fact]
+    public void RemoveCharacter_RemovesTheEmptyAccount_ButKeepsOneWithMembership()
+    {
+        var d = new AccountData();
+        var a1 = AccountGrouper.AssignManually(d, "x_a", "new");
+        var a2 = AccountGrouper.AssignManually(d, "x_b", "new");
+        AccountGrouper.SetMembership(d, "x_b", DateTime.UtcNow.AddDays(3));
+        d.Order = [a1, a2];
+        AccountGrouper.RemoveCharacter(d, "x_a");
+        Assert.DoesNotContain("x_a", d.Assign.Keys);
+        Assert.False(d.Accounts.ContainsKey(a1));
+        Assert.DoesNotContain(a1, d.Order);
+        AccountGrouper.RemoveCharacter(d, "x_b");
+        Assert.True(d.Accounts.ContainsKey(a2));          // 멤버십 기록이 있는 계정은 남긴다
+    }
+}

@@ -13,6 +13,7 @@ public sealed record NicknameRequest(string? Nickname);
 public sealed record FavoriteRequest(string? Name, bool? Favorite);
 public sealed record MembershipRequest(string? Character, int? Days);
 public sealed record AssignRequest(string? Character, string? Account);
+public sealed record OrderRequest(List<string>? Order);
 
 /// <summary>게임 조회·조작·숙제 API (요구사양서 §7).</summary>
 public static class GameEndpoints
@@ -64,6 +65,26 @@ public static class GameEndpoints
                 return ApiResults.Error(503, "STORAGE_UNAVAILABLE", "저장하지 못했습니다.");
             hub.Broadcast("state.changed", new { keys = new[] { "accounts" } });
             return ApiResults.Ok(new { account = target });
+        });
+
+        // 계정 표시 순서를 사용자가 직접 정한다 (전체 탭 "내 순서")
+        api.MapPut("/accounts/order", (OrderRequest req, AccountStore accounts, SseHub hub) =>
+        {
+            if (req.Order is null || req.Order.Count > 200) return ApiResults.Error(400, "VALIDATION", "순서 목록이 필요합니다.");
+            if (!accounts.Update(d => { AccountGrouper.SetOrder(d, req.Order); return true; }))
+                return ApiResults.Error(503, "STORAGE_UNAVAILABLE", "순서를 저장하지 못했습니다.");
+            hub.Broadcast("state.changed", new { keys = new[] { "accounts" } });
+            return ApiResults.Ok(new { order = req.Order });
+        });
+        // 필요 없는 캐릭터 기록 삭제. 접속 중인 캐릭터는 곧바로 다시 기록되므로 지울 수 없다.
+        api.MapDelete("/characters", (string? key, GameViews v, SseHub hub) =>
+        {
+            if (string.IsNullOrWhiteSpace(key)) return ApiResults.Error(400, "VALIDATION", "캐릭터가 필요합니다.");
+            if (!v.IsKnownCharacter(key)) return ApiResults.Error(404, "NOT_FOUND", "기록에 없는 캐릭터입니다.");
+            if (v.IsCurrentCharacter(key)) return ApiResults.Error(409, "CONFLICT", "지금 접속 중인 캐릭터는 지울 수 없습니다.");
+            v.RemoveCharacter(key);
+            hub.Broadcast("state.changed", new { keys = new[] { "accounts" } });
+            return ApiResults.Ok(new { removed = key });
         });
 
         // ── 즐겨찾기 (FR-DT-15·21): 가방 아이템 / 채집물 ──

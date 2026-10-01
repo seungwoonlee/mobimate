@@ -17,8 +17,8 @@ export interface DevicePrefs {
   autoEmote: boolean | null;
   /** 별칭 안내 말풍선을 이미 닫았는가 */
   nickHintSeen: boolean;
-  /** 전체 현황 정렬: 전투력순 / 접속 시급 순 */
-  charSort: 'combat' | 'urgency';
+  /** 전체 현황 정렬: 전투력순 / 접속 시급 순 / 내 순서(계정을 직접 정렬) */
+  charSort: 'combat' | 'urgency' | 'manual';
 }
 
 const KEY = 'mobimate.device.v1';

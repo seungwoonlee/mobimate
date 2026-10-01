@@ -289,6 +289,17 @@ public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManag
     /// <summary>기록에 있는 캐릭터인가 (멤버십·계정 지정 같은 요청의 대상 확인)</summary>
     public bool IsKnownCharacter(string key) => snapshots.GetAllProfiles().Any(p => p.CharacterKey == key);
 
+    /// <summary>지금 접속 중인 캐릭터인가 (접속 중인 캐릭터는 지울 수 없다: 곧바로 다시 기록된다)</summary>
+    public bool IsCurrentCharacter(string key) => state.Character is { } c && SnapshotManager.IsRealCharacter(c) && CharacterKey(c) == key;
+
+    /// <summary>캐릭터 기록과 계정 정보를 지운다. 기록에 없으면 false.</summary>
+    public bool RemoveCharacter(string key)
+    {
+        if (!snapshots.RemoveCharacter(key)) return false;
+        accounts.Update(d => { AccountGrouper.RemoveCharacter(d, key); return true; });
+        return true;
+    }
+
     /// <summary>지금 접속 중인 캐릭터를 읽어 기록에 남긴다(헤더 + 재화). 캐릭터 선택창이면 아무것도 남기지 않는다.</summary>
     public async Task RecordNowAsync(CancellationToken ct)
     {
@@ -373,6 +384,7 @@ public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManag
                 membership = new { expiresAt = info?.MembershipExpiresAtUtc is { } e ? new DateTimeOffset(DateTime.SpecifyKind(e, DateTimeKind.Utc)) : (DateTimeOffset?)null, active = member },
                 caps = new { silver = CoinForecast.SilverCap(member), tribute = CoinForecast.TributeCap(member) },
                 hasCurrent = members.Any(m => m.isCurrent),
+                manualRank = data.Order.IndexOf(id),   // 사용자가 정한 순서(없으면 -1)
                 topCombat = members.Max(m => m.combat),
                 members,
             };
