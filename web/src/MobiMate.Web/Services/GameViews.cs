@@ -62,6 +62,7 @@ public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManag
     private CharacterInfo Stabilize(CharacterInfo ch, string key)
     {
         if (!SnapshotManager.IsRealCharacter(ch)) return ch;   // 캐릭터 선택창의 빈 정보는 재확인 대상이 아니다
+        ch = KeepTitle(ch, key);
         if (snapshots.IsSubJob(key, ch)) return ch;             // 부직업으로 잠시 바꾼 전투력은 주직업 기록과 비교하지 않는다
         if (ch.CombatScore is not { } score) return ch;
         var saved = snapshots.GetSavedCombat(key);
@@ -69,6 +70,16 @@ public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManag
         if (!v.Suspect) return ch;
         if (guard.TryBeginRecheck(key)) _ = Task.Run(() => RecheckCombatAsync(key, v.Value));
         return ch with { CombatScore = score with { Value = v.Value } };
+    }
+
+    /// <summary>칭호가 아직 안 불러와져 비어 있으면 알던 칭호(같은 캐릭터의 직전 읽기 → 저장된 기록)를 유지한다.</summary>
+    private CharacterInfo KeepTitle(CharacterInfo ch, string key)
+    {
+        if (!string.IsNullOrWhiteSpace(ch.Title)) return ch;
+        var known = state.CurrentKey == key ? state.Character?.Title : null;
+        if (string.IsNullOrWhiteSpace(known))
+            known = snapshots.GetProfileByKey(key)?.History.LastOrDefault(h => !string.IsNullOrWhiteSpace(h.Title))?.Title;
+        return CharacterIdentity.KeepTitle(ch, known);
     }
 
     private async Task RecheckCombatAsync(string key, long known)

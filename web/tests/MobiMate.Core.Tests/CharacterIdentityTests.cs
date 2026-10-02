@@ -90,4 +90,14 @@ public class CharacterIdentityTests
         Assert.False(CharacterIdentity.IsJobSwap("아이라", "검술사", "아이라", "화염술사", null, Main));
         Assert.False(CharacterIdentity.IsJobSwap("아이라", "검술사", "아이라", "화염술사", new Wallet(0, 0, 0), new Wallet(0, 0, 0)));
     }
+
+    [Fact]
+    public void KeepTitle_BlankReadKeepsTheKnownTitle_UntilANewOneIsConfirmed()
+    {
+        CharacterInfo Ch(string? title) => new(title, "아이라", 100, "사제", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        Assert.Equal("이거밖에 안 되심?", CharacterIdentity.KeepTitle(Ch(""), "이거밖에 안 되심?").Title);
+        Assert.Equal("이거밖에 안 되심?", CharacterIdentity.KeepTitle(Ch(null), "이거밖에 안 되심?").Title);
+        Assert.Equal("  ", CharacterIdentity.KeepTitle(Ch("  "), null).Title);                        // 알던 칭호가 없으면 그대로
+        Assert.Equal("새 칭호", CharacterIdentity.KeepTitle(Ch("새 칭호"), "이거밖에 안 되심?").Title);   // 바뀐 것이 확인되면 바꾼다
+    }
 }
