@@ -51,6 +51,9 @@ public sealed class HomeworkDefinition
     /// <summary>자동으로 판정되는 숙제: 전체 탭의 캐릭터 카드에 완료 여부를 보여 준다.</summary>
     public bool AutoCheck { get; init; }
 
+    /// <summary>캐릭터 카드 칩에 쓰는 짧은 이름. 없으면 Title.</summary>
+    public string? CardLabel { get; init; }
+
     /// <summary>클리어 보상 재화 이름 (FR-HW-17). 수량이 늘면 "클리어 추정" 제안만 한다. 공백 정규화 후 완전 일치로 찾는다.</summary>
     public string? TokenCurrency { get; init; }
 
