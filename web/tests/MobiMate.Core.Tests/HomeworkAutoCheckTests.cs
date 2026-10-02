@@ -281,6 +281,39 @@ public class HomeworkAutoCheckTests : IDisposable
     }
 
     [Fact]
+    public void Vanguard_SwitchingAway_KeepsTheLastSeenTodoAndRemaining_OnTheCard()
+    {
+        // 사고 재현 (2026-10-02): 화염술사 카드의 "뱅가드(3)"이 다른 캐릭터로 접속하자 "뱅가드"로 돌아갔다
+        var svc = NewService();
+        svc.Evaluate(Main, Quests(Counted(Vanguard, (0, 3))));
+        Assert.Equal(3, Auto(svc, Main, "weekly_vanguard_breach").Remaining);
+        _now += TimeSpan.FromMinutes(1);
+        svc.Evaluate(Alt, Quests(Other));
+        _now += TimeSpan.FromMinutes(1);
+        svc.Evaluate(Alt, Quests(Other));
+        var a = Auto(svc, Main, "weekly_vanguard_breach");
+        Assert.Equal("todo", a.State);
+        Assert.Equal(3, a.Remaining);
+        Assert.Equal("todo", Auto(NewService(), Main, "weekly_vanguard_breach").State);   // 재기동 뒤에도
+    }
+
+    [Fact]
+    public void Vanguard_ReturningWhileTheQuestIsStillThere_ResumesContinuity_SoVanishingCompletes()
+    {
+        var svc = NewService();
+        svc.Evaluate(Main, Quests(Counted(Vanguard, (0, 3))));
+        _now += TimeSpan.FromMinutes(1);
+        svc.Evaluate(Alt, Quests(Other));
+        _now += TimeSpan.FromMinutes(1);
+        svc.Evaluate(Main, Quests(Other));                                   // 전환 직후 한 번은 건너뛴다
+        svc.Evaluate(Main, Quests(Counted(Vanguard, (1, 3))));              // 돌아와서 다시 보인다
+        Assert.Equal(2, Auto(svc, Main, "weekly_vanguard_breach").Remaining);
+        _now += TimeSpan.FromMinutes(5);
+        svc.Evaluate(Main, Quests(Other));                                   // 끊김 없이 사라짐
+        Assert.Equal(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main), "weekly_vanguard_breach").Status);
+    }
+
+    [Fact]
     public void Vanguard_ContinuityBreak_DoesNotAffectDayDungeon()
     {
         var svc = NewService();

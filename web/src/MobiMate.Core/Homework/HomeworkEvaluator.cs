@@ -38,7 +38,7 @@ public static partial class HomeworkEvaluator
         {
             var due = def.Period == HomeworkPeriod.Daily ? dailyDue : weeklyDue;
             if (due && ledger.Items.Remove(def.Id)) changed.Add(def.Id);
-            if (due) ledger.QuestSightings?.Remove(def.Id);
+            if (due) { ledger.QuestSightings?.Remove(def.Id); ledger.QuestContinuityBroken?.Remove(def.Id); }
         }
         if (dailyDue) ledger.LastDailyResetUtc = lastDaily;
         if (weeklyDue) ledger.LastWeeklyResetUtc = lastWeekly;
@@ -190,16 +190,27 @@ public static partial class HomeworkEvaluator
         var sightings = character.QuestSightings ??= new Dictionary<string, DateTimeOffset>(StringComparer.OrdinalIgnoreCase);
         var cycleStart = KstClock.LastReset(def.Period, now);
         var visible = obs.Quests!.FirstOrDefault(q => MatchesQuest(def, titles, q.QuestTitle));
+        var broken = character.QuestContinuityBroken?.Contains(def.Id) == true;
         if (visible != null)
         {
             if (!sightings.TryGetValue(def.Id, out var at) || at < cycleStart) sightings[def.Id] = now;   // 주기당 한 번만 기록(저장 횟수를 줄인다)
+            if (broken) character.QuestContinuityBroken!.Remove(def.Id);   // 다시 보인다: 여기서부터 끊김 없이 지켜본다
             st.RemainingCount = def.ShowRemaining ? RemainingOf(visible) : null;
             st.Evidence = $"퀘스트 '{HomeworkText.StripTags(visible.QuestTitle)}'가 아직 목록에 있음: 이번 주기 미완료" + (st.RemainingCount is { } r ? $" (남은 {r}회)" : "");
             return;
         }
         if (obs.Quests!.Count == 0) return;
-        if (sightings.TryGetValue(def.Id, out var seen) && seen >= cycleStart)
-            Complete(st, def.Goal, $"{VanishEvidence}: 이번 주기에 보였다가 사라져 완료로 판단", now);
+        if (!sightings.TryGetValue(def.Id, out var seen) || seen < cycleStart) return;
+        if (def.Continuous && broken)
+        {
+            // 캐릭터를 바꾼 사이에 사라졌다: 그 사이 무슨 일인지 모른다. 완료로 보지 않고 확인했던 값도 거둔다(미확인으로 돌아간다)
+            sightings.Remove(def.Id);
+            character.QuestContinuityBroken!.Remove(def.Id);
+            st.Evidence = null;
+            st.RemainingCount = null;
+            return;
+        }
+        Complete(st, def.Goal, $"{VanishEvidence}: 이번 주기에 보였다가 사라져 완료로 판단", now);
     }
 
     [System.Text.RegularExpressions.GeneratedRegex(@"(\d+)\s*/\s*(\d+)")]
