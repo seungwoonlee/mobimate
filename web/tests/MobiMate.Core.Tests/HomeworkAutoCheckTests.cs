@@ -314,6 +314,59 @@ public class HomeworkAutoCheckTests : IDisposable
         Assert.Equal(HomeworkCardStatus.AutoDone, Card(restarted.GetBoard(Main), "weekly_vanguard_breach").Status);
     }
 
+    private static QuestItem Counted(string title, params (int Count, int Goal)[] objs) =>
+        new(title, "main", "메인", objs.Select(o => new QuestObjective($"<color=orange>클리어</color> {o.Count}/{o.Goal}", o.Count >= o.Goal, o.Count, o.Goal)).ToList());
+
+    [Theory]
+    [InlineData(0, 3, 3)]
+    [InlineData(1, 3, 2)]
+    [InlineData(2, 3, 1)]
+    public void Vanguard_RemainingCount_FromObjectiveCountAndGoal(int count, int goal, int remaining)
+    {
+        var svc = NewService();
+        svc.Evaluate(Main, Quests(Counted(Vanguard, (count, goal))));
+        var a = Auto(svc, Main, "weekly_vanguard_breach");
+        Assert.Equal("todo", a.State);
+        Assert.Equal(remaining, a.Remaining);
+        Assert.Contains($"남은 {remaining}회", Card(svc.GetBoard(Main), "weekly_vanguard_breach").Evidence);
+    }
+
+    [Fact]
+    public void Vanguard_RemainingCount_CountsIncompleteObjectivesAndTracksProgress()
+    {
+        var svc = NewService();
+        svc.Evaluate(Main, Quests(Counted(Vanguard, (0, 1), (0, 1), (0, 1))));
+        Assert.Equal(3, Auto(svc, Main, "weekly_vanguard_breach").Remaining);
+        _now += TimeSpan.FromMinutes(10);
+        svc.Evaluate(Main, Quests(Counted(Vanguard, (1, 1), (0, 1), (0, 1))));
+        Assert.Equal(2, Auto(svc, Main, "weekly_vanguard_breach").Remaining);
+        _now += TimeSpan.FromMinutes(10);
+        svc.Evaluate(Main, Quests(Counted(Vanguard, (1, 1), (1, 1), (0, 1))));
+        Assert.Equal(1, Auto(svc, Main, "weekly_vanguard_breach").Remaining);
+        _now += TimeSpan.FromMinutes(10);
+        svc.Evaluate(Main, Quests(Other));
+        var done = Auto(svc, Main, "weekly_vanguard_breach");
+        Assert.Equal("done", done.State);
+        Assert.Null(done.Remaining);
+    }
+
+    [Fact]
+    public void Vanguard_RemainingCount_FromTheTitleWhenObjectivesHaveNoNumbers()
+    {
+        var svc = NewService();
+        svc.Evaluate(Main, Quests(Quest("[긴급 의뢰] 뱅가드 브리치 (1/3)", false)));
+        Assert.Equal(2, Auto(svc, Main, "weekly_vanguard_breach").Remaining);
+    }
+
+    [Fact]
+    public void Vanguard_UnknownRemaining_IsNull_AndOtherItemsNeverShowIt()
+    {
+        var svc = NewService();
+        svc.Evaluate(Main, Quests(Quest(Vanguard, false), Counted(Gem, (0, 5))));
+        Assert.Null(Auto(svc, Main, "weekly_vanguard_breach").Remaining);
+        Assert.Null(Auto(svc, Main, "daily_day_dungeon").Remaining);   // ShowRemaining 항목만
+    }
+
     // ── 캐릭터 카드용 현황 ──
 
     [Fact]

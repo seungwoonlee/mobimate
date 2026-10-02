@@ -140,7 +140,9 @@ public record NearPcItem(
 // 9-1. 퀘스트 트래커 (get_quests). 제목·목표 문구에 유니티 리치텍스트 태그가 섞여 온다 (K-04).
 public record QuestObjective(
     [property: JsonPropertyName("Description")] string? Description,
-    [property: JsonPropertyName("IsCompleted")] bool IsCompleted
+    [property: JsonPropertyName("IsCompleted")] bool IsCompleted,
+    [property: JsonPropertyName("Count")] int? Count = null,
+    [property: JsonPropertyName("Goal")] int? Goal = null
 );
 
 public record QuestItem(
