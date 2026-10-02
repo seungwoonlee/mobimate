@@ -70,4 +70,24 @@ public class CharacterIdentityTests
         Assert.False(CharacterIdentity.SameReading(Ch(100, 90000, 5000), Ch(100, 60000, 3000)));
         Assert.False(CharacterIdentity.SameReading(null, Ch(100, 90000, 5000)));
     }
+
+    private static readonly Wallet Main = new(7231, 2239, 51085371);
+
+    [Fact]
+    public void JobSwap_SameGoldDecaMCash_IsTheSameCharacter()
+    {
+        Assert.True(CharacterIdentity.IsJobSwap("아이라", "검술사", "아이라", "화염술사", Main, Main));
+        Assert.True(CharacterIdentity.IsJobSwap("아이라", "검술사", "아이라", "화염술사", Main, Main with { Gold = 51085371 - 1000 }));   // 골드 0.1% 이내 변동
+    }
+
+    [Fact]
+    public void JobSwap_NotWhenWalletDiffers_OrJobSame_OrNoWallet()
+    {
+        Assert.False(CharacterIdentity.IsJobSwap("아이라", "검술사", "아이라", "화염술사", Main, Main with { Gold = 14263039 }));   // 같은 계정의 다른 캐릭터: 골드가 다르다
+        Assert.False(CharacterIdentity.IsJobSwap("아이라", "검술사", "아이라", "화염술사", Main, new Wallet(18944, 30, 14263039)));   // 다른 계정
+        Assert.False(CharacterIdentity.IsJobSwap("아이라", "검술사", "아이라", "검술사", Main, Main));
+        Assert.False(CharacterIdentity.IsJobSwap("아이라", "검술사", "바람", "화염술사", Main, Main));
+        Assert.False(CharacterIdentity.IsJobSwap("아이라", "검술사", "아이라", "화염술사", null, Main));
+        Assert.False(CharacterIdentity.IsJobSwap("아이라", "검술사", "아이라", "화염술사", new Wallet(0, 0, 0), new Wallet(0, 0, 0)));
+    }
 }

@@ -84,4 +84,40 @@ public class RealCharacterTests : IDisposable
         Assert.Equal(90000, m.GetProfileByKey("아이라_사제")!.History.Last().CombatScore);
         Assert.Null(m.SplitLatest("아이라_사제#2"));                                    // 기록이 하나뿐이면 나눌 것이 없다
     }
+
+    private static List<CurrencyItem> Wallet(long deca, long mcash, long gold) => new() { new("데카", deca), new("M캐시", mcash), new("골드", gold) };
+
+    [Fact]
+    public void SubJobSwap_IsNotAnotherAccountsCharacter_AndLeavesTheMainRecordUntouched()
+    {
+        // 사고 재현 (2026-10-02): GALAXYZ(검술사)가 화염술사로 잠시 바꾸자 다른 계정의 윈클라우드(화염술사)로 오인했다
+        var m = new SnapshotManager(_dir);
+        var galaxy = Wallet(7231, 2239, 51085371);
+        m.UpdateSnapshot(Info("에린", "검술사", 100, 112131), galaxy, null, "에린_검술사");
+        m.UpdateSnapshot(Info("에린", "화염술사", 100, 101718), Wallet(18944, 30, 14262936), null, "에린_화염술사");   // 윈클라우드
+
+        var sub = Info("에린", "화염술사", 100, 105849);   // GALAXYZ가 화염술사로 전환
+        Assert.Equal("에린_검술사", m.DetectJobSwap("에린_검술사", sub, galaxy, galaxy));
+        Assert.True(m.IsSubJob("에린_검술사", sub));
+
+        var before = m.GetProfileByKey("에린_검술사")!.History.Count;
+        var d = m.UpdateSnapshot(sub, galaxy, null, "에린_검술사");
+        Assert.Equal(0, d.CombatScoreDiff);
+        var main = m.GetProfileByKey("에린_검술사")!;
+        Assert.Equal(before, main.History.Count);
+        Assert.Equal(112131, main.History[^1].CombatScore);
+        Assert.Equal("검술사", main.JobName);
+        Assert.Equal(14262936, m.GetProfileByKey("에린_화염술사")!.History[^1].Gold);   // 윈클라우드 기록도 그대로
+    }
+
+    [Fact]
+    public void RealLoginAsAnotherCharacter_IsNotAJobSwap()
+    {
+        var m = new SnapshotManager(_dir);
+        m.UpdateSnapshot(Info("에린", "검술사", 100, 112131), Wallet(7231, 2239, 51085371), null, "에린_검술사");
+        var other = Info("에린", "화염술사", 100, 101718);
+        Assert.Null(m.DetectJobSwap("에린_검술사", other, Wallet(18944, 30, 14262936), Wallet(7231, 2239, 51085371)));   // 다른 계정
+        Assert.Null(m.DetectJobSwap("에린_검술사", other, Wallet(7231, 2239, 12000000), Wallet(7231, 2239, 51085371)));   // 같은 계정의 다른 캐릭터: 골드가 다르다
+        Assert.False(m.IsSubJob("에린_검술사", Info("에린", "검술사", 100)));
+    }
 }
