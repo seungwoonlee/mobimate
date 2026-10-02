@@ -100,6 +100,8 @@ builder.Services.AddHostedService(sp => sp.GetRequiredService<LanService>());
 builder.Services.AddHostedService<InstancePipeListener>();
 builder.Services.AddHostedService<TrayHost>();
 
+builder.Services.Configure<HostOptions>(o => o.ShutdownTimeout = TimeSpan.FromSeconds(5));   // 종료가 오래 걸리면 기다리지 않는다
+
 var app = builder.Build();
 
 app.Use(async (ctx, next) =>
