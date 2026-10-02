@@ -159,7 +159,7 @@ public sealed class TrayHost(
             menu.Items.Add(_lanItem);
             menu.Items.Add(new WinForms.ToolStripSeparator());
             menu.Items.Add("로그 폴더 열기", null, (_, _) => OpenFolder(Path.Combine(options.StorageDir, "logs")));
-            menu.Items.Add("종료", null, (_, _) => lifetime.StopApplication());
+            menu.Items.Add("종료", null, (_, _) => RequestExit());
             menu.Opening += (_, _) => RefreshMenu();
             _ = menu.Handle;   // 이 스레드에 핸들을 만들어 두어 Invoke가 동작하게 한다
 
@@ -180,6 +180,22 @@ public sealed class TrayHost(
             log.LogWarning(ex, "트레이 아이콘을 만들지 못했습니다.");
             _ready.Set();
         }
+    }
+
+    /// <summary>
+    /// 종료 요청. 정상 종료가 10초 안에 끝나지 않으면(응답 없는 작업·연결이 붙잡을 때) 프로세스를 강제로 끝낸다.
+    /// 저장은 변경 때마다 하므로 잃는 데이터는 없다.
+    /// </summary>
+    private void RequestExit()
+    {
+        log.LogInformation("트레이에서 종료를 요청했습니다.");
+        _ = Task.Run(async () =>
+        {
+            await Task.Delay(TimeSpan.FromSeconds(10));
+            log.LogWarning("정상 종료가 끝나지 않아 프로세스를 강제로 끝냅니다.");
+            Environment.Exit(0);
+        });
+        lifetime.StopApplication();
     }
 
     /// <summary>WinForms 이벤트의 async void 처리기에서 예외가 새면 프로세스가 죽는다. 로그로만 남긴다.</summary>

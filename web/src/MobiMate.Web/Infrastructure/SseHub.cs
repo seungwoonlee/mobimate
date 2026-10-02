@@ -10,7 +10,7 @@ namespace MobiMate.Web.Infrastructure;
 /// 이벤트: hello, status, header, toast, gather, chat.logged, state.changed, homework.changed, ping.
 /// AI 대화는 여기로 보내지 않는다 (FR-AI-04).
 /// </summary>
-public sealed class SseHub(ServerIdentity identity, MobiMateOptions options, ILogger<SseHub> log)
+public sealed class SseHub(ServerIdentity identity, MobiMateOptions options, IHostApplicationLifetime life, ILogger<SseHub> log)
 {
     private readonly ConcurrentDictionary<string, Connection> _connections = new();
 
@@ -45,7 +45,9 @@ public sealed class SseHub(ServerIdentity identity, MobiMateOptions options, ILo
         var conn = new Connection(Guid.NewGuid().ToString("N")[..12], deviceId, ctx.Connection.LocalIpAddress,
             Channel.CreateBounded<string>(new BoundedChannelOptions(256) { FullMode = BoundedChannelFullMode.DropOldest }));
         _connections[conn.Id] = conn;
-        var ct = ctx.RequestAborted;
+        // 앱을 끌 때 열려 있는 연결이 종료를 붙잡지 않게 한다 (브라우저 탭이 열려 있으면 Kestrel이 연결이 끝나기를 기다린다)
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(ctx.RequestAborted, life.ApplicationStopping);
+        var ct = linked.Token;
 
         ctx.Response.Headers.ContentType = "text/event-stream; charset=utf-8";
         ctx.Response.Headers.CacheControl = "no-store";
