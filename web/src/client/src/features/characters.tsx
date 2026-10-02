@@ -153,13 +153,12 @@ function CoinChip({ label, c }: { label: string; c: CoinView }) {
   );
 }
 
-/** 자동 판정되는 숙제 한 줄 (전체 탭 카드): 완료 ✔ / 미완료(확인됨) / 미완료(아직 확인 못 함, 흐리게) */
+/** 자동 판정되는 숙제 칩 (전체 탭 카드): 짧은 이름 + 아이콘만. 완료 ✔ 초록 / 확인된 미완료 ○ 주황 테두리 / 아직 확인 못 함 ○ 점선 */
 function HwChip({ h }: { h: HomeworkAuto }) {
-  const label = h.state === 'done' ? '완료' : '미완료';
-  const hint = h.evidence ?? (h.state === 'unknown' ? '이번 주기에 접속해서 확인하기 전입니다' : undefined);
+  const text = h.state === 'done' ? '완료' : h.state === 'todo' ? '미완료 (확인됨)' : '미완료 (아직 확인 전)';
   return (
-    <span className={`hw-chip ${h.state}`} title={hint}>
-      <Icon name={h.state === 'done' ? 'check' : 'clock'} size={12} />{h.title} <b>{label}</b>
+    <span className={`hw-chip ${h.state}`} title={`${h.title}: ${h.evidence ?? text}`} aria-label={`${h.title} ${text}`}>
+      <Icon name={h.state === 'done' ? 'check' : 'clock'} size={11} />{h.title}
     </span>
   );
 }

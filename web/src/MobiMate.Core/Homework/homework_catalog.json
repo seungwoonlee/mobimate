@@ -8,7 +8,7 @@
     { "id": "daily_black_hole", "category": "daily", "period": "daily", "share": "character", "mode": "manual",
       "title": "검은 구멍", "subtitle": "콘텐츠 가이드 일일 검은 구멍 차원 정화", "icon": "black-hole", "goal": 1,
       "needsMeasurement": "진행 신호용 공간명(GameSpaceDisplayName) 미확인" },
-    { "id": "daily_day_dungeon", "category": "daily", "period": "daily", "share": "character", "mode": "questVanish", "autoCheck": true,
+    { "id": "daily_day_dungeon", "category": "daily", "period": "daily", "share": "character", "mode": "questVanish", "autoCheck": true, "cardLabel": "요일던전",
       "title": "요일 던전", "subtitle": "콘텐츠 가이드 요일 던전 일일 클리어 (퀘스트가 목록에서 사라지면 완료)", "icon": "dungeon", "goal": 1,
       "dayQuestTitles": {
         "mon": ["빛나는 황금을 찾아서"], "thu": ["빛나는 황금을 찾아서"],
@@ -24,7 +24,7 @@
       "title": "소환의 결계", "subtitle": "콘텐츠 가이드 주간 소환의 결계 (1~7단계)", "icon": "barrier", "goal": 7 },
     { "id": "weekly_black_hole_1_7", "category": "weekly", "period": "weekly", "share": "character", "mode": "manualStepCounter",
       "title": "검은 구멍 (주간)", "subtitle": "콘텐츠 가이드 주간 검은 구멍 (1~7단계)", "icon": "black-hole", "goal": 7 },
-    { "id": "weekly_guild_regular", "category": "goal", "period": "weekly", "share": "character", "mode": "questSuffix", "autoCheck": true,
+    { "id": "weekly_guild_regular", "category": "goal", "period": "weekly", "share": "character", "mode": "questSuffix", "autoCheck": true, "cardLabel": "길드의뢰",
       "title": "모험가 길드 정기 의뢰", "subtitle": "[주간 목표] 퀘스트 — 클리어하면 이름 뒤에 (1)이 붙는다", "icon": "guild", "goal": 1,
       "questTitles": ["[주간 목표] 모험가 길드의 정기 의뢰"] },
     { "id": "weekly_vanguard_breach", "category": "weekly", "period": "weekly", "share": "character", "mode": "questAllObjectives",
@@ -47,7 +47,7 @@
 
     { "id": "raid_cavrak", "category": "raid", "period": "weekly", "share": "character", "mode": "manual",
       "title": "카브락", "subtitle": "주간 레이드 흑룡 카브락 토벌 (증표가 늘면 완료)", "icon": "raid", "goal": 1, "bossNames": ["카브락", "카브라크"],
-      "tokenCurrency": "원정의 증거: 카브락 레이드", "tokenAuto": true, "autoCheck": true },
+      "tokenCurrency": "원정의 증거: 카브락 레이드", "tokenAuto": true, "autoCheck": true, "cardLabel": "카브락" },
     { "id": "raid_glasgivnen", "category": "raid", "period": "weekly", "share": "character", "mode": "manual", "active": false,
       "title": "글라스기브넨", "subtitle": "주간 레이드 글라스기브넨 (지금은 열려 있지 않음)", "icon": "raid", "goal": 1,
       "tokenCurrency": "원정의 증거: 글라스기브넨 레이드", "tokenAuto": true, "autoCheck": true },
@@ -79,7 +79,7 @@
       "title": "길드 미션 & 기부", "subtitle": "주간 길드 미션 및 골드 기부", "icon": "guild", "goal": 1,
       "needsMeasurement": "근거 미션 제목과 공유 범위(캐릭터/계정) 미확인" },
 
-    { "id": "daily_altering", "category": "life", "period": "daily", "share": "character", "mode": "alteringCollected", "autoCheck": true,
+    { "id": "daily_altering", "category": "life", "period": "daily", "share": "character", "mode": "alteringCollected",
       "title": "가공시설 수거", "subtitle": "대기열 완료된 연금/가공물 수거", "icon": "altering", "goal": 1 },
 
     { "id": "daily_cash_free_fashion", "category": "shop", "period": "daily", "share": "account", "mode": "manual",

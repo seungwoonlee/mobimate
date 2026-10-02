@@ -215,7 +215,7 @@ public sealed class HomeworkService
                     else if (def.EffectiveMode == HomeworkMode.QuestSuffix) state = st?.Evidence != null ? "todo" : "unknown";
                     else if (!string.IsNullOrWhiteSpace(def.TokenCurrency)) state = fresh && ledger!.RaidTokensObservedUtc >= cycleStart ? "todo" : "unknown";
                     else state = "unknown";
-                    list.Add(new HomeworkAutoStatus(def.Id, def.Title, def.Period == HomeworkPeriod.Daily ? "daily" : "weekly", state, st?.Evidence));
+                    list.Add(new HomeworkAutoStatus(def.Id, def.CardLabel ?? def.Title, def.Period == HomeworkPeriod.Daily ? "daily" : "weekly", state, st?.Evidence));
                 }
                 result[key] = list;
             }
