@@ -88,6 +88,12 @@ public static class CharacterIdentity
     public const double GoldDriftRatio = 0.001;
 
     /// <summary>
+    /// 칭호는 불러오는 데 시간이 걸려 잠깐 비어 올 수 있다: 비어 있으면 알던 칭호를 그대로 쓴다. 칭호가 바뀐 것이 확인될 때(비어 있지 않은 값)만 바꾼다.
+    /// </summary>
+    public static CharacterInfo KeepTitle(CharacterInfo ch, string? known) =>
+        string.IsNullOrWhiteSpace(ch.Title) && !string.IsNullOrWhiteSpace(known) ? ch with { Title = known } : ch;
+
+    /// <summary>
     /// 앞서 읽은 캐릭터와 같은 캐릭터로 이어 봐도 되는 읽기인가 (서버·직업·레벨이 같고 전투력이 5%, 생활력이 1% 안쪽).
     /// 아니면 캐릭터가 바뀌었을 수 있으니 재화를 새로 읽어 다시 판정한다. 잘못 의심해도 판정 결과가 같으면 달라지는 것은 없다.
     /// </summary>
