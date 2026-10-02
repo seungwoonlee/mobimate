@@ -441,6 +441,15 @@ button.toast { border: 0; text-align: left; cursor: pointer; }
 .coins{flex-direction:column;flex-wrap:nowrap;align-items:flex-end;gap:2px}
 .coin,.seen{white-space:nowrap}
 @supports (grid-template-rows: subgrid) {
-  .card.char{grid-row:span 6;grid-template-rows:subgrid;row-gap:0}
+  .card.char{grid-row:span 7;grid-template-rows:subgrid;row-gap:0}
   .card.char>*+*{margin-top:8px}
 }
+
+/* ── 캐릭터 카드의 자동 판정 숙제 칩 / 숙제 카드의 확인된 미완료 안내 ── */
+.cc-hw{display:flex;flex-wrap:wrap;gap:6px}
+.hw-chip{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:999px;font-size:12px;line-height:1.3;border:1px solid var(--line);color:var(--text-2);white-space:nowrap}
+.hw-chip b{font-weight:700}
+.hw-chip.done{color:var(--ok);border-color:var(--ok);background:var(--ok-soft)}
+.hw-chip.todo{color:var(--text-1);border-color:var(--warn)}
+.hw-chip.unknown{color:var(--text-3);border-style:dashed}
+.hw-warn{margin:4px 0 0;color:var(--warn)}

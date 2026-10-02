@@ -20,7 +20,7 @@ public sealed record HomeworkEvaluation(IReadOnlyList<string> ChangedIds, IReadO
 /// - 보스 교전·공간 입장은 "진행 중" 신호일 뿐 완료가 아니다 (H-1)
 /// - 수동 설정한 항목은 이번 주기 동안 건드리지 않는다, 완료는 리셋 전까지 유지한다
 /// </summary>
-public static class HomeworkEvaluator
+public static partial class HomeworkEvaluator
 {
     public static readonly TimeSpan AlteringCompareWindow = TimeSpan.FromMinutes(10);
 
@@ -38,6 +38,7 @@ public static class HomeworkEvaluator
         {
             var due = def.Period == HomeworkPeriod.Daily ? dailyDue : weeklyDue;
             if (due && ledger.Items.Remove(def.Id)) changed.Add(def.Id);
+            if (due) ledger.QuestSightings?.Remove(def.Id);
         }
         if (dailyDue) ledger.LastDailyResetUtc = lastDaily;
         if (weeklyDue) ledger.LastWeeklyResetUtc = lastWeekly;
@@ -54,17 +55,30 @@ public static class HomeworkEvaluator
         var alteringCollected = ObserveAltering(character, obs, nowUtc, characterJustSwitched);
         var raidSuggestions = ObserveRaidTokens(character, catalog, obs, nowUtc, characterJustSwitched);
 
-        foreach (var def in catalog.Items)
+        // 캐릭터를 바꾼 직후의 퀘스트 목록은 이전 캐릭터 것일 수 있다: 퀘스트 기반 판정은 이번 관찰을 건너뛴다
+        var questsUsable = !characterJustSwitched && obs.Quests != null;
+
+        foreach (var def in catalog.Items.Where(d => d.Active))
         {
             var ledger = def.Share == HomeworkShare.Account ? account : character;
             var existing = ledger.Items.GetValueOrDefault(def.Id);
+
+            // 사라져서 완료로 본 퀘스트가 같은 주기에 다시 보이면 사라진 것이 완료가 아니었다(트래커 슬롯 변경 등): 완료를 취소한다
+            if (def.EffectiveMode == HomeworkMode.QuestVanish && questsUsable
+                && existing is { Completed: true, Auto: true, ManualOverride: false } && existing.Evidence?.StartsWith(VanishEvidence, StringComparison.Ordinal) == true
+                && QuestVisible(def, obs, now: nowUtc))
+            {
+                ledger.Items.Remove(def.Id);
+                changed.Add(def.Id);
+                existing = null;
+            }
 
             if (existing?.Completed != true && def.HasProgressSignal && IsProgressSignal(def, obs)) inProgress.Add(def.Id);
             if (existing is { ManualOverride: true } or { Completed: true }) continue;
 
             // 빈 상태를 미리 만들지 않는다. 값이 바뀔 때만 장부에 넣는다.
             var st = existing ?? new HomeworkItemState();
-            var before = (st.Completed, st.Count, st.Goal, st.Suggestion);
+            var before = (st.Completed, st.Count, st.Goal, st.Suggestion, st.Evidence);
             switch (def.EffectiveMode)
             {
                 case HomeworkMode.DirectMission:
@@ -79,9 +93,19 @@ public static class HomeworkEvaluator
                 case HomeworkMode.AlteringCollected when alteringCollected != null:
                     Complete(st, def.Goal, alteringCollected, nowUtc);
                     break;
+                case HomeworkMode.QuestVanish when questsUsable:
+                    EvaluateQuestVanish(def, st, character, obs, nowUtc);
+                    break;
+                case HomeworkMode.QuestSuffix when questsUsable:
+                    EvaluateQuestSuffix(def, st, obs, nowUtc);
+                    break;
             }
-            if (!st.Completed && raidSuggestions.TryGetValue(def.Id, out var suggestion)) st.Suggestion = suggestion;
-            if ((st.Completed, st.Count, st.Goal, st.Suggestion) != before)
+            if (!st.Completed && raidSuggestions.TryGetValue(def.Id, out var suggestion))
+            {
+                if (def.TokenAuto) Complete(st, def.Goal, $"{suggestion.Item} {suggestion.From} → {suggestion.To} 증가 관찰", nowUtc);
+                else st.Suggestion = suggestion;
+            }
+            if ((st.Completed, st.Count, st.Goal, st.Suggestion, st.Evidence) != before)
             {
                 ledger.Items[def.Id] = st;
                 changed.Add(def.Id);
@@ -127,6 +151,78 @@ public static class HomeworkEvaluator
             titles.Contains(HomeworkText.Normalize(x.QuestTitle)) &&
             x.Objectives is { Count: > 0 } objs && objs.All(o => o.IsCompleted));   // H-2: 목표 0개·일부 완료는 근거 아님
         if (q != null) Complete(st, def.Goal, $"퀘스트 '{HomeworkText.StripTags(q.QuestTitle)}' 목표 {q.Objectives!.Count}개 모두 완료", now);
+    }
+
+
+    public const string VanishEvidence = "퀘스트가 목록에서 사라짐";
+
+    private static readonly string[] DayKeys = { "sun", "mon", "tue", "wed", "thu", "fri", "sat" };
+
+    /// <summary>오늘(게임 기준 06:00 경계) 트래커에 있어야 할 퀘스트 이름들 (정규화). 요일별 이름이 없으면 QuestTitles.</summary>
+    private static HashSet<string> TodayQuestTitles(HomeworkDefinition def, DateTimeOffset nowUtc)
+    {
+        var titles = def.DayQuestTitles.Count > 0
+            ? def.DayQuestTitles.GetValueOrDefault(DayKeys[(int)KstClock.GameDayOfWeek(nowUtc)]) ?? new List<string>()
+            : def.QuestTitles;
+        return titles.Select(HomeworkText.Normalize).ToHashSet();
+    }
+
+    private static bool QuestVisible(HomeworkDefinition def, HomeworkObservation obs, DateTimeOffset now)
+    {
+        var titles = TodayQuestTitles(def, now);
+        return obs.Quests?.Any(q => titles.Contains(HomeworkText.Normalize(q.QuestTitle))) == true;
+    }
+
+    /// <summary>
+    /// 요일 던전처럼 하루 한 번 받는 퀘스트: 트래커에 보이면 미완료가 확정이고(이 주기에 본 시각을 남김),
+    /// 이번 주기에 본 적이 있는데 지금 목록에서 사라졌으면 완료로 본다. 한 번도 못 봤으면 판단하지 않는다.
+    /// 빈 목록은 조회가 덜 된 것일 수 있어 "사라짐"의 근거로 쓰지 않는다.
+    /// </summary>
+    private static void EvaluateQuestVanish(HomeworkDefinition def, HomeworkItemState st, HomeworkLedger character, HomeworkObservation obs, DateTimeOffset now)
+    {
+        var titles = TodayQuestTitles(def, now);
+        var sightings = character.QuestSightings ??= new Dictionary<string, DateTimeOffset>(StringComparer.OrdinalIgnoreCase);
+        var cycleStart = KstClock.LastReset(def.Period, now);
+        var visible = obs.Quests!.FirstOrDefault(q => titles.Contains(HomeworkText.Normalize(q.QuestTitle)));
+        if (visible != null)
+        {
+            if (!sightings.TryGetValue(def.Id, out var at) || at < cycleStart) sightings[def.Id] = now;   // 주기당 한 번만 기록(저장 횟수를 줄인다)
+            st.Evidence = $"퀘스트 '{HomeworkText.StripTags(visible.QuestTitle)}'가 아직 목록에 있음: 이번 주기 미완료";
+            return;
+        }
+        if (obs.Quests!.Count == 0) return;
+        if (sightings.TryGetValue(def.Id, out var seen) && seen >= cycleStart)
+            Complete(st, def.Goal, $"{VanishEvidence}: 이번 주기에 보였다가 사라져 완료로 판단", now);
+    }
+
+    [System.Text.RegularExpressions.GeneratedRegex(@"^\((\d+)\)$")]
+    private static partial System.Text.RegularExpressions.Regex SuffixCount();
+
+    /// <summary>
+    /// 주간 목표 정기 의뢰: 클리어하면 퀘스트 이름 뒤에 "(1)", "(2)"…가 붙는다 (승운 확인 2026-10-02).
+    /// 접미사가 있으면 이번 주기에 클리어했고, 이름만 보이면 아직 클리어 전이다. 이름이 목록에 없으면 판단하지 않는다.
+    /// </summary>
+    private static void EvaluateQuestSuffix(HomeworkDefinition def, HomeworkItemState st, HomeworkObservation obs, DateTimeOffset now)
+    {
+        var baseTitle = HomeworkText.Normalize(def.QuestTitles[0]);
+        foreach (var q in obs.Quests!)
+        {
+            var n = HomeworkText.Normalize(q.QuestTitle);
+            if (n == baseTitle)
+            {
+                var done = q.Objectives?.Count(o => o.IsCompleted) ?? 0;
+                var total = q.Objectives?.Count ?? 0;
+                st.Evidence = total > 0 ? $"이름 뒤 (1) 표시가 없음: 이번 주 아직 클리어 전 (목표 {done}/{total})" : "이름 뒤 (1) 표시가 없음: 이번 주 아직 클리어 전";
+                return;
+            }
+            if (!n.StartsWith(baseTitle, StringComparison.Ordinal)) continue;
+            var m = SuffixCount().Match(n[baseTitle.Length..]);
+            if (m.Success && int.Parse(m.Groups[1].Value) >= 1)
+            {
+                Complete(st, def.Goal, $"퀘스트 이름에 ({m.Groups[1].Value}) 표시: 이번 주기 클리어", now);
+                return;
+            }
+        }
     }
 
     /// <summary>

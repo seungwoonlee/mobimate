@@ -16,7 +16,9 @@ public enum HomeworkMode
     DirectMission,       // 지정한 미션 제목과 정확히 일치하는 미션의 진행도 (FR-HW-04 ①)
     MissionTotal,        // 일일·주간 미션 전체 완료 개수
     QuestAllObjectives,  // 지정한 퀘스트의 모든 목표 완료 (FR-HW-04 ②)
-    AlteringCollected    // 가공물 수거 관찰 (FR-HW-05)
+    AlteringCollected,   // 가공물 수거 관찰 (FR-HW-05)
+    QuestVanish,         // 퀘스트 트래커에 보이면 미완료, 이번 주기에 보였다가 사라지면 완료 (요일 던전)
+    QuestSuffix          // 퀘스트 이름 뒤 "(N)"이 붙으면 이번 주기에 N번 클리어 (주간 목표 정기 의뢰)
 }
 
 public sealed class HomeworkDefinition
@@ -36,6 +38,18 @@ public sealed class HomeworkDefinition
     public List<string> QuestTitles { get; init; } = new();
     public List<string> BossNames { get; init; } = new();
     public List<string> SpaceNames { get; init; } = new();
+
+    /// <summary>요일별 퀘스트 이름 (키: mon~sun, 게임의 하루는 06:00에 바뀐다). QuestVanish에서 오늘 보고 있어야 할 퀘스트를 정한다.</summary>
+    public Dictionary<string, List<string>> DayQuestTitles { get; init; } = new();
+
+    /// <summary>false면 지금 열려 있지 않은 콘텐츠: 목록·진행 통계·판정에서 빠진다 (예: 지금 열려 있지 않은 레이드).</summary>
+    public bool Active { get; init; } = true;
+
+    /// <summary>재화 수량이 늘면 제안이 아니라 곧바로 자동 완료로 본다 (TokenCurrency와 함께).</summary>
+    public bool TokenAuto { get; init; }
+
+    /// <summary>자동으로 판정되는 숙제: 전체 탭의 캐릭터 카드에 완료 여부를 보여 준다.</summary>
+    public bool AutoCheck { get; init; }
 
     /// <summary>클리어 보상 재화 이름 (FR-HW-17). 수량이 늘면 "클리어 추정" 제안만 한다. 공백 정규화 후 완전 일치로 찾는다.</summary>
     public string? TokenCurrency { get; init; }
@@ -81,6 +95,7 @@ public sealed class HomeworkCatalog
         ["raid"] = "레이드",
         ["abyss"] = "어비스",
         ["account"] = "계정 미션",
+        ["goal"] = "주간 목표",
         ["guild"] = "길드",
         ["life"] = "생활",
         ["shop"] = "상점·교환",
@@ -125,10 +140,12 @@ public sealed class HomeworkCatalog
             if (i.Pool != null && !SharedPools.ContainsKey(i.Pool)) errors.Add($"정의되지 않은 공유 풀: {i.Id} → {i.Pool}");
 
             if (i.Mode == HomeworkMode.DirectMission && i.MissionTitles.Count == 0) errors.Add($"1:1 미션 제목 없음: {i.Id}");
-            if (i.Mode == HomeworkMode.QuestAllObjectives && i.QuestTitles.Count == 0) errors.Add($"퀘스트 제목 없음: {i.Id}");
+            if (i.Mode is HomeworkMode.QuestAllObjectives or HomeworkMode.QuestSuffix && i.QuestTitles.Count == 0) errors.Add($"퀘스트 제목 없음: {i.Id}");
+            if (i.Mode == HomeworkMode.QuestVanish && i.QuestTitles.Count == 0 && i.DayQuestTitles.Count == 0) errors.Add($"퀘스트 제목 없음: {i.Id}");
+            if (i.TokenAuto && string.IsNullOrWhiteSpace(i.TokenCurrency)) errors.Add($"증표 재화 없는 TokenAuto: {i.Id}");
 
             // 매칭 키는 정규화 후 일반어 단독이면 안 된다
-            foreach (var key in i.MissionTitles.Concat(i.QuestTitles).Concat(i.BossNames).Concat(i.SpaceNames))
+            foreach (var key in i.MissionTitles.Concat(i.QuestTitles).Concat(i.DayQuestTitles.Values.SelectMany(v => v)).Concat(i.BossNames).Concat(i.SpaceNames))
             {
                 var n = HomeworkText.Normalize(key);
                 if (n.Length < 2 || GenericWords.Contains(n)) errors.Add($"일반어 단독 매칭 키: {i.Id} → \"{key}\"");

@@ -4,7 +4,14 @@ namespace MobiMate.Tests;
 public class RaidTokenTests : IDisposable
 {
     private readonly string _dir = Path.Combine(Path.GetTempPath(), "mm-raid-" + Guid.NewGuid().ToString("N"));
-    private readonly HomeworkCatalog _catalog = HomeworkCatalog.LoadEmbedded();
+    // 증표가 늘면 "제안"만 하는 일반 경로(TokenAuto 아님)를 검증하는 전용 카탈로그. 실제 카탈로그의 카브락은 TokenAuto(자동 완료)다.
+    private readonly HomeworkCatalog _catalog = HomeworkCatalog.Parse("""
+    { "version": 1, "sharedPools": {}, "items": [
+      { "id": "raid_cavrak", "category": "raid", "period": "weekly", "share": "character", "mode": "manual", "title": "카브락", "subtitle": "", "icon": "raid", "goal": 1, "tokenCurrency": "원정의 증거: 카브락 레이드" },
+      { "id": "raid_airel", "category": "raid", "period": "weekly", "share": "character", "mode": "manual", "title": "에이렐", "subtitle": "", "icon": "raid", "goal": 1, "tokenCurrency": "원정의 증거: 에이렐 레이드" },
+      { "id": "raid_white_succubus", "category": "raid", "period": "weekly", "share": "character", "mode": "manual", "title": "화이트 서큐버스", "subtitle": "", "icon": "raid", "goal": 1, "tokenCurrency": "원정의 증거: 화이트 서큐버스 레이드" }
+    ] }
+    """);
     private DateTimeOffset _now = new DateTimeOffset(2026, 9, 23, 12, 0, 0, TimeSpan.FromHours(9)).ToUniversalTime();   // 수요일
     private const string Main = "아이라_격투가";
     private const string Alt = "아이라_석궁사수";

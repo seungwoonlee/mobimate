@@ -9,7 +9,7 @@ namespace MobiMate.Web.Services;
 /// 헤더를 읽을 때마다 GameStateCache·SnapshotManager(세션 변화량)를 갱신하고 SSE "header"로 다른 기기에도 알린다.
 /// </summary>
 public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManager snapshots, SseHub hub, CutoffCatalog cutoffs,
-    FavoritesStore favorites, AccountStore accounts, WorkCategoryCatalog workKinds, CombatScoreGuard guard, MobiMateOptions options, IHostApplicationLifetime life, ILogger<GameViews> log)
+    FavoritesStore favorites, AccountStore accounts, HomeworkService homework, WorkCategoryCatalog workKinds, CombatScoreGuard guard, MobiMateOptions options, IHostApplicationLifetime life, ILogger<GameViews> log)
 {
     private readonly ConcurrentDictionary<string, Dictionary<string, int>> _bagBaselines = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, byte> _unclassifiedWorks = new();   // 분류표에 없는 가공품은 한 번만 기록한다 (FR-DT-20)
@@ -376,6 +376,7 @@ public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManag
         var data = accounts.Snapshot();
 
         long Held(Func<CurrencyItem, bool> pick, long? last) => state.Currencies?.FirstOrDefault(pick)?.Amount ?? last ?? 0;
+        var hwStatus = homework.GetAutoStatuses(profiles.Select(p => p.CharacterKey));
         var cards = profiles.Select(p =>
         {
             var last = p.History.LastOrDefault();
@@ -411,6 +412,8 @@ public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManag
                     silver = CoinView(silver), tribute = CoinView(tribute),
                     stale,   // 데카·M캐시가 계정의 최신 값과 다르다: 그 캐릭터는 마지막 접속 이후 동기화되지 않았다
                     urgency = Math.Max(silver.Percent, tribute.Percent),
+                    // 자동 판정되는 숙제의 현황 (요일 던전·카브락·정기 의뢰 등): done / todo(확인된 미완료) / unknown(아직 확인 못 함)
+                    homework = hwStatus.GetValueOrDefault(c.Key) ?? Array.Empty<HomeworkAutoStatus>(),
                 };
             }).ToList();
             return new

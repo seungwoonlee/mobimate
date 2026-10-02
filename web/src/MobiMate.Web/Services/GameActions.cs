@@ -164,7 +164,7 @@ public sealed class HomeworkWatcher(HomeworkService homework, GameQueries q, Sse
         if (tMe.Result.Value is not { } ch || string.IsNullOrWhiteSpace(ch.RealmName) || string.IsNullOrWhiteSpace(ch.JobName)) return null;
         var key = KeyOf(ch, tC.Result.Value);
         // 캐릭터가 바뀌었으면 재화 캐시가 이전 캐릭터 것일 수 있다. 이번 관찰은 판정기가 기준값만 지우고, 다음 조회는 새로 받게 한다.
-        if (homework.LastObservedCharacter is { } last && !last.Equals(key, StringComparison.OrdinalIgnoreCase)) q.Invalidate("get_currencies");
+        if (homework.LastObservedCharacter is { } last && !last.Equals(key, StringComparison.OrdinalIgnoreCase)) q.Invalidate("get_currencies", "get_quests");
         Evaluate(key, new HomeworkObservation(
             tD.Result.Value, tW.Result.Value, tQ.Result.Value, tA.Result.Value, tE.Result.Value, tW2.Result.Value,
             Currencies: tC.Result.Value));

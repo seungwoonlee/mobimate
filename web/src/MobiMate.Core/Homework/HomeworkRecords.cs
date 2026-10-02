@@ -41,6 +41,9 @@ public sealed class HomeworkLedger
     public Dictionary<string, long>? RaidTokens { get; set; }
     public DateTimeOffset? RaidTokensObservedUtc { get; set; }
 
+    /// <summary>퀘스트를 트래커에서 본 시각(숙제 ID별). QuestVanish에서 "이번 주기에 보였다가 사라짐"을 알아내는 근거다. 리셋 때 지운다.</summary>
+    public Dictionary<string, DateTimeOffset>? QuestSightings { get; set; }
+
     /// <summary>JSON에서 읽으면 대소문자 무시 비교자가 사라지므로 읽은 직후 다시 씌운다.</summary>
     internal void RestoreComparers()
     {
