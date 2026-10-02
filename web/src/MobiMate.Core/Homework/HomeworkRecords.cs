@@ -47,6 +47,12 @@ public sealed class HomeworkLedger
     /// <summary>퀘스트를 트래커에서 본 시각(숙제 ID별). QuestVanish에서 "이번 주기에 보였다가 사라짐"을 알아내는 근거다. 리셋 때 지운다.</summary>
     public Dictionary<string, DateTimeOffset>? QuestSightings { get; set; }
 
+    /// <summary>
+    /// 끊김 없는 관찰이 필요한 항목(Continuous) 중, 목격한 뒤 다른 캐릭터를 관찰해 끊긴 것의 ID. 목격 기록(미완료 확인·남은 횟수)은 그대로 두고
+    /// "사라짐 = 완료" 판정만 막는다. 퀘스트가 다시 보이거나 리셋되면 해제된다.
+    /// </summary>
+    public HashSet<string>? QuestContinuityBroken { get; set; }
+
     /// <summary>JSON에서 읽으면 대소문자 무시 비교자가 사라지므로 읽은 직후 다시 씌운다.</summary>
     internal void RestoreComparers()
     {

@@ -78,19 +78,22 @@ public sealed class HomeworkService
             var switched = last != null && !last.Equals(characterKey, StringComparison.OrdinalIgnoreCase);
             _lastEvaluatedCharacter = characterKey;
             var lastChanged = !characterKey.Equals(file.LastObservedCharacter, StringComparison.OrdinalIgnoreCase);
-            // 캐릭터를 바꿨으면 이전 캐릭터를 끊김 없이 지켜본 것이 아니다: 끊김 없는 관찰이 필요한 항목의 목격 기록을 지운다
+            // 캐릭터를 바꿨으면 이전 캐릭터를 끊김 없이 지켜본 것이 아니다: 끊김 없는 관찰이 필요한 항목에 표시만 남긴다
+            // (목격 기록은 그대로 둔다: 카드에는 마지막으로 본 "미완료·남은 횟수"가 계속 보인다)
             var continuityBroken = false;
             if (switched && last != null && file.Characters.TryGetValue(last, out var prevLedger) && prevLedger.QuestSightings is { Count: > 0 } prevSightings)
-                foreach (var d in _catalog.Items.Where(d => d.Continuous)) continuityBroken |= prevSightings.Remove(d.Id);
+                foreach (var d in _catalog.Items.Where(d => d.Continuous && prevSightings.ContainsKey(d.Id)))
+                    continuityBroken |= (prevLedger.QuestContinuityBroken ??= new HashSet<string>(StringComparer.OrdinalIgnoreCase)).Add(d.Id);
             file.LastObservedCharacter = characterKey;
 
             var alteringBefore = character.AlteringDoneCounts;
             var tokensBefore = character.RaidTokens;
             var sightingsBefore = character.QuestSightings == null ? null : new Dictionary<string, DateTimeOffset>(character.QuestSightings);
+            var brokenBefore = new HashSet<string>(character.QuestContinuityBroken ?? new HashSet<string>(), StringComparer.OrdinalIgnoreCase);
             var result = HomeworkEvaluator.Evaluate(character, file.Account, _catalog, obs, now, switched);
             // 관찰 시각만 바뀐 경우는 메모리에만 두고 저장하지 않는다 (개수 내용이 바뀌었을 때만 저장)
             var alteringChanged = !SameCounts(alteringBefore, character.AlteringDoneCounts) || !SameAmounts(tokensBefore, character.RaidTokens);
-            var sightingsChanged = !SameSightings(sightingsBefore, character.QuestSightings);
+            var sightingsChanged = !SameSightings(sightingsBefore, character.QuestSightings) || !brokenBefore.SetEquals(character.QuestContinuityBroken ?? new HashSet<string>());
 
             var signals = SignalsFor(characterKey);
             foreach (var id in result.InProgressIds) signals[id] = now;
