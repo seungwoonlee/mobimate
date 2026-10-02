@@ -78,6 +78,10 @@ public sealed class HomeworkService
             var switched = last != null && !last.Equals(characterKey, StringComparison.OrdinalIgnoreCase);
             _lastEvaluatedCharacter = characterKey;
             var lastChanged = !characterKey.Equals(file.LastObservedCharacter, StringComparison.OrdinalIgnoreCase);
+            // 캐릭터를 바꿨으면 이전 캐릭터를 끊김 없이 지켜본 것이 아니다: 끊김 없는 관찰이 필요한 항목의 목격 기록을 지운다
+            var continuityBroken = false;
+            if (switched && last != null && file.Characters.TryGetValue(last, out var prevLedger) && prevLedger.QuestSightings is { Count: > 0 } prevSightings)
+                foreach (var d in _catalog.Items.Where(d => d.Continuous)) continuityBroken |= prevSightings.Remove(d.Id);
             file.LastObservedCharacter = characterKey;
 
             var alteringBefore = character.AlteringDoneCounts;
@@ -91,7 +95,7 @@ public sealed class HomeworkService
             var signals = SignalsFor(characterKey);
             foreach (var id in result.InProgressIds) signals[id] = now;
 
-            if ((created || resetIds.Count > 0 || result.ChangedIds.Count > 0 || alteringChanged || sightingsChanged || lastChanged) && !_store.Save(file))
+            if ((created || resetIds.Count > 0 || result.ChangedIds.Count > 0 || alteringChanged || sightingsChanged || continuityBroken || lastChanged) && !_store.Save(file))
                 _file = null;   // 저장 실패: 메모리 변경을 버리고 다음 호출에서 파일을 다시 읽는다
 
             var ids = resetIds.Concat(result.ChangedIds).Concat(result.InProgressIds).Distinct().ToList();

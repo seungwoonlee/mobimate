@@ -236,6 +236,84 @@ public class HomeworkAutoCheckTests : IDisposable
         Assert.Equal(HomeworkCardStatus.Pending, Card(svc.GetBoard(Main), "weekly_guild_regular").Status);
     }
 
+    // ── 뱅가드 브리치 (주간, 끊김 없이 보였다가 사라지면 완료) ──
+
+    private const string Vanguard = "[긴급 의뢰] 뱅가드 브리치";
+
+    [Fact]
+    public void Vanguard_QuestVisible_IsConfirmedTodo_ThenVanishedWithoutSwitching_IsAutoDone()
+    {
+        var svc = NewService();
+        svc.Evaluate(Main, Quests(Quest(Vanguard, false), Other));
+        Assert.Equal("todo", Auto(svc, Main, "weekly_vanguard_breach").State);
+        Assert.Equal(HomeworkCardStatus.Pending, Card(svc.GetBoard(Main), "weekly_vanguard_breach").Status);
+
+        _now += TimeSpan.FromMinutes(10);
+        svc.Evaluate(Main, Quests(Other));
+        Assert.Equal(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main), "weekly_vanguard_breach").Status);
+        Assert.Equal("done", Auto(svc, Main, "weekly_vanguard_breach").State);
+    }
+
+    [Theory]
+    [InlineData("뱅가드 브리치")]
+    [InlineData("<color=orange>[긴급 의뢰]</color>  뱅가드  브리치")]
+    [InlineData("[긴급 의뢰] 뱅가드 브리치 (진행 중)")]
+    public void Vanguard_MatchesTheQuestNameByContainment(string title)
+    {
+        var svc = NewService();
+        svc.Evaluate(Main, Quests(Quest(title, false)));
+        Assert.Equal("todo", Auto(svc, Main, "weekly_vanguard_breach").State);
+    }
+
+    [Fact]
+    public void Vanguard_SwitchingCharactersBetween_BreaksContinuity_SoNoCompletion()
+    {
+        var svc = NewService();
+        svc.Evaluate(Main, Quests(Quest(Vanguard, false)));
+        _now += TimeSpan.FromMinutes(5);
+        svc.Evaluate(Alt, Quests(Other));                 // 다른 캐릭터로 바꿈: 끊김
+        _now += TimeSpan.FromMinutes(5);
+        svc.Evaluate(Main, Quests(Other));                // 돌아와 보니 퀘스트가 없다: 그 사이 무슨 일인지 모른다
+        _now += TimeSpan.FromMinutes(5);
+        svc.Evaluate(Main, Quests(Other));
+        Assert.Equal(HomeworkCardStatus.Pending, Card(svc.GetBoard(Main), "weekly_vanguard_breach").Status);
+        Assert.Equal("unknown", Auto(svc, Main, "weekly_vanguard_breach").State);
+    }
+
+    [Fact]
+    public void Vanguard_ContinuityBreak_DoesNotAffectDayDungeon()
+    {
+        var svc = NewService();
+        svc.Evaluate(Main, Quests(Quest(Gem, false)));
+        svc.Evaluate(Alt, Quests(Other));
+        _now += TimeSpan.FromMinutes(5);
+        svc.Evaluate(Main, Quests(Other));
+        _now += TimeSpan.FromMinutes(5);
+        svc.Evaluate(Main, Quests(Other));
+        Assert.Equal(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main), "daily_day_dungeon").Status);   // 요일 던전은 끊김 조건이 없다
+    }
+
+    [Fact]
+    public void Vanguard_ResetsOnMonday6am_AndSightingFromLastWeekIsNotUsed()
+    {
+        var svc = NewService();
+        svc.Evaluate(Main, Quests(Quest(Vanguard, false)));
+        _now = Kst(2026, 10, 12, 6, 30);                  // 다음 주 월요일 새벽
+        svc.Evaluate(Main, Quests(Other));
+        Assert.Equal(HomeworkCardStatus.Pending, Card(svc.GetBoard(Main), "weekly_vanguard_breach").Status);
+        Assert.Equal("unknown", Auto(svc, Main, "weekly_vanguard_breach").State);
+    }
+
+    [Fact]
+    public void Vanguard_SightingSurvivesRestart_WhenTheSameCharacterContinues()
+    {
+        NewService().Evaluate(Main, Quests(Quest(Vanguard, false)));
+        _now += TimeSpan.FromMinutes(30);
+        var restarted = NewService();
+        restarted.Evaluate(Main, Quests(Other));
+        Assert.Equal(HomeworkCardStatus.AutoDone, Card(restarted.GetBoard(Main), "weekly_vanguard_breach").Status);
+    }
+
     // ── 캐릭터 카드용 현황 ──
 
     [Fact]
@@ -243,7 +321,7 @@ public class HomeworkAutoCheckTests : IDisposable
     {
         var svc = NewService();
         var list = svc.GetAutoStatuses(new[] { "에린_없는캐릭터" })["에린_없는캐릭터"];
-        Assert.Equal(new[] { "daily_day_dungeon", "weekly_guild_regular", "raid_cavrak" }.OrderBy(x => x), list.Select(x => x.Id).OrderBy(x => x));
+        Assert.Equal(new[] { "daily_day_dungeon", "weekly_guild_regular", "weekly_vanguard_breach", "raid_cavrak" }.OrderBy(x => x), list.Select(x => x.Id).OrderBy(x => x));
         Assert.All(list, x => Assert.Equal("unknown", x.State));
     }
 

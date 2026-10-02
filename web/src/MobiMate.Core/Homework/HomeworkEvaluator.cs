@@ -167,10 +167,16 @@ public static partial class HomeworkEvaluator
         return titles.Select(HomeworkText.Normalize).ToHashSet();
     }
 
+    private static bool MatchesQuest(HomeworkDefinition def, HashSet<string> titles, string? questTitle)
+    {
+        var n = HomeworkText.Normalize(questTitle);
+        return n.Length > 0 && (def.TitleContains ? titles.Any(t => n.Contains(t, StringComparison.Ordinal)) : titles.Contains(n));
+    }
+
     private static bool QuestVisible(HomeworkDefinition def, HomeworkObservation obs, DateTimeOffset now)
     {
         var titles = TodayQuestTitles(def, now);
-        return obs.Quests?.Any(q => titles.Contains(HomeworkText.Normalize(q.QuestTitle))) == true;
+        return obs.Quests?.Any(q => MatchesQuest(def, titles, q.QuestTitle)) == true;
     }
 
     /// <summary>
@@ -183,7 +189,7 @@ public static partial class HomeworkEvaluator
         var titles = TodayQuestTitles(def, now);
         var sightings = character.QuestSightings ??= new Dictionary<string, DateTimeOffset>(StringComparer.OrdinalIgnoreCase);
         var cycleStart = KstClock.LastReset(def.Period, now);
-        var visible = obs.Quests!.FirstOrDefault(q => titles.Contains(HomeworkText.Normalize(q.QuestTitle)));
+        var visible = obs.Quests!.FirstOrDefault(q => MatchesQuest(def, titles, q.QuestTitle));
         if (visible != null)
         {
             if (!sightings.TryGetValue(def.Id, out var at) || at < cycleStart) sightings[def.Id] = now;   // 주기당 한 번만 기록(저장 횟수를 줄인다)
