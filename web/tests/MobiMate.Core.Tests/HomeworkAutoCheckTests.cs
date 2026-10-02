@@ -255,14 +255,39 @@ public class HomeworkAutoCheckTests : IDisposable
     }
 
     [Theory]
-    [InlineData("뱅가드 브리치")]
+    [InlineData("[긴급 의뢰] 뱅가드 브리치")]
     [InlineData("<color=orange>[긴급 의뢰]</color>  뱅가드  브리치")]
-    [InlineData("[긴급 의뢰] 뱅가드 브리치 (진행 중)")]
-    public void Vanguard_MatchesTheQuestNameByContainment(string title)
+    public void Vanguard_MatchesTheQuestNameIgnoringTagsAndSpaces(string title)
     {
         var svc = NewService();
         svc.Evaluate(Main, Quests(Quest(title, false)));
         Assert.Equal("todo", Auto(svc, Main, "weekly_vanguard_breach").State);
+    }
+
+    [Fact]
+    public void Vanguard_InRunQuest_IsNotMistakenForTheWeeklyQuest()
+    {
+        // 사고 재현 (2026-10-03): 판을 하는 동안 "뱅가드 브리치 클리어"(적 처치하기 0/1) 퀘스트가 따로 생겨 남은 횟수가 (1)로 읽혔다
+        var svc = NewService();
+        var inRun = Counted("뱅가드 브리치 클리어", (0, 1));
+        var weekly = Counted(Vanguard, (1, 3));
+        svc.Evaluate(Main, Quests(inRun, weekly));
+        Assert.Equal(2, Auto(svc, Main, "weekly_vanguard_breach").Remaining);
+
+        var other = NewService();   // 새 저장소로: 판 퀘스트만 보이면 주간 퀘스트를 본 것이 아니다
+        System.IO.Directory.Delete(_dir, true); System.IO.Directory.CreateDirectory(_dir);
+        other.Evaluate(Alt, Quests(Counted("뱅가드 브리치 클리어", (0, 1))));
+        Assert.Equal("unknown", Auto(other, Alt, "weekly_vanguard_breach").State);
+    }
+
+    [Fact]
+    public void Vanguard_WeeklyQuestGone_WhileInRunQuestStillShows_IsStillCompletion()
+    {
+        var svc = NewService();
+        svc.Evaluate(Main, Quests(Counted(Vanguard, (2, 3))));
+        _now += TimeSpan.FromMinutes(5);
+        svc.Evaluate(Main, Quests(Counted("뱅가드 브리치 클리어", (0, 1))));   // 마지막 판 직후: 판 퀘스트만 남아 있다
+        Assert.Equal(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main), "weekly_vanguard_breach").Status);
     }
 
     [Fact]
@@ -381,14 +406,6 @@ public class HomeworkAutoCheckTests : IDisposable
         var done = Auto(svc, Main, "weekly_vanguard_breach");
         Assert.Equal("done", done.State);
         Assert.Null(done.Remaining);
-    }
-
-    [Fact]
-    public void Vanguard_RemainingCount_FromTheTitleWhenObjectivesHaveNoNumbers()
-    {
-        var svc = NewService();
-        svc.Evaluate(Main, Quests(Quest("[긴급 의뢰] 뱅가드 브리치 (1/3)", false)));
-        Assert.Equal(2, Auto(svc, Main, "weekly_vanguard_breach").Remaining);
     }
 
     [Fact]
