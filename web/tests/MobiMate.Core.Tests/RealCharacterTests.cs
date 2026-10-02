@@ -120,4 +120,31 @@ public class RealCharacterTests : IDisposable
         Assert.Null(m.DetectJobSwap("에린_검술사", other, Wallet(7231, 2239, 12000000), Wallet(7231, 2239, 51085371)));   // 같은 계정의 다른 캐릭터: 골드가 다르다
         Assert.False(m.IsSubJob("에린_검술사", Info("에린", "검술사", 100)));
     }
+
+    [Fact]
+    public void StaleCharacterInfo_WithNewCharactersGold_IsNotAJobSwapNorWrittenToTheOldRecord()
+    {
+        // 사고 재현 (2026-10-02): GalaxyZFlip(댄서) → GalaxyEdge(검술사)로 바꿨는데 재화만 먼저 바뀌어 Flip 기록에 Edge의 골드가 섞였다
+        var m = new SnapshotManager(_dir);
+        m.UpdateSnapshot(Info("에린", "댄서", 100, 98990), Wallet(7171, 2239, 31362959), null, "에린_댄서");
+        m.UpdateSnapshot(Info("에린", "검술사", 100, 95116), Wallet(7171, 2239, 37568706), null, "에린_검술사");
+        var edgeGold = Wallet(7238, 2239, 37568706);
+
+        Assert.True(m.WalletBelongsToOther("에린_댄서", edgeGold));     // Flip 기록에 쓰면 안 된다
+        Assert.False(m.WalletBelongsToOther("에린_검술사", edgeGold));
+        Assert.False(m.WalletBelongsToOther("에린_댄서", Wallet(7238, 2239, 31362959)));   // Flip 자신의 골드
+
+        // 이미 섞인 Flip 기록이 있어도 Edge의 골드는 직업 전환으로 보지 않는다
+        m.UpdateSnapshot(Info("에린", "댄서", 100, 98990), Wallet(7238, 2239, 37568706), null, "에린_댄서");
+        Assert.Null(m.DetectJobSwap("에린_댄서", Info("에린", "검술사", 100, 95116), edgeGold, edgeGold));
+    }
+
+    [Fact]
+    public void SmallGold_IsNeverTreatedAsAnotherCharacters()
+    {
+        var m = new SnapshotManager(_dir);
+        m.UpdateSnapshot(Info("에린", "댄서", 100), Wallet(1, 1, 500), null, "에린_댄서");
+        m.UpdateSnapshot(Info("에린", "검술사", 100), Wallet(1, 1, 500), null, "에린_검술사");
+        Assert.False(m.WalletBelongsToOther("에린_댄서", 500));
+    }
 }

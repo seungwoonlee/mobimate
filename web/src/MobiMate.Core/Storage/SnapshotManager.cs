@@ -276,8 +276,31 @@ public class SnapshotManager
             if (h != null) last = new Wallet(h.Deca, h.MCash, h.Gold);
         }
         bool Swap(Wallet? w) => CharacterIdentity.IsJobSwap(p.RealmName, p.JobName, ch!.RealmName, ch.JobName, w, cur);
-        return Swap(WalletOf(before)) || Swap(last) ? currentKey : null;
+        if (!(Swap(WalletOf(before)) || Swap(last))) return null;
+        // 이 골드가 이미 알고 있는 다른 캐릭터의 골드와 같으면 직업 전환이 아니라 그 캐릭터로 접속한 것이다
+        // (게임이 캐릭터 정보는 늦게, 재화는 먼저 바꿔 알려 주면 이전 캐릭터 기록에 새 캐릭터의 골드가 섞여 전환처럼 보인다)
+        return WalletBelongsToOther(currentKey, cur.Gold, ignoreOwn: true) ? null : currentKey;   // 기록이 이미 섞였더라도 다른 캐릭터와 같으면 전환이 아니다
     }
+
+    /// <summary>
+    /// 이 골드가 key가 아닌 다른 캐릭터가 마지막으로 가졌던 골드와 같은가 (key 자신의 마지막 골드와는 다를 때만).
+    /// 캐릭터를 바꾼 직후 캐릭터 정보는 아직 이전 캐릭터인데 재화는 새 캐릭터 것으로 읽힐 때, 이전 캐릭터 기록에 쓰지 않게 거르는 근거다.
+    /// </summary>
+    public bool WalletBelongsToOther(string key, long gold, bool ignoreOwn = false)
+    {
+        const long MinGold = 100_000;   // 작은 값은 우연히 같을 수 있다
+        if (gold < MinGold) return false;
+        bool Near(long a) => a >= MinGold && Math.Abs(a - gold) <= Math.Max(a, gold) * CharacterIdentity.GoldDriftRatio;
+        lock (_lock)
+        {
+            long LastGold(CharacterProfile p) => p.History.AsEnumerable().Reverse().FirstOrDefault(r => r.Gold > 0)?.Gold ?? 0;
+            if (!ignoreOwn && _characterDb.TryGetValue(key, out var own) && Near(LastGold(own))) return false;
+            return _characterDb.Values.Any(p => p.CharacterKey != key && Near(LastGold(p)));
+        }
+    }
+
+    public bool WalletBelongsToOther(string key, IEnumerable<CurrencyItem>? currencies) =>
+        WalletOf(currencies) is { } w && WalletBelongsToOther(key, w.Gold);
 
     /// <summary>이 기록의 캐릭터가 지금은 다른 직업(부직업)을 끼고 있는가. 그동안의 읽기는 기록·전투력 재확인에 쓰지 않는다.</summary>
     public bool IsSubJob(string key, CharacterInfo? ch)
