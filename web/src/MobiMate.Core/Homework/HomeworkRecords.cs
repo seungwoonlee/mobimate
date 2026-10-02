@@ -19,6 +19,9 @@ public sealed class HomeworkItemState
     /// <summary>자동 완료 근거 (FR-HW-13).</summary>
     public string? Evidence { get; set; }
 
+    /// <summary>퀘스트에서 읽은 남은 횟수 (ShowRemaining 항목, 예: 뱅가드 브리치 3 → 2 → 1). 모르면 null. 완료·리셋 때 사라진다.</summary>
+    public int? RemainingCount { get; set; }
+
     /// <summary>완료 제안 (FR-HW-17, 예: 레이드 증표 증가). 완료로 세지 않는다. 완료·수동 설정·리셋 때 사라진다.</summary>
     public HomeworkSuggestion? Suggestion { get; set; }
 }

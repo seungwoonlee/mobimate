@@ -29,7 +29,7 @@
       "questTitles": ["[주간 목표] 모험가 길드의 정기 의뢰"] },
     { "id": "weekly_vanguard_breach", "category": "weekly", "period": "weekly", "share": "character", "mode": "questVanish", "autoCheck": true, "cardLabel": "뱅가드",
       "title": "뱅가드 브리치", "subtitle": "콘텐츠 가이드 주간 뱅가드 브리치 (주 3회, 퀘스트가 사라지면 완료)", "icon": "breach", "goal": 1,
-      "questTitles": ["뱅가드 브리치"], "titleContains": true, "continuous": true },
+      "questTitles": ["뱅가드 브리치"], "titleContains": true, "continuous": true, "showRemaining": true },
 
     { "id": "fieldboss_peri", "category": "fieldBoss", "period": "weekly", "share": "character", "mode": "manual", "pool": "field_boss_weekly",
       "title": "페리", "subtitle": "창백한 산 필드 보스 (주간 1회 택1)", "icon": "field-boss", "goal": 1, "bossNames": ["페리"] },

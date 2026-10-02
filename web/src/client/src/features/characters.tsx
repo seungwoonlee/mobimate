@@ -156,7 +156,7 @@ function CoinChip({ label, c }: { label: string; c: CoinView }) {
 /** 자동 판정되는 숙제 칩 (전체 탭 카드): 짧은 이름만. 완료는 취소선 / 확인된 미완료는 주황 테두리 / 아직 확인 전은 점선 */
 function HwChip({ h }: { h: HomeworkAuto }) {
   const text = h.state === 'done' ? '완료' : h.state === 'todo' ? '미완료 (확인됨)' : '미완료 (아직 확인 전)';
-  return <span className={`hw-chip ${h.state}`} title={`${h.title}: ${h.evidence ?? text}`} aria-label={`${h.title} ${text}`}>{h.title}</span>;
+  return <span className={`hw-chip ${h.state}`} title={`${h.title}: ${h.evidence ?? text}`} aria-label={`${h.title} ${text}`}>{h.title}{h.state === 'todo' && h.remaining != null ? `(${h.remaining})` : ''}</span>;
 }
 
 function CharacterCardView({ c, now }: { c: CharacterCard; now: number }) {

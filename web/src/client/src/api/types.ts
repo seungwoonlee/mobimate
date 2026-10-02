@@ -98,7 +98,7 @@ export interface CharacterCard {
   /** 자동 판정되는 숙제 현황 (요일 던전·카브락·정기 의뢰·가공 수거): done 완료 / todo 이번 주기에 확인한 미완료 / unknown 아직 확인 못 함 */
   homework: HomeworkAuto[];
 }
-export interface HomeworkAuto { id: string; title: string; period: 'daily' | 'weekly'; state: 'done' | 'todo' | 'unknown'; evidence: string | null }
+export interface HomeworkAuto { id: string; title: string; period: 'daily' | 'weekly'; state: 'done' | 'todo' | 'unknown'; evidence: string | null; /** 남은 횟수 (뱅가드 등, 알 때만) */ remaining: number | null }
 export interface AccountGroup {
   id: string; name: string; solo: boolean; deca: number; mcash: number;
   membership: { expiresAt: string | null; active: boolean }; caps: { silver: number; tribute: number };

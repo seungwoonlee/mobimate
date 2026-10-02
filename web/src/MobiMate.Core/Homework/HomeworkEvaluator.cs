@@ -78,7 +78,7 @@ public static partial class HomeworkEvaluator
 
             // 빈 상태를 미리 만들지 않는다. 값이 바뀔 때만 장부에 넣는다.
             var st = existing ?? new HomeworkItemState();
-            var before = (st.Completed, st.Count, st.Goal, st.Suggestion, st.Evidence);
+            var before = (st.Completed, st.Count, st.Goal, st.Suggestion, st.Evidence, st.RemainingCount);
             switch (def.EffectiveMode)
             {
                 case HomeworkMode.DirectMission:
@@ -105,7 +105,7 @@ public static partial class HomeworkEvaluator
                 if (def.TokenAuto) Complete(st, def.Goal, $"{suggestion.Item} {suggestion.From} → {suggestion.To} 증가 관찰", nowUtc);
                 else st.Suggestion = suggestion;
             }
-            if ((st.Completed, st.Count, st.Goal, st.Suggestion, st.Evidence) != before)
+            if ((st.Completed, st.Count, st.Goal, st.Suggestion, st.Evidence, st.RemainingCount) != before)
             {
                 ledger.Items[def.Id] = st;
                 changed.Add(def.Id);
@@ -193,12 +193,32 @@ public static partial class HomeworkEvaluator
         if (visible != null)
         {
             if (!sightings.TryGetValue(def.Id, out var at) || at < cycleStart) sightings[def.Id] = now;   // 주기당 한 번만 기록(저장 횟수를 줄인다)
-            st.Evidence = $"퀘스트 '{HomeworkText.StripTags(visible.QuestTitle)}'가 아직 목록에 있음: 이번 주기 미완료";
+            st.RemainingCount = def.ShowRemaining ? RemainingOf(visible) : null;
+            st.Evidence = $"퀘스트 '{HomeworkText.StripTags(visible.QuestTitle)}'가 아직 목록에 있음: 이번 주기 미완료" + (st.RemainingCount is { } r ? $" (남은 {r}회)" : "");
             return;
         }
         if (obs.Quests!.Count == 0) return;
         if (sightings.TryGetValue(def.Id, out var seen) && seen >= cycleStart)
             Complete(st, def.Goal, $"{VanishEvidence}: 이번 주기에 보였다가 사라져 완료로 판단", now);
+    }
+
+    [System.Text.RegularExpressions.GeneratedRegex(@"(\d+)\s*/\s*(\d+)")]
+    private static partial System.Text.RegularExpressions.Regex Progress();
+
+    /// <summary>
+    /// 퀘스트에 남은 횟수가 있으면 읽는다: 목표마다 (Goal − Count)의 합. Count/Goal이 없으면 이름의 "N/M"(M − N). 모르면 null.
+    /// 완료한 목표(IsCompleted)는 0으로 센다.
+    /// </summary>
+    internal static int? RemainingOf(QuestItem q)
+    {
+        if (q.Objectives is { Count: > 0 } objs && objs.Any(o => o.Goal is > 0))
+        {
+            var sum = objs.Where(o => o.Goal is > 0).Sum(o => o.IsCompleted ? 0 : Math.Max(0, o.Goal!.Value - Math.Max(0, o.Count ?? 0)));
+            return sum > 0 ? sum : null;
+        }
+        var m = Progress().Match(HomeworkText.StripTags(q.QuestTitle));
+        if (m.Success && int.Parse(m.Groups[2].Value) is var total && int.Parse(m.Groups[1].Value) is var done && total > done) return total - done;
+        return null;
     }
 
     [System.Text.RegularExpressions.GeneratedRegex(@"^\((\d+)\)$")]
@@ -324,5 +344,6 @@ public static partial class HomeworkEvaluator
         st.CompletedAtUtc = now;
         st.Evidence = evidence;
         st.Suggestion = null;
+        st.RemainingCount = null;
     }
 }

@@ -60,6 +60,9 @@ public sealed class HomeworkDefinition
     /// </summary>
     public bool Continuous { get; init; }
 
+    /// <summary>퀘스트가 보일 때 남은 횟수를 읽어 둔다 (목표의 Count/Goal, 없으면 이름의 N/M). 카드 칩에 이름(N)으로 보인다.</summary>
+    public bool ShowRemaining { get; init; }
+
     /// <summary>캐릭터 카드 칩에 쓰는 짧은 이름. 없으면 Title.</summary>
     public string? CardLabel { get; init; }
 
