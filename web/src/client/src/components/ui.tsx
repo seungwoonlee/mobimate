@@ -121,7 +121,8 @@ export function Toasts() {
   const toasts = useUi(s => s.toasts);
   const dismiss = useUi(s => s.dismiss);
   const icon = { ok: 'check', warn: 'alert', danger: 'alert', info: 'spark' } as const;
-  const urgent = toasts.filter(t => t.level === 'danger' || t.level === 'warn').at(-1);
+  const urgents = toasts.filter(t => t.level === 'danger' || t.level === 'warn');
+  const urgent = urgents[urgents.length - 1];   // Array.prototype.at은 iOS 15.4 이전에 없다
   return (
     <>
       <div className="toasts" aria-live="polite">

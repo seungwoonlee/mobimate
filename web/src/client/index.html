@@ -2,6 +2,31 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8">
+  <!-- 화면이 비어 있으면(스크립트 오류·옛 브라우저) 이유를 화면에 보여 준다: 폰에는 개발자 도구가 없어서다 -->
+  <script>
+    (function () {
+      var errs = [];
+      function add(m) { errs.push(m); }
+      window.addEventListener('error', function (e) { add((e.message || 'error') + (e.filename ? ' @' + e.filename.split('/').pop() + ':' + e.lineno : '')); }, true);
+      window.addEventListener('unhandledrejection', function (e) { add('promise: ' + ((e.reason && e.reason.message) || e.reason)); });
+      function show(text) {
+        var r = document.getElementById('root');
+        if (!r || r.firstChild) return;
+        var pre = document.createElement('pre');
+        pre.setAttribute('style', 'margin:0;padding:16px;color:#ddd;background:#111;white-space:pre-wrap;word-break:break-all;font:13px/1.5 monospace');
+        pre.textContent = text;
+        r.appendChild(pre);
+      }
+      window.__mmShowBlank = function () {
+        show('MobiMate 화면을 그리지 못했습니다.
+' + navigator.userAgent + '
+
+' + (errs.join('
+') || '오류 기록 없음 (스크립트가 실행되지 않았을 수 있습니다)'));
+      };
+      setTimeout(window.__mmShowBlank, 5000);
+    })();
+  </script>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
   <meta name="theme-color" content="#0B0F13" media="(prefers-color-scheme: dark)">
   <meta name="theme-color" content="#F4F7F9" media="(prefers-color-scheme: light)">
@@ -15,6 +40,7 @@
 </head>
 <body>
   <div id="root"></div>
+  <noscript>이 화면은 JavaScript가 필요합니다.</noscript>
   <script type="module" src="/src/main.tsx"></script>
 </body>
 </html>
