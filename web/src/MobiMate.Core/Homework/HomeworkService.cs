@@ -17,6 +17,9 @@ public sealed record HomeworkCard(
     public bool IsDone => Status is HomeworkCardStatus.AutoDone or HomeworkCardStatus.ManualDone or HomeworkCardStatus.PoolDone;
 }
 
+/// <summary>캐릭터 카드에 보여 줄 자동 판정 숙제 한 줄. State: done / todo / unknown.</summary>
+public sealed record HomeworkAutoStatus(string Id, string Title, string Period, string State, string? Evidence);
+
 public sealed record HomeworkProgress(int Done, int Total);
 
 public sealed record HomeworkBoard(
@@ -79,14 +82,16 @@ public sealed class HomeworkService
 
             var alteringBefore = character.AlteringDoneCounts;
             var tokensBefore = character.RaidTokens;
+            var sightingsBefore = character.QuestSightings == null ? null : new Dictionary<string, DateTimeOffset>(character.QuestSightings);
             var result = HomeworkEvaluator.Evaluate(character, file.Account, _catalog, obs, now, switched);
             // 관찰 시각만 바뀐 경우는 메모리에만 두고 저장하지 않는다 (개수 내용이 바뀌었을 때만 저장)
             var alteringChanged = !SameCounts(alteringBefore, character.AlteringDoneCounts) || !SameAmounts(tokensBefore, character.RaidTokens);
+            var sightingsChanged = !SameSightings(sightingsBefore, character.QuestSightings);
 
             var signals = SignalsFor(characterKey);
             foreach (var id in result.InProgressIds) signals[id] = now;
 
-            if ((created || resetIds.Count > 0 || result.ChangedIds.Count > 0 || alteringChanged || lastChanged) && !_store.Save(file))
+            if ((created || resetIds.Count > 0 || result.ChangedIds.Count > 0 || alteringChanged || sightingsChanged || lastChanged) && !_store.Save(file))
                 _file = null;   // 저장 실패: 메모리 변경을 버리고 다음 호출에서 파일을 다시 읽는다
 
             var ids = resetIds.Concat(result.ChangedIds).Concat(result.InProgressIds).Distinct().ToList();
@@ -167,7 +172,7 @@ public sealed class HomeworkService
             if (loaded && (created || resetIds.Count > 0)) _store.Save(file);
 
             var signals = _signals.GetValueOrDefault(characterKey);
-            var all = _catalog.Items.Select(def => ToCard(def, file, character, signals, now)).ToList();
+            var all = _catalog.Items.Where(d => d.Active).Select(def => ToCard(def, file, character, signals, now)).ToList();
 
             var order = _catalog.Items.Select((d, i) => (d.Id, i)).ToDictionary(x => x.Id, x => x.i);
             var cards = all
@@ -178,6 +183,43 @@ public sealed class HomeworkService
 
             return new HomeworkBoard(cards, Progress(all, HomeworkPeriod.Daily), Progress(all, HomeworkPeriod.Weekly),
                 KstClock.NextDailyReset(now), KstClock.NextWeeklyReset(now));
+        }
+    }
+
+    /// <summary>
+    /// 자동 판정되는 숙제(AutoCheck)의 캐릭터별 현황: 전체 탭의 캐릭터 카드용. 읽기 전용이다(리셋을 적용해 저장하지 않고, 지난 주기의 값은 없는 것으로 본다).
+    /// done = 완료, todo = 이번 주기에 직접 확인한 미완료, unknown = 이번 주기에 아직 확인하지 못함(미완료로 보여 준다).
+    /// </summary>
+    public IReadOnlyDictionary<string, IReadOnlyList<HomeworkAutoStatus>> GetAutoStatuses(IEnumerable<string> characterKeys)
+    {
+        lock (_lock)
+        {
+            var now = _now();
+            TryLoad(out var file);
+            var lastDaily = KstClock.LastDailyReset(now);
+            var lastWeekly = KstClock.LastWeeklyReset(now);
+            var defs = _catalog.Items.Where(d => d.Active && d.AutoCheck && d.Share == HomeworkShare.Character).ToList();
+            var result = new Dictionary<string, IReadOnlyList<HomeworkAutoStatus>>(StringComparer.OrdinalIgnoreCase);
+            foreach (var key in characterKeys)
+            {
+                file.Characters.TryGetValue(key, out var ledger);
+                var list = new List<HomeworkAutoStatus>();
+                foreach (var def in defs)
+                {
+                    var cycleStart = def.Period == HomeworkPeriod.Daily ? lastDaily : lastWeekly;
+                    var fresh = ledger != null && (def.Period == HomeworkPeriod.Daily ? ledger.LastDailyResetUtc : ledger.LastWeeklyResetUtc) >= cycleStart;
+                    var st = fresh ? ledger!.Items.GetValueOrDefault(def.Id) : null;
+                    string state;
+                    if (st?.Completed == true) state = "done";
+                    else if (def.EffectiveMode == HomeworkMode.QuestVanish) state = fresh && ledger!.QuestSightings?.GetValueOrDefault(def.Id) >= cycleStart ? "todo" : "unknown";
+                    else if (def.EffectiveMode == HomeworkMode.QuestSuffix) state = st?.Evidence != null ? "todo" : "unknown";
+                    else if (!string.IsNullOrWhiteSpace(def.TokenCurrency)) state = fresh && ledger!.RaidTokensObservedUtc >= cycleStart ? "todo" : "unknown";
+                    else state = "unknown";
+                    list.Add(new HomeworkAutoStatus(def.Id, def.Title, def.Period == HomeworkPeriod.Daily ? "daily" : "weekly", state, st?.Evidence));
+                }
+                result[key] = list;
+            }
+            return result;
         }
     }
 
@@ -231,6 +273,9 @@ public sealed class HomeworkService
 
     private static bool SameCounts(Dictionary<string, int>? a, Dictionary<string, int>? b) =>
         a == null ? b == null : b != null && a.Count == b.Count && a.All(kv => b.TryGetValue(kv.Key, out var v) && v == kv.Value);
+
+    private static bool SameSightings(Dictionary<string, DateTimeOffset>? a, Dictionary<string, DateTimeOffset>? b) =>
+        a == null ? b == null || b.Count == 0 : b != null && a.Count == b.Count && a.All(kv => b.TryGetValue(kv.Key, out var v) && v == kv.Value);
 
     private static bool SameAmounts(Dictionary<string, long>? a, Dictionary<string, long>? b) =>
         a == null ? b == null : b != null && a.Count == b.Count && a.All(kv => b.TryGetValue(kv.Key, out var v) && v == kv.Value);

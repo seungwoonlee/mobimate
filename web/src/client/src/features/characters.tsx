@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { keys, useCharacters } from '../api/queries';
 import { api, ApiError } from '../api/http';
-import type { AccountGroup, CharacterCard, CoinView } from '../api/types';
+import type { AccountGroup, CharacterCard, CoinView, HomeworkAuto } from '../api/types';
 import { CardHead, Dialog, ErrorCard, Fresh, Icon, JobIcon, Pill, Skeleton } from '../components/ui';
 import { useNow } from '../hooks/layout';
 import { fmt } from '../lib/format';
@@ -153,6 +153,17 @@ function CoinChip({ label, c }: { label: string; c: CoinView }) {
   );
 }
 
+/** 자동 판정되는 숙제 한 줄 (전체 탭 카드): 완료 ✔ / 미완료(확인됨) / 미완료(아직 확인 못 함, 흐리게) */
+function HwChip({ h }: { h: HomeworkAuto }) {
+  const label = h.state === 'done' ? '완료' : '미완료';
+  const hint = h.evidence ?? (h.state === 'unknown' ? '이번 주기에 접속해서 확인하기 전입니다' : undefined);
+  return (
+    <span className={`hw-chip ${h.state}`} title={hint}>
+      <Icon name={h.state === 'done' ? 'check' : 'clock'} size={12} />{h.title} <b>{label}</b>
+    </span>
+  );
+}
+
 function CharacterCardView({ c, now }: { c: CharacterCard; now: number }) {
   const go = useRouter(s => s.go);
   const toast = useUi(s => s.toast);
@@ -197,6 +208,7 @@ function CharacterCardView({ c, now }: { c: CharacterCard; now: number }) {
         <span className="muted">데카 <b className="num">{fmt(c.deca)}</b></span>
         <span className="muted">M캐시 <b className="num">{fmt(c.mcash)}</b></span>
       </div>
+      {c.homework.length > 0 && <div className="cc-hw" aria-label="자동 판정 숙제">{c.homework.map(h => <HwChip key={h.id} h={h} />)}</div>}
       {notes.length > 0 && <ul className="cc-notes small">{notes.map(n => <li key={n}>{n}</li>)}</ul>}
       {asking && (
         <Dialog title="캐릭터 삭제" onClose={() => setAsking(false)}

@@ -15,7 +15,7 @@ const TABS: { id: string; label: string; match: (c: HomeworkCard) => boolean }[]
   { id: 'fieldBoss', label: '필드 보스', match: c => c.category === 'fieldBoss' },
   { id: 'raid', label: '레이드', match: c => c.category === 'raid' },
   { id: 'abyss', label: '어비스', match: c => c.category === 'abyss' },
-  { id: 'etc', label: '생활·계정', match: c => ['life', 'account', 'guild'].includes(c.category) },
+  { id: 'etc', label: '생활·계정', match: c => ['life', 'account', 'guild', 'goal'].includes(c.category) },
   { id: 'shop', label: '상점·교환', match: c => c.category === 'shop' },
   { id: 'missions', label: '인게임 미션', match: () => false },
 ];
@@ -86,6 +86,7 @@ function HomeworkCardView({ c }: { c: HomeworkCard }) {
         <p className="hw-suggest"><Icon name="search" size={14} />클리어 추정 — 눌러서 확인 <span className="faint">({c.suggestion.item} {c.suggestion.from} → {c.suggestion.to})</span></p>
       )}
       {c.evidence && done && <p className="hw-evidence" title={c.evidence}>근거: {c.evidence}</p>}
+      {c.evidence && !done && (c.mode === 'questSuffix' || c.mode === 'questVanish') && <p className="hw-warn small" title={c.evidence}>{c.evidence}</p>}
       {c.needsMeasurement && !done && <p className="faint small" title={c.needsMeasurement}>수동 체크 항목 (자동 판정 실측 전)</p>}
     </>
   );

@@ -19,6 +19,9 @@ public static class KstClock
         return (k >= today ? today : today.AddDays(-1)).ToUniversalTime();
     }
 
+    /// <summary>게임 기준 오늘의 요일. 게임의 하루는 06:00에 바뀌므로 06:00 전이면 아직 어제다.</summary>
+    public static DayOfWeek GameDayOfWeek(DateTimeOffset nowUtc) => ToKst(nowUtc).AddHours(-ResetHour).DayOfWeek;
+
     public static DateTimeOffset NextDailyReset(DateTimeOffset nowUtc) => LastDailyReset(nowUtc).AddDays(1);
 
     /// <summary>now 이전(같은 시각 포함) 가장 최근 월요일 06:00 (UTC).</summary>
