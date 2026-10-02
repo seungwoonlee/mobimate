@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Delta, Icon, JobIcon, Toasts } from '../components/ui';
 import { CommandPalette } from '../features/palette';
@@ -46,9 +46,20 @@ export function AppShell({ children }: { children: ReactNode }) {
   const setPairOpen = useUi(s => s.setPairOpen);
   const setPaletteOpen = useUi(s => s.setPaletteOpen);
   const local = useSession().data?.kind === 'local';   // 폰으로 보기 버튼은 게임 PC에서만
+  // 서버는 게임 조회를 3초 동안 재사용한다. 그 안에 다시 눌러도 같은 값이라 의미가 없으니 그동안 버튼을 막는다.
+  const [refreshCooling, setRefreshCooling] = useState(false);
+  const coolTimer = useRef<number>();
+  useEffect(() => () => window.clearTimeout(coolTimer.current), []);
+  const manualRefresh = useCallback(() => {
+    if (refreshCooling) return;
+    setRefreshCooling(true);
+    coolTimer.current = window.setTimeout(() => setRefreshCooling(false), REFRESH_COOLDOWN_MS);
+    void qc.invalidateQueries({ type: 'active' });
+    bump();
+  }, [qc, bump, refreshCooling]);
   const actions: Actions = {
-    refresh, local,
-    manualRefresh: () => { void qc.invalidateQueries({ type: 'active' }); bump(); },
+    refresh, local, refreshCooling,
+    manualRefresh,
     openPair: () => setPairOpen(true),
     openPalette: () => setPaletteOpen(true),
   };
@@ -131,12 +142,15 @@ export function OfflineBanner() {
 /** 새로고침·빠른 실행·폰으로 보기에 필요한 값과 동작 (상단 또는 좌측 바의 버튼이 함께 쓴다) */
 interface Actions {
   refresh: { period: number; left: number };
+  refreshCooling: boolean;
   local: boolean;
   manualRefresh: () => void;
   openPair: () => void;
   openPalette: () => void;
 }
 
+/** 서버 조회 캐시(QueryCacheTtl 3초)와 맞춘 수동 새로고침 대기 시간 */
+const REFRESH_COOLDOWN_MS = 3000;
 const TIP_REFRESH = (period: number) => `지금 새로고침 — 자동 갱신은 활동이 없으면 15초씩 늘어납니다 (지금 ${period}초 주기)`;
 const TIP_PALETTE = '빠른 실행 (Ctrl+K) — 화면 이동·채집·페르소나를 검색해서 바로 실행합니다';
 const TIP_PAIR = 'QR코드로 모바일 접속이 가능합니다';
@@ -172,7 +186,7 @@ function TopBar({ compact, actions, showActions }: { compact: boolean; actions: 
       {h && !compact && <LocationScene place={h.location.space ?? h.location.channel} weather={h.location.weather} erinn={h.location.erinn} />}
       {showActions && (
         <div className="top-actions">
-          <button type="button" className="refresh" onClick={actions.manualRefresh} data-tip={TIP_REFRESH(actions.refresh.period)} aria-label={`지금 새로고침 (다음 자동 갱신 ${actions.refresh.left}초 후)`}>
+          <button type="button" className="refresh" disabled={actions.refreshCooling} onClick={actions.manualRefresh} data-tip={TIP_REFRESH(actions.refresh.period)} aria-label={`지금 새로고침 (다음 자동 갱신 ${actions.refresh.left}초 후)`}>
             <Icon name="refresh" /><span className="refresh-txt num">{actions.refresh.left}초</span>
           </button>
           <button type="button" className="icon-btn" onClick={actions.openPalette} aria-label="빠른 실행" data-tip={TIP_PALETTE}>
@@ -207,7 +221,7 @@ function NavRail({ onChat, chatOpen, canToggle, actions, showActions }: { onChat
       <span className="sp" />
       {showActions && (
         <>
-          <button type="button" className="rail-act" onClick={actions.manualRefresh} data-tip={TIP_REFRESH(actions.refresh.period)} aria-label={`지금 새로고침 (다음 자동 갱신 ${actions.refresh.left}초 후)`}>
+          <button type="button" className="rail-act" disabled={actions.refreshCooling} onClick={actions.manualRefresh} data-tip={TIP_REFRESH(actions.refresh.period)} aria-label={`지금 새로고침 (다음 자동 갱신 ${actions.refresh.left}초 후)`}>
             <Icon name="refresh" /><span className="num">{actions.refresh.left}초</span>
           </button>
           <button type="button" className="rail-act" onClick={actions.openPalette} aria-label="빠른 실행" data-tip={TIP_PALETTE}>

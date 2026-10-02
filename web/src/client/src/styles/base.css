@@ -37,6 +37,7 @@ button{cursor:pointer}
 .icon-btn:hover{color:var(--text-1);border-color:var(--line-strong)}
 .refresh{display:inline-flex;align-items:center;gap:6px;height:38px;padding:0 10px;border-radius:10px;border:1px solid var(--line);background:var(--bg-2);color:var(--text-2);font-size:12.5px}
 .refresh .ic{width:16px;height:16px}
+.refresh:disabled,.rail-act:disabled,.chip:disabled,.qa button:disabled{opacity:.5;cursor:not-allowed}
 .refresh.flash{color:var(--accent);border-color:var(--accent)}
 .stop-btn{display:inline-flex;align-items:center;gap:8px;height:38px;padding:0 14px;border-radius:10px;border:1px solid transparent;background:var(--danger);color:var(--on-danger);font-weight:600;font-size:13.5px}
 .stop-btn .ic{width:18px;height:18px}

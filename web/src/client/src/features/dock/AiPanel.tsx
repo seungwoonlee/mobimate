@@ -5,6 +5,7 @@ import { keys, keys5, useEngines } from '../../api/queries';
 import type { AskEvent, Engine, Envelope, Life } from '../../api/types';
 import { Dialog, Icon, Pill } from '../../components/ui';
 import { collectAll, startGather } from '../../lib/actions';
+import { useBusy } from '../../lib/busy';
 import { Markdown } from '../../lib/markdown';
 import { queryClient } from '../../lib/queryClient';
 import { useRouter, type RouteName } from '../../state/router';
@@ -253,6 +254,7 @@ function MsgView({ m }: { m: Msg }) {
 
 /** 채집 확인 카드 (FR-AI-05, D-07): 사용자가 [시작]을 눌러야 실행한다. */
 function GatherCard({ m }: { m: Extract<Msg, { who: 'gather' }> }) {
+  const gathering = useBusy('gather');
   const patch = useAi(s => s.patch);
   const need = m.count != null && m.have != null ? Math.max(0, m.count - m.have) : m.count;
   if (m.state === 'pending' && m.count != null && need === 0) {
@@ -264,7 +266,7 @@ function GatherCard({ m }: { m: Extract<Msg, { who: 'gather' }> }) {
       {m.state === 'pending' ? <>
         <p>{m.count != null ? <>목표 {m.count}개{m.have != null && <> · 가방 {m.have}개 → <b>{need}개 더</b></>} 채집합니다.</> : '목표 없이 채집을 시작합니다.'} 정령의 날개 5개를 씁니다.</p>
         <div className="acts">
-          <button type="button" className="btn primary" data-needs-conn onClick={async () => { if (await startGather(m.item, need ?? null)) patch(m.id, { state: 'started' }); }}>채집 시작</button>
+          <button type="button" className="btn primary" disabled={gathering} data-needs-conn onClick={async () => { if (await startGather(m.item, need ?? null)) patch(m.id, { state: 'started' }); }}>채집 시작</button>
           <button type="button" className="btn" onClick={() => patch(m.id, { state: 'cancelled' })}>취소</button>
         </div>
       </> : <p>{m.state === 'started' ? '채집을 시작했습니다. 결과는 알림으로 옵니다.' : '취소했습니다.'}</p>}
@@ -273,6 +275,7 @@ function GatherCard({ m }: { m: Extract<Msg, { who: 'gather' }> }) {
 }
 
 function CollectCard({ m }: { m: Extract<Msg, { who: 'collect' }> }) {
+  const collecting = useBusy('collect');
   const patch = useAi(s => s.patch);
   return (
     <div className={`intent ${m.state === 'pending' ? '' : 'done'}`}>
@@ -280,7 +283,7 @@ function CollectCard({ m }: { m: Extract<Msg, { who: 'collect' }> }) {
       {m.state === 'pending' ? <>
         <p>수거 가능: {m.items.length ? m.items.join(', ') : '없음'}</p>
         <div className="acts">
-          <button type="button" className="btn primary" disabled={!m.items.length} data-needs-conn onClick={async () => { if (await collectAll(m.items)) patch(m.id, { state: 'done' }); }}>모두 수거</button>
+          <button type="button" className="btn primary" disabled={!m.items.length || collecting} data-needs-conn onClick={async () => { if (await collectAll(m.items)) patch(m.id, { state: 'done' }); }}>모두 수거</button>
           <button type="button" className="btn" onClick={() => patch(m.id, { state: 'cancelled' })}>취소</button>
         </div>
       </> : <p>{m.state === 'done' ? '수거를 요청했습니다.' : '취소했습니다.'}</p>}

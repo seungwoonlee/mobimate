@@ -373,3 +373,12 @@ test('전체 탭: 서버가 여러 곳인 계정은 헤더에 서버를 함께 �
   await expect(first.locator('.acct-meta')).toContainText(/서버 .*아이라.*바람|서버 .*바람.*아이라/);
   await expect(page.locator('section.acct').nth(1).locator('.acct-meta')).not.toContainText('서버');   // 한 서버만
 });
+
+test('새로고침은 누른 뒤 3초 동안 눌리지 않는다', async ({ page }) => {
+  const w = page.viewportSize()!.width;
+  test.skip(w < 600, '폰은 상단 버튼이라 아래 시험이 다루지 않는다');
+  const btn = page.locator('nav.rail').getByRole('button', { name: /지금 새로고침/ });
+  await btn.click();
+  await expect(btn).toBeDisabled();
+  await expect(btn).toBeEnabled({ timeout: 5000 });
+});

@@ -2,6 +2,7 @@ import { api, ApiError } from '../api/http';
 import { keys } from '../api/queries';
 import { queryClient } from './queryClient';
 import { isOffline, useUi } from '../state/ui';
+import { runExclusive } from './busy';
 import type { Envelope, HomeworkBoard, Inventory, Life } from '../api/types';
 
 const toast = (m: string, l?: 'ok' | 'warn' | 'danger' | 'info') => useUi.getState().toast(m, l);
@@ -26,8 +27,12 @@ export async function stopAction() {
   }
 }
 
-/** 가공물 수거 (FR-DT-05). 이름이 없으면 완료된 첫 작업. */
+/** 가공물 수거 (FR-DT-05). 이름이 없으면 완료된 첫 작업. 수거 중에는 다시 보내지 않는다(busy 'collect'). */
 export async function collect(name?: string): Promise<boolean> {
+  return (await runExclusive('collect', () => collectOne(name))) ?? false;
+}
+
+async function collectOne(name?: string): Promise<boolean> {
   if (blockedOffline()) return false;
   try {
     const r = await api.post<{ collected: string }>('/api/actions/collect', name ? { displayName: name } : {});
@@ -46,13 +51,19 @@ export async function collect(name?: string): Promise<boolean> {
 /** 완료된 가공물을 모두 수거한다 (퀵 액션 📥). 하나씩 차례로 보낸다. */
 export async function collectAll(names: string[]): Promise<boolean> {
   if (!names.length) { toast('완료된 가공물이 없습니다', 'info'); return false; }
-  let any = false;
-  for (const n of names) any = (await collect(n)) || any;
-  return any;
+  return (await runExclusive('collect', async () => {
+    let any = false;
+    for (const n of names) any = (await collectOne(n)) || any;
+    return any;
+  })) ?? false;
 }
 
 /** 채집 시작 (FR-DT-07·08): 202로 바로 돌아오고 결과는 SSE "gather"로 온다. */
 export async function startGather(name: string, count: number | null): Promise<boolean> {
+  return (await runExclusive('gather', () => startGatherOnce(name, count))) ?? false;
+}
+
+async function startGatherOnce(name: string, count: number | null): Promise<boolean> {
   if (blockedOffline()) return false;
   try {
     await api.post('/api/actions/gather', { displayName: name, count: count ?? undefined });
@@ -122,6 +133,10 @@ export async function setHomework(id: string, body: { completed?: boolean; count
 }
 
 export async function resetHomework(scope: 'character' | 'characterAndAccount') {
+  await runExclusive('hw-reset', () => resetHomeworkOnce(scope));
+}
+
+async function resetHomeworkOnce(scope: 'character' | 'characterAndAccount') {
   try {
     await api.post('/api/homework/reset', { scope });
     toast('이번 주기 체크를 모두 지웠습니다', 'ok');

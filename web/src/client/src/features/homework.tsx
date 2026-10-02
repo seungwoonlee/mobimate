@@ -4,6 +4,7 @@ import type { HomeworkCard, MissionGroup } from '../api/types';
 import { CardHead, Dialog, ErrorCard, Fresh, Icon, Pill, Ring, Skeleton } from '../components/ui';
 import { useNow } from '../hooks/layout';
 import { resetHomework, setHomework } from '../lib/actions';
+import { useBusy } from '../lib/busy';
 import { until } from '../lib/format';
 import { useRouter } from '../state/router';
 
@@ -116,6 +117,7 @@ function HomeworkCardView({ c }: { c: HomeworkCard }) {
 }
 
 function ResetDialog({ onClose }: { onClose: () => void }) {
+  const resetting = useBusy('hw-reset');
   const [account, setAccount] = useState(false);
   return (
     <Dialog
@@ -123,7 +125,7 @@ function ResetDialog({ onClose }: { onClose: () => void }) {
       onClose={onClose}
       actions={<>
         <button type="button" className="btn" onClick={onClose}>취소</button>
-        <button type="button" className="btn danger" onClick={async () => { await resetHomework(account ? 'characterAndAccount' : 'character'); onClose(); }}>초기화</button>
+        <button type="button" className="btn danger" disabled={resetting} onClick={async () => { await resetHomework(account ? 'characterAndAccount' : 'character'); onClose(); }}>초기화</button>
       </>}
     >
       <p>현재 캐릭터의 이번 주기 체크를 모두 지웁니다. 되돌릴 수 없습니다.</p>
