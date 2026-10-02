@@ -139,7 +139,8 @@ public sealed class HomeworkWatcher(HomeworkService homework, GameQueries q, Sse
 {
     /// <summary>캐릭터의 기록 이름. 헤더가 이미 정한 이름이 있으면 그것을 쓰고, 아니면 재화로 같은 서버·직업의 다른 캐릭터와 구분해 정한다.</summary>
     public string KeyOf(CharacterInfo ch, IEnumerable<CurrencyItem>? currencies = null) =>
-        state.CurrentKey is { } k && CharacterIdentity.SameReading(state.Character, ch) ? k : snapshots.ResolveKey(ch, currencies ?? state.Currencies);
+        state.CurrentKey is { } k && CharacterIdentity.SameReading(state.Character, ch) ? k
+            : snapshots.DetectJobSwap(state.CurrentKey, ch, currencies ?? state.Currencies, state.Currencies) ?? snapshots.ResolveKey(ch, currencies ?? state.Currencies);
 
     public HomeworkService Service => homework;
 

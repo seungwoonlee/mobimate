@@ -250,6 +250,42 @@ public class SnapshotManager
         return CharacterIdentity.Resolve(baseKey, cands, new IdentityReading(ch?.Level ?? 0, ch?.LivingScore?.Value ?? 0, ch?.CombatScore?.Value ?? 0, deca, mcash));
     }
 
+    /// <summary>재화 목록에서 골드·데카·M캐시를 읽는다. 골드를 못 찾으면 null (재화를 읽지 못한 것으로 본다).</summary>
+    public static Wallet? WalletOf(IEnumerable<CurrencyItem>? currencies)
+    {
+        if (currencies == null) return null;
+        var list = currencies as IList<CurrencyItem> ?? currencies.ToList();
+        var gold = list.FirstOrDefault(c => c.DisplayName == "골드")?.Amount;
+        if (gold == null) return null;
+        return new Wallet(list.FirstOrDefault(c => c.DisplayName == "데카")?.Amount ?? 0,
+            list.FirstOrDefault(c => c.DisplayName is "M캐시" or "M캐쉬")?.Amount ?? 0, gold.Value);
+    }
+
+    /// <summary>
+    /// 지금 읽은 캐릭터가 접속 중이던 캐릭터(currentKey)의 부직업(주↔부직업 전환)이면 currentKey를, 아니면 null을 돌려준다.
+    /// 이전 재화는 앞서 읽어 둔 값(before)과 그 기록의 마지막 값 둘 다 비교한다 (CharacterIdentity.IsJobSwap).
+    /// </summary>
+    public string? DetectJobSwap(string? currentKey, CharacterInfo? ch, IEnumerable<CurrencyItem>? now, IEnumerable<CurrencyItem>? before)
+    {
+        if (currentKey == null || !IsRealCharacter(ch) || WalletOf(now) is not { } cur) return null;
+        CharacterProfile? p; Wallet? last = null;
+        lock (_lock)
+        {
+            if (!_characterDb.TryGetValue(currentKey, out p)) return null;
+            var h = p.History.AsEnumerable().Reverse().FirstOrDefault(r => r.Gold > 0);
+            if (h != null) last = new Wallet(h.Deca, h.MCash, h.Gold);
+        }
+        bool Swap(Wallet? w) => CharacterIdentity.IsJobSwap(p.RealmName, p.JobName, ch!.RealmName, ch.JobName, w, cur);
+        return Swap(WalletOf(before)) || Swap(last) ? currentKey : null;
+    }
+
+    /// <summary>이 기록의 캐릭터가 지금은 다른 직업(부직업)을 끼고 있는가. 그동안의 읽기는 기록·전투력 재확인에 쓰지 않는다.</summary>
+    public bool IsSubJob(string key, CharacterInfo? ch)
+    {
+        if (ch == null || string.IsNullOrWhiteSpace(ch.JobName)) return false;
+        lock (_lock) return _characterDb.TryGetValue(key, out var p) && !string.IsNullOrWhiteSpace(p.JobName) && p.JobName != ch.JobName;
+    }
+
     /// <summary>
     /// 한 기록에 두 캐릭터가 섞였을 때(같은 서버·직업) 가장 최근 값을 새 캐릭터로 떼어 낸다. 기록이 하나뿐이면 null.
     /// 이후에는 그 값과 가까운 읽기가 새 캐릭터로 이어진다.
@@ -406,6 +442,12 @@ public class SnapshotManager
         var weight = ch?.Vitals?.WeightCurrent ?? 0.0;
 
         var key = characterKey ?? ResolveKey(ch, currencies);   // 같은 서버·직업의 다른 캐릭터는 "서버_직업#2"로 구분한다
+        if (characterKey != null && IsSubJob(characterKey, ch))
+        {
+            // 부직업으로 잠시 바꾼 상태: 주직업 기록에 부직업의 전투력·레벨이 섞이지 않게 기록하지 않는다
+            var empty = new CharacterSnapshot();
+            return new SessionDelta(empty, empty);
+        }
         var suffix = key.StartsWith($"{realm}_{job}", StringComparison.Ordinal) ? key[$"{realm}_{job}".Length..] : "";
 
         lock (_lock)

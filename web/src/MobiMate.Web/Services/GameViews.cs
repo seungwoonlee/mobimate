@@ -62,6 +62,7 @@ public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManag
     private CharacterInfo Stabilize(CharacterInfo ch, string key)
     {
         if (!SnapshotManager.IsRealCharacter(ch)) return ch;   // 캐릭터 선택창의 빈 정보는 재확인 대상이 아니다
+        if (snapshots.IsSubJob(key, ch)) return ch;             // 부직업으로 잠시 바꾼 전투력은 주직업 기록과 비교하지 않는다
         if (ch.CombatScore is not { } score) return ch;
         var saved = snapshots.GetSavedCombat(key);
         var v = guard.Evaluate(key, score.Value, saved);
@@ -142,9 +143,12 @@ public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManag
     private async Task<string> ResolveKeyAsync(CharacterInfo ch, CancellationToken ct)
     {
         if (state.CurrentKey is { } known && CharacterIdentity.SameReading(state.Character, ch)) return known;
+        var before = state.Currencies;
         q.Invalidate("get_currencies");
         var cr = await q.Get<List<CurrencyItem>>("get_currencies", ct);
-        return snapshots.ResolveKey(ch, cr.Ok ? cr.Value : null);
+        // 주↔부직업 전환은 골드·데카·M캐시가 그대로이므로 다른 캐릭터로 접속한 것이 아니다
+        return snapshots.DetectJobSwap(state.CurrentKey, ch, cr.Ok ? cr.Value : null, before)
+            ?? snapshots.ResolveKey(ch, cr.Ok ? cr.Value : null);
     }
 
     private object BuildHeader(CharacterInfo ch, string key, ActivityInfo? act, EnvironmentInfo? env, SessionDelta delta, bool selecting = false)
