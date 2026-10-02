@@ -133,10 +133,27 @@ public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManag
         }
         state.UpdateHeader(ch.Value, act.Value, env.Value);
         state.SetCurrentKey(key);
+        if (!switched && IsMixedRead(key))
+        {
+            // 캐릭터를 바꾼 직후: 재화는 새 캐릭터 것인데 캐릭터 정보는 아직 이전 캐릭터다. 이전 캐릭터 기록을 더럽히지 않고 곧 다시 읽는다.
+            var none = new CharacterSnapshot();
+            var heldDto = BuildHeader(ch.Value!, key, act.Value, env.Value, new SessionDelta(none, none));
+            hub.Broadcast("header", heldDto);
+            return new CliData<object>(heldDto, null, ch.FetchedAt);
+        }
         var delta = snapshots.UpdateSnapshot(ch.Value, switched ? null : state.Currencies?.ToList(), switched ? null : state.DailyMissions?.ToList(), key);
         var dto = BuildHeader(ch.Value!, key, act.Value, env.Value, delta);
         hub.Broadcast("header", dto);
         return new CliData<object>(dto, null, ch.FetchedAt);
+    }
+
+    /// <summary>캐시된 재화가 지금 캐릭터(key)가 아니라 다른 캐릭터의 것으로 보이면 true. 캐릭터 정보·재화 캐시를 비워 다시 읽게 한다.</summary>
+    private bool IsMixedRead(string key)
+    {
+        if (state.Currencies == null || !snapshots.WalletBelongsToOther(key, state.Currencies)) return false;
+        q.Invalidate("get_my_info", "get_currencies");
+        state.ClearPerCharacter();
+        return true;
     }
 
     /// <summary>지금 읽은 캐릭터의 기록 이름. 직전 읽기와 같아 보이면 그대로, 아니면 재화를 새로 읽어 정한다 (CharacterIdentity).</summary>
@@ -228,6 +245,12 @@ public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManag
     {
         var r = await q.Get<List<CurrencyItem>>("get_currencies", ct);
         if (!r.Ok) return new CliData<object>(null, r.Failure, r.FetchedAt);
+        if (state.CurrentKey is { } curKey && snapshots.WalletBelongsToOther(curKey, r.Value))
+        {
+            // 위 헤더와 같은 경우: 캐릭터 정보가 따라올 때까지 기록하지 않는다
+            q.Invalidate("get_my_info", "get_currencies");
+            return new CliData<object>(new { items = r.Value, session = new { gold = 0L, wings = 0L, nyang = 0L } }, null, r.FetchedAt);
+        }
         state.UpdateCurrencies(r.Value);
         var delta = snapshots.UpdateSnapshot(state.Character, r.Value, state.DailyMissions?.ToList(), state.CurrentKey);
         return new CliData<object>(new
