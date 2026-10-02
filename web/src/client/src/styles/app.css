@@ -435,3 +435,12 @@ button.toast { border: 0; text-align: left; cursor: pointer; }
 .pl-title,.cc-title{overflow:hidden;text-overflow:ellipsis;min-width:0;max-width:100%}
 .cc-jt>span{overflow:hidden;text-overflow:ellipsis;max-width:100%}
 .cc-head .cc-name,.cc-name{display:inline-block;max-width:100%;overflow:hidden;text-overflow:ellipsis;vertical-align:bottom}
+
+/* ── 전체 현황 카드 정렬: 은동전·마족공물은 늘 한 줄씩 쌓고, 같은 줄의 카드는 구역(머리·직업·점수·생활력·재화·알림) 높이를 맞춘다 ── */
+.card.char .card-h{align-items:flex-start;margin-bottom:0}
+.coins{flex-direction:column;flex-wrap:nowrap;align-items:flex-end;gap:2px}
+.coin,.seen{white-space:nowrap}
+@supports (grid-template-rows: subgrid) {
+  .card.char{grid-row:span 6;grid-template-rows:subgrid;row-gap:0}
+  .card.char>*+*{margin-top:8px}
+}
