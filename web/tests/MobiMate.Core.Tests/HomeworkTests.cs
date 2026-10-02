@@ -63,9 +63,9 @@ public class HomeworkTests : IDisposable
     [Fact]
     public void Catalog_ItemsNeedingMeasurement_BehaveAsManual()
     {
-        var vanguard = _catalog.Find("weekly_vanguard_breach")!;
-        Assert.NotNull(vanguard.NeedsMeasurement);
-        Assert.Equal(HomeworkMode.Manual, vanguard.EffectiveMode);
+        var blackHole = _catalog.Find("daily_black_hole")!;
+        Assert.NotNull(blackHole.NeedsMeasurement);
+        Assert.Equal(HomeworkMode.Manual, blackHole.EffectiveMode);
     }
 
     // ── TST-09 판정 회귀 ──
@@ -468,7 +468,14 @@ public class HomeworkTests : IDisposable
         using var s = typeof(HomeworkCatalog).Assembly.GetManifestResourceStream("MobiMate.Homework.homework_catalog.json")!;
         var node = System.Text.Json.Nodes.JsonNode.Parse(s)!;
         foreach (var item in node["items"]!.AsArray())
-            if ((string?)item!["id"] == "weekly_vanguard_breach") item.AsObject().Remove("needsMeasurement");
+            if ((string?)item!["id"] == "weekly_vanguard_breach")
+            {
+                // 이 경로(모든 목표 완료 퀘스트)는 지금 카탈로그에 쓰는 항목이 없어, 뱅가드 항목을 그 방식으로 바꿔 검증한다
+                var o = item.AsObject();
+                o["mode"] = "questAllObjectives";
+                o["questTitles"] = new System.Text.Json.Nodes.JsonArray("[긴급 의뢰] 뱅가드 브리치");
+                o.Remove("titleContains"); o.Remove("continuous"); o.Remove("needsMeasurement");
+            }
         return HomeworkCatalog.Parse(node.ToJsonString());
     }
 }

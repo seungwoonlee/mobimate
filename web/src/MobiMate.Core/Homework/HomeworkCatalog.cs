@@ -51,6 +51,15 @@ public sealed class HomeworkDefinition
     /// <summary>자동으로 판정되는 숙제: 전체 탭의 캐릭터 카드에 완료 여부를 보여 준다.</summary>
     public bool AutoCheck { get; init; }
 
+    /// <summary>퀘스트 이름을 완전 일치가 아니라 "포함"으로 찾는다 (이름 앞뒤에 [긴급 의뢰] 같은 말이 붙는 퀘스트용). 공백·태그 정규화 후 비교.</summary>
+    public bool TitleContains { get; init; }
+
+    /// <summary>
+    /// QuestVanish에서 "보였다가 사라짐"을 같은 캐릭터를 끊김 없이 지켜본 경우에만 인정한다:
+    /// 다른 캐릭터를 관찰하면 이전 캐릭터의 목격 기록을 지운다 (로그아웃·캐릭터 변경 사이에 사라진 것은 완료의 근거가 아니다).
+    /// </summary>
+    public bool Continuous { get; init; }
+
     /// <summary>캐릭터 카드 칩에 쓰는 짧은 이름. 없으면 Title.</summary>
     public string? CardLabel { get; init; }
 
