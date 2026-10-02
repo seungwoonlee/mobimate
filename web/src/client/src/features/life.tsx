@@ -4,6 +4,7 @@ import type { Gatherable, Work } from '../api/types';
 import { CardHead, Dialog, ErrorCard, Fresh, Icon, Pill, Skeleton } from '../components/ui';
 import { useNow } from '../hooks/layout';
 import { collect, collectAll, setFavorite, startGather } from '../lib/actions';
+import { useBusy } from '../lib/busy';
 import { fmt, remaining } from '../lib/format';
 import { useRouter } from '../state/router';
 
@@ -45,6 +46,7 @@ export function LifeView() {
 
 /** 가공 대기열을 가공 종류별로 묶는다 (FR-DT-20): 종류마다 카드 하나, 안에 진행 중·수거 대기 목록. */
 function Works({ works, at }: { works: Work[]; at: number }) {
+  const collecting = useBusy('collect');
   const now = useNow();
   const base = at;   // 이 기기가 받은 시각 기준 (M3)
   const left = (s: number) => Math.max(0, s - Math.floor((now - base) / 1000));
@@ -54,7 +56,7 @@ function Works({ works, at }: { works: Work[]; at: number }) {
   return (
     <div className="card">
       <CardHead icon="clock" title="가공 대기열"
-        right={<button type="button" className="btn primary" disabled={!ready.length} onClick={() => collectAll(ready)} data-needs-conn><Icon name="inbox" />완료분 모두 수거{ready.length ? ` (${ready.length})` : ''}</button>} />
+        right={<button type="button" className="btn primary" disabled={!ready.length || collecting} onClick={() => collectAll(ready)} data-needs-conn><Icon name="inbox" />완료분 모두 수거{ready.length ? ` (${ready.length})` : ''}</button>} />
       {works.length === 0 ? <p className="muted">진행 중인 가공이 없습니다.</p> : (
         <div className="wk-groups">
           {groups.map(([kind, list]) => {
@@ -63,7 +65,7 @@ function Works({ works, at }: { works: Work[]; at: number }) {
               <section className="wk" key={kind} aria-label={list[0].kindLabel}>
                 <div className="wk-h">
                   <h4>{list[0].kindLabel} <span className="faint num">{list.length}건</span></h4>
-                  {waiting.length > 0 && <button type="button" className="btn" onClick={() => collectAll(waiting.map(w => w.name))} data-needs-conn>수거 {waiting.length}</button>}
+                  {waiting.length > 0 && <button type="button" className="btn" disabled={collecting} onClick={() => collectAll(waiting.map(w => w.name))} data-needs-conn>수거 {waiting.length}</button>}
                 </div>
                 <div className="list">
                   {list.map(w => {
@@ -74,7 +76,7 @@ function Works({ works, at }: { works: Work[]; at: number }) {
                         <div className="t"><span>{w.name}</span></div>
                         <div className="r">
                           {done
-                            ? <button type="button" className="btn" onClick={() => collect(w.name)} data-needs-conn>수거</button>
+                            ? <button type="button" className="btn" disabled={collecting} onClick={() => collect(w.name)} data-needs-conn>수거</button>
                             : <span className="num strong">{remaining(s)}</span>}
                         </div>
                         <div className="m">{w.facility} · {done ? <Pill tone="ok">수거 대기 ✓</Pill> : <Pill>진행 중</Pill>}</div>
@@ -93,6 +95,7 @@ function Works({ works, at }: { works: Work[]; at: number }) {
 
 /** 채집 도우미: 즐겨찾기가 맨 위, 줄마다 보유량을 먼저 보여 준다. 목표 수량 기본값은 100개 (FR-DT-21·22). */
 function GatherHelper({ items }: { items: Gatherable[] }) {
+  const gathering = useBusy('gather');
   const [cat, setCat] = useState<(typeof CATS)[number]>('전체');
   const [text, setText] = useState('');
   const search = useDeferredValue(text.trim());
@@ -169,7 +172,7 @@ function GatherHelper({ items }: { items: Gatherable[] }) {
           onClose={() => setConfirm(null)}
           actions={<>
             <button type="button" className="btn" onClick={() => setConfirm(null)}>취소</button>
-            <button type="button" className="btn primary" onClick={() => { void startGather(confirm.name, confirm.need); setConfirm(null); }}>채집 시작</button>
+            <button type="button" className="btn primary" disabled={gathering} onClick={() => { void startGather(confirm.name, confirm.need); setConfirm(null); }}>채집 시작</button>
           </>}
         >
           <p>목표 {fmt(target)}개 · 부족한 <b>{fmt(confirm.need)}개</b>를 채집합니다.</p>

@@ -580,8 +580,8 @@ public class SnapshotManager
             // 히스토리 중복 방지 (수치 변동 또는 최소 5분 경과 시 누적 기록)
             var lastRecord = profile.History.LastOrDefault();
             // 이번에 받지 못한 값은 이전 기록 값을 이어 간다 (재화·캐릭터 정보는 따로 조회되므로)
-            var living = ch?.LivingScore?.Value ?? lastRecord?.LivingScore ?? 0;
-            var attract = ch?.AttractivenessScore?.Value ?? lastRecord?.AttractivenessScore ?? 0;
+            var living = ScoreReading.OrLast(ch?.LivingScore?.Value, lastRecord?.LivingScore);   // 0은 못 읽은 값(캐릭터 전환 직후)
+            var attract = ScoreReading.OrLast(ch?.AttractivenessScore?.Value, lastRecord?.AttractivenessScore);
             var deca = currencies?.FirstOrDefault(c => c.DisplayName == "데카")?.Amount ?? lastRecord?.Deca ?? 0;
             // 재화 목록을 받았으면 그 안에 없는 값은 0이다(예: 아직 얻지 못한 재화). 받지 못했으면 이전 기록을 잇는다.
             long Money(string[] names, long? prev) => currencies == null ? prev ?? 0 : currencies.FirstOrDefault(c => names.Contains(c.DisplayName))?.Amount ?? 0;

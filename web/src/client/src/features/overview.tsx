@@ -4,6 +4,7 @@ import type { CutoffContent, Header, HomeworkCard, Life, Nearby, Overview as Ove
 import { CardHead, Delta, Dialog, ErrorCard, Fresh, Gauge, Icon, LevelState, LinkCard, Pill, Ring, Skeleton } from '../components/ui';
 import { useLayout, useNow } from '../hooks/layout';
 import { collectAll, stopAction } from '../lib/actions';
+import { useBusy } from '../lib/busy';
 import { fmt, remaining, short, until } from '../lib/format';
 import { scoreClass } from '../lib/score';
 import { useDevice } from '../state/device';
@@ -53,6 +54,7 @@ export function OverviewView() {
 }
 
 function Alerts({ d }: { d: OverviewData }) {
+  const collecting = useBusy('collect');
   const go = useRouter(s => s.go);
   const w = d.header.weight;
   const ready = d.life?.works?.filter(x => x.done) ?? [];
@@ -62,7 +64,7 @@ function Alerts({ d }: { d: OverviewData }) {
       <button key="w" type="button" className={`chip ${w.level}`} onClick={() => go('inventory', { loc: 'diet' })}><Icon name="scale" />가방 {w.pct.toFixed(1)}% · 다이어트</button>
     ),
     ready.length > 0 && (
-      <button key="c" type="button" className="chip ok" onClick={() => collectAll(ready.map(x => x.name))} data-needs-conn><Icon name="inbox" />수거 가능 {ready.length}건</button>
+      <button key="c" type="button" className="chip ok" disabled={collecting} onClick={() => collectAll(ready.map(x => x.name))} data-needs-conn><Icon name="inbox" />수거 가능 {ready.length}건</button>
     ),
     dailyLeft > 0 && (
       <button key="h" type="button" className="chip info" onClick={() => go('homework', { tab: 'daily' })}><Icon name="list" />오늘 숙제 {dailyLeft}개 남음</button>
@@ -214,13 +216,14 @@ function CutoffSummary({ contents }: { contents: CutoffContent[] }) {
 }
 
 function QuickActions({ life }: { life: Life | null }) {
+  const collecting = useBusy('collect');
   const go = useRouter(s => s.go);
   const ready = life?.works?.filter(w => w.done).map(w => w.name) ?? [];
   return (
     <section className="qa" aria-label="퀵 액션">
       <button type="button" onClick={() => go('homework', { tab: 'daily' })}><Icon name="list" /><span><b>일일 숙제 점검</b><span>남은 숙제와 인게임 미션</span></span></button>
       <button type="button" onClick={() => go('inventory', { loc: 'diet' })}><Icon name="scale" /><span><b>가방 다이어트</b><span>이번 접속에 늘어난 잡템 순</span></span></button>
-      <button type="button" onClick={() => collectAll(ready)} data-needs-conn><Icon name="inbox" /><span><b>작업대 수거</b><span>{ready.length ? `완료된 가공물 ${ready.length}건` : '완료된 가공물 없음'}</span></span></button>
+      <button type="button" disabled={collecting} onClick={() => collectAll(ready)} data-needs-conn><Icon name="inbox" /><span><b>작업대 수거</b><span>{ready.length ? `완료된 가공물 ${ready.length}건` : '완료된 가공물 없음'}</span></span></button>
       <button type="button" className="danger" onClick={stopAction}><Icon name="stop" /><span><b>행동 정지</b><span>채집·이동·자동사냥 중단</span></span></button>
     </section>
   );

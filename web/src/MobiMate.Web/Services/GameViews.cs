@@ -184,6 +184,7 @@ public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManag
         var v = ch.Vitals;
         var pct = v is { WeightMax: > 0 } ? v.WeightCurrent / v.WeightMax * 100 : 0;
         var profile = snapshots.GetProfileByKey(key);
+        var lastRec = profile?.History.LastOrDefault();
         return new
         {
             characterKey = key,
@@ -199,7 +200,7 @@ public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManag
             {
                 combat = ch.CombatScore?.Value ?? 0, combatDelta = delta.CombatScoreDiff,
                 mdef = ch.ArcaneResistance?.Value ?? 0, mdefDelta = delta.ArcaneResistanceDiff,
-                living = ch.LivingScore?.Value ?? 0, attract = ch.AttractivenessScore?.Value ?? 0,
+                living = ScoreReading.OrLast(ch.LivingScore?.Value, lastRec?.LivingScore), attract = ScoreReading.OrLast(ch.AttractivenessScore?.Value, lastRec?.AttractivenessScore),
             },
             activity = new { text = GameStateCache.DescribeActivity(act), inCombat = act?.IsInCombat ?? false, canStop = act?.CanStopCurrentAction ?? false },
             location = new
@@ -386,7 +387,6 @@ public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManag
         accounts.Update(d => AccountGrouper.Reconcile(d, histories));
         var data = accounts.Snapshot();
 
-        long Held(Func<CurrencyItem, bool> pick, long? last) => state.Currencies?.FirstOrDefault(pick)?.Amount ?? last ?? 0;
         var hwStatus = homework.GetAutoStatuses(profiles.Select(p => p.CharacterKey));
         var cards = profiles.Select(p =>
         {
@@ -399,7 +399,7 @@ public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManag
                 p.CharacterKey, p.RealmName, p.JobName, string.IsNullOrWhiteSpace(p.CustomName) ? null : p.CustomName, live != null,
                 live?.Level ?? last?.Level ?? 0, live?.Title ?? last?.Title ?? "",
                 live?.CombatScore?.Value ?? last?.CombatScore ?? 0, live?.ArcaneResistance?.Value ?? last?.ArcaneResistance ?? 0,
-                live?.LivingScore?.Value ?? last?.LivingScore ?? 0, live?.AttractivenessScore?.Value ?? last?.AttractivenessScore ?? 0,
+                ScoreReading.OrLast(live?.LivingScore?.Value, last?.LivingScore), ScoreReading.OrLast(live?.AttractivenessScore?.Value, last?.AttractivenessScore),
                 Cur(new[] { "골드" }, last?.Gold), Cur(new[] { "데카" }, last?.Deca), Cur(new[] { "M캐시", "M캐쉬" }, last?.MCash),
                 Cur(new[] { "은동전" }, last?.SilverCoin), Cur(new[] { "마족 공물", "마족공물" }, last?.DemonTribute), lastSeenUtc);
         }).ToList();
