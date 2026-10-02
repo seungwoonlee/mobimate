@@ -448,7 +448,7 @@ button.toast { border: 0; text-align: left; cursor: pointer; }
 /* ── 캐릭터 카드의 자동 판정 숙제 칩 / 숙제 카드의 확인된 미완료 안내 ── */
 .cc-hw{display:flex;flex-wrap:nowrap;gap:4px;overflow:hidden}
 .hw-chip{display:inline-flex;align-items:center;padding:1px 6px;border-radius:999px;font-size:11.5px;line-height:1.35;border:1px solid var(--line);color:var(--text-2);white-space:nowrap}
-.hw-chip.done{color:var(--text-3);border-color:transparent;text-decoration:line-through}
+.hw-chip.done{color:var(--text-3);opacity:.55;border-color:transparent;text-decoration:line-through double}   /* 완료: 배경에 묻히는 회색 + 두 줄 취소선 */
 .hw-chip.todo{color:var(--text-1);border-color:var(--warn)}
 .hw-chip.unknown{color:var(--text-3);border-style:dashed}
 .hw-warn{margin:4px 0 0;color:var(--warn)}
