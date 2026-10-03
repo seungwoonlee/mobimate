@@ -186,7 +186,7 @@ public class HomeworkAutoCheckTests : IDisposable
         var svc = NewService();
         var b = svc.GetBoard(Main);
         Assert.DoesNotContain(b.Cards, c => c.Id is "raid_glasgivnen" or "raid_tabartas");
-        Assert.Single(b.Cards, c => c.Category == "raid");
+        Assert.Equal(new[] { "raid_airel", "raid_cavrak", "raid_white_succubus" }, b.Cards.Where(c => c.Category == "raid").Select(c => c.Id).OrderBy(x => x));   // 열려 있는 레이드 3종
     }
 
     // ── 주간 목표: 모험가 길드 정기 의뢰 ──
@@ -424,7 +424,7 @@ public class HomeworkAutoCheckTests : IDisposable
     {
         var svc = NewService();
         var list = svc.GetAutoStatuses(new[] { "에린_없는캐릭터" })["에린_없는캐릭터"];
-        Assert.Equal(new[] { "daily_day_dungeon", "weekly_guild_regular", "weekly_vanguard_breach", "raid_cavrak" }.OrderBy(x => x), list.Select(x => x.Id).OrderBy(x => x));
+        Assert.Equal(new[] { "daily_day_dungeon", "weekly_guild_regular", "weekly_vanguard_breach", "raid_cavrak", "raid_airel", "raid_white_succubus" }.OrderBy(x => x), list.Select(x => x.Id).OrderBy(x => x));
         Assert.All(list, x => Assert.Equal("unknown", x.State));
     }
 

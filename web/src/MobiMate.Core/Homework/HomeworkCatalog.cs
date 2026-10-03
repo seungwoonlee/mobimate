@@ -72,6 +72,9 @@ public sealed class HomeworkDefinition
     /// <summary>이 수량 이상 늘었을 때만 클리어로 본다 (기본 1). 카브락 증거는 다른 레이드를 주말에 클리어해도 +2가 들어와서(실측 2026-10-03) 카브락 입문 최소치(18)로 거른다.</summary>
     public int TokenMinIncrease { get; init; } = 1;
 
+    /// <summary>TokenCurrency가 재화가 아니라 가방 아이템 이름이다 (에이렐 하프 조각·서큐버스 거울 조각 같은 레이드 고유 보상). 아이템은 0개가 되면 목록에서 사라지므로, 목록을 받았는데 없으면 0개로 본다.</summary>
+    public bool TokenIsItem { get; init; }
+
     /// <summary>실측이 필요한 사항. 값이 있으면 자동 완료 규칙을 쓰지 않고 수동으로 동작한다 (TST-10).</summary>
     public string? NeedsMeasurement { get; init; }
 

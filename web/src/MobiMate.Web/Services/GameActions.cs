@@ -159,16 +159,28 @@ public sealed class HomeworkWatcher(HomeworkService homework, GameQueries q, Sse
         var tE = q.Get<EnvironmentInfo>("get_current_environment", ct);
         var tW2 = q.Get<AlteringWorksResponse>("get_altering_works", ct);
         var tC = q.Get<List<CurrencyItem>>("get_currencies", ct);   // 레이드 증표 관찰 (FR-HW-17)
-        await Task.WhenAll(tMe, tD, tW, tQ, tA, tE, tW2, tC);
+        var tI = q.Get<List<ItemData>>("get_items", ct);            // 레이드 고유 보상 아이템 (에이렐 하프 조각·서큐버스 거울 조각)
+        await Task.WhenAll(tMe, tD, tW, tQ, tA, tE, tW2, tC, tI);
 
         if (tMe.Result.Value is not { } ch || string.IsNullOrWhiteSpace(ch.RealmName) || string.IsNullOrWhiteSpace(ch.JobName)) return null;
         var key = KeyOf(ch, tC.Result.Value);
-        currencyLog.Observe(key, tC.Result.Value, tE.Result.Value?.GameSpaceDisplayName);   // 레이드 보상 실측용 (재화 변화 기록)
-        // 캐릭터가 바뀌었으면 재화 캐시가 이전 캐릭터 것일 수 있다. 이번 관찰은 판정기가 기준값만 지우고, 다음 조회는 새로 받게 한다.
-        if (homework.LastObservedCharacter is { } last && !last.Equals(key, StringComparison.OrdinalIgnoreCase)) q.Invalidate("get_currencies", "get_quests");
+        var currencies = tC.Result.Value;
+        var items = tI.Result.Value;
+        // 캐릭터가 바뀌었으면 재화·아이템 캐시가 이전 캐릭터 것일 수 있다: 새로 읽은 값으로 판정한다(레이드 클리어 비교는 캐릭터별 기준값과 하므로 틀린 캐릭터 값이 섞이면 안 된다).
+        // 퀘스트는 판정기가 이번 관찰을 건너뛰고, 다음 조회는 새로 받게 한다.
+        if (homework.LastObservedCharacter is { } last && !last.Equals(key, StringComparison.OrdinalIgnoreCase))
+        {
+            q.Invalidate("get_currencies", "get_items", "get_quests");
+            var tC2 = q.Get<List<CurrencyItem>>("get_currencies", ct);
+            var tI2 = q.Get<List<ItemData>>("get_items", ct);
+            await Task.WhenAll(tC2, tI2);
+            currencies = tC2.Result.Value;
+            items = tI2.Result.Value;
+        }
+        currencyLog.Observe(key, currencies, tE.Result.Value?.GameSpaceDisplayName);   // 레이드 보상 실측용 (재화 변화 기록)
         Evaluate(key, new HomeworkObservation(
             tD.Result.Value, tW.Result.Value, tQ.Result.Value, tA.Result.Value, tE.Result.Value, tW2.Result.Value,
-            Currencies: tC.Result.Value));
+            Currencies: currencies, Items: items));
         return key;
     }
 
