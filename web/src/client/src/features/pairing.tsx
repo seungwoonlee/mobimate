@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import QRCode from 'qrcode';
 import { api, ApiError } from '../api/http';
-import { keys, useMeta } from '../api/queries';
+import { keys, useMeta, useSession } from '../api/queries';
 import type { LanShare } from '../api/types';
 import { Dialog, Icon } from '../components/ui';
 import { queryClient } from '../lib/queryClient';
+import { useUi } from '../state/ui';
 
 const LAN_ERROR: Record<string, string> = {
   Pending: '네트워크를 확인하는 중입니다. 잠시 후 다시 눌러 주세요.',
@@ -28,6 +29,18 @@ export function PairDialog({ onClose }: { onClose: () => void }) {
   const [qr, setQr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const local = useSession().data?.kind === 'local';
+  const toast = useUi(s => s.toast);
+
+  const openFirewall = async () => {
+    try {
+      await api.post('/api/lan/firewall/open', {});
+      toast('관리자 승인 창에서 "예"를 누르면 방화벽이 열립니다. 끝나면 폰에서 QR을 다시 찍어 보세요.', 'info');
+      window.setTimeout(() => void loadShare(), 8000);
+    } catch (e) {
+      toast(e instanceof ApiError ? e.message : '방화벽 스크립트를 실행하지 못했습니다', 'warn');
+    }
+  };
 
   const loadShare = async () => {
     try {
@@ -73,6 +86,22 @@ export function PairDialog({ onClose }: { onClose: () => void }) {
             <p className="small muted">폰 카메라로 QR을 찍거나, 폰 브라우저에서 아래 주소를 여세요. 홈 화면에 추가하면 앱처럼 쓸 수 있습니다.</p>
             {share && <div className="url">{share.urlName ?? share.urlIp.split('?')[0]}</div>}
           </div>
+        </div>
+      )}
+      {lan?.active && share?.firewall && (share.firewall.state === 'Missing' || share.firewall.state === 'Blocked') && (
+        <div className="fw-note" role="note">
+          <p className="warn-text small m0">
+            {share.firewall.state === 'Blocked'
+              ? 'Windows 방화벽 규칙이 폰의 접속을 막고 있습니다.'
+              : 'Windows 방화벽에 폰 접속을 허용하는 규칙이 없습니다.'}
+            {' '}폰에서 "응답하는 데 시간이 너무 오래 걸립니다"가 뜨면 방화벽 때문입니다.
+          </p>
+          {share.firewall.script
+            ? (local
+              ? <button type="button" className="btn" onClick={openFirewall}>방화벽 열기 (관리자 승인)</button>
+              : <p className="faint small m0">이 PC에서 앱 옆의 allow-lan-firewall.bat를 실행해 주세요.</p>)
+            : <p className="faint small m0">앱 배포 파일(zip)에 들어 있는 allow-lan-firewall.bat를 이 PC에서 실행해 주세요.</p>}
+          <p className="faint small m0">개인 네트워크에서만 TCP {lan.port}, UDP 5353을 허용합니다. 이미 잘 열린다면 이 안내는 무시해도 됩니다.</p>
         </div>
       )}
       {err && <p className="warn-text small" role="alert">{err}</p>}

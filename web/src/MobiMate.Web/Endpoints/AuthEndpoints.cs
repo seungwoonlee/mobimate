@@ -42,7 +42,7 @@ public static class AuthEndpoints
         });
 
         // 폰·태블릿 접속 주소 (QR용). QR은 항상 IP 주소로 연다. 이름 주소(n)는 폰 페이지가 /api/ping으로 확인한 뒤 옮겨 간다 (FR-MB-10·13).
-        app.MapGet("/api/lan/share", (LanService lan) =>
+        app.MapGet("/api/lan/share", async (LanService lan, IFirewallCheck fw) =>
         {
             var s = lan.Status;
             if (!s.Active) return ApiResults.Error(StatusCodes.Status409Conflict, "LAN_OFF", "LAN 모드가 꺼져 있거나 쓸 수 없습니다. 설정에서 LAN 모드를 켜 주세요.");
@@ -51,7 +51,20 @@ public static class AuthEndpoints
                 urlIp = $"http://{s.Addresses[0]}:{s.Port}/" + (s.MdnsName is { } nm ? $"?n={Uri.EscapeDataString(nm)}" : ""),
                 urlName = s.MdnsName is { } n ? $"http://{n}:{s.Port}/" : null,
                 addresses = s.Addresses,
+                // 윈도우 방화벽은 접속을 조용히 버린다: 포트 허용 규칙이 없으면 폰 연결 창이 배치 파일 실행을 안내한다
+                firewall = new { state = (await Task.Run(() => fw.Check(s.Port))).ToString(), script = FirewallScript.Find() is not null },
             });
+        });
+
+        // 방화벽 허용 배치 파일 실행 (관리자 승인 창이 뜬다). 이 PC에서만.
+        app.MapPost("/api/lan/firewall/open", (HttpContext ctx, LanService lan) =>
+        {
+            if (!ClientId.IsLocal(ctx)) return ApiResults.Error(StatusCodes.Status403Forbidden, "LOCAL_ONLY", "이 PC에서만 실행할 수 있습니다.");
+            var path = FirewallScript.Find();
+            if (path == null) return ApiResults.Error(StatusCodes.Status404NotFound, "SCRIPT_MISSING", $"{FirewallScript.FileName} 파일이 앱 옆에 없습니다.");
+            return FirewallScript.Run(path, lan.Status.Port)
+                ? ApiResults.Ok(new { started = true })
+                : ApiResults.Error(StatusCodes.Status409Conflict, "NOT_STARTED", "관리자 승인이 취소되었거나 실행하지 못했습니다.");
         });
     }
 
