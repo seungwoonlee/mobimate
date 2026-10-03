@@ -153,6 +153,23 @@ function CoinChip({ label, c }: { label: string; c: CoinView }) {
   );
 }
 
+/** 칩 순서: 윗줄은 요일던전·길드의뢰·뱅가드, 아랫줄은 레이드(카브락·에이렐·화이트서큐). 목록에 없는 것은 뒤에 붙는다 */
+const HW_ORDER = ['daily_day_dungeon', 'weekly_guild_regular', 'weekly_vanguard_breach', 'raid_cavrak', 'raid_airel', 'raid_white_succubus'];
+const hwRank = (id: string) => { const i = HW_ORDER.indexOf(id); return i < 0 ? HW_ORDER.length : i; };
+export function splitHwRows(list: HomeworkAuto[]): [HomeworkAuto[], HomeworkAuto[]] {
+  const sorted = [...list].sort((a, b) => hwRank(a.id) - hwRank(b.id));
+  return [sorted.filter(h => h.category !== 'raid'), sorted.filter(h => h.category === 'raid')];
+}
+function HwRows({ list }: { list: HomeworkAuto[] }) {
+  const [top, raids] = splitHwRows(list);
+  return (
+    <div className="cc-hw-rows" aria-label="자동 판정 숙제">
+      {top.length > 0 && <div className="cc-hw">{top.map(h => <HwChip key={h.id} h={h} />)}</div>}
+      {raids.length > 0 && <div className="cc-hw">{raids.map(h => <HwChip key={h.id} h={h} />)}</div>}
+    </div>
+  );
+}
+
 /** 자동 판정되는 숙제 칩 (전체 탭 카드): 짧은 이름만. 완료는 취소선 / 확인된 미완료는 주황 테두리 / 아직 확인 전은 점선 */
 function HwChip({ h }: { h: HomeworkAuto }) {
   const text = h.state === 'done' ? '완료' : h.state === 'todo' ? '미완료 (확인됨)' : '미완료 (아직 확인 전)';
@@ -203,7 +220,7 @@ function CharacterCardView({ c, now }: { c: CharacterCard; now: number }) {
         <span className="muted">데카 <b className="num">{fmt(c.deca)}</b></span>
         <span className="muted">M캐시 <b className="num">{fmt(c.mcash)}</b></span>
       </div>
-      {c.homework.length > 0 && <div className="cc-hw" aria-label="자동 판정 숙제">{c.homework.map(h => <HwChip key={h.id} h={h} />)}</div>}
+      {c.homework.length > 0 && <HwRows list={c.homework} />}
       {notes.length > 0 && <ul className="cc-notes small">{notes.map(n => <li key={n}>{n}</li>)}</ul>}
       {asking && (
         <Dialog title="캐릭터 삭제" onClose={() => setAsking(false)}
