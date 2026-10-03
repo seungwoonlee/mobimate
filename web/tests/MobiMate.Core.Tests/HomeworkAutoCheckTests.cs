@@ -173,7 +173,7 @@ public class HomeworkAutoCheckTests : IDisposable
         svc.Evaluate(Main, Cur(84));
         Assert.Equal("todo", Auto(svc, Main, "raid_cavrak").State);
         _now += TimeSpan.FromHours(2);
-        svc.Evaluate(Main, Cur(85));
+        svc.Evaluate(Main, Cur(102));   // 카브락 입문 +18
         var card = Card(svc.GetBoard(Main), "raid_cavrak");
         Assert.Equal(HomeworkCardStatus.AutoDone, card.Status);
         Assert.Null(card.Suggestion);

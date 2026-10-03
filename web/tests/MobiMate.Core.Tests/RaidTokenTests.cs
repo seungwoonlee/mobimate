@@ -43,6 +43,22 @@ public class RaidTokenTests : IDisposable
     }
 
     [Fact]
+    public void RealCatalog_WeekendBonusOf2_DoesNotCompleteCavrak_But18Does()
+    {
+        var svc = new HomeworkService(HomeworkCatalog.LoadEmbedded(), new HomeworkStore(_dir), () => _now);
+        svc.Evaluate(Main, Obs((Cavrak, 64)));
+        _now += TimeSpan.FromHours(1);
+        svc.Evaluate(Main, Obs((Cavrak, 66)));   // 에이렐 어려움 클리어 때 들어온 주말 보너스 +2 (실측)
+        var card = Card(svc.GetBoard(Main), "raid_cavrak");
+        Assert.NotEqual(HomeworkCardStatus.AutoDone, card.Status);
+        Assert.Equal(0, svc.GetBoard(Main).Weekly.Done);
+
+        _now += TimeSpan.FromHours(1);
+        svc.Evaluate(Main, Obs((Cavrak, 84)));   // 카브락 입문 +18: 기준값은 66으로 갱신돼 있었다
+        Assert.Equal(1, svc.GetBoard(Main).Weekly.Done);
+    }
+
+    [Fact]
     public void HoldingTokens_WithoutIncrease_NeverSuggests()
     {
         var svc = NewService();

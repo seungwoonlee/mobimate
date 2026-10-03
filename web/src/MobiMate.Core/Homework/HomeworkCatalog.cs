@@ -69,6 +69,9 @@ public sealed class HomeworkDefinition
     /// <summary>클리어 보상 재화 이름 (FR-HW-17). 수량이 늘면 "클리어 추정" 제안만 한다. 공백 정규화 후 완전 일치로 찾는다.</summary>
     public string? TokenCurrency { get; init; }
 
+    /// <summary>이 수량 이상 늘었을 때만 클리어로 본다 (기본 1). 카브락 증거는 다른 레이드를 주말에 클리어해도 +2가 들어와서(실측 2026-10-03) 카브락 입문 최소치(18)로 거른다.</summary>
+    public int TokenMinIncrease { get; init; } = 1;
+
     /// <summary>실측이 필요한 사항. 값이 있으면 자동 완료 규칙을 쓰지 않고 수동으로 동작한다 (TST-10).</summary>
     public string? NeedsMeasurement { get; init; }
 
