@@ -296,6 +296,7 @@ public static partial class HomeworkEvaluator
     /// 레이드 증표 관찰 (FR-HW-17, H-11). 같은 캐릭터를 이어서 관찰했고(사이에 다른 캐릭터 없음), 직전 관찰이 이번 주간 주기 안이며,
     /// 증표 수량이 늘었으면 그 레이드 항목에 제안을 돌려준다. 완료 처리는 하지 않는다.
     /// - 조회 실패(null)·빈 목록은 비교에도 기록에도 쓰지 않는다.
+    /// - 늘어난 양이 TokenMinIncrease보다 작으면 클리어가 아니다(다른 레이드의 주말 보너스 +2 등). 기준값은 그대로 갱신한다.
     /// - 목록에 없는 증표는 0으로 보지 않는다: 그 증표의 기준값을 그대로 두고 비교에서 뺀다(불완전한 목록 → 0 → 늘어남 오탐 방지).
     /// - 캐릭터가 바뀐 관찰은 기준값을 지우기만 한다(재화 캐시가 이전 캐릭터 것일 수 있음). 다음 관찰부터 새로 쌓는다.
     /// </summary>
@@ -325,7 +326,7 @@ public static partial class HomeworkEvaluator
         {
             var key = HomeworkText.Normalize(d.TokenCurrency);
             if (!amounts.TryGetValue(key, out var now_)) continue;   // 목록에 없음: 기준값 유지, 비교 안 함
-            if (prev != null && prev.TryGetValue(key, out var before) && now_ > before)
+            if (prev != null && prev.TryGetValue(key, out var before) && now_ - before >= Math.Max(1, d.TokenMinIncrease))
                 result[d.Id] = new HomeworkSuggestion("raidTokenIncreased", d.TokenCurrency!, before, now_);
             next[key] = now_;
         }

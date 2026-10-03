@@ -45,8 +45,8 @@
       "title": "앙그르바한", "subtitle": "바라프 계곡 필드 보스 (주간 1회 택1)", "icon": "field-boss", "goal": 1, "bossNames": ["앙그르바한", "앙그라바한"] },
 
     { "id": "raid_cavrak", "category": "raid", "period": "weekly", "share": "character", "mode": "manual",
-      "title": "카브락", "subtitle": "주간 레이드 흑룡 카브락 토벌 (증표가 늘면 완료)", "icon": "raid", "goal": 1, "bossNames": ["카브락", "카브라크"],
-      "tokenCurrency": "원정의 증거: 카브락 레이드", "tokenAuto": true, "autoCheck": true, "cardLabel": "카브락" },
+      "title": "카브락", "subtitle": "주간 레이드 흑룡 카브락 토벌 (증거가 18개 이상 늘면 완료 · 주말 보너스 +2는 제외)", "icon": "raid", "goal": 1, "bossNames": ["카브락", "카브라크"],
+      "tokenCurrency": "원정의 증거: 카브락 레이드", "tokenMinIncrease": 18, "tokenAuto": true, "autoCheck": true, "cardLabel": "카브락" },
     { "id": "raid_glasgivnen", "category": "raid", "period": "weekly", "share": "character", "mode": "manual", "active": false,
       "title": "글라스기브넨", "subtitle": "주간 레이드 글라스기브넨 (지금은 열려 있지 않음)", "icon": "raid", "goal": 1,
       "tokenCurrency": "원정의 증거: 글라스기브넨 레이드", "tokenAuto": true, "autoCheck": true },
