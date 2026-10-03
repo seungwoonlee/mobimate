@@ -75,6 +75,17 @@ public static partial class HomeworkEvaluator
             }
 
             if (existing?.Completed != true && def.HasProgressSignal && IsProgressSignal(def, obs)) inProgress.Add(def.Id);
+            // 수동으로 "미완료"로 둔 레이드에 클리어 증거(보상 증가)가 보이면 완료로 바꾸지는 않고 "완료 제안"만 남긴다.
+            // 수동 설정을 존중하되, 놓친 클리어를 알려 준다 (제안은 수동 설정·완료·리셋 때 사라진다).
+            if (existing is { ManualOverride: true, Completed: false } manual && raidSuggestions.TryGetValue(def.Id, out var manualSuggestion))
+            {
+                if (manual.Suggestion != manualSuggestion)
+                {
+                    manual.Suggestion = manualSuggestion;
+                    changed.Add(def.Id);
+                }
+                continue;
+            }
             if (existing is { ManualOverride: true } or { Completed: true }) continue;
 
             // 빈 상태를 미리 만들지 않는다. 값이 바뀔 때만 장부에 넣는다.
