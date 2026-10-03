@@ -135,7 +135,7 @@ public sealed class GameActions(GameQueries q, SseHub hub, HomeworkWatcher homew
 /// 숙제 판정 연결부: 조회 결과를 모아 HomeworkService에 넘기고, 바뀌면 SSE "homework.changed"로 알린다.
 /// 조회에 실패한 항목은 null로 넘겨 판정 근거에서 뺀다.
 /// </summary>
-public sealed class HomeworkWatcher(HomeworkService homework, GameQueries q, SseHub hub, SnapshotManager snapshots, GameStateCache state)
+public sealed class HomeworkWatcher(HomeworkService homework, GameQueries q, SseHub hub, SnapshotManager snapshots, GameStateCache state, CurrencyDeltaLog currencyLog)
 {
     /// <summary>캐릭터의 기록 이름. 헤더가 이미 정한 이름이 있으면 그것을 쓰고, 아니면 재화로 같은 서버·직업의 다른 캐릭터와 구분해 정한다.</summary>
     public string KeyOf(CharacterInfo ch, IEnumerable<CurrencyItem>? currencies = null) =>
@@ -163,6 +163,7 @@ public sealed class HomeworkWatcher(HomeworkService homework, GameQueries q, Sse
 
         if (tMe.Result.Value is not { } ch || string.IsNullOrWhiteSpace(ch.RealmName) || string.IsNullOrWhiteSpace(ch.JobName)) return null;
         var key = KeyOf(ch, tC.Result.Value);
+        currencyLog.Observe(key, tC.Result.Value, tE.Result.Value?.GameSpaceDisplayName);   // 레이드 보상 실측용 (재화 변화 기록)
         // 캐릭터가 바뀌었으면 재화 캐시가 이전 캐릭터 것일 수 있다. 이번 관찰은 판정기가 기준값만 지우고, 다음 조회는 새로 받게 한다.
         if (homework.LastObservedCharacter is { } last && !last.Equals(key, StringComparison.OrdinalIgnoreCase)) q.Invalidate("get_currencies", "get_quests");
         Evaluate(key, new HomeworkObservation(

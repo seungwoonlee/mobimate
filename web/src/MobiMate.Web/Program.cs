@@ -83,6 +83,7 @@ builder.Services.AddSingleton(sp =>
 });
 builder.Services.AddSingleton(sp => new HomeworkStore(Dir(sp)));
 builder.Services.AddSingleton(sp => new HomeworkService(sp.GetRequiredService<HomeworkCatalog>(), sp.GetRequiredService<HomeworkStore>()));
+builder.Services.AddSingleton(sp => new CurrencyDeltaLog(Path.Combine(Dir(sp), "currency_changes.jsonl")));
 builder.Services.AddSingleton<HomeworkWatcher>();
 builder.Services.AddSingleton<SseHub>();
 builder.Services.AddSingleton<CombatScoreGuard>();
