@@ -221,7 +221,7 @@ public class ApiTests
         using var host = new TestHost();
         var c = await host.LocalAsync();
         var board = await TestHost.Data(await c.GetAsync("/api/homework"));
-        Assert.Equal(30, board.GetProperty("cards").GetArrayLength());   // 열려 있지 않은 레이드 2종은 목록에서 빠진다
+        Assert.Equal(32, board.GetProperty("cards").GetArrayLength());   // 열려 있지 않은 레이드 2종은 목록에서 빠진다
         Assert.Equal("pending", Card(board, "raid_cavrak").GetProperty("status").GetString());   // 계정 도전과제로 오탐 안 됨
 
         Assert.Equal(HttpStatusCode.OK, (await c.PutAsJsonAsync("/api/homework/raid_cavrak", new { completed = true })).StatusCode);

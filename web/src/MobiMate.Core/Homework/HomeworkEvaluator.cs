@@ -9,7 +9,8 @@ public sealed record HomeworkObservation(
     EnvironmentInfo? Environment = null,
     AlteringWorksResponse? AlteringWorks = null,
     bool CollectedByApp = false,
-    IReadOnlyList<CurrencyItem>? Currencies = null);
+    IReadOnlyList<CurrencyItem>? Currencies = null,
+    IReadOnlyList<ItemData>? Items = null);
 
 public sealed record HomeworkEvaluation(IReadOnlyList<string> ChangedIds, IReadOnlyList<string> InProgressIds);
 
@@ -53,7 +54,7 @@ public static partial class HomeworkEvaluator
         var changed = new List<string>();
         var inProgress = new List<string>();
         var alteringCollected = ObserveAltering(character, obs, nowUtc, characterJustSwitched);
-        var raidSuggestions = ObserveRaidTokens(character, catalog, obs, nowUtc, characterJustSwitched);
+        var raidSuggestions = ObserveRaidTokens(character, catalog, obs, nowUtc);
 
         // 캐릭터를 바꾼 직후의 퀘스트 목록은 이전 캐릭터 것일 수 있다: 퀘스트 기반 판정은 이번 관찰을 건너뛴다
         var questsUsable = !characterJustSwitched && obs.Quests != null;
@@ -293,43 +294,54 @@ public static partial class HomeworkEvaluator
     }
 
     /// <summary>
-    /// 레이드 증표 관찰 (FR-HW-17, H-11). 같은 캐릭터를 이어서 관찰했고(사이에 다른 캐릭터 없음), 직전 관찰이 이번 주간 주기 안이며,
-    /// 증표 수량이 늘었으면 그 레이드 항목에 제안을 돌려준다. 완료 처리는 하지 않는다.
+    /// 레이드 클리어 관찰 (FR-HW-17, H-11). 레이드는 캐릭터마다 종류별로 주 1회만 보상을 주므로, 보상 재화·아이템이
+    /// 늘어난 것을 그 레이드의 "이번 주 클리어"로 본다 (카브락 = 원정의 증거 18개 이상, 에이렐 = 선율을 품은 하프 조각, 화이트 서큐버스 = 꿈을 비추는 거울 조각).
+    /// - 비교 기준은 그 캐릭터가 마지막으로 관찰된 수량이다(캐릭터별 장부, 이번 주간 주기 안). 다른 캐릭터를 사이에 관찰했어도,
+    ///   그 캐릭터로 다시 접속했을 때 늘어난 것을 알아챈다(호출하는 쪽이 접속 직후엔 재화·아이템을 새로 읽는다).
     /// - 조회 실패(null)·빈 목록은 비교에도 기록에도 쓰지 않는다.
     /// - 늘어난 양이 TokenMinIncrease보다 작으면 클리어가 아니다(다른 레이드의 주말 보너스 +2 등). 기준값은 그대로 갱신한다.
-    /// - 목록에 없는 증표는 0으로 보지 않는다: 그 증표의 기준값을 그대로 두고 비교에서 뺀다(불완전한 목록 → 0 → 늘어남 오탐 방지).
-    /// - 캐릭터가 바뀐 관찰은 기준값을 지우기만 한다(재화 캐시가 이전 캐릭터 것일 수 있음). 다음 관찰부터 새로 쌓는다.
+    /// - 목록에 없는 재화는 0으로 보지 않는다(불완전한 목록 → 0 → 늘어남 오탐 방지). 아이템은 0개면 목록에서 사라지므로
+    ///   목록을 받았다면 없는 것은 0개다.
     /// </summary>
     private static Dictionary<string, HomeworkSuggestion> ObserveRaidTokens(
-        HomeworkLedger character, HomeworkCatalog catalog, HomeworkObservation obs, DateTimeOffset now, bool characterJustSwitched)
+        HomeworkLedger character, HomeworkCatalog catalog, HomeworkObservation obs, DateTimeOffset now)
     {
         var result = new Dictionary<string, HomeworkSuggestion>(StringComparer.OrdinalIgnoreCase);
-        if (characterJustSwitched)
-        {
-            character.RaidTokens = null;
-            character.RaidTokensObservedUtc = null;
-            return result;
-        }
-        if (obs.Currencies is not { Count: > 0 }) return result;
+        var haveCurrencies = obs.Currencies is { Count: > 0 };
+        var haveItems = obs.Items is { Count: > 0 };
+        if (!haveCurrencies && !haveItems) return result;
 
-        var defs = catalog.Items.Where(d => !string.IsNullOrWhiteSpace(d.TokenCurrency)).ToList();
+        var defs = catalog.Items.Where(d => d.Active && !string.IsNullOrWhiteSpace(d.TokenCurrency)).ToList();
         if (defs.Count == 0) return result;
 
-        var amounts = obs.Currencies
-            .GroupBy(c => HomeworkText.Normalize(c.DisplayName))
-            .ToDictionary(g => g.Key, g => g.Sum(c => c.Amount));
+        var currencies = haveCurrencies
+            ? obs.Currencies!.GroupBy(c => HomeworkText.Normalize(c.DisplayName)).ToDictionary(g => g.Key, g => g.Sum(c => c.Amount))
+            : new Dictionary<string, long>();
+        var items = haveItems
+            ? obs.Items!.Where(i => string.Equals(i.Location, "inventory", StringComparison.OrdinalIgnoreCase))
+                .GroupBy(i => HomeworkText.Normalize(i.DisplayName)).ToDictionary(g => g.Key, g => g.Sum(i => (long)i.Count))
+            : new Dictionary<string, long>();
 
         var samePeriod = character.RaidTokensObservedUtc is { } at && at >= character.LastWeeklyResetUtc;
         var prev = samePeriod ? character.RaidTokens : null;   // 지난 주기 기준값은 버린다
         var next = new Dictionary<string, long>(prev ?? new Dictionary<string, long>());
+        var observed = false;
         foreach (var d in defs)
         {
             var key = HomeworkText.Normalize(d.TokenCurrency);
-            if (!amounts.TryGetValue(key, out var now_)) continue;   // 목록에 없음: 기준값 유지, 비교 안 함
+            long now_;
+            if (d.TokenIsItem)
+            {
+                if (!haveItems) continue;
+                now_ = items.GetValueOrDefault(key);
+            }
+            else if (!currencies.TryGetValue(key, out now_)) continue;   // 목록에 없음: 기준값 유지, 비교 안 함
+            observed = true;
             if (prev != null && prev.TryGetValue(key, out var before) && now_ - before >= Math.Max(1, d.TokenMinIncrease))
                 result[d.Id] = new HomeworkSuggestion("raidTokenIncreased", d.TokenCurrency!, before, now_);
             next[key] = now_;
         }
+        if (!observed) return result;
 
         character.RaidTokens = next;
         character.RaidTokensObservedUtc = now;

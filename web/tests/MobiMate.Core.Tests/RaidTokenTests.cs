@@ -71,13 +71,13 @@ public class RaidTokenTests : IDisposable
     }
 
     [Fact]
-    public void OtherCharacterObservedInBetween_NoComparison()
+    public void OtherCharacterObservedInBetween_EachCharacterKeepsOwnBaseline()
     {
         var svc = NewService();
         svc.Evaluate(Main, Obs((Cavrak, 1)));
-        svc.Evaluate(Alt, Obs((Cavrak, 2)));    // 계정 재화일 수 있으므로 다른 캐릭터 관찰이 끼면 비교하지 않는다
-        svc.Evaluate(Main, Obs((Cavrak, 2)));
-        Assert.Null(Card(svc.GetBoard(Main), "raid_cavrak").Suggestion);
+        svc.Evaluate(Alt, Obs((Cavrak, 2)));    // 증표는 캐릭터별 수량이다: 다른 캐릭터의 값과 섞이지 않는다
+        svc.Evaluate(Main, Obs((Cavrak, 2)));   // Main은 자기 기준값(1)에서 늘었다 — 사이에 Alt를 봤어도 알아챈다
+        Assert.NotNull(Card(svc.GetBoard(Main), "raid_cavrak").Suggestion);
         Assert.Null(Card(svc.GetBoard(Alt), "raid_cavrak").Suggestion);
     }
 
@@ -123,17 +123,49 @@ public class RaidTokenTests : IDisposable
     }
 
     [Fact]
-    public void OtherCharacterBeforeRestart_IsRemembered()
+    public void OtherCharacterBeforeRestart_BaselineIsRemembered()
     {
         var svc = NewService();
         svc.Evaluate(Main, Obs((Cavrak, 1)));
         svc.Evaluate(Alt, Obs((Cavrak, 2)));
-        svc = NewService();                      // 재기동
-        svc.Evaluate(Main, Obs((Cavrak, 2)));   // 사이에 Alt 관찰이 있었다 → 비교하지 않음
-        Assert.Null(Card(svc.GetBoard(Main), "raid_cavrak").Suggestion);
+        svc = NewService();                      // 재기동: 기준값은 캐릭터별로 파일에 있다
         svc.Evaluate(Main, Obs((Cavrak, 2)));
-        svc.Evaluate(Main, Obs((Cavrak, 3)));
         Assert.NotNull(Card(svc.GetBoard(Main), "raid_cavrak").Suggestion);
+    }
+
+    private static HomeworkObservation WithItems(params (string Name, int Count)[] items) =>
+        new(Currencies: new List<CurrencyItem> { new("골드", 1000) },
+            Items: items.Select(x => new ItemData("inventory", x.Name, "", x.Count, false)).Append(new ItemData("inventory", "잡템", "", 5, false)).ToList());
+
+    [Fact]
+    public void RealCatalog_RewardItems_MarkTheRightRaid_PerCharacter()
+    {
+        const string harp = "선율을 품은 하프 조각", mirror = "꿈을 비추는 거울 조각", light = "빛의 흔적";
+        var svc = new HomeworkService(HomeworkCatalog.LoadEmbedded(), new HomeworkStore(_dir), () => _now);
+        svc.Evaluate(Main, WithItems((harp, 8), (mirror, 41), (light, 100)));
+        svc.Evaluate(Alt, WithItems((harp, 3)));                       // 다른 캐릭터를 사이에 관찰
+        _now += TimeSpan.FromMinutes(5);
+        svc.Evaluate(Main, WithItems((harp, 9), (mirror, 41), (light, 200)));   // 에이렐 클리어: 하프 조각 +1, 빛의 흔적 +100
+        var b = svc.GetBoard(Main);
+        Assert.Equal(HomeworkCardStatus.AutoDone, Card(b, "raid_airel").Status);
+        Assert.NotEqual(HomeworkCardStatus.AutoDone, Card(b, "raid_white_succubus").Status);   // 빛의 흔적은 두 레이드 공통이라 근거가 아니다
+        Assert.NotEqual(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Alt), "raid_airel").Status);
+
+        _now += TimeSpan.FromMinutes(5);
+        svc.Evaluate(Main, WithItems((harp, 9), (mirror, 42), (light, 300)));   // 같은 캐릭터로 서큐버스까지
+        Assert.Equal(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main), "raid_white_succubus").Status);
+    }
+
+    [Fact]
+    public void RewardItem_AppearingFromZero_CountsAsClear_ButEmptyItemListDoesNot()
+    {
+        const string harp = "선율을 품은 하프 조각";
+        var svc = new HomeworkService(HomeworkCatalog.LoadEmbedded(), new HomeworkStore(_dir), () => _now);
+        svc.Evaluate(Main, WithItems(("다른 아이템", 1)));              // 하프 조각 없음 = 0개 (아이템은 0이면 목록에서 사라진다)
+        svc.Evaluate(Main, new HomeworkObservation(Items: new List<ItemData>()));   // 조회 실패·빈 목록: 무시
+        Assert.NotEqual(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main), "raid_airel").Status);
+        svc.Evaluate(Main, WithItems((harp, 1)));
+        Assert.Equal(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main), "raid_airel").Status);
     }
 
     [Fact]
