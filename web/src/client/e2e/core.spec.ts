@@ -382,3 +382,15 @@ test('새로고침은 누른 뒤 3초 동안 눌리지 않는다', async ({ page
   await expect(btn).toBeDisabled();
   await expect(btn).toBeEnabled({ timeout: 5000 });
 });
+
+test('전체 탭 카드의 자동 판정 칩은 두 줄(숙제 / 레이드)로 잘리지 않고 보인다', async ({ page }) => {
+  await page.goto('/characters');
+  const rows = page.locator('.cc-hw-rows').first();
+  await expect(rows).toBeVisible();
+  const lines = rows.locator('.cc-hw');
+  expect(await lines.count()).toBeLessThanOrEqual(2);
+  for (const line of await lines.all()) {
+    const clipped = await line.evaluate(el => el.scrollWidth > el.clientWidth + 1);
+    expect(clipped).toBe(false);   // nowrap + overflow hidden이라 넘치면 칩이 잘린다
+  }
+});

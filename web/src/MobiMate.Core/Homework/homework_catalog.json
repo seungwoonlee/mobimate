@@ -52,7 +52,7 @@
       "tokenCurrency": "선율을 품은 하프 조각", "tokenIsItem": true, "tokenAuto": true, "autoCheck": true, "cardLabel": "에이렐" },
     { "id": "raid_white_succubus", "category": "raid", "period": "weekly", "share": "character", "mode": "manual",
       "title": "화이트 서큐버스", "subtitle": "주간 레이드 화이트 서큐버스 (캐릭터당 주 1회, 난이도 무관 · 꿈을 비추는 거울 조각이 늘면 완료)", "icon": "raid", "goal": 1, "bossNames": ["화이트 서큐버스"],
-      "tokenCurrency": "꿈을 비추는 거울 조각", "tokenIsItem": true, "tokenAuto": true, "autoCheck": true, "cardLabel": "서큐버스" },
+      "tokenCurrency": "꿈을 비추는 거울 조각", "tokenIsItem": true, "tokenAuto": true, "autoCheck": true, "cardLabel": "화이트서큐" },
     { "id": "raid_glasgivnen", "category": "raid", "period": "weekly", "share": "character", "mode": "manual", "active": false,
       "title": "글라스기브넨", "subtitle": "주간 레이드 글라스기브넨 (지금은 열려 있지 않음)", "icon": "raid", "goal": 1,
       "tokenCurrency": "원정의 증거: 글라스기브넨 레이드", "tokenAuto": true, "autoCheck": true },
