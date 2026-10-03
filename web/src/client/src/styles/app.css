@@ -454,3 +454,5 @@ button.toast { border: 0; text-align: left; cursor: pointer; }
 .hw-chip.unknown{color:var(--text-3);border-style:dashed}
 .app[data-size="compact"] .hw-chip{font-size:11.5px;padding:1px 6px}   /* 폰은 칩 6개가 두 줄에 들어가도록 작게 */
 .hw-warn{margin:4px 0 0;color:var(--warn)}
+
+.fw-note{display:grid;gap:6px;margin-top:10px;padding:10px 12px;border:1px solid var(--warn);border-radius:10px}

@@ -35,7 +35,8 @@
     <IsTransformWebConfigDisabled>true</IsTransformWebConfigDisabled>
   </PropertyGroup>
   <Target Name="ZipAfterPublish" AfterTargets="Publish" Condition="'$(PublishDir)' != ''">
-    <Exec Command="powershell -NoProfile -Command &quot;Compress-Archive -Path '$(PublishDir)MobiMateWeb.exe' -DestinationPath '$(PublishDir)MobiMateWeb.zip' -Force&quot;" />
+    <Copy SourceFiles="$(MSBuildProjectDirectory)\..\..\tools\allow-lan-firewall.bat" DestinationFolder="$(PublishDir)" />
+    <Exec Command="powershell -NoProfile -Command &quot;Compress-Archive -Path '$(PublishDir)MobiMateWeb.exe','$(PublishDir)allow-lan-firewall.bat' -DestinationPath '$(PublishDir)MobiMateWeb.zip' -Force&quot;" />
     <Message Importance="high" Text="배포물: $(PublishDir)MobiMateWeb.exe, $(PublishDir)MobiMateWeb.zip" />
   </Target>
 

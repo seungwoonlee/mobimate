@@ -128,7 +128,8 @@ export interface Engine { id: string; name: string; type: string; costTier: Cost
 export interface Engines { current: string | null; engines: Engine[] }
 
 /** 폰·태블릿 접속 주소 (QR용) */
-export interface LanShare { urlIp: string; urlName: string | null; addresses: string[] }
+/** 방화벽: Missing = 포트 허용 규칙 없음, Blocked = 막는 규칙 있음 (폰에서 "응답 시간이 너무 오래 걸립니다"로 보인다). script = 앱 옆에 allow-lan-firewall.bat가 있음 */
+export interface LanShare { urlIp: string; urlName: string | null; addresses: string[]; firewall?: { state: 'Ok' | 'Missing' | 'Blocked' | 'Unknown'; script: boolean } }
 export interface Settings { maxRefreshSec: number; autoEmoteDefault: boolean; lanEnabled?: boolean; chatterPersona: string; cliPath: string | null; cliAvailable: boolean }
 
 /** POST /api/ai/ask 응답(NDJSON) 한 줄 */

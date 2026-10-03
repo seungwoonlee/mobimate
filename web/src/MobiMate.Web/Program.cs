@@ -59,6 +59,7 @@ builder.Services.AddSingleton(sp =>
 builder.Services.AddSingleton<INetworkProfileSource, NlmNetworkProfileSource>();
 builder.Services.AddSingleton<IPortProbe, TcpPortProbe>();
 builder.Services.AddSingleton<IMdnsAdvertiser, MdnsResponder>();
+builder.Services.AddSingleton<IFirewallCheck, WindowsFirewallCheck>();
 builder.Services.AddSingleton<LanService>();
 builder.Services.AddSingleton<ILanHosts>(sp => sp.GetRequiredService<LanService>());
 builder.Services.AddSingleton<BrowserLauncher>();
