@@ -119,7 +119,7 @@ function ServerSettings({ canChangeCli }: { canChangeCli: boolean }) {
   return (
     <>
       <Row label="자동 갱신 최대 주기">
-        <Seg value={String(s.maxRefreshSec)} options={[['60', '1분'], ['300', '5분'], ['900', '15분']]} onChange={v => void save({ maxRefreshSec: Number(v) })} />
+        <Seg value={String(s.maxRefreshSec)} options={[['15', '15초'], ['30', '30초']]} onChange={v => void save({ maxRefreshSec: Number(v) })} />
       </Row>
       <Row label="채팅 자동 이모티콘 기본값">
         <Seg value={s.autoEmoteDefault ? 'on' : 'off'} options={[['on', '켜기'], ['off', '끄기']]} onChange={v => void save({ autoEmoteDefault: v === 'on' })} />

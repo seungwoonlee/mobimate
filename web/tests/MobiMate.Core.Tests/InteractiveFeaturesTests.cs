@@ -196,45 +196,24 @@ public class InteractiveFeaturesTests
     }
 
     [Fact]
-    public void AdaptiveRefreshController_IncrementsBy15_WhenIdle_UpToMaxLimit()
+    public void AdaptiveRefreshController_IncrementsBy5_WhenIdle_UpToMax30()
     {
         var controller = new AdaptiveRefreshController();
-        Assert.Equal(15, controller.CurrentIntervalSec);
-
-        // 1st tick: 15 -> 30
-        var t1 = controller.OnTick();
-        Assert.Equal(30, t1);
+        Assert.Equal(20, controller.OnTick());
+        Assert.Equal(25, controller.OnTick());
+        Assert.Equal(30, controller.OnTick());
+        for (int i = 0; i < 10; i++) Assert.Equal(30, controller.OnTick());   // 아무리 길어도 30초
         Assert.Equal(30, controller.CurrentIntervalSec);
-
-        // 2nd tick: 30 -> 45
-        var t2 = controller.OnTick();
-        Assert.Equal(45, t2);
-
-        // 3rd tick: 45 -> 60
-        var t3 = controller.OnTick();
-        Assert.Equal(60, t3);
-
-        // Continuously tick up to max 300
-        for (int i = 0; i < 30; i++)
-        {
-            controller.OnTick();
-        }
-        Assert.Equal(300, controller.CurrentIntervalSec);
-
-        // Does not exceed 300
-        var next = controller.OnTick();
-        Assert.Equal(300, next);
-        Assert.Equal(300, controller.CurrentIntervalSec);
     }
 
     [Fact]
     public void AdaptiveRefreshController_ResetsTo15_ImmediatelyOnUserActivity()
     {
         var controller = new AdaptiveRefreshController();
+        controller.OnTick(); // 20
+        controller.OnTick(); // 25
         controller.OnTick(); // 30
-        controller.OnTick(); // 45
-        controller.OnTick(); // 60
-        Assert.Equal(60, controller.CurrentIntervalSec);
+        Assert.Equal(30, controller.CurrentIntervalSec);
 
         // User interacts (keyboard or mouse)
         controller.RecordUserActivity();
@@ -246,9 +225,9 @@ public class InteractiveFeaturesTests
         Assert.Equal(15, nextInterval);
         Assert.False(controller.HasUserActivity);
 
-        // Next tick without activity increments to 30
+        // Next tick without activity increments to 20
         var idleInterval = controller.OnTick();
-        Assert.Equal(30, idleInterval);
+        Assert.Equal(20, idleInterval);
     }
 
     [Fact]

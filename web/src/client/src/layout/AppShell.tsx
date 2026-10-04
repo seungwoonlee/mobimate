@@ -40,7 +40,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   // 상단 버튼(새로고침·빠른 실행·폰으로 보기·긴급 정지)은 좌측 바가 보이는 화면에서는 그 아래쪽에 아이콘으로 둔다 (v1.5).
   // 좌측 바가 없는 폰(Compact)·테이블톱 자세에서는 상단에 둔다.
   const settings = useQuery({ queryKey: keys.settings, queryFn: () => api.get<{ maxRefreshSec: number }>('/api/settings'), staleTime: 60_000 });
-  const refresh = useAdaptiveRefresh(settings.data?.data.maxRefreshSec ?? 300);   // 자동 갱신 최대 주기는 PC 서버 설정을 따른다 (FR-RF-01)
+  const refresh = useAdaptiveRefresh(settings.data?.data.maxRefreshSec ?? 30);   // 자동 갱신 최대 주기는 PC 서버 설정을 따른다 (FR-RF-01)
   const qc = useQueryClient();
   const bump = useUi(s => s.bumpRefresh);
   const setPairOpen = useUi(s => s.setPairOpen);
