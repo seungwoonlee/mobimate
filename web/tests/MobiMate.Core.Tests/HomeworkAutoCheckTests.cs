@@ -225,16 +225,43 @@ public class HomeworkAutoCheckTests : IDisposable
             Assert.NotEqual(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main), other).Status);
     }
 
+    private static HomeworkObservation Abyss(string space, long stamps) =>
+        new(Currencies: new List<CurrencyItem> { new("마물 퇴치 증표", stamps) }, Environment: new EnvironmentInfo("1채널", null, null, space));
+
     [Theory]
-    [InlineData("허상의 정박지", "abyss_illusory_anchorage")]   // 실측 2026-10-04
+    [InlineData("허상의 정박지", "abyss_illusory_anchorage")]   // 실측 2026-10-04: 클리어하면 마물 퇴치 증표 +300
     [InlineData("광기의 동굴", "abyss_madness_cave")]
     [InlineData("흩어진 물길", "abyss_scattered_waterway")]
-    public void Abyss_EnteringTheArea_IsAutoDone(string space, string id)
+    public void Abyss_TokenGainedInsideTheArea_IsAutoDone(string space, string id)
     {
         var svc = NewService();
-        svc.Evaluate(Main, new HomeworkObservation(Environment: new EnvironmentInfo("허상의 정박지", null, null, space)));
+        svc.Evaluate(Main, Abyss(space, 4477));
+        Assert.NotEqual(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main), id).Status);   // 들어간 것만으로는 완료가 아니다
+        _now += TimeSpan.FromMinutes(3);
+        svc.Evaluate(Main, Abyss(space, 4777));
         Assert.Equal(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main), id).Status);
         Assert.Equal(1, svc.GetBoard(Main).Cards.Count(c => c.Category == "abyss" && c.Status == HomeworkCardStatus.AutoDone));
+    }
+
+    [Fact]
+    public void Abyss_TokenGainedElsewhere_IsNotAClear()
+    {
+        var svc = NewService();
+        svc.Evaluate(Main, Abyss("콜헨", 4477));
+        _now += TimeSpan.FromMinutes(3);
+        svc.Evaluate(Main, Abyss("콜헨", 4747));   // 카브락 +270 같은 다른 획득
+        Assert.All(new[] { "abyss_illusory_anchorage", "abyss_madness_cave", "abyss_scattered_waterway" },
+            id => Assert.NotEqual(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main), id).Status));
+    }
+
+    [Fact]
+    public void Abyss_TokenSeenJustAfterLeavingTheArea_StillCounts()
+    {
+        var svc = NewService();
+        svc.Evaluate(Main, Abyss("허상의 정박지", 4477));
+        _now += TimeSpan.FromMinutes(3);
+        svc.Evaluate(Main, Abyss("콜헨", 4777));   // 클리어 직후 지역을 벗어난 뒤 처음 읽었다
+        Assert.Equal(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main), "abyss_illusory_anchorage").Status);
     }
 
     [Fact]
