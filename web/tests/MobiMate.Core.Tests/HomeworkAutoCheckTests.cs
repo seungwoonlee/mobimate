@@ -225,6 +225,18 @@ public class HomeworkAutoCheckTests : IDisposable
             Assert.NotEqual(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main), other).Status);
     }
 
+    [Theory]
+    [InlineData("허상의 정박지", "abyss_illusory_anchorage")]   // 실측 2026-10-04
+    [InlineData("광기의 동굴", "abyss_madness_cave")]
+    [InlineData("흩어진 물길", "abyss_scattered_waterway")]
+    public void Abyss_EnteringTheArea_IsAutoDone(string space, string id)
+    {
+        var svc = NewService();
+        svc.Evaluate(Main, new HomeworkObservation(Environment: new EnvironmentInfo("허상의 정박지", null, null, space)));
+        Assert.Equal(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main), id).Status);
+        Assert.Equal(1, svc.GetBoard(Main).Cards.Count(c => c.Category == "abyss" && c.Status == HomeworkCardStatus.AutoDone));
+    }
+
     [Fact]
     public void Raid_OtherAreas_AreNotEntry()
     {
