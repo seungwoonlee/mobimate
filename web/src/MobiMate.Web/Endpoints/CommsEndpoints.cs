@@ -148,12 +148,12 @@ public static class CommsEndpoints
         // ── 설정 (FR-ST) ──
         api.MapGet("/settings", (WebSettingsStore s, GameCli cli) => ApiResults.Ok(new
         {
-            s.Current.MaxRefreshSec, s.Current.AutoEmoteDefault, s.Current.LanEnabled, s.Current.ChatterPersona, cliPath = cli.CliPath, cliAvailable = cli.IsAvailable,
+            MaxRefreshSec = Math.Min(30, s.Current.MaxRefreshSec), s.Current.AutoEmoteDefault, s.Current.LanEnabled, s.Current.ChatterPersona, cliPath = cli.CliPath, cliAvailable = cli.IsAvailable,
         }));
 
         api.MapPut("/settings", async (HttpContext ctx, SettingsRequest req, WebSettingsStore s, GameCli cli, StatusMonitor status, SseHub hub) =>
         {
-            if (req.MaxRefreshSec is < 15 or > 3600) return ApiResults.Error(400, "VALIDATION", "자동 갱신 최대 주기는 15~3600초입니다.");
+            if (req.MaxRefreshSec is < 15 or > 30) return ApiResults.Error(400, "VALIDATION", "자동 갱신 최대 주기는 15~30초입니다.");
             if (req.ChatterPersona != null && !IsPersonaValue(req.ChatterPersona)) return ApiResults.Error(400, "VALIDATION", "알 수 없는 페르소나입니다.");
             if (req.CliPath != null)
             {
@@ -175,7 +175,7 @@ public static class CommsEndpoints
                 await status.CheckNowAsync(ctx.RequestAborted);
             }
             hub.Broadcast("state.changed", new { keys = new[] { "settings" } });
-            return ApiResults.Ok(new { s.Current.MaxRefreshSec, s.Current.AutoEmoteDefault, s.Current.ChatterPersona, cliPath = cli.CliPath, cliAvailable = cli.IsAvailable });
+            return ApiResults.Ok(new { MaxRefreshSec = Math.Min(30, s.Current.MaxRefreshSec), s.Current.AutoEmoteDefault, s.Current.ChatterPersona, cliPath = cli.CliPath, cliAvailable = cli.IsAvailable });
         });
 
         // ── 클라이언트 오류 보고 (FR-ST-03): 기기별 분당 10건 ──

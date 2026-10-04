@@ -4,7 +4,7 @@ namespace MobiMate.Web.Hosting;
 public sealed class WebSettings
 {
     public string? AiEngineId { get; set; }
-    public int MaxRefreshSec { get; set; } = 300;
+    public int MaxRefreshSec { get; set; } = 30;
     public bool AutoEmoteDefault { get; set; } = true;
     public string? CliPath { get; set; }
     public bool LanEnabled { get; set; }

@@ -5,14 +5,14 @@ namespace MobiMate;
 /// <summary>
 /// 탭 자동 새로고침 시 유저 인터랙션 여부에 따라 주기를 동적으로 조절하는 적응형 타이머 컨트롤러.
 /// 기본값: 15초
-/// 유저 활동 없음: 틱마다 +15초 점진 지연 (최대 300초 / 5분)
+/// 유저 활동 없음: 틱마다 +5초 점진 지연 (최대 30초)
 /// 유저 활동 감지: 즉시 15초로 리셋
 /// </summary>
 public class AdaptiveRefreshController
 {
     public const int BaseIntervalSec = 15;
-    public const int StepIntervalSec = 15;
-    public const int MaxIntervalSec = 300;
+    public const int StepIntervalSec = 5;
+    public const int MaxIntervalSec = 30;
 
     public int CurrentIntervalSec { get; private set; } = BaseIntervalSec;
     public bool HasUserActivity { get; private set; } = false;

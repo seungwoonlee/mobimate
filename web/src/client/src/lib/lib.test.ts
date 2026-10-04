@@ -7,12 +7,13 @@ describe('AdaptiveRefresh', () => {
     expect(new AdaptiveRefresh().current).toBe(15);
   });
 
-  it('활동이 없으면 15초씩 늘어 최대 300초', () => {
+  it('활동이 없으면 5초씩 늘어 최대 30초', () => {
     const r = new AdaptiveRefresh();
+    expect(r.onTick()).toBe(20);
+    expect(r.onTick()).toBe(25);
     expect(r.onTick()).toBe(30);
-    expect(r.onTick()).toBe(45);
     for (let i = 0; i < 30; i++) r.onTick();
-    expect(r.current).toBe(300);
+    expect(r.current).toBe(30);
   });
 
   it('활동이 있으면 즉시 15초, 다음 틱도 15초', () => {
@@ -21,13 +22,16 @@ describe('AdaptiveRefresh', () => {
     r.recordActivity();
     expect(r.current).toBe(15);
     expect(r.onTick()).toBe(15);
-    expect(r.onTick()).toBe(30);
+    expect(r.onTick()).toBe(20);
   });
 
-  it('설정한 최대 주기를 넘지 않는다', () => {
-    const r = new AdaptiveRefresh(60);
+  it('설정한 최대 주기를 넘지 않고, 설정이 커도 30초가 절대 상한', () => {
+    const r = new AdaptiveRefresh(20);
     for (let i = 0; i < 10; i++) r.onTick();
-    expect(r.current).toBe(60);
+    expect(r.current).toBe(20);
+    const big = new AdaptiveRefresh(900);
+    for (let i = 0; i < 20; i++) big.onTick();
+    expect(big.current).toBe(30);
   });
 });
 
