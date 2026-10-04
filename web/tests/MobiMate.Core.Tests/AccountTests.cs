@@ -57,21 +57,20 @@ public class CoinForecastTests
     }
 
     [Theory]
-    [InlineData(120, CoinLevel.Ok)]      // 150의 80% = 경고 없음
-    [InlineData(121, CoinLevel.Ok)]      // 80.67%
-    [InlineData(122, CoinLevel.Near)]    // 81.33% 부터 경고
+    [InlineData(100, CoinLevel.Ok)]      // 50개 더 = 25시간 뒤 가득: 경고 없음
+    [InlineData(101, CoinLevel.Ok)]      // 24시간 30분
+    [InlineData(102, CoinLevel.Near)]    // 48개 더 = 정확히 24시간 뒤 가득: 이때부터 경고
     [InlineData(149, CoinLevel.Near)]
     [InlineData(150, CoinLevel.Full)]
-    public void NearStartsAt81PercentOfTheCap(long held, CoinLevel level) =>
+    public void SilverIsNearWhenItFillsWithin24Hours(long held, CoinLevel level) =>
         Assert.Equal(level, CoinForecast.Silver(held, Now, Now, member: true).Level);
 
     [Theory]
-    [InlineData(12, 15, CoinLevel.Ok)]     // 80% = 경고 없음
-    [InlineData(13, 15, CoinLevel.Near)]   // 86.7%
-    [InlineData(8, 10, CoinLevel.Ok)]      // 미가입 10의 80% = 경고 없음
-    [InlineData(9, 10, CoinLevel.Near)]    // 90%
-    [InlineData(80, 100, CoinLevel.Ok)]
-    [InlineData(81, 100, CoinLevel.Near)]
+    [InlineData(12, 15, CoinLevel.Ok)]     // 3개 더 = 36시간 뒤: 경고 없음
+    [InlineData(13, 15, CoinLevel.Near)]   // 2개 더 = 24시간 뒤: 경고
+    [InlineData(7, 10, CoinLevel.Ok)]      // 미가입 10: 3개 더
+    [InlineData(8, 10, CoinLevel.Near)]    // 2개 더
+    [InlineData(9, 10, CoinLevel.Near)]
     public void TributeThresholds(long held, long cap, CoinLevel level)
     {
         var s = CoinForecast.Forecast(held, Now, Now, CoinForecast.TributeStep, cap);

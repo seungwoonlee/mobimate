@@ -1,6 +1,6 @@
 namespace MobiMate;
 
-/// <summary>충전 재화의 상태: 여유(경고 없음) / 곧 가득(81% 이상) / 가득(충전 멈춤)</summary>
+/// <summary>충전 재화의 상태: 여유(경고 없음) / 곧 가득(24시간 안에 가득 참) / 가득(충전 멈춤)</summary>
 public enum CoinLevel { Ok, Near, Full }
 
 /// <param name="Held">마지막으로 본 보유량</param>
@@ -19,8 +19,11 @@ public static class CoinForecast
     public static readonly TimeSpan SilverStep = TimeSpan.FromMinutes(30);
     public static readonly TimeSpan TributeStep = TimeSpan.FromHours(12);
 
-    /// <summary>"곧 가득" 경고 기준: 상한의 81% 이상 (承雲 확정 2026-10-02). 그 아래는 아무 경고도 없다.</summary>
-    public const long NearPercent = 81;
+    /// <summary>
+    /// "곧 가득" 경고 기준: 지금부터 24시간 안에 가득 차는 경우 (承雲 확정 2026-10-04). 오늘 접속해야 내일 접속할 때까지 가득 차지 않게 유지할 수 있다.
+    /// 그보다 여유가 있으면 아무 경고도 없다.
+    /// </summary>
+    public static readonly TimeSpan NearWindow = TimeSpan.FromHours(24);
 
     public const long SilverCapMember = 150, SilverCapFree = 100;
     public const long TributeCapMember = 15, TributeCapFree = 10;
@@ -46,7 +49,7 @@ public static class CoinForecast
             var intoStep = TimeSpan.FromTicks(elapsed.Ticks % step.Ticks);
             minutesToFull = expected >= cap ? 0 : Math.Max(0, ((cap - expected) * step - intoStep).TotalMinutes);
         }
-        var level = expected >= cap ? CoinLevel.Full : expected * 100 >= cap * NearPercent ? CoinLevel.Near : CoinLevel.Ok;
+        var level = expected >= cap ? CoinLevel.Full : minutesToFull <= NearWindow.TotalMinutes ? CoinLevel.Near : CoinLevel.Ok;
         return new CoinState(held, expected, cap, level, cap > 0 ? Math.Min(1.0, (double)expected / cap) : 0, minutesToFull);
     }
 

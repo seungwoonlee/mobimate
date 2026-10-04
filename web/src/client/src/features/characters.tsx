@@ -147,7 +147,7 @@ function AccountSection({ a, sort, now, move }: { a: AccountGroup; sort: SortMod
 
 function CoinChip({ label, c }: { label: string; c: CoinView }) {
   return (
-    <span className={`coin ${c.level}`} title={c.level === 'full' ? '충전이 멈춰 있습니다' : c.level === 'near' ? '곧 가득 찹니다' : undefined}>
+    <span className={`coin ${c.level}`} title={c.level === 'full' ? '충전이 멈춰 있습니다' : c.level === 'near' ? '24시간 안에 가득 찹니다' : undefined}>
       {label} <b className="num">{fmt(c.expected)}</b><span className="num faint">/{fmt(c.cap)}</span>
     </span>
   );
