@@ -178,7 +178,7 @@ function TopBar({ compact, actions, showActions }: { compact: boolean; actions: 
           {h && (h.location.space || h.inProgress) && (
             <div className="who-now">
               {h.location.space && <span className="now-map" title="현재 맵"><Icon name="pin" size={13} />{h.location.space}</span>}
-              {h.inProgress && <span className="now-progress" title={`${h.inProgress.kind} 진행 중: ${h.inProgress.title}`}>{h.inProgress.kind} 진행 중 · {h.inProgress.title}</span>}
+              {h.inProgress && <span className="now-progress" title={`${h.inProgress.kind} 진행 중: ${h.inProgress.title}`}>{h.inProgress.kind} 진행 중{h.inProgress.title !== h.inProgress.kind && ` · ${h.inProgress.title}`}</span>}
             </div>
           )}
         </div>

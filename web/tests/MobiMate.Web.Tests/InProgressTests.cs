@@ -24,6 +24,15 @@ public class InProgressTests
     }
 
     [Theory]
+    [InlineData("찬란한 유적 V")]      // 실측 2026-10-04 (일요일)
+    [InlineData("찬란한 유적  III")]   // 단계(로마 숫자)가 달라도 같은 던전
+    public void DayDungeonAreas_MatchByPrefix(string space)
+    {
+        var r = Of(space);
+        Assert.Equal("요일 던전", r.GetProperty("kind").GetString());
+    }
+
+    [Theory]
     [InlineData("콜헨")]
     [InlineData("")]
     [InlineData(null)]
