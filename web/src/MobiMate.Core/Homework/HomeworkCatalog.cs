@@ -39,6 +39,9 @@ public sealed class HomeworkDefinition
     public List<string> BossNames { get; init; } = new();
     public List<string> SpaceNames { get; init; } = new();
 
+    /// <summary>지역 이름이 이 말로 시작하면 이 콘텐츠의 지역으로 본다 (예: "찬란한 유적 V"의 로마 숫자는 단계라서 바뀐다). 정규화 후 비교.</summary>
+    public List<string> SpaceNamePrefixes { get; init; } = new();
+
     /// <summary>요일별 퀘스트 이름 (키: mon~sun, 게임의 하루는 06:00에 바뀐다). QuestVanish에서 오늘 보고 있어야 할 퀘스트를 정한다.</summary>
     public Dictionary<string, List<string>> DayQuestTitles { get; init; } = new();
 
@@ -117,7 +120,9 @@ public sealed class HomeworkCatalog
     {
         var n = HomeworkText.Normalize(space);
         if (n.Length == 0) return null;
-        return Items.FirstOrDefault(d => d.Active && d.EntrySpaceNames.Concat(d.SpaceNames).Any(a => HomeworkText.Normalize(a) == n));
+        return Items.FirstOrDefault(d => d.Active
+            && (d.EntrySpaceNames.Concat(d.SpaceNames).Any(a => HomeworkText.Normalize(a) == n)
+                || d.SpaceNamePrefixes.Any(p => n.StartsWith(HomeworkText.Normalize(p), StringComparison.Ordinal))));
     }
 
     public Dictionary<string, HomeworkPoolDefinition> SharedPools { get; init; } = new();
@@ -189,7 +194,7 @@ public sealed class HomeworkCatalog
             if (i.TokenAuto && string.IsNullOrWhiteSpace(i.TokenCurrency)) errors.Add($"증표 재화 없는 TokenAuto: {i.Id}");
 
             // 매칭 키는 정규화 후 일반어 단독이면 안 된다
-            foreach (var key in i.MissionTitles.Concat(i.QuestTitles).Concat(i.DayQuestTitles.Values.SelectMany(v => v)).Concat(i.BossNames).Concat(i.SpaceNames))
+            foreach (var key in i.MissionTitles.Concat(i.QuestTitles).Concat(i.DayQuestTitles.Values.SelectMany(v => v)).Concat(i.BossNames).Concat(i.SpaceNames).Concat(i.SpaceNamePrefixes))
             {
                 var n = HomeworkText.Normalize(key);
                 if (n.Length < 2 || GenericWords.Contains(n)) errors.Add($"일반어 단독 매칭 키: {i.Id} → \"{key}\"");
