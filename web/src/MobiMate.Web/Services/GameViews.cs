@@ -117,10 +117,8 @@ public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManag
         var tCh = q.Get<CharacterInfo>("get_my_info", ct);
         var tAct = q.Get<ActivityInfo>("get_activity", ct);
         var tEnv = q.Get<EnvironmentInfo>("get_current_environment", ct);
-        var tQuests = q.Get<List<QuestItem>>("get_quests", ct);   // 진행 중인 메인 퀘스트 표시용 (실패해도 헤더는 그대로)
-        await Task.WhenAll(tCh, tAct, tEnv, tQuests);
+        await Task.WhenAll(tCh, tAct, tEnv);
         var (ch, act, env) = (tCh.Result, tAct.Result, tEnv.Result);
-        var quests = tQuests.Result.Ok ? tQuests.Result.Value : null;
         if (!ch.Ok) return new CliData<object>(null, ch.Failure, ch.FetchedAt);
 
         // 캐릭터 선택창: 서버·직업이 비고 레벨 0인 정보가 들어온다. 캐릭터로 치지 않고 마지막 실제 캐릭터를 흐리게 보여 준다.
@@ -141,7 +139,7 @@ public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManag
         var switched = state.Character != null && (state.CurrentKey ?? CharacterKey(state.Character)) != key;
         if (switched)
         {
-            q.Invalidate("get_currencies", "get_daily_missions", "get_quests");
+            q.Invalidate("get_currencies", "get_daily_missions");
             state.ClearPerCharacter();
         }
         state.UpdateHeader(ch.Value, act.Value, env.Value);
@@ -155,7 +153,7 @@ public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManag
             return new CliData<object>(heldDto, null, ch.FetchedAt);
         }
         var delta = snapshots.UpdateSnapshot(ch.Value, switched ? null : state.Currencies?.ToList(), switched ? null : state.DailyMissions?.ToList(), key);
-        var dto = BuildHeader(ch.Value!, key, act.Value, env.Value, delta, quests: switched ? null : quests);
+        var dto = BuildHeader(ch.Value!, key, act.Value, env.Value, delta);
         hub.Broadcast("header", dto);
         return new CliData<object>(dto, null, ch.FetchedAt);
     }
@@ -181,17 +179,16 @@ public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManag
             ?? snapshots.ResolveKey(ch, cr.Ok ? cr.Value : null);
     }
 
-    /// <summary>트래커에서 진행 중인 메인 퀘스트 (Source == "main"). 주간 목표·정기 의뢰류("[주간 목표] …")는 메인 스토리가 아니라서 뺀다. 없으면 null.</summary>
-    internal static object? MainQuestOf(IReadOnlyList<QuestItem>? quests)
+    /// <summary>지금 있는 지역이 레이드·어비스·요일 던전이면 "진행 중" 표시 정보(종류, 이름). 아니면 null.</summary>
+    internal static object? InProgressOf(HomeworkCatalog catalog, EnvironmentInfo? env)
     {
-        var q = quests?.FirstOrDefault(x => string.Equals(x.Source, "main", StringComparison.OrdinalIgnoreCase)
-            && !string.IsNullOrWhiteSpace(x.QuestTitle) && !HomeworkText.StripTags(x.QuestTitle).StartsWith("[주간 목표]", StringComparison.Ordinal));
-        if (q == null) return null;
-        var obj = q.Objectives?.FirstOrDefault(o => !o.IsCompleted) ?? q.Objectives?.FirstOrDefault();
-        return new { title = HomeworkText.StripTags(q.QuestTitle), objective = obj == null ? null : HomeworkText.StripTags(obj.Description) };
+        var def = catalog.FindByArea(env?.GameSpaceDisplayName);
+        if (def == null) return null;
+        var kind = def.Category switch { "raid" => "레이드", "abyss" => "어비스", _ => "요일 던전" };
+        return new { kind, title = def.Title };
     }
 
-    private object BuildHeader(CharacterInfo ch, string key, ActivityInfo? act, EnvironmentInfo? env, SessionDelta delta, bool selecting = false, IReadOnlyList<QuestItem>? quests = null)
+    private object BuildHeader(CharacterInfo ch, string key, ActivityInfo? act, EnvironmentInfo? env, SessionDelta delta, bool selecting = false)
     {
         var v = ch.Vitals;
         var pct = v is { WeightMax: > 0 } ? v.WeightCurrent / v.WeightMax * 100 : 0;
@@ -214,7 +211,7 @@ public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManag
                 mdef = ch.ArcaneResistance?.Value ?? 0, mdefDelta = delta.ArcaneResistanceDiff,
                 living = ScoreReading.OrLast(ch.LivingScore?.Value, lastRec?.LivingScore), attract = ScoreReading.OrLast(ch.AttractivenessScore?.Value, lastRec?.AttractivenessScore),
             },
-            mainQuest = MainQuestOf(quests),
+            inProgress = InProgressOf(homework.Catalog, env),
             activity = new { text = GameStateCache.DescribeActivity(act), inCombat = act?.IsInCombat ?? false, canStop = act?.CanStopCurrentAction ?? false },
             location = new
             {

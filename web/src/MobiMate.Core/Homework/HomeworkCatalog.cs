@@ -109,6 +109,17 @@ public sealed class HomeworkPoolDefinition
 public sealed class HomeworkCatalog
 {
     public int Version { get; init; }
+    /// <summary>
+    /// 지금 있는 지역(GameSpaceDisplayName)이 어느 콘텐츠(레이드·어비스·요일 던전)의 지역인지 찾는다. 공백·태그 정규화 후 완전 일치. 없으면 null.
+    /// 헤더의 "진행 중" 표시에 쓴다.
+    /// </summary>
+    public HomeworkDefinition? FindByArea(string? space)
+    {
+        var n = HomeworkText.Normalize(space);
+        if (n.Length == 0) return null;
+        return Items.FirstOrDefault(d => d.Active && d.EntrySpaceNames.Concat(d.SpaceNames).Any(a => HomeworkText.Normalize(a) == n));
+    }
+
     public Dictionary<string, HomeworkPoolDefinition> SharedPools { get; init; } = new();
     public List<HomeworkDefinition> Items { get; init; } = new();
 
