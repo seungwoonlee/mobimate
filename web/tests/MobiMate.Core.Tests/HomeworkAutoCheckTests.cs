@@ -144,16 +144,28 @@ public class HomeworkAutoCheckTests : IDisposable
     }
 
     [Fact]
-    public void DayDungeon_ManualCheck_IsNeverOverwritten_AndSurvivesRestart()
+    public void DayDungeon_ManualCheck_SurvivesRestart_ButIsCancelledWhenTheQuestIsStillVisible()
     {
         var svc = NewService();
-        svc.Evaluate(Main, Quests(Quest(Gem, false)));
         svc.Set(Main, "daily_day_dungeon", completed: true);
-        svc.Evaluate(Main, Quests(Quest(Gem, false)));
+        svc.Evaluate(Main, Quests(Other));   // 퀘스트가 안 보이면 수동 체크를 건드리지 않는다
         Assert.Equal(HomeworkCardStatus.ManualDone, Card(svc.GetBoard(Main), "daily_day_dungeon").Status);
+        Assert.Equal(HomeworkCardStatus.ManualDone, Card(NewService().GetBoard(Main), "daily_day_dungeon").Status);
 
-        var fresh = NewService();
-        Assert.Equal(HomeworkCardStatus.ManualDone, Card(fresh.GetBoard(Main), "daily_day_dungeon").Status);
+        svc.Evaluate(Main, Quests(Quest(Gem, false)));   // 퀘스트가 보인다 = 아직 안 했다는 확실한 증거 (수동보다 우선)
+        Assert.Equal(HomeworkCardStatus.Pending, Card(svc.GetBoard(Main), "daily_day_dungeon").Status);
+    }
+
+    [Fact]
+    public void Vanguard_ManualDone_IsCancelledWhenTheQuestAppears()
+    {
+        var svc = NewService();
+        svc.Set(Main, "weekly_vanguard_breach", completed: true);
+        svc.Evaluate(Main, Quests(Other));
+        Assert.Equal(HomeworkCardStatus.ManualDone, Card(svc.GetBoard(Main), "weekly_vanguard_breach").Status);
+        svc.Evaluate(Main, Quests(Quest(Vanguard, false), Other));
+        Assert.Equal(HomeworkCardStatus.Pending, Card(svc.GetBoard(Main), "weekly_vanguard_breach").Status);
+        Assert.Equal("todo", Auto(svc, Main, "weekly_vanguard_breach").State);
     }
 
     [Fact]
@@ -219,6 +231,24 @@ public class HomeworkAutoCheckTests : IDisposable
         var svc = NewService();
         svc.Evaluate(Main, new HomeworkObservation(Environment: new EnvironmentInfo("1채널", null, null, "콜헨")));
         Assert.All(new[] { "raid_cavrak", "raid_airel", "raid_white_succubus" }, id => Assert.NotEqual(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main), id).Status));
+    }
+
+    [Fact]
+    public void Raid_ManuallyReopened_ThenLeavingAndEnteringAgain_IsAutoDone()
+    {
+        var svc = NewService();
+        EnvironmentInfo Env(string s) => new("1채널", null, null, s);
+        svc.Evaluate(Main, new HomeworkObservation(Environment: Env("먼 바다의 바위 협곡")));
+        _now += TimeSpan.FromMinutes(5);
+        svc.Set(Main, "raid_cavrak", completed: false);                                    // 실패해서 끈다
+        _now += TimeSpan.FromMinutes(1);
+        svc.Evaluate(Main, new HomeworkObservation(Environment: Env("먼 바다의 바위 협곡")));   // 아직 안에 있다: 되살아나지 않는다
+        Assert.NotEqual(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main), "raid_cavrak").Status);
+        _now += TimeSpan.FromMinutes(1);
+        svc.Evaluate(Main, new HomeworkObservation(Environment: Env("콜헨")));
+        _now += TimeSpan.FromMinutes(1);
+        svc.Evaluate(Main, new HomeworkObservation(Environment: Env("먼 바다의 바위 협곡")));   // 다시 들어왔다: 새 진입
+        Assert.Equal(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main), "raid_cavrak").Status);
     }
 
     [Fact]

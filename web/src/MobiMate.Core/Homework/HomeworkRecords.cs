@@ -16,6 +16,9 @@ public sealed class HomeworkItemState
     /// <summary>사용자가 직접 설정했다. 설정되면 이번 주기 동안 자동 판정이 덮어쓰지 않는다 (FR-HW-08). 리셋 때 해제.</summary>
     public bool ManualOverride { get; set; }
 
+    /// <summary>수동으로 설정한 시각. 수동 미완료 뒤에 새로 생긴 확실한 증거(레이드 지역 새 진입 등)만 수동 설정을 이긴다. 옛 기록은 null.</summary>
+    public DateTimeOffset? ManualAtUtc { get; set; }
+
     /// <summary>자동 완료 근거 (FR-HW-13).</summary>
     public string? Evidence { get; set; }
 
@@ -46,6 +49,9 @@ public sealed class HomeworkLedger
 
     /// <summary>퀘스트를 트래커에서 본 시각(숙제 ID별). QuestVanish에서 "이번 주기에 보였다가 사라짐"을 알아내는 근거다. 리셋 때 지운다.</summary>
     public Dictionary<string, DateTimeOffset>? QuestSightings { get; set; }
+
+    /// <summary>레이드 지역에 들어와 있는 동안 처음 본 시각(숙제 ID별). 지역을 벗어나면 지운다. 수동 미완료 뒤의 "새 진입"인지 가려내는 근거다.</summary>
+    public Dictionary<string, DateTimeOffset>? RaidAreaSince { get; set; }
 
     /// <summary>
     /// 끊김 없는 관찰이 필요한 항목(Continuous) 중, 목격한 뒤 다른 캐릭터를 관찰해 끊긴 것의 ID. 목격 기록(미완료 확인·남은 횟수)은 그대로 두고

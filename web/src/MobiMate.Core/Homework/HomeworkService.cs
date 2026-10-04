@@ -137,6 +137,7 @@ public sealed class HomeworkService
             st.Evidence = null;
             st.Suggestion = null;
             st.ManualOverride = true;
+            st.ManualAtUtc = now;
             ledger.Items[def.Id] = st;
             SaveOrThrow(file);
             return new HomeworkChange(characterKey, new[] { def.Id }, HomeworkChangeReason.Manual);

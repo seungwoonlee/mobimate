@@ -64,9 +64,10 @@ public static partial class HomeworkEvaluator
             var ledger = def.Share == HomeworkShare.Account ? account : character;
             var existing = ledger.Items.GetValueOrDefault(def.Id);
 
-            // 사라져서 완료로 본 퀘스트가 같은 주기에 다시 보이면 사라진 것이 완료가 아니었다(트래커 슬롯 변경 등): 완료를 취소한다
+            // 퀘스트가 트래커에 다시 보이면 그 주기에 아직 끝내지 않은 것이 확실하다: 자동 완료는 물론 수동 완료도 취소한다
+            // (확실한 증거는 수동 설정보다 우선한다. 사라져서 완료로 본 판정이 틀렸거나, 수동 체크가 잘못된 것이다)
             if (def.EffectiveMode == HomeworkMode.QuestVanish && questsUsable
-                && existing is { Completed: true, Auto: true, ManualOverride: false } && existing.Evidence?.StartsWith(VanishEvidence, StringComparison.Ordinal) == true
+                && existing is { Completed: true }
                 && QuestVisible(def, obs, now: nowUtc))
             {
                 ledger.Items.Remove(def.Id);
@@ -79,6 +80,15 @@ public static partial class HomeworkEvaluator
             // 수동 설정을 존중하되, 놓친 클리어를 알려 준다 (제안은 수동 설정·완료·리셋 때 사라진다).
             if (existing is { ManualOverride: true, Completed: false } manual && raidSuggestions.TryGetValue(def.Id, out var manualSuggestion))
             {
+                // 확실한 증거(증표 증가, 수동 설정 뒤의 새 레이드 지역 진입)는 수동 미완료보다 우선한다
+                if (def.TokenAuto && IsDefinitiveOverManual(def, manual, manualSuggestion, character))
+                {
+                    var evidence = manualSuggestion.Code == "raidMapEntered" ? $"레이드 지역 '{manualSuggestion.Item}' 진입" : $"{manualSuggestion.Item} {manualSuggestion.From} → {manualSuggestion.To} 증가 관찰";
+                    manual.ManualOverride = false;
+                    Complete(manual, def.Goal, evidence, nowUtc);
+                    changed.Add(def.Id);
+                    continue;
+                }
                 if (manual.Suggestion != manualSuggestion)
                 {
                     manual.Suggestion = manualSuggestion;
@@ -322,9 +332,18 @@ public static partial class HomeworkEvaluator
         // 레이드 지역에 들어와 있으면 가장 우선인 근거다 (보상 비교와 무관하게 판정한다)
         var space = HomeworkText.Normalize(obs.Environment?.GameSpaceDisplayName);
         if (space.Length > 0)
+        {
+            var since = character.RaidAreaSince ??= new Dictionary<string, DateTimeOffset>(StringComparer.OrdinalIgnoreCase);
             foreach (var d in catalog.Items.Where(d => d.Active && d.EntrySpaceNames.Count > 0))
+            {
                 if (d.EntrySpaceNames.Any(n => HomeworkText.Normalize(n) == space))
+                {
+                    since.TryAdd(d.Id, now);
                     result[d.Id] = new HomeworkSuggestion("raidMapEntered", HomeworkText.StripTags(obs.Environment!.GameSpaceDisplayName), 0, 0);
+                }
+                else since.Remove(d.Id);
+            }
+        }
 
         var haveCurrencies = obs.Currencies is { Count: > 0 };
         var haveItems = obs.Items is { Count: > 0 };
@@ -365,6 +384,14 @@ public static partial class HomeworkEvaluator
         character.RaidTokens = next;
         character.RaidTokensObservedUtc = now;
         return result;
+    }
+
+    /// <summary>수동 미완료를 이길 확실한 증거인가: 증표 증가는 항상, 지역 진입은 수동 설정 뒤에 새로 들어온 경우만(옛 기록은 시각이 없어 인정).</summary>
+    private static bool IsDefinitiveOverManual(HomeworkDefinition def, HomeworkItemState manual, HomeworkSuggestion s, HomeworkLedger character)
+    {
+        if (s.Code != "raidMapEntered") return true;
+        if (manual.ManualAtUtc is not { } at) return true;
+        return character.RaidAreaSince?.GetValueOrDefault(def.Id) is { } since && since > at;
     }
 
     private static bool IsProgressSignal(HomeworkDefinition def, HomeworkObservation obs)
