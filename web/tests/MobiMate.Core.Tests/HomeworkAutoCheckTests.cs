@@ -70,12 +70,29 @@ public class HomeworkAutoCheckTests : IDisposable
     [InlineData(8, "빛나는 황금을 찾아서")]   // 목
     [InlineData(9, "눈부신 보석을 찾아서")]   // 금
     [InlineData(10, "찬란한 촉매를 찾아서")]  // 토
-    [InlineData(11, "찬란한 촉매를 찾아서")]  // 일: 셋 중 아무거나
+    [InlineData(11, "찬란한 촉매를 찾아서")]  // 일: 게시판에서 고른 서브퀘 셋 중 아무거나
+    [InlineData(11, "던전의 보물을 찾아서")]  // 일: 게시판 확인 단계의 시작 퀘스트
     public void DayDungeon_UsesTheQuestOfTheWeekday(int day, string title)
     {
         _now = Kst(2026, 10, day, 12, 0);
         var svc = NewService();
         svc.Evaluate(Main, Quests(Quest(title, false)));
+        _now += TimeSpan.FromMinutes(5);
+        svc.Evaluate(Main, Quests(Other));
+        Assert.Equal(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main), "daily_day_dungeon").Status);
+    }
+
+    [Fact]
+    public void DayDungeon_Sunday_BoardPick_KeepsTitle_TransientEmptyListIsNotVanish()
+    {
+        _now = Kst(2026, 10, 11, 12, 0);
+        var svc = NewService();
+        svc.Evaluate(Main, Quests(Quest("던전의 보물을 찾아서", false)));   // 목표: 임무 게시판 확인
+        _now += TimeSpan.FromSeconds(10);
+        svc.Evaluate(Main, Quests());                                       // 서브퀘 전환 중 잠깐 빈 목록
+        Assert.NotEqual(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main), "daily_day_dungeon").Status);
+        _now += TimeSpan.FromSeconds(5);
+        svc.Evaluate(Main, Quests(Quest("던전의 보물을 찾아서", false)));   // 목표만 "찬란한 유적 클리어"로 바뀐다
         _now += TimeSpan.FromMinutes(5);
         svc.Evaluate(Main, Quests(Other));
         Assert.Equal(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main), "daily_day_dungeon").Status);
