@@ -456,3 +456,7 @@ button.toast { border: 0; text-align: left; cursor: pointer; }
 .hw-warn{margin:4px 0 0;color:var(--warn)}
 
 .fw-note{display:grid;gap:6px;margin-top:10px;padding:10px 12px;border:1px solid var(--warn);border-radius:10px}
+
+.who-now{display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:4px;font-size:calc(13px * var(--scale));color:var(--text-2);white-space:normal}
+.who-now .now-map{display:inline-flex;align-items:center;gap:4px}
+.who-now .now-quest{overflow:hidden;text-overflow:ellipsis;max-width:100%}
