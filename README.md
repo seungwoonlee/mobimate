@@ -14,7 +14,7 @@
 
 ## 시작하기
 
-1. [Releases](https://github.com/seungwoonlee/mobimate/releases) 페이지에서 **MobiMateWeb-v0.1.zip**을 받아 압축을 풉니다.
+1. [Releases](https://github.com/seungwoonlee/mobimate/releases) 페이지에서 **MobiMateWeb-v0.2.zip**을 받아 압축을 풉니다.
 2. 마비노기 모바일 PC 클라이언트를 켜고, 게임 설정에서 **「MM AI 에이전트 활성화」**를 켭니다.
 3. 압축을 푼 폴더의 **MobiMateWeb.exe**를 실행합니다.
 4. 브라우저에서 주소창에 `http://127.0.0.1:17800` 을 입력하면 화면이 열립니다.
