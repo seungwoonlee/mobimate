@@ -81,7 +81,7 @@ public static partial class HomeworkEvaluator
             if (existing is { ManualOverride: true, Completed: false } manual && raidSuggestions.TryGetValue(def.Id, out var manualSuggestion))
             {
                 // 확실한 증거(증표 증가, 수동 설정 뒤의 새 레이드 지역 진입)는 수동 미완료보다 우선한다
-                if (def.TokenAuto && IsDefinitiveOverManual(def, manual, manualSuggestion, character))
+                if ((def.TokenAuto || manualSuggestion.Code == "raidMapEntered") && IsDefinitiveOverManual(def, manual, manualSuggestion, character))
                 {
                     var evidence = manualSuggestion.Code == "raidMapEntered" ? $"레이드 지역 '{manualSuggestion.Item}' 진입" : $"{manualSuggestion.Item} {manualSuggestion.From} → {manualSuggestion.To} 증가 관찰";
                     manual.ManualOverride = false;
