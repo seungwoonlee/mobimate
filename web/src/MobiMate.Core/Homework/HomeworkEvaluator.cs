@@ -331,15 +331,18 @@ public static partial class HomeworkEvaluator
         var result = new Dictionary<string, HomeworkSuggestion>(StringComparer.OrdinalIgnoreCase);
         // 레이드 지역에 들어와 있으면 가장 우선인 근거다 (보상 비교와 무관하게 판정한다)
         var space = HomeworkText.Normalize(obs.Environment?.GameSpaceDisplayName);
+        var wasIn = new HashSet<string>(character.RaidAreaSince?.Keys ?? Enumerable.Empty<string>(), StringComparer.OrdinalIgnoreCase);   // 방금까지 있었던 지역
         if (space.Length > 0)
         {
             var since = character.RaidAreaSince ??= new Dictionary<string, DateTimeOffset>(StringComparer.OrdinalIgnoreCase);
-            foreach (var d in catalog.Items.Where(d => d.Active && d.EntrySpaceNames.Count > 0))
+            foreach (var d in catalog.Items.Where(d => d.Active && (d.EntrySpaceNames.Count > 0 || d.TokenRequiresSpace)))
             {
-                if (d.EntrySpaceNames.Any(n => HomeworkText.Normalize(n) == space))
+                var areas = d.EntrySpaceNames.Count > 0 ? d.EntrySpaceNames : d.SpaceNames;
+                if (areas.Any(n => HomeworkText.Normalize(n) == space))
                 {
                     since.TryAdd(d.Id, now);
-                    result[d.Id] = new HomeworkSuggestion("raidMapEntered", HomeworkText.StripTags(obs.Environment!.GameSpaceDisplayName), 0, 0);
+                    if (d.EntrySpaceNames.Count > 0)
+                        result[d.Id] = new HomeworkSuggestion("raidMapEntered", HomeworkText.StripTags(obs.Environment!.GameSpaceDisplayName), 0, 0);
                 }
                 else since.Remove(d.Id);
             }
@@ -375,7 +378,8 @@ public static partial class HomeworkEvaluator
             }
             else if (!currencies.TryGetValue(key, out now_)) continue;   // 목록에 없음: 기준값 유지, 비교 안 함
             observed = true;
-            if (prev != null && prev.TryGetValue(key, out var before) && now_ - before >= Math.Max(1, d.TokenMinIncrease) && !result.ContainsKey(d.Id))
+            var inArea = !d.TokenRequiresSpace || wasIn.Contains(d.Id) || character.RaidAreaSince?.ContainsKey(d.Id) == true;
+            if (inArea && prev != null && prev.TryGetValue(key, out var before) && now_ - before >= Math.Max(1, d.TokenMinIncrease) && !result.ContainsKey(d.Id))
                 result[d.Id] = new HomeworkSuggestion("raidTokenIncreased", d.TokenCurrency!, before, now_);
             next[key] = now_;
         }

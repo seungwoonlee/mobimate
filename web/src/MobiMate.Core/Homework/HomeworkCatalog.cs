@@ -72,6 +72,12 @@ public sealed class HomeworkDefinition
     /// </summary>
     public List<string> EntrySpaceNames { get; init; } = new();
 
+    /// <summary>
+    /// 보상 재화가 늘어도 SpaceNames의 지역 안에서(또는 방금까지 있었던 경우에만) 클리어로 본다 (어비스: 지역 진입 뒤 마물 퇴치 증표 획득).
+    /// 다른 곳에서 같은 재화를 얻어도(카브락 +270 등) 클리어로 세지 않는다.
+    /// </summary>
+    public bool TokenRequiresSpace { get; init; }
+
     /// <summary>클리어 보상 재화 이름 (FR-HW-17). 수량이 늘면 "클리어 추정" 제안만 한다. 공백 정규화 후 완전 일치로 찾는다.</summary>
     public string? TokenCurrency { get; init; }
 

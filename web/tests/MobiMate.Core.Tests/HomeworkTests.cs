@@ -104,7 +104,7 @@ public class HomeworkTests : IDisposable
         Assert.Equal(HomeworkCardStatus.Pending, Card(svc.GetBoard(Main), "abyss_madness_cave").Status);
 
         svc.Evaluate(Main, new HomeworkObservation(Activity: Act(true), Environment: new EnvironmentInfo("ch", "Sunny", "", "광기의  동굴")));
-        Assert.Equal(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main), "abyss_madness_cave").Status);   // 지역 진입이 곧 완료 근거다
+        Assert.Equal(HomeworkCardStatus.InProgress, Card(svc.GetBoard(Main), "abyss_madness_cave").Status);
     }
 
     [Fact]
