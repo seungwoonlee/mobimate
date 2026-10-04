@@ -22,8 +22,8 @@ export interface Header {
   character: { realm: string; job: string; level: number; title: string; nickname: string | null; combatScore: number; combatDelta: number };
   scores: { combat: number; combatDelta: number; mdef: number; mdefDelta: number; living: number; attract: number };
   activity: { text: string; inCombat: boolean; canStop: boolean };
-  /** 트래커의 메인 퀘스트(Source=main, 주간 목표 제외). 없으면 null */
-  mainQuest: { title: string; objective: string | null } | null;
+  /** 지금 있는 지역이 레이드·어비스·요일 던전이면 그 종류와 이름. 아니면 null */
+  inProgress: { kind: string; title: string } | null;
   location: { channel: string | null; space: string | null; weather: string | null; erinn: string };
   weight: { current: number; max: number; pct: number; level: Level; delta: number } | null;
   session: { gold: number; wings: number; nyang: number; dailyMissions: number };

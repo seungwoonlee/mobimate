@@ -459,4 +459,4 @@ button.toast { border: 0; text-align: left; cursor: pointer; }
 
 .who-now{display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:4px;font-size:calc(13px * var(--scale));color:var(--text-2);white-space:normal}
 .who-now .now-map{display:inline-flex;align-items:center;gap:4px}
-.who-now .now-quest{overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.who-now .now-progress{font-weight:700;color:var(--accent,var(--text-1));overflow:hidden;text-overflow:ellipsis;max-width:100%}

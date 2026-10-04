@@ -175,10 +175,10 @@ function TopBar({ compact, actions, showActions }: { compact: boolean; actions: 
             {h?.selecting ? <span className="who-title selecting">캐릭터 선택 중</span> : h?.character.title && <span className="who-title">“{h.character.title}”</span>}
             {h && !h.selecting && <MembershipChip />}
           </div>
-          {h && (h.location.space || h.mainQuest) && (
+          {h && (h.location.space || h.inProgress) && (
             <div className="who-now">
               {h.location.space && <span className="now-map" title="현재 맵"><Icon name="pin" size={13} />{h.location.space}</span>}
-              {h.mainQuest && <span className="now-quest" title={`메인 퀘스트: ${h.mainQuest.title}${h.mainQuest.objective ? ` — ${h.mainQuest.objective}` : ''}`}>메인 퀘스트 · {h.mainQuest.title}{h.mainQuest.objective && <span className="faint"> — {h.mainQuest.objective}</span>}</span>}
+              {h.inProgress && <span className="now-progress" title={`${h.inProgress.kind} 진행 중: ${h.inProgress.title}`}>{h.inProgress.kind} 진행 중 · {h.inProgress.title}</span>}
             </div>
           )}
         </div>
