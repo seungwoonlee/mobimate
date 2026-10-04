@@ -12,7 +12,7 @@
 | `web/design/mockup.html` | 화면 시안 |
 | `web/MobiMate.Web.sln` | 웹앱 솔루션 (Core · 서버 · 가짜 CLI · 테스트) |
 | `web/src/client` | 프론트엔드 (Vite + React + TypeScript) |
-| 루트 `REQUIREMENTS.md`, `API_SPEC_SAMPLES.md`, `0x-상세*.md` | WPF판과 공유하는 요구사양·게임 CLI 스펙 문서 (사본) |
+| `docs/` (`REQUIREMENTS.md`, `API_SPEC_SAMPLES.md`, `0x-상세*.md`) | WPF판과 공유하는 요구사양·게임 CLI 스펙 문서 (사본) |
 
 ## 작업 폴더 (git worktree)
 
