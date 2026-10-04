@@ -59,7 +59,7 @@ public class RaidTokenTests : IDisposable
     }
 
     [Fact]
-    public void ManuallyUncheckedRaid_WithClearEvidence_OnlySuggests_AndManualCompleteClearsIt()
+    public void ManuallyUncheckedRaid_WithClearEvidence_IsOverriddenToAutoDone()
     {
         var svc = new HomeworkService(HomeworkCatalog.LoadEmbedded(), new HomeworkStore(_dir), () => _now);
         svc.Evaluate(Main, Obs((Cavrak, 282)));
@@ -72,13 +72,14 @@ public class RaidTokenTests : IDisposable
         var change = svc.Evaluate(Main, Obs((Cavrak, 308)));   // 카브락 어려움 +24
         Assert.Contains("raid_cavrak", change!.Ids);
         var card = Card(svc.GetBoard(Main), "raid_cavrak");
-        Assert.Equal(HomeworkCardStatus.Pending, card.Status);   // 수동 설정은 자동으로 완료로 바꾸지 않는다
-        Assert.Equal(new HomeworkSuggestion("raidTokenIncreased", Cavrak, 284, 308), card.Suggestion);
-        Assert.Equal(0, svc.GetBoard(Main).Weekly.Done);
+        Assert.Equal(HomeworkCardStatus.AutoDone, card.Status);   // 확실한 증거(증거 +24)는 수동 미완료보다 우선한다
+        Assert.Null(card.Suggestion);
+        Assert.Equal(1, svc.GetBoard(Main).Weekly.Done);
 
-        svc.Set(Main, "raid_cavrak", completed: true);   // 사용자가 확인하고 체크
-        Assert.Null(Card(svc.GetBoard(Main), "raid_cavrak").Suggestion);
-        Assert.Equal(HomeworkCardStatus.ManualDone, Card(svc.GetBoard(Main), "raid_cavrak").Status);
+        svc.Set(Main, "raid_cavrak", completed: false);   // 사용자가 다시 끈다: 새 증거가 없으면 그대로 둔다
+        _now += TimeSpan.FromHours(1);
+        svc.Evaluate(Main, Obs((Cavrak, 308)));
+        Assert.NotEqual(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main), "raid_cavrak").Status);
     }
 
     [Fact]
