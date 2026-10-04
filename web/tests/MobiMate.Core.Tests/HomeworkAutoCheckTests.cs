@@ -566,7 +566,7 @@ public class HomeworkAutoCheckTests : IDisposable
     {
         var svc = NewService();
         var list = svc.GetAutoStatuses(new[] { "에린_없는캐릭터" })["에린_없는캐릭터"];
-        Assert.Equal(new[] { "daily_day_dungeon", "weekly_guild_regular", "weekly_vanguard_breach", "raid_cavrak", "raid_airel", "raid_white_succubus" }.OrderBy(x => x), list.Select(x => x.Id).OrderBy(x => x));
+        Assert.Equal(new[] { "daily_day_dungeon", "weekly_guild_regular", "weekly_vanguard_breach", "raid_cavrak", "raid_airel", "raid_white_succubus", "abyss_illusory_anchorage", "abyss_madness_cave", "abyss_scattered_waterway" }.OrderBy(x => x), list.Select(x => x.Id).OrderBy(x => x));
         Assert.All(list, x => Assert.Equal("unknown", x.State));
     }
 

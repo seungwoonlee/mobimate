@@ -153,19 +153,20 @@ function CoinChip({ label, c }: { label: string; c: CoinView }) {
   );
 }
 
-/** 칩 순서: 윗줄은 요일던전·길드의뢰·뱅가드, 아랫줄은 레이드(카브락·에이렐·화이트서큐). 목록에 없는 것은 뒤에 붙는다 */
-const HW_ORDER = ['daily_day_dungeon', 'weekly_guild_regular', 'weekly_vanguard_breach', 'raid_cavrak', 'raid_airel', 'raid_white_succubus'];
+/** 칩 순서: 첫 줄은 요일던전·길드의뢰·뱅가드, 둘째 줄은 레이드(카브락·에이렐·화이트서큐), 셋째 줄은 어비스(허상·광기·물길). 목록에 없는 것은 뒤에 붙는다 */
+const HW_ORDER = ['daily_day_dungeon', 'weekly_guild_regular', 'weekly_vanguard_breach', 'raid_cavrak', 'raid_airel', 'raid_white_succubus', 'abyss_illusory_anchorage', 'abyss_madness_cave', 'abyss_scattered_waterway'];
 const hwRank = (id: string) => { const i = HW_ORDER.indexOf(id); return i < 0 ? HW_ORDER.length : i; };
-export function splitHwRows(list: HomeworkAuto[]): [HomeworkAuto[], HomeworkAuto[]] {
+export function splitHwRows(list: HomeworkAuto[]): [HomeworkAuto[], HomeworkAuto[], HomeworkAuto[]] {
   const sorted = [...list].sort((a, b) => hwRank(a.id) - hwRank(b.id));
-  return [sorted.filter(h => h.category !== 'raid'), sorted.filter(h => h.category === 'raid')];
+  return [sorted.filter(h => h.category !== 'raid' && h.category !== 'abyss'), sorted.filter(h => h.category === 'raid'), sorted.filter(h => h.category === 'abyss')];
 }
 function HwRows({ list }: { list: HomeworkAuto[] }) {
-  const [top, raids] = splitHwRows(list);
+  const [top, raids, abyss] = splitHwRows(list);
   return (
     <div className="cc-hw-rows" aria-label="자동 판정 숙제">
       {top.length > 0 && <div className="cc-hw">{top.map(h => <HwChip key={h.id} h={h} />)}</div>}
       {raids.length > 0 && <div className="cc-hw">{raids.map(h => <HwChip key={h.id} h={h} />)}</div>}
+      {abyss.length > 0 && <div className="cc-hw">{abyss.map(h => <HwChip key={h.id} h={h} />)}</div>}
     </div>
   );
 }

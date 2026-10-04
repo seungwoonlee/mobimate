@@ -65,13 +65,13 @@
 
     { "id": "abyss_illusory_anchorage", "category": "abyss", "period": "weekly", "share": "character", "mode": "manual",
       "title": "허상의 정박지", "subtitle": "어비스 심층 허상의 정박지 토벌 (지역에 들어가 마물 퇴치 증표를 얻으면 완료)", "icon": "abyss", "goal": 1, "spaceNames": ["허상의 정박지"],
-      "tokenCurrency": "마물 퇴치 증표", "tokenMinIncrease": 200, "tokenRequiresSpace": true, "tokenAuto": true },
+      "tokenCurrency": "마물 퇴치 증표", "tokenMinIncrease": 200, "tokenRequiresSpace": true, "tokenAuto": true, "autoCheck": true, "cardLabel": "허상" },
     { "id": "abyss_madness_cave", "category": "abyss", "period": "weekly", "share": "character", "mode": "manual",
       "title": "광기의 동굴", "subtitle": "어비스 심층 광기의 동굴 토벌 (지역에 들어가 마물 퇴치 증표를 얻으면 완료)", "icon": "abyss", "goal": 1, "spaceNames": ["광기의 동굴"],
-      "tokenCurrency": "마물 퇴치 증표", "tokenMinIncrease": 200, "tokenRequiresSpace": true, "tokenAuto": true },
+      "tokenCurrency": "마물 퇴치 증표", "tokenMinIncrease": 200, "tokenRequiresSpace": true, "tokenAuto": true, "autoCheck": true, "cardLabel": "광기" },
     { "id": "abyss_scattered_waterway", "category": "abyss", "period": "weekly", "share": "character", "mode": "manual",
       "title": "흩어진 물길", "subtitle": "어비스 심층 흩어진 물길 토벌 (지역에 들어가 마물 퇴치 증표를 얻으면 완료)", "icon": "abyss", "goal": 1, "spaceNames": ["흩어진 물길"],
-      "tokenCurrency": "마물 퇴치 증표", "tokenMinIncrease": 200, "tokenRequiresSpace": true, "tokenAuto": true },
+      "tokenCurrency": "마물 퇴치 증표", "tokenMinIncrease": 200, "tokenRequiresSpace": true, "tokenAuto": true, "autoCheck": true, "cardLabel": "물길" },
 
     { "id": "daily_connect", "category": "account", "period": "daily", "share": "account", "mode": "directMission",
       "title": "에린 접속", "subtitle": "매일 에린 접속하기", "icon": "login", "goal": 1, "missionTitles": ["에린에 돌아왔습니다"] },
