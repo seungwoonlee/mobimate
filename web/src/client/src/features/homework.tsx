@@ -84,7 +84,7 @@ function HomeworkCardView({ c }: { c: HomeworkCard }) {
         {c.reward && <span className="faint small">{c.reward}</span>}
       </div>
       {c.suggestion && !done && (
-        <p className="hw-suggest"><Icon name="search" size={14} />클리어 추정 — 눌러서 확인 <span className="faint">({c.suggestion.item} {c.suggestion.from} → {c.suggestion.to})</span></p>
+        <p className="hw-suggest"><Icon name="search" size={14} />클리어 추정 — 눌러서 확인 <span className="faint">({c.suggestion.code === 'raidMapEntered' ? `${c.suggestion.item} 진입` : `${c.suggestion.item} ${c.suggestion.from} → ${c.suggestion.to}`})</span></p>
       )}
       {c.evidence && done && <p className="hw-evidence" title={c.evidence}>근거: {c.evidence}</p>}
       {c.evidence && !done && (c.mode === 'questSuffix' || c.mode === 'questVanish') && <p className="hw-warn small" title={c.evidence}>{c.evidence}</p>}

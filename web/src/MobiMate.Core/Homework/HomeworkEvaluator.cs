@@ -114,7 +114,8 @@ public static partial class HomeworkEvaluator
             }
             if (!st.Completed && raidSuggestions.TryGetValue(def.Id, out var suggestion))
             {
-                if (def.TokenAuto) Complete(st, def.Goal, $"{suggestion.Item} {suggestion.From} → {suggestion.To} 증가 관찰", nowUtc);
+                if (def.TokenAuto || suggestion.Code == "raidMapEntered")
+                    Complete(st, def.Goal, suggestion.Code == "raidMapEntered" ? $"레이드 지역 '{suggestion.Item}' 진입" : $"{suggestion.Item} {suggestion.From} → {suggestion.To} 증가 관찰", nowUtc);
                 else st.Suggestion = suggestion;
             }
             if ((st.Completed, st.Count, st.Goal, st.Suggestion, st.Evidence, st.RemainingCount) != before)
@@ -318,6 +319,13 @@ public static partial class HomeworkEvaluator
         HomeworkLedger character, HomeworkCatalog catalog, HomeworkObservation obs, DateTimeOffset now)
     {
         var result = new Dictionary<string, HomeworkSuggestion>(StringComparer.OrdinalIgnoreCase);
+        // 레이드 지역에 들어와 있으면 가장 우선인 근거다 (보상 비교와 무관하게 판정한다)
+        var space = HomeworkText.Normalize(obs.Environment?.GameSpaceDisplayName);
+        if (space.Length > 0)
+            foreach (var d in catalog.Items.Where(d => d.Active && d.EntrySpaceNames.Count > 0))
+                if (d.EntrySpaceNames.Any(n => HomeworkText.Normalize(n) == space))
+                    result[d.Id] = new HomeworkSuggestion("raidMapEntered", HomeworkText.StripTags(obs.Environment!.GameSpaceDisplayName), 0, 0);
+
         var haveCurrencies = obs.Currencies is { Count: > 0 };
         var haveItems = obs.Items is { Count: > 0 };
         if (!haveCurrencies && !haveItems) return result;
@@ -348,7 +356,7 @@ public static partial class HomeworkEvaluator
             }
             else if (!currencies.TryGetValue(key, out now_)) continue;   // 목록에 없음: 기준값 유지, 비교 안 함
             observed = true;
-            if (prev != null && prev.TryGetValue(key, out var before) && now_ - before >= Math.Max(1, d.TokenMinIncrease))
+            if (prev != null && prev.TryGetValue(key, out var before) && now_ - before >= Math.Max(1, d.TokenMinIncrease) && !result.ContainsKey(d.Id))
                 result[d.Id] = new HomeworkSuggestion("raidTokenIncreased", d.TokenCurrency!, before, now_);
             next[key] = now_;
         }

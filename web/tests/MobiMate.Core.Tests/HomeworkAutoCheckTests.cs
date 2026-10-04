@@ -197,6 +197,43 @@ public class HomeworkAutoCheckTests : IDisposable
         Assert.Equal("done", Auto(svc, Main, "raid_cavrak").State);
     }
 
+    [Theory]
+    [InlineData("먼 바다의 바위 협곡", "raid_cavrak")]
+    [InlineData("먼 바다의 춤추는 바람", "raid_airel")]
+    [InlineData("먼 바다의 빛바랜 환영", "raid_white_succubus")]
+    public void Raid_EnteringTheRaidArea_IsAutoDone_WithoutAnyRewardChange(string space, string id)
+    {
+        var svc = NewService();
+        var obs = new HomeworkObservation(Environment: new EnvironmentInfo("1채널", null, null, space));
+        svc.Evaluate(Main, obs);
+        var card = Card(svc.GetBoard(Main), id);
+        Assert.Equal(HomeworkCardStatus.AutoDone, card.Status);
+        Assert.Contains(space, card.Evidence);
+        foreach (var other in new[] { "raid_cavrak", "raid_airel", "raid_white_succubus" }.Where(x => x != id))
+            Assert.NotEqual(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main), other).Status);
+    }
+
+    [Fact]
+    public void Raid_OtherAreas_AreNotEntry()
+    {
+        var svc = NewService();
+        svc.Evaluate(Main, new HomeworkObservation(Environment: new EnvironmentInfo("1채널", null, null, "콜헨")));
+        Assert.All(new[] { "raid_cavrak", "raid_airel", "raid_white_succubus" }, id => Assert.NotEqual(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main), id).Status));
+    }
+
+    [Fact]
+    public void Raid_ManuallyReopened_StaysOpen_ButSuggestsWhileStillInside()
+    {
+        var svc = NewService();
+        var obs = new HomeworkObservation(Environment: new EnvironmentInfo("1채널", null, null, "먼 바다의 바위 협곡"));
+        svc.Evaluate(Main, obs);
+        svc.Set(Main, "raid_cavrak", completed: false);   // 실패해서 수동으로 끈다
+        svc.Evaluate(Main, obs);
+        var card = Card(svc.GetBoard(Main), "raid_cavrak");
+        Assert.NotEqual(HomeworkCardStatus.AutoDone, card.Status);
+        Assert.Equal("raidMapEntered", card.Suggestion?.Code);
+    }
+
     [Fact]
     public void InactiveRaids_AreHiddenAndNotCounted()
     {
@@ -269,6 +306,25 @@ public class HomeworkAutoCheckTests : IDisposable
         svc.Evaluate(Main, Quests(Other));
         Assert.Equal(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main), "weekly_vanguard_breach").Status);
         Assert.Equal("done", Auto(svc, Main, "weekly_vanguard_breach").State);
+    }
+
+    [Fact]
+    public void Vanguard_ReappearingAfterAutoDone_CancelsTheCompletion_AndCanCompleteAgain()
+    {
+        var svc = NewService();
+        svc.Evaluate(Main, Quests(Quest(Vanguard, false), Other));
+        _now += TimeSpan.FromMinutes(10);
+        svc.Evaluate(Main, Quests(Other));
+        Assert.Equal(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main), "weekly_vanguard_breach").Status);
+
+        _now += TimeSpan.FromMinutes(10);
+        svc.Evaluate(Main, Quests(Quest(Vanguard, false), Other));   // 다시 등장: 앞선 완료 판정이 틀렸다
+        Assert.Equal(HomeworkCardStatus.Pending, Card(svc.GetBoard(Main), "weekly_vanguard_breach").Status);
+        Assert.Equal("todo", Auto(svc, Main, "weekly_vanguard_breach").State);
+
+        _now += TimeSpan.FromMinutes(10);
+        svc.Evaluate(Main, Quests(Other));
+        Assert.Equal(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main), "weekly_vanguard_breach").Status);
     }
 
     [Theory]

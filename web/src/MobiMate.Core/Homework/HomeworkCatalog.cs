@@ -66,6 +66,12 @@ public sealed class HomeworkDefinition
     /// <summary>캐릭터 카드 칩에 쓰는 짧은 이름. 없으면 Title.</summary>
     public string? CardLabel { get; init; }
 
+    /// <summary>
+    /// 레이드 지역(GameSpaceDisplayName) 이름. 이 지역에 들어와 있으면 그 레이드를 클리어한 것으로 본다(가장 우선인 근거).
+    /// 실패한 경우는 숙제 화면에서 수동으로 되돌린다. 공백·태그 정규화 후 완전 일치.
+    /// </summary>
+    public List<string> EntrySpaceNames { get; init; } = new();
+
     /// <summary>클리어 보상 재화 이름 (FR-HW-17). 수량이 늘면 "클리어 추정" 제안만 한다. 공백 정규화 후 완전 일치로 찾는다.</summary>
     public string? TokenCurrency { get; init; }
 
