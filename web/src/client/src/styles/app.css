@@ -460,3 +460,48 @@ button.toast { border: 0; text-align: left; cursor: pointer; }
 .who-now{display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:4px;font-size:calc(13px * var(--scale));color:var(--text-2);white-space:normal}
 .who-now .now-map{display:inline-flex;align-items:center;gap:4px}
 .who-now .now-progress{font-weight:700;color:var(--accent,var(--text-1));overflow:hidden;text-overflow:ellipsis;max-width:100%}
+
+/* ── 컴팩트 상단 ────────────────────────────────────────────────────────
+   점수·날씨는 모든 화면에서 "라벨 + 값" 한 줄짜리 작은 칩이다 (두 줄 쌓기 없음).
+   폭 840 이상(아이패드 가로·트라이폴드 펼침·PC)은 이름 | 점수 | 시간·날씨 한 줄,
+   그 아래(아이패드 세로·폴드 접힘)는 이름 줄 + 점수·날씨 줄, 폰은 이름 줄 + 점수 줄이다.
+   글자·간격은 화면 폭(vw)에 따라 clamp로 늘고 줄어, FHD(배율 100%·125%)·QHD·태블릿이 같은 구성을 쓴다. */
+.app[data-size="medium"] .top,.app[data-size="expanded"] .top{
+  grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"who act" "scores scene";
+  gap:6px 10px;padding:8px 14px;
+}
+@media (min-width:1000px){
+  .app[data-size="expanded"] .top,.app[data-size="large"] .top{
+    grid-template-columns:minmax(0,1fr) auto auto auto;grid-template-areas:"who scores scene act";
+    gap:0 clamp(8px,1.2vw,22px);padding:clamp(6px,.7vw,10px) clamp(10px,1.4vw,22px);
+  }
+}
+.app[data-size="large"] .top{   /* 폭 1200 이상은 항상 한 줄 (1000 미만 창은 없다) */
+  grid-template-columns:minmax(0,1fr) auto auto auto;grid-template-areas:"who scores scene act";
+  gap:0 clamp(8px,1.2vw,22px);padding:clamp(6px,.7vw,10px) clamp(10px,1.4vw,22px);
+}
+.app[data-size="medium"] .scene,.app[data-size="expanded"] .scene{display:flex}   /* 중간 폭에서도 장면(시간·날씨)을 칩으로 보인다 */
+.app:not([data-size="compact"]) .who-name{font-size:calc(clamp(19px,1.65vw,30px) * var(--scale));gap:clamp(6px,.7vw,10px);flex-wrap:wrap;align-items:center}
+.app:not([data-size="compact"]) .who-name .job{font-size:calc(clamp(12px,.95vw,17px) * var(--scale))}
+.app:not([data-size="compact"]) .who-name .who-title{font-size:clamp(11px,.75vw,13px);padding:2px 10px}
+.app:not([data-size="compact"]) .who-now{margin-top:2px;font-size:calc(clamp(11.5px,.82vw,14px) * var(--scale));gap:2px 14px}
+.app .hero-scores{flex-wrap:nowrap;gap:clamp(5px,.7vw,10px)}
+.app .hs{
+  display:flex;align-items:baseline;gap:7px;min-width:0;padding:3px clamp(8px,1vw,16px);border-radius:12px;
+}
+.app .hs .lbl{font-size:clamp(11px,.78vw,13px);white-space:nowrap}
+.app .hs .v{font-size:calc(clamp(20px,2vw,34px) * var(--scale))}
+.app .hs .delta{font-size:clamp(11px,.75vw,13px)}
+.app[data-size="compact"] .hs{flex:1;justify-content:space-between;padding:3px 10px}
+.app[data-size="compact"] .hs .v{font-size:calc(22px * var(--scale))}
+.app .scene{
+  display:flex;align-items:center;gap:clamp(7px,.9vw,14px);min-width:0;padding:3px clamp(8px,1vw,16px);border-radius:12px;
+}
+.app .scene-sky,.app .scene-place{display:none}   /* 장소는 이름 줄 아래에 이미 있다 */
+.app .scene-time .clock{font-size:calc(clamp(19px,1.6vw,26px) * var(--scale))}
+.app .scene-time .date{display:none}
+.app .scene-wx{font-size:clamp(11.5px,.85vw,14px);gap:5px}
+.app .scene-wx .wx{width:clamp(20px,1.7vw,28px);height:clamp(20px,1.7vw,28px)}
+@media (min-width:1700px){.app[data-size="large"] .scene-time .date{display:block}}
+/* 확인 전(점선) 칩: 옅은 글자색이 밝은 테마에서 대비가 모자라 한 단계 진하게 */
+.hw-chip.unknown{color:var(--text-2)}
