@@ -8,6 +8,7 @@
 
 /* 디자인 토큰 (상세설계 §4.6). 값은 시안 design/mockup.html의 :root가 기준이다. */
 :root{
+  --rank-purple:#8A44E0; --rank-pink:#E0489A; --rank-orange:#DD6F00; --rank-gold:#B88A00;
   --bg-0:#E9EEF2; --bg-1:#F4F7F9; --bg-2:#FFFFFF; --bg-3:#E6ECF1; --bg-inset:#EEF2F6;
   --line:#D5DDE5; --line-strong:#BAC6D2;
   --text-1:#14202B; --text-2:#4A5A6A; --text-3:#5E6A77;
@@ -24,6 +25,7 @@
 }
 @media (prefers-color-scheme:dark){
   :root:not([data-theme="light"]){
+    --rank-purple:#B98CFF; --rank-pink:#FF7FC1; --rank-orange:#FFA24A; --rank-gold:#FFD24D;
     --bg-0:#0B0F13; --bg-1:#11171E; --bg-2:#172029; --bg-3:#202A35; --bg-inset:#0F151B;
     --line:#25303C; --line-strong:#33414F;
     --text-1:#E7EDF2; --text-2:#A0AEBB; --text-3:#8896A5;
@@ -38,6 +40,7 @@
   }
 }
 :root[data-theme="dark"]{
+  --rank-purple:#B98CFF; --rank-pink:#FF7FC1; --rank-orange:#FFA24A; --rank-gold:#FFD24D;
   --bg-0:#0B0F13; --bg-1:#11171E; --bg-2:#172029; --bg-3:#202A35; --bg-inset:#0F151B;
   --line:#25303C; --line-strong:#33414F;
   --text-1:#E7EDF2; --text-2:#A0AEBB; --text-3:#8896A5;

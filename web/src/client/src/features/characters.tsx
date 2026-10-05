@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { keys, useCharacters } from '../api/queries';
 import { api, ApiError } from '../api/http';
+import { RankBadge } from '../components/RankBadge';
 import type { AccountGroup, CharacterCard, CoinView, HomeworkAuto } from '../api/types';
 import { CardHead, Dialog, ErrorCard, Fresh, Icon, JobIcon, Pill, Skeleton } from '../components/ui';
 import { useNow } from '../hooks/layout';
@@ -209,7 +210,7 @@ function CharacterCardView({ c, now }: { c: CharacterCard; now: number }) {
       />
       <div className="cc-job"><JobIcon job={c.job} size={30} /><span className="cc-jt"><span>{c.nickname && <span className="realm-chip">{c.realm}</span>}{c.job} Lv.{c.level}</span>{c.title && <span className="cc-title">“{c.title}”</span>}</span></div>
       <div className="cc-main">
-        <div><span className="lbl">전투력</span><b className={`v num ${scoreClass('combat', c.combat)}`}>{fmt(c.combat)}</b></div>
+        <div><span className="lbl">전투력<RankBadge badge={c.combatRank} /></span><b className={`v num ${scoreClass('combat', c.combat)}`}>{fmt(c.combat)}</b></div>
         <div><span className="lbl">마도저항</span><b className={`v num ${scoreClass('mdef', c.mdef)}`}>{fmt(c.mdef)}</b></div>
       </div>
       <div className="cc-sub">

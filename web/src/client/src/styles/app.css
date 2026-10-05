@@ -514,3 +514,30 @@ button.toast { border: 0; text-align: left; cursor: pointer; }
 .cc-hw{flex-wrap:wrap}
 .cc-notes{overflow-wrap:anywhere}
 @media (max-width:1100px){.chars{grid-template-columns:repeat(auto-fill,minmax(236px,1fr))}}   /* 채팅을 연 태블릿 가로도 두 열이 나오게 */
+
+/* ── 서버 랭킹 뱃지·패널 (v0.3) ── */
+.rank-badge{display:inline-flex;align-items:center;margin-left:4px;vertical-align:-.12em;line-height:1}
+.rank-badge svg{width:.95em;height:.95em}
+.rank-badge.gold{color:var(--rank-gold)}
+.rank-badge.orange{color:var(--rank-orange)}
+.rank-badge.pink{color:var(--rank-pink)}
+.rank-badge.purple{color:var(--rank-purple)}
+.rank-badge.stale{opacity:.55}
+.g-rank{margin-top:12px}
+.rank-panel{display:grid;gap:8px;align-content:start}
+.rank-list{list-style:none;margin:0;padding:0;display:grid;gap:4px}
+.rank-row{display:grid;grid-template-columns:4.5em minmax(0,1fr) auto auto;gap:4px 14px;align-items:baseline;padding:4px 2px;border-bottom:1px solid var(--line)}
+.rank-row:last-child{border-bottom:0}
+.rk-l{font-weight:600;color:var(--text-2)}
+.rk-v{font-weight:600;color:var(--text-1)}
+.rk-t{text-align:right;white-space:nowrap}
+.rank-dialog{display:grid;gap:8px;max-width:560px}
+.rank-dialog h4{margin:6px 0 0;font-size:14px}
+.rank-steps{margin:0;padding-left:20px;display:grid;gap:4px}
+.rank-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px}
+.rank-form label{display:grid;gap:2px;font-size:13px;color:var(--text-2)}
+.rank-form input{font:inherit;padding:6px 8px;border-radius:8px;border:1px solid var(--line-strong);background:var(--bg-2);color:var(--text-1);min-width:0}
+.linklike{background:none;border:0;padding:0;color:var(--accent);text-decoration:underline;cursor:pointer;font:inherit}
+.btn.bookmarklet{display:inline-flex;text-decoration:none;cursor:grab}
+@media (max-width:520px){.rank-row{grid-template-columns:4em minmax(0,1fr) auto}.rank-row .rk-s{display:none}}
+

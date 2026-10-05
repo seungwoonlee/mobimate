@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { clearRanking, seedRanking } from './ranking-seed';
 
 /** 도크(채팅·AI)를 연다: 옆 패널이 닫혀 있거나 시트면 레일·하단 탭의 "채팅"을 누른다 */
 async function openDock(page: Page, tab: '게임 채팅' | 'AI 도우미') {
@@ -394,3 +395,45 @@ test('전체 탭 카드의 자동 판정 칩은 세 줄(숙제 / 레이드 / 어
     expect(clipped).toBe(false);   // nowrap + overflow hidden이라 넘치면 칩이 잘린다
   }
 });
+
+test('서버 랭킹: 전투력 옆에 등급 뱃지가 붙고, 개요·스탯 탭에 4종 순위가 보인다 (v0.3)', async ({ page, request }) => {
+  await seedRanking(request);
+  // 전투력 523위 = 핑크. 상단 점수 칩과 전체 탭 카드의 "전투력" 옆에 뱃지만 달린다
+  await page.goto('/characters');
+  const badge = page.getByRole('img', { name: /서버 523위 · 핑크/ }).filter({ visible: true });
+  await expect(badge.first()).toBeVisible();
+  await expect(page.locator('.card.char .rank-badge.pink').first()).toBeVisible();
+
+  for (const path of ['/overview', '/stats']) {
+    await page.goto(path);
+    const panel = page.locator('.rank-panel');
+    await expect(panel).toBeVisible();
+    await expect(panel.getByText('서버 612위')).toBeVisible();     // 종합
+    await expect(panel.getByText('서버 523위')).toBeVisible();     // 전투력
+    await expect(panel.getByText('서버 2,400위')).toBeVisible();   // 생활력
+    await expect(panel.getByText('서버 8,800위')).toBeVisible();   // 매력
+    await expect(panel.locator('.rank-badge.purple')).toHaveCount(2);   // 생활력 2,400위·매력 8,800위는 1000위 밖·1만 위 이내라 보라
+    await expect(panel.getByText(/종합 = 전투력 \+ 생활력 \+ 매력/)).toBeVisible();
+  }
+});
+
+test('서버 랭킹: 랭킹 갱신 창에서 북마크릿 안내를 보고 순위를 직접 고쳐 저장한다 (v0.3)', async ({ page, request }) => {
+  await seedRanking(request);
+  await page.goto('/stats');
+  await page.getByRole('button', { name: '랭킹 갱신' }).click();
+  const dlg = page.getByRole('dialog', { name: '서버 랭킹 갱신' });
+  await expect(dlg).toContainText('버튼을 누를 때만');
+  await expect(dlg.getByRole('link', { name: 'MobiMate 순위 북마크릿. 즐겨찾기 막대로 끌어 놓으세요' })).toHaveAttribute('href', /^javascript:/);
+  await expect(dlg.getByRole('link', { name: '넥슨 랭킹 페이지 열기' })).toHaveAttribute('href', /mabinogimobile\.nexon\.com\/Ranking/);
+  await dlg.getByLabel('전투력').fill('7');   // 10위 이내 = 골드
+  await dlg.getByRole('button', { name: '입력한 순위 저장' }).click();
+  await expect(page.locator('.rank-panel').getByText('서버 7위')).toBeVisible();
+  await expect(page.locator('.rank-panel .rank-badge.gold')).toBeVisible();
+  // 되돌려 다른 시험에 영향이 없게 한다
+  await page.getByRole('button', { name: '랭킹 갱신' }).click();
+  await page.getByRole('dialog', { name: '서버 랭킹 갱신' }).getByLabel('전투력').fill('523');
+  await page.getByRole('dialog', { name: '서버 랭킹 갱신' }).getByRole('button', { name: '입력한 순위 저장' }).click();
+  await expect(page.locator('.rank-panel').getByText('서버 523위')).toBeVisible();
+});
+
+test.afterEach(async ({ request }, info) => { if (info.title.startsWith('서버 랭킹:')) await clearRanking(request); });

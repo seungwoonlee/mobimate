@@ -75,6 +75,7 @@ builder.Services.AddSingleton<QueryCache>();
 builder.Services.AddSingleton<GameQueries>();
 builder.Services.AddSingleton<GameStateCache>();
 builder.Services.AddSingleton(sp => new SnapshotManager(Dir(sp)));
+builder.Services.AddSingleton(sp => new RankingService(Dir(sp), sp.GetRequiredService<SnapshotManager>()));
 builder.Services.AddSingleton(_ => HomeworkCatalog.LoadEmbedded());
 builder.Services.AddSingleton(sp =>
 {
@@ -125,6 +126,7 @@ app.UseRouting();
 AuthEndpoints.Map(app);
 GameEndpoints.Map(app);
 CommsEndpoints.Map(app);
+RankingEndpoints.Map(app);
 
 // 앱 셸 라우팅: /stats 같은 화면 경로는 index.html로 돌려준다. /api는 제외(없는 API는 404 그대로).
 app.MapFallbackToFile("{*path:regex(^(?!(?i:api/|api$)).*$)}", "index.html")

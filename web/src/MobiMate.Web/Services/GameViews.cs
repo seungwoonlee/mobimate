@@ -9,7 +9,7 @@ namespace MobiMate.Web.Services;
 /// 헤더를 읽을 때마다 GameStateCache·SnapshotManager(세션 변화량)를 갱신하고 SSE "header"로 다른 기기에도 알린다.
 /// </summary>
 public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManager snapshots, SseHub hub, CutoffCatalog cutoffs,
-    FavoritesStore favorites, AccountStore accounts, HomeworkService homework, WorkCategoryCatalog workKinds, CombatScoreGuard guard, MobiMateOptions options, IHostApplicationLifetime life, ILogger<GameViews> log)
+    FavoritesStore favorites, AccountStore accounts, HomeworkService homework, WorkCategoryCatalog workKinds, CombatScoreGuard guard, MobiMateOptions options, IHostApplicationLifetime life, ILogger<GameViews> log, RankingService rankings)
 {
     private readonly ConcurrentDictionary<string, Dictionary<string, int>> _bagBaselines = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, byte> _unclassifiedWorks = new();   // 분류표에 없는 가공품은 한 번만 기록한다 (FR-DT-20)
@@ -207,7 +207,7 @@ public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManag
             // 4대 점수 (WPF판 v1.2.0): 전투력·마도저항은 세션 변화량 포함
             scores = new
             {
-                combat = ch.CombatScore?.Value ?? 0, combatDelta = delta.CombatScoreDiff,
+                combat = ch.CombatScore?.Value ?? 0, combatDelta = delta.CombatScoreDiff, combatRank = rankings.BadgeOf(key),
                 mdef = ch.ArcaneResistance?.Value ?? 0, mdefDelta = delta.ArcaneResistanceDiff,
                 living = ScoreReading.OrLast(ch.LivingScore?.Value, lastRec?.LivingScore), attract = ScoreReading.OrLast(ch.AttractivenessScore?.Value, lastRec?.AttractivenessScore),
             },
@@ -435,6 +435,7 @@ public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManag
                     urgency = Math.Max(silver.Percent, tribute.Percent),
                     // 자동 판정되는 숙제의 현황 (요일 던전·카브락·정기 의뢰 등): done / todo(확인된 미완료) / unknown(아직 확인 못 함)
                     homework = hwStatus.GetValueOrDefault(c.Key) ?? Array.Empty<HomeworkAutoStatus>(),
+                    combatRank = rankings.BadgeOf(c.Key),   // 전투력 서버 순위 뱃지 (순위를 모르면 null)
                 };
             }).ToList();
             return new

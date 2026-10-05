@@ -20,7 +20,7 @@ export interface Header {
   /** 캐릭터 선택창: 아래 값은 마지막으로 본 캐릭터의 것이다 */
   selecting: boolean;
   character: { realm: string; job: string; level: number; title: string; nickname: string | null; combatScore: number; combatDelta: number };
-  scores: { combat: number; combatDelta: number; mdef: number; mdefDelta: number; living: number; attract: number };
+  scores: { combat: number; combatDelta: number; /** 전투력 서버 순위 뱃지 (순위를 모르면 null) */ combatRank: RankBadgeData | null; mdef: number; mdefDelta: number; living: number; attract: number };
   activity: { text: string; inCombat: boolean; canStop: boolean };
   /** 지금 있는 지역이 레이드·어비스·요일 던전이면 그 종류와 이름. 아니면 null */
   inProgress: { kind: string; title: string } | null;
@@ -99,6 +99,8 @@ export interface CharacterCard {
   urgency: number;
   /** 자동 판정되는 숙제 현황 (요일 던전·카브락·정기 의뢰·가공 수거): done 완료 / todo 이번 주기에 확인한 미완료 / unknown 아직 확인 못 함 */
   homework: HomeworkAuto[];
+  /** 전투력 서버 순위 뱃지 (10000위 이내만, 모르면 null) */
+  combatRank: RankBadgeData | null;
 }
 export interface HomeworkAuto { id: string; title: string; period: 'daily' | 'weekly'; state: 'done' | 'todo' | 'unknown'; evidence: string | null; /** 남은 횟수 (뱅가드 등, 알 때만) */ remaining: number | null; category?: string }
 export interface AccountGroup {
@@ -143,3 +145,19 @@ export type AskEvent =
   | { type: 'navigate'; to: string }
   | { type: 'intent'; kind: 'collect'; items: string[] }
   | { type: 'intent'; kind: 'gather'; item: string; count: number | null; wingsCost: number };
+
+// ── 서버 랭킹 (v0.3) ──
+export type RankTierName = 'gold' | 'orange' | 'pink' | 'purple' | 'none';
+export interface RankBadgeData { rank: number; tier: Exclude<RankTierName, 'none'>; stale: boolean; at: string }
+export type RankKindKey = 'total' | 'combat' | 'living' | 'attract';
+export interface RankEntryView { rank: number | null; score: number | null; tier: RankTierName; at: string; source: 'bookmarklet' | 'manual'; stale: boolean }
+export interface RankView {
+  key: string; name: string | null; serverName: string | null;
+  /** 캐릭터 이름(별칭)을 입력했는가 */ hasName: boolean;
+  /** 서버를 랭킹 조회 대상으로 아는가 */ supported: boolean;
+  /** 순위를 가져온 뒤 이름·서버가 바뀌었다: 옛 순위는 쓰지 않는다 */ nameChanged: boolean;
+  entries: Partial<Record<RankKindKey, RankEntryView>>;
+}
+export interface Rankings { rankingUrl: string; freshHours: number; targets: string[]; characters: Record<string, RankView> }
+export interface RankingSetup { rankingUrl: string; bookmarklet: string }
+

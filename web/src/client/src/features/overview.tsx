@@ -11,6 +11,8 @@ import { useDevice } from '../state/device';
 import { useRouter } from '../state/router';
 import { CUTOFF_STATUS } from './cutoffs';
 import { PlayerLine } from './players';
+import { RankPanel } from './rankings';
+import { RankBadge } from '../components/RankBadge';
 
 /** 가공 종류 순서 (서버 WorkKinds.Order와 같다) */
 const WORK_KIND_ORDER = ['metal', 'wood', 'leather', 'cloth', 'medicine', 'food', 'other'];
@@ -40,6 +42,7 @@ export function OverviewView() {
         <WeightCard h={d.header} />
         <CurrencyCard d={d} />
       </section>
+      <section className="g-rank"><RankPanel /></section>
       <section className="g-prog">
         <HomeworkRingCard kind="daily" d={d} onOpen={() => setPeek('daily')} />
         <HomeworkRingCard kind="weekly" d={d} onOpen={() => setPeek('weekly')} />
@@ -81,7 +84,7 @@ function ScoresCard({ h }: { h: Header }) {
     <LinkCard to="stats" className="scores">
       <CardHead icon="sword" title="점수" />
       <div className="score-main">
-        <div><span className="lbl">전투력</span><div className={`big num ${scoreClass('combat', s.combat)}`}>{fmt(s.combat)}</div><Delta value={s.combatDelta} /></div>
+        <div><span className="lbl">전투력<RankBadge badge={s.combatRank} /></span><div className={`big num ${scoreClass('combat', s.combat)}`}>{fmt(s.combat)}</div><Delta value={s.combatDelta} /></div>
         <div><span className="lbl">마도저항</span><div className={`big num ${scoreClass('mdef', s.mdef)}`}>{fmt(s.mdef)}</div><Delta value={s.mdefDelta} /></div>
       </div>
       <div className="score-row">

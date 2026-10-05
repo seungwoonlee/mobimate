@@ -1,7 +1,7 @@
 import { useQuery, type UseQueryOptions } from '@tanstack/react-query';
 import { api } from './http';
 import type {
-  Characters, CharacterView, Currencies, Cutoffs, Envelope, Header, HomeworkBoard, Inventory, Life, Meta, Missions, Nearby, Overview, Status,
+  Characters, CharacterView, Currencies, Cutoffs, Envelope, Header, HomeworkBoard, Inventory, Life, Meta, Missions, Nearby, Overview, RankingSetup, Rankings, Status,
 } from './types';
 
 /** 쿼리 키 (상세설계 §4.3). SSE 이벤트가 이 키들을 무효화한다. */
@@ -20,6 +20,7 @@ export const keys = {
   status: ['status'] as const,
   settings: ['settings'] as const,
   characters: ['characters'] as const,
+  rankings: ['rankings'] as const,
 };
 
 function q<T>(key: readonly string[], path: string, opts?: Partial<UseQueryOptions<Envelope<T>>>) {
@@ -39,6 +40,8 @@ export const useHomework = () => q<HomeworkBoard>(keys.homework, '/api/homework'
 export const useMeta = () => q<Meta>(keys.meta, '/api/meta', { staleTime: 30_000 });
 export const useStatus = () => q<Status>(keys.status, '/api/status');
 export const useCharacters = () => q<Characters>(keys.characters, '/api/characters');
+export const useRankings = () => q<Rankings>(keys.rankings, '/api/rankings');
+export const useRankingSetup = (enabled: boolean) => q<RankingSetup>(['rankings', 'setup'], '/api/rankings/setup', { enabled, staleTime: Infinity });
 
 // ── S5 ──
 import type { ChatLogEntry, CustomPersona, Engines, Session, Settings } from './types';
