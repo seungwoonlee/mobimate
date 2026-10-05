@@ -81,6 +81,12 @@ public sealed class HomeworkDefinition
     /// </summary>
     public bool TokenRequiresSpace { get; init; }
 
+    /// <summary>
+    /// 이 퀘스트가 트래커에 보이면 클리어한 것이다 (필드 보스: 처치 직후 "토벌" 퀘스트가 "영역 나가기"로 바뀐다, 2026-10-05 실측).
+    /// 목록이 잠깐 비어도(처치 순간) 판단하지 않고, 비어 있지 않은 목록에서 안 보일 때만 "없음"으로 본다. 정규화 후 완전 일치.
+    /// </summary>
+    public List<string> ClearQuestTitles { get; init; } = new();
+
     /// <summary>클리어 보상 재화 이름 (FR-HW-17). 수량이 늘면 "클리어 추정" 제안만 한다. 공백 정규화 후 완전 일치로 찾는다.</summary>
     public string? TokenCurrency { get; init; }
 
@@ -194,7 +200,7 @@ public sealed class HomeworkCatalog
             if (i.TokenAuto && string.IsNullOrWhiteSpace(i.TokenCurrency)) errors.Add($"증표 재화 없는 TokenAuto: {i.Id}");
 
             // 매칭 키는 정규화 후 일반어 단독이면 안 된다
-            foreach (var key in i.MissionTitles.Concat(i.QuestTitles).Concat(i.DayQuestTitles.Values.SelectMany(v => v)).Concat(i.BossNames).Concat(i.SpaceNames).Concat(i.SpaceNamePrefixes))
+            foreach (var key in i.MissionTitles.Concat(i.QuestTitles).Concat(i.DayQuestTitles.Values.SelectMany(v => v)).Concat(i.BossNames).Concat(i.SpaceNames).Concat(i.SpaceNamePrefixes).Concat(i.ClearQuestTitles))
             {
                 var n = HomeworkText.Normalize(key);
                 if (n.Length < 2 || GenericWords.Contains(n)) errors.Add($"일반어 단독 매칭 키: {i.Id} → \"{key}\"");

@@ -1,5 +1,5 @@
-import { cardTone, lastSeenText, membershipLeft, waitText } from './characters';
-import type { CoinView } from '../api/types';
+import { cardTone, lastSeenText, membershipLeft, splitHwRows, waitText } from './characters';
+import type { CoinView, HomeworkAuto } from '../api/types';
 
 const coin = (level: CoinView['level']): CoinView => ({ held: 1, expected: 1, cap: 100, percent: 0.5, level, minutesToFull: 60 });
 const card = (silver: CoinView['level'], tribute: CoinView['level'], stale = false) => ({ silver: coin(silver), tribute: coin(tribute), stale });
@@ -53,3 +53,16 @@ describe('시간 표시', () => {
     expect(membershipLeft('2026-10-01T11:59:00Z', now)).toBeNull();
   });
 });
+
+describe('자동 판정 칩 줄', () => {
+  const hw = (id: string, category: string) => ({ id, title: id, category, period: 'weekly', state: 'unknown', evidence: null } as unknown as HomeworkAuto);
+  it('요일던전·길드·뱅가드 / 레이드·필드 보스 / 어비스 세 줄로 나눈다', () => {
+    const [top, raids, abyss] = splitHwRows([
+      hw('abyss_madness_cave', 'abyss'), hw('fieldboss_angrbahan', 'fieldBoss'), hw('raid_airel', 'raid'), hw('daily_day_dungeon', 'daily'), hw('raid_cavrak', 'raid'),
+    ]);
+    expect(top.map(h => h.id)).toEqual(['daily_day_dungeon']);
+    expect(raids.map(h => h.id)).toEqual(['raid_cavrak', 'raid_airel', 'fieldboss_angrbahan']);   // 카브락·에이렐·(화이트서큐)·앙그르바한 순
+    expect(abyss.map(h => h.id)).toEqual(['abyss_madness_cave']);
+  });
+});
+

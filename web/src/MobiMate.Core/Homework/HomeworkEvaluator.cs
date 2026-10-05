@@ -39,7 +39,7 @@ public static partial class HomeworkEvaluator
         {
             var due = def.Period == HomeworkPeriod.Daily ? dailyDue : weeklyDue;
             if (due && ledger.Items.Remove(def.Id)) changed.Add(def.Id);
-            if (due) { ledger.QuestSightings?.Remove(def.Id); ledger.QuestContinuityBroken?.Remove(def.Id); }
+            if (due) { ledger.QuestSightings?.Remove(def.Id); ledger.QuestContinuityBroken?.Remove(def.Id); ledger.RaidAreaSince?.Remove(ClearKey(def)); }
         }
         if (dailyDue) ledger.LastDailyResetUtc = lastDaily;
         if (weeklyDue) ledger.LastWeeklyResetUtc = lastWeekly;
@@ -54,10 +54,9 @@ public static partial class HomeworkEvaluator
         var changed = new List<string>();
         var inProgress = new List<string>();
         var alteringCollected = ObserveAltering(character, obs, nowUtc, characterJustSwitched);
-        var raidSuggestions = ObserveRaidTokens(character, catalog, obs, nowUtc);
+        var questsUsable = !characterJustSwitched && obs.Quests != null;   // 캐릭터를 바꾼 직후의 퀘스트 목록은 이전 캐릭터 것일 수 있다
+        var raidSuggestions = ObserveRaidTokens(character, catalog, obs, nowUtc, questsUsable);
 
-        // 캐릭터를 바꾼 직후의 퀘스트 목록은 이전 캐릭터 것일 수 있다: 퀘스트 기반 판정은 이번 관찰을 건너뛴다
-        var questsUsable = !characterJustSwitched && obs.Quests != null;
 
         foreach (var def in catalog.Items.Where(d => d.Active))
         {
@@ -81,9 +80,9 @@ public static partial class HomeworkEvaluator
             if (existing is { ManualOverride: true, Completed: false } manual && raidSuggestions.TryGetValue(def.Id, out var manualSuggestion))
             {
                 // 확실한 증거(증표 증가, 수동 설정 뒤의 새 레이드 지역 진입)는 수동 미완료보다 우선한다
-                if ((def.TokenAuto || manualSuggestion.Code == "raidMapEntered") && IsDefinitiveOverManual(def, manual, manualSuggestion, character))
+                if ((def.TokenAuto || IsPresenceCode(manualSuggestion.Code)) && IsDefinitiveOverManual(def, manual, manualSuggestion, character))
                 {
-                    var evidence = manualSuggestion.Code == "raidMapEntered" ? $"레이드 지역 '{manualSuggestion.Item}' 진입" : $"{manualSuggestion.Item} {manualSuggestion.From} → {manualSuggestion.To} 증가 관찰";
+                    var evidence = EvidenceOf(manualSuggestion);
                     manual.ManualOverride = false;
                     Complete(manual, def.Goal, evidence, nowUtc);
                     changed.Add(def.Id);
@@ -124,8 +123,7 @@ public static partial class HomeworkEvaluator
             }
             if (!st.Completed && raidSuggestions.TryGetValue(def.Id, out var suggestion))
             {
-                if (def.TokenAuto || suggestion.Code == "raidMapEntered")
-                    Complete(st, def.Goal, suggestion.Code == "raidMapEntered" ? $"레이드 지역 '{suggestion.Item}' 진입" : $"{suggestion.Item} {suggestion.From} → {suggestion.To} 증가 관찰", nowUtc);
+                if (def.TokenAuto || IsPresenceCode(suggestion.Code)) Complete(st, def.Goal, EvidenceOf(suggestion), nowUtc);
                 else st.Suggestion = suggestion;
             }
             if ((st.Completed, st.Count, st.Goal, st.Suggestion, st.Evidence, st.RemainingCount) != before)
@@ -326,9 +324,27 @@ public static partial class HomeworkEvaluator
     ///   목록을 받았다면 없는 것은 0개다.
     /// </summary>
     private static Dictionary<string, HomeworkSuggestion> ObserveRaidTokens(
-        HomeworkLedger character, HomeworkCatalog catalog, HomeworkObservation obs, DateTimeOffset now)
+        HomeworkLedger character, HomeworkCatalog catalog, HomeworkObservation obs, DateTimeOffset now, bool questsUsable)
     {
         var result = new Dictionary<string, HomeworkSuggestion>(StringComparer.OrdinalIgnoreCase);
+
+        // 클리어 퀘스트(필드 보스 "영역 나가기")가 트래커에 보이면 클리어다. 비어 있는 목록은 판단하지 않는다(처치 순간 잠깐 빈다).
+        if (questsUsable && obs.Quests is { Count: > 0 })
+        {
+            var since = character.RaidAreaSince ??= new Dictionary<string, DateTimeOffset>(StringComparer.OrdinalIgnoreCase);
+            foreach (var d in catalog.Items.Where(d => d.Active && d.ClearQuestTitles.Count > 0))
+            {
+                var titles = d.ClearQuestTitles.Select(HomeworkText.Normalize).ToHashSet();
+                var seen = obs.Quests.FirstOrDefault(q => titles.Contains(HomeworkText.Normalize(q.QuestTitle)));
+                if (seen != null)
+                {
+                    since.TryAdd(ClearKey(d), now);
+                    result[d.Id] = new HomeworkSuggestion("bossCleared", HomeworkText.StripTags(seen.QuestTitle), 0, 0);
+                }
+                else since.Remove(ClearKey(d));
+            }
+        }
+
         // 레이드 지역에 들어와 있으면 가장 우선인 근거다 (보상 비교와 무관하게 판정한다)
         var space = HomeworkText.Normalize(obs.Environment?.GameSpaceDisplayName);
         var wasIn = new HashSet<string>(character.RaidAreaSince?.Keys ?? Enumerable.Empty<string>(), StringComparer.OrdinalIgnoreCase);   // 방금까지 있었던 지역
@@ -393,10 +409,23 @@ public static partial class HomeworkEvaluator
     /// <summary>수동 미완료를 이길 확실한 증거인가: 증표 증가는 항상, 지역 진입은 수동 설정 뒤에 새로 들어온 경우만(옛 기록은 시각이 없어 인정).</summary>
     private static bool IsDefinitiveOverManual(HomeworkDefinition def, HomeworkItemState manual, HomeworkSuggestion s, HomeworkLedger character)
     {
-        if (s.Code != "raidMapEntered") return true;
+        if (!IsPresenceCode(s.Code)) return true;   // 증표·아이템 증가는 늘어난 순간이 새 증거다
         if (manual.ManualAtUtc is not { } at) return true;
-        return character.RaidAreaSince?.GetValueOrDefault(def.Id) is { } since && since > at;
+        var key = s.Code == "bossCleared" ? ClearKey(def) : def.Id;
+        return character.RaidAreaSince?.GetValueOrDefault(key) is { } since && since > at;
     }
+
+    /// <summary>"있는 동안 계속 참"인 증거(지역 안에 있음, 클리어 퀘스트가 보임): 수동 설정 뒤에 새로 생긴 경우만 수동을 이긴다</summary>
+    private static bool IsPresenceCode(string code) => code is "raidMapEntered" or "bossCleared";
+
+    private static string ClearKey(HomeworkDefinition d) => "clear:" + d.Id;
+
+    private static string EvidenceOf(HomeworkSuggestion s) => s.Code switch
+    {
+        "raidMapEntered" => $"전용 지역 '{s.Item}' 진입",
+        "bossCleared" => $"퀘스트 '{s.Item}' 등장: 보스 처치",
+        _ => $"{s.Item} {s.From} → {s.To} 증가 관찰",
+    };
 
     private static bool IsProgressSignal(HomeworkDefinition def, HomeworkObservation obs)
     {
