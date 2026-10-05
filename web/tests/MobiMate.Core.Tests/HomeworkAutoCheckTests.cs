@@ -209,6 +209,119 @@ public class HomeworkAutoCheckTests : IDisposable
         Assert.Equal("done", Auto(svc, Main, "raid_cavrak").State);
     }
 
+    // ── 필드 보스 앙그르바한 (2026-10-05 실측: 처치하면 "토벌" 퀘스트가 "영역 나가기"로 바뀐다) ──
+
+    private const string AngrHunt = "<color=orange>앙그르바한</color> 토벌";
+    private const string AngrExit = "<color=orange>앙그르바한</color>의 영역 나가기";
+    private const string AngrArea = "원념이 메아리치는 곳";
+
+    private static HomeworkObservation InArea(string space, long keyBoxes, params QuestItem[] quests) =>
+        new(Quests: quests.ToList(), Items: new List<ItemData> { new("inventory", "미스틱 다이스 열쇠 상자", "", (int)keyBoxes, false) },
+            Environment: new EnvironmentInfo("1채널", null, null, space));
+
+    [Fact]
+    public void Angrbahan_EnteringTheBossArea_IsAutoDone_EvenIfTheCharacterLogsOffRightAfterTheKill()
+    {
+        var svc = NewService();
+        svc.Evaluate(Main, InArea("창백한 산", 2));
+        Assert.NotEqual(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main), "fieldboss_angrbahan").Status);
+        _now += TimeSpan.FromSeconds(30);
+        svc.Evaluate(Main, InArea(AngrArea, 2, Quest(AngrHunt, false)));   // 보스 전용 지역: 들어온 것 자체가 근거다 (나가기 퀘스트·창백한 산 이동을 기다리지 않는다)
+        var card = Card(svc.GetBoard(Main), "fieldboss_angrbahan");
+        Assert.Equal(HomeworkCardStatus.AutoDone, card.Status);
+        Assert.Contains("원념이 메아리치는 곳", card.Evidence);
+    }
+
+    [Fact]
+    public void Angrbahan_ManuallyReopenedInsideTheArea_StaysOpen_UntilTheCharacterEntersAgain()
+    {
+        var svc = NewService();
+        svc.Evaluate(Main, InArea(AngrArea, 2));
+        _now += TimeSpan.FromMinutes(1);
+        svc.Set(Main, "fieldboss_angrbahan", completed: false);
+        _now += TimeSpan.FromMinutes(1);
+        svc.Evaluate(Main, InArea(AngrArea, 2));    // 아직 안에 있다
+        Assert.NotEqual(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main), "fieldboss_angrbahan").Status);
+        _now += TimeSpan.FromMinutes(1);
+        svc.Evaluate(Main, InArea("창백한 산", 2));
+        _now += TimeSpan.FromMinutes(1);
+        svc.Evaluate(Main, InArea(AngrArea, 2));    // 다시 들어왔다
+        Assert.Equal(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main), "fieldboss_angrbahan").Status);
+    }
+
+    [Fact]
+    public void Angrbahan_ClearQuestAppearing_IsAutoDone_AndTheOtherBossesAreLocked()
+    {
+        var svc = NewService();
+        svc.Evaluate(Main, Quests(Quest(AngrHunt, false)));
+        Assert.NotEqual(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main), "fieldboss_angrbahan").Status);
+
+        _now += TimeSpan.FromSeconds(30);
+        svc.Evaluate(Main, Quests(Quest(AngrExit, false)));
+        var card = Card(svc.GetBoard(Main), "fieldboss_angrbahan");
+        Assert.Equal(HomeworkCardStatus.AutoDone, card.Status);
+        Assert.Contains("보스 처치", card.Evidence);
+        Assert.Equal(HomeworkCardStatus.PoolDone, Card(svc.GetBoard(Main), "fieldboss_peri").Status);   // 주간 1회 택1
+    }
+
+    [Fact]
+    public void Angrbahan_EmptyTrackerAtTheKillMoment_ChangesNothing()
+    {
+        var svc = NewService();
+        svc.Evaluate(Main, Quests(Quest(AngrHunt, false)));
+        svc.Evaluate(Main, Quests());   // 처치 순간 트래커가 잠깐 빈다
+        Assert.NotEqual(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main), "fieldboss_angrbahan").Status);
+    }
+
+    [Fact]
+    public void Angrbahan_ManuallyReopened_StaysOpenWhileTheSameExitQuestIsShowing_ButANewOneCompletes()
+    {
+        var svc = NewService();
+        svc.Evaluate(Main, Quests(Quest(AngrExit, false)));
+        Assert.Equal(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main), "fieldboss_angrbahan").Status);
+
+        _now += TimeSpan.FromMinutes(1);
+        svc.Set(Main, "fieldboss_angrbahan", completed: false);   // 잘못 잡혔다고 끈다
+        _now += TimeSpan.FromMinutes(1);
+        svc.Evaluate(Main, Quests(Quest(AngrExit, false)));      // 같은 퀘스트가 계속 보인다: 되살아나지 않는다
+        Assert.NotEqual(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main), "fieldboss_angrbahan").Status);
+
+        _now += TimeSpan.FromMinutes(1);
+        svc.Evaluate(Main, Quests(Quest("우울한 화가", false)));  // 영역을 나가 퀘스트가 사라졌다
+        _now += TimeSpan.FromMinutes(1);
+        svc.Evaluate(Main, Quests(Quest(AngrExit, false)));      // 다시 처치해 새로 뜬다
+        Assert.Equal(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main), "fieldboss_angrbahan").Status);
+    }
+
+    [Fact]
+    public void Angrbahan_KeyBoxesRisingInsideTheArea_IsAutoDone_ButNotElsewhere()
+    {
+        var svc = NewService();
+        svc.Evaluate(Main, InArea("콜헨", 2));
+        _now += TimeSpan.FromMinutes(2);
+        svc.Evaluate(Main, InArea("콜헨", 8));   // 다른 곳에서 늘었다: 보스 처치가 아니다
+        Assert.NotEqual(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main), "fieldboss_angrbahan").Status);
+
+        _now += TimeSpan.FromMinutes(2);
+        svc.Evaluate(Main, InArea(AngrArea, 8));
+        _now += TimeSpan.FromMinutes(2);
+        svc.Evaluate(Main, InArea(AngrArea, 14));   // 보스 지역에서 +6
+        Assert.Equal(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main), "fieldboss_angrbahan").Status);
+    }
+
+    [Fact]
+    public void Angrbahan_QuestListRightAfterSwitchingCharacters_IsNotUsed()
+    {
+        var svc = NewService();
+        svc.Evaluate(Main, Quests(Quest("우울한 화가", false)));
+        svc.Evaluate(Alt, Quests(Quest(AngrExit, false)));   // 캐릭터를 바꾼 직후 목록은 이전 캐릭터 것일 수 있다
+        Assert.NotEqual(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Alt), "fieldboss_angrbahan").Status);
+        _now += TimeSpan.FromSeconds(30);
+        svc.Evaluate(Alt, Quests(Quest(AngrExit, false)));
+        Assert.Equal(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Alt), "fieldboss_angrbahan").Status);
+        Assert.NotEqual(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main), "fieldboss_angrbahan").Status);   // 다른 캐릭터에는 번지지 않는다
+    }
+
     [Theory]
     [InlineData("먼 바다의 바위 협곡", "raid_cavrak")]
     [InlineData("먼 바다의 춤추는 바람", "raid_airel")]
@@ -566,7 +679,7 @@ public class HomeworkAutoCheckTests : IDisposable
     {
         var svc = NewService();
         var list = svc.GetAutoStatuses(new[] { "에린_없는캐릭터" })["에린_없는캐릭터"];
-        Assert.Equal(new[] { "daily_day_dungeon", "weekly_guild_regular", "weekly_vanguard_breach", "raid_cavrak", "raid_airel", "raid_white_succubus", "abyss_illusory_anchorage", "abyss_madness_cave", "abyss_scattered_waterway" }.OrderBy(x => x), list.Select(x => x.Id).OrderBy(x => x));
+        Assert.Equal(new[] { "daily_day_dungeon", "weekly_guild_regular", "weekly_vanguard_breach", "raid_cavrak", "raid_airel", "raid_white_succubus", "abyss_illusory_anchorage", "abyss_madness_cave", "abyss_scattered_waterway", "fieldboss_angrbahan" }.OrderBy(x => x), list.Select(x => x.Id).OrderBy(x => x));
         Assert.All(list, x => Assert.Equal("unknown", x.State));
     }
 

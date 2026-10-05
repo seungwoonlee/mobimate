@@ -43,7 +43,9 @@
     { "id": "fieldboss_tormog", "category": "fieldBoss", "period": "weekly", "share": "character", "mode": "manual", "pool": "field_boss_weekly",
       "title": "토르모그", "subtitle": "필드 보스 토르모그 (주간 1회 택1)", "icon": "field-boss", "goal": 1, "bossNames": ["토르모그"] },
     { "id": "fieldboss_angrbahan", "category": "fieldBoss", "period": "weekly", "share": "character", "mode": "manual", "pool": "field_boss_weekly",
-      "title": "앙그르바한", "subtitle": "바라프 계곡 필드 보스 (주간 1회 택1)", "icon": "field-boss", "goal": 1, "bossNames": ["앙그르바한", "앙그라바한"] },
+      "title": "앙그르바한", "subtitle": "필드 보스 앙그르바한 (주간 1회 택1 · 보스 전용 지역에 들어가면 완료)", "icon": "field-boss", "goal": 1, "bossNames": ["앙그르바한", "앙그라바한"],
+      "spaceNames": ["원념이 메아리치는 곳"], "entrySpaceNames": ["원념이 메아리치는 곳"], "clearQuestTitles": ["앙그르바한의 영역 나가기"],
+      "tokenCurrency": "미스틱 다이스 열쇠 상자", "tokenIsItem": true, "tokenMinIncrease": 6, "tokenRequiresSpace": true, "tokenAuto": true, "autoCheck": true, "cardLabel": "앙그르바한" },
 
     { "id": "raid_cavrak", "category": "raid", "period": "weekly", "share": "character", "mode": "manual",
       "title": "카브락", "subtitle": "주간 레이드 흑룡 카브락 토벌 (레이드 지역에 들어가면 완료 · 증거가 18개 이상 늘어도 완료 · 주말 보너스 +2는 제외)", "icon": "raid", "goal": 1, "bossNames": ["카브락", "카브라크"],

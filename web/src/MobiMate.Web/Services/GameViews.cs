@@ -184,7 +184,7 @@ public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManag
     {
         var def = catalog.FindByArea(env?.GameSpaceDisplayName);
         if (def == null) return null;
-        var kind = def.Category switch { "raid" => "레이드", "abyss" => "어비스", _ => "요일 던전" };
+        var kind = def.Category switch { "raid" => "레이드", "abyss" => "어비스", "fieldBoss" => "필드 보스", _ => "요일 던전" };
         return new { kind, title = def.Title };
     }
 

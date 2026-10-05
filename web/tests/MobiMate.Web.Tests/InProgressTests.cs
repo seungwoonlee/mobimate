@@ -14,6 +14,7 @@ public class InProgressTests
     [InlineData("먼 바다의 춤추는 바람", "레이드", "에이렐")]
     [InlineData("먼 바다의 빛바랜 환영", "레이드", "화이트 서큐버스")]
     [InlineData("허상의 정박지", "어비스", "허상의 정박지")]
+    [InlineData("원념이 메아리치는 곳", "필드 보스", "앙그르바한")]   // 실측 2026-10-05
     [InlineData("광기의  동굴", "어비스", "광기의 동굴")]
     [InlineData("흩어진 물길", "어비스", "흩어진 물길")]
     public void KnownAreas_ShowKindAndTitle(string space, string kind, string title)
