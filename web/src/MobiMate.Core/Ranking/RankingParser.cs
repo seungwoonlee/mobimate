@@ -16,25 +16,33 @@ public sealed record RankReading(bool Found, int? Rank, long? Score, string? Nam
 /// </summary>
 public static partial class RankingParser
 {
-    [GeneratedRegex(@"<li\s+class=""item[^""]*\bon\b[^""]*"">(?<body>.*?)</li>", RegexOptions.Singleline)]
+    [GeneratedRegex(@"<li\s+class=""item[^""]*\bon\b[^""]*"">(?<body>.*?)</li>", RegexOptions.Singleline, matchTimeoutMilliseconds: 500)]
     private static partial Regex OnItem();
 
-    [GeneratedRegex(@"<dt>\s*(?<n>[\d,]+)\s*위\s*</dt>")]
+    [GeneratedRegex(@"<dt>\s*(?<n>[\d,]+)\s*위\s*</dt>", RegexOptions.None, matchTimeoutMilliseconds: 500)]
     private static partial Regex RankText();
 
-    [GeneratedRegex(@"data-charactername=""(?<n>[^""]*)""")]
+    [GeneratedRegex(@"data-charactername=""(?<n>[^""]*)""", RegexOptions.None, matchTimeoutMilliseconds: 500)]
     private static partial Regex NameAttr();
 
-    [GeneratedRegex(@"<dt>\s*클래스\s*</dt>\s*<dd[^>]*>\s*(?<c>[^<]*?)\s*</dd>")]
+    [GeneratedRegex(@"<dt>\s*클래스\s*</dt>\s*<dd[^>]*>\s*(?<c>[^<]*?)\s*</dd>", RegexOptions.None, matchTimeoutMilliseconds: 500)]
     private static partial Regex ClassText();
 
-    [GeneratedRegex(@"<dd\s+class=""type_(?<t>\d)"">\s*(?<v>[\d,]+)\s*</dd>")]
+    [GeneratedRegex(@"<dd\s+class=""type_(?<t>\d)"">\s*(?<v>[\d,]+)\s*</dd>", RegexOptions.None, matchTimeoutMilliseconds: 500)]
     private static partial Regex Score();
 
     /// <param name="html">검색 응답 전체, 또는 북마크릿이 보낸 <c>on</c> 항목 하나</param>
     public static RankReading? Parse(string? html, RankKind kind)
     {
+        try { return ParseCore(html, kind); }
+        catch (RegexMatchTimeoutException) { return null; }   // 악의적으로 깨진 입력: 읽지 못한 것으로 본다
+        catch (OverflowException) { return null; }            // 순위·점수가 숫자 범위를 넘는다
+    }
+
+    private static RankReading? ParseCore(string? html, RankKind kind)
+    {
         if (string.IsNullOrWhiteSpace(html)) return null;
+        if (html.Length > 200_000) return null;   // 항목 하나·검색 응답 한 쪽은 이보다 훨씬 작다
         if (html.Contains("결과가 없습니다", StringComparison.Ordinal)) return RankReading.NotFound;
 
         var m = OnItem().Match(html);

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useHeader, useRankings, useRankingSetup, keys } from '../api/queries';
+import { useHeader, useRankings, useRankingSetup, useSession, keys } from '../api/queries';
 import { api, ApiError } from '../api/http';
 import type { RankEntryView, RankKindKey, RankView } from '../api/types';
 import { RankBadge, TIER_RULE } from '../components/RankBadge';
@@ -80,7 +80,8 @@ function RankRow({ label, e, now }: { label: string; e: RankEntryView | undefine
 /** 랭킹 갱신 창: 북마크릿(넥슨 랭킹 페이지에서 직접 누름) 안내와 수동 입력 */
 function RankUpdateDialog({ charKey, view, onClose }: { charKey: string; view: RankView; onClose: () => void }) {
   const toast = useUi(s => s.toast);
-  const setup = useRankingSetup(true);
+  const local = useSession().data?.kind === 'local';
+  const setup = useRankingSetup(local);
   const link = useRef<HTMLAnchorElement>(null);
   const [vals, setVals] = useState<Record<string, string>>(() => Object.fromEntries(KINDS.map(k => [k.key, view.entries[k.key]?.rank != null ? String(view.entries[k.key]!.rank) : ''])));
   const [busy, setBusy] = useState(false);
@@ -125,14 +126,18 @@ function RankUpdateDialog({ charKey, view, onClose }: { charKey: string; view: R
       actions={<><button type="button" className="btn" onClick={onClose}>닫기</button><button type="button" className="btn primary" disabled={busy} onClick={() => void save()}>입력한 순위 저장</button></>}>
       <div className="rank-dialog">
         <p className="small m0">넥슨 랭킹 페이지는 프로그램이 직접 가져오지 못하게 막혀 있어서, <b>승운님의 브라우저에서 버튼을 누를 때만</b> 순위를 가져옵니다. 앱이 스스로 조회하지는 않아요.</p>
-        <h4>1. 북마크릿으로 가져오기 (PC 브라우저)</h4>
-        <ol className="rank-steps small">
-          <li>아래 <b>MobiMate 순위</b> 버튼을 즐겨찾기 막대로 끌어 놓으세요. (안 되면 <button type="button" className="linklike" onClick={() => void copy()}>코드 복사</button> 뒤 즐겨찾기 주소에 붙여넣기)</li>
-          <li><a href={url} target="_blank" rel="noopener noreferrer">넥슨 랭킹 페이지 열기</a></li>
-          <li>그 페이지에서 즐겨찾기의 <b>MobiMate 순위</b>를 누르세요. 이름이 있는 캐릭터마다 4종(종합·전투력·생활력·매력)을 1.2초 간격으로 가져와 이 앱에 저장해요.</li>
-          <li>처음 누르면 브라우저가 <b>“이 기기의 로컬 네트워크에 연결”</b> 같은 권한을 물어요. 이 앱(내 PC)으로 보내려는 것이니 <b>허용</b>을 눌러 주세요.</li>
-        </ol>
-        <p><a ref={link} className="btn primary bookmarklet" draggable="true" onClick={e => e.preventDefault()} aria-label="MobiMate 순위 북마크릿. 즐겨찾기 막대로 끌어 놓으세요">MobiMate 순위</a></p>
+        {local ? (
+          <>
+          <h4>1. 북마크릿으로 가져오기 (PC 브라우저)</h4>
+          <ol className="rank-steps small">
+            <li>아래 <b>MobiMate 순위</b> 버튼을 즐겨찾기 막대로 끌어 놓으세요. (안 되면 <button type="button" className="linklike" onClick={() => void copy()}>코드 복사</button> 뒤 즐겨찾기 주소에 붙여넣기)</li>
+            <li><a href={url} target="_blank" rel="noopener noreferrer">넥슨 랭킹 페이지 열기</a></li>
+            <li>그 페이지에서 즐겨찾기의 <b>MobiMate 순위</b>를 누르세요. 이름이 있는 캐릭터마다 4종(종합·전투력·생활력·매력)을 1.2초 간격으로 가져와 이 앱에 저장해요.</li>
+            <li>처음 누르면 브라우저가 <b>“이 기기의 로컬 네트워크에 연결”</b> 같은 권한을 물어요. 이 앱(내 PC)으로 보내려는 것이니 <b>허용</b>을 눌러 주세요.</li>
+          </ol>
+          <p><a ref={link} className="btn primary bookmarklet" draggable="true" onClick={e => e.preventDefault()} aria-label="MobiMate 순위 북마크릿. 즐겨찾기 막대로 끌어 놓으세요">MobiMate 순위</a></p>
+          </>
+        ) : <p className="small m0"><b>북마크릿</b>은 게임을 켠 PC의 브라우저에서만 쓸 수 있어요. 이 기기에서는 아래에 직접 입력해 주세요.</p>}
         <h4>2. 직접 입력 (폰·태블릿 등)</h4>
         <p className="small faint m0">이름 “{view.name}” · {view.serverName} 서버. 비워 두면 입력하지 않은 것으로 봐요.</p>
         <div className="rank-form">

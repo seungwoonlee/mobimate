@@ -124,6 +124,28 @@ public sealed class RankingServiceTests : IDisposable
         Assert.Equal(1, r.Accepted);
     }
 
+    [Theory]
+    [InlineData("108,000", 1)]   // 전투력 9만의 정확히 +20%: 같은 캐릭터로 본다
+    [InlineData("72,000", 1)]    // 정확히 -20%
+    [InlineData("108,001", 0)]   // 20%를 넘으면 동명이인
+    [InlineData("71,999", 0)]
+    public void HomonymGuard_BoundaryIsExactlyTwentyPercent(string score, int accepted)
+    {
+        var r = Service().Import(new[] { new RankImportItem(Key, "헤니컵A", 1, Item(5, "헤니컵A", "마법사", "전투력", score)) });   // 직업이 다르다
+        Assert.Equal(accepted, r.Accepted);
+    }
+
+    [Fact]
+    public void Manual_NullRank_RecordsThatThereIsNoRank()
+    {
+        var s = Service();
+        Assert.True(s.SetManual(Key, 1, null, null).Ok);
+        var e = s.ViewOf(Key).Entries["combat"];
+        Assert.Null(e.Rank);
+        Assert.Equal("none", e.Tier);
+        Assert.Null(s.BadgeOf(Key));
+    }
+
     [Fact]
     public void ChangingTheNickname_MakesOldRanksUnusable()
     {
@@ -246,6 +268,18 @@ public class RankingApiTests
         var other = new HttpRequestMessage(HttpMethod.Post, "/api/rankings/targets") { Content = new StringContent($"{{\"token\":\"{token}\"}}", Encoding.UTF8, "text/plain") };
         other.Headers.Add("Origin", "https://evil.example");
         Assert.False((await c.SendAsync(other)).Headers.Contains("Access-Control-Allow-Origin"));   // 다른 페이지에는 CORS를 열지 않는다
+    }
+
+    [Fact]
+    public async Task Setup_IsGivenOnlyToTheGamePc_NotToLanDevices()
+    {
+        var (host, c, _) = await Ready();
+        using var _h = host;
+        Assert.Equal(HttpStatusCode.OK, (await c.GetAsync("/api/rankings/setup")).StatusCode);
+        var lan = await host.LanAsync(c);
+        var r = await lan.GetAsync("/api/rankings/setup");
+        Assert.Equal(HttpStatusCode.Forbidden, r.StatusCode);
+        Assert.Equal("LOCAL_ONLY", await TestHost.ErrorCode(r));
     }
 
     [Fact]

@@ -1,6 +1,7 @@
 using System.Text.Json;
 using MobiMate.Web.Hosting;
 using MobiMate.Web.Infrastructure;
+using MobiMate.Web.Lan;
 using MobiMate.Web.Services;
 
 namespace MobiMate.Web.Endpoints;
@@ -33,8 +34,11 @@ public static class RankingEndpoints
         });
 
         // 북마크릿 코드 (사용자가 즐겨찾기 막대에 끌어 놓거나 복사한다)
-        api.MapGet("/setup", (RankingService r, ServerIdentity id) =>
-            ApiResults.Ok(new { rankingUrl = RankingService.RankingUrl, bookmarklet = RankingBookmarklet.Build(id.Port, r.Token) }));
+        // 토큰이 들어 있어 이 PC의 브라우저에서만 준다 (LAN의 폰·태블릿에는 주지 않는다. 그쪽은 수동 입력)
+        api.MapGet("/setup", (HttpContext ctx, RankingService r, ServerIdentity id) =>
+            ClientId.IsLocal(ctx)
+                ? ApiResults.Ok(new { rankingUrl = RankingService.RankingUrl, bookmarklet = RankingBookmarklet.Build(id.Port, r.Token) })
+                : ApiResults.Error(StatusCodes.Status403Forbidden, "LOCAL_ONLY", "북마크릿은 게임을 켠 PC의 브라우저에서만 만들 수 있습니다."));
 
         // 북마크릿이 부르는 두 곳: 넥슨 랭킹 페이지에서 오므로 CORS를 열고, 토큰으로 막는다. 토큰은 본문에 담아 사전 요청 없는 단순 요청으로 받는다.
         api.MapMethods("/targets", new[] { "OPTIONS" }, (HttpContext ctx) => Preflight(ctx));

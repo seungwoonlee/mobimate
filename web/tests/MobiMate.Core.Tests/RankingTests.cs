@@ -99,6 +99,14 @@ public class RankingTests
     public void UnexpectedFormat_IsNull(string? html) => Assert.Null(RankingParser.Parse(html, RankKind.Combat));
 
     [Fact]
+    public void HugeOrOverflowingInput_IsNull_NotACrash()
+    {
+        Assert.Null(RankingParser.Parse(new string('x', 300_000), RankKind.Combat));                                   // 너무 크다
+        Assert.Null(RankingParser.Parse(Item(1, "a", "검술사", "전투력", "1").Replace("1위", "99999999999999위"), RankKind.Combat));   // 순위가 정수 범위를 넘는다
+        Assert.Null(RankingParser.Parse("<li class=\"item on\">" + string.Concat(Enumerable.Repeat("<dt>", 5000)), RankKind.Combat));   // 닫히지 않은 입력
+    }
+
+    [Fact]
     public void Total_WithFewerThanFourScores_IsNull() =>
         Assert.Null(RankingParser.Parse(Item(1, "a", "검술사", "종합 점수", "5", "3"), RankKind.Total));
 }
