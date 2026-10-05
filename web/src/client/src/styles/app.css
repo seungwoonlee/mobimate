@@ -470,8 +470,8 @@ button.toast { border: 0; text-align: left; cursor: pointer; }
   grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"who act" "scores scene";
   gap:6px 10px;padding:8px 14px;
 }
-@media (min-width:1000px){
-  .app[data-size="expanded"] .top,.app[data-size="large"] .top{
+@media (min-width:700px){
+  .app[data-size="medium"] .top,.app[data-size="expanded"] .top,.app[data-size="large"] .top{
     grid-template-columns:minmax(0,1fr) auto auto auto;grid-template-areas:"who scores scene act";
     gap:0 clamp(8px,1.2vw,22px);padding:clamp(6px,.7vw,10px) clamp(10px,1.4vw,22px);
   }
@@ -505,3 +505,12 @@ button.toast { border: 0; text-align: left; cursor: pointer; }
 @media (min-width:1700px){.app[data-size="large"] .scene-time .date{display:block}}
 /* 확인 전(점선) 칩: 옅은 글자색이 밝은 테마에서 대비가 모자라 한 단계 진하게 */
 .hw-chip.unknown{color:var(--text-2)}
+
+/* ── 좁은 화면의 캐릭터 카드 (트라이폴드·아이패드) ─────────────────────────
+   카드 안 칸을 카드 폭에 묶는다: 줄바꿈 없는 칩 줄이 넓어져도 알림 박스가 카드 밖으로 밀려나지 않게.
+   칩 줄은 좁으면 줄바꿈하고, 카드 최소 폭을 줄여 채팅을 연 가로 화면에서도 두 열이 나온다. */
+.card.char{grid-template-columns:minmax(0,1fr);min-width:0}
+.card.char .card-h h3{min-width:0}   /* 긴 이름은 줄바꿈하지 않고 …로 줄인다: 접속 시각·은동전 칸은 모든 카드에서 같은 자리에 있다 */
+.cc-hw{flex-wrap:wrap}
+.cc-notes{overflow-wrap:anywhere}
+@media (max-width:1100px){.chars{grid-template-columns:repeat(auto-fill,minmax(236px,1fr))}}   /* 채팅을 연 태블릿 가로도 두 열이 나오게 */
