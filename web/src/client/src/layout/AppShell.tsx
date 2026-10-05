@@ -5,6 +5,7 @@ import { CommandPalette } from '../features/palette';
 import { NicknameEditor } from '../features/nickname';
 import { MembershipChip } from '../features/membership';
 import { useNow } from '../hooks/layout';
+import { RankBadge } from '../components/RankBadge';
 import { keys, useHeader, useStatus } from '../api/queries';
 import { useLayout } from '../hooks/layout';
 import { useAdaptiveRefresh } from '../hooks/useAdaptiveRefresh';
@@ -185,7 +186,7 @@ function TopBar({ compact, actions, showActions }: { compact: boolean; actions: 
       </div>
       {h && (
         <div className="hero-scores" title="이번 접속 누적 변화">
-          <div className="hs"><span className="lbl">전투력</span><span className={`v num ${scoreClass('combat', h.scores.combat)}`}>{fmt(h.scores.combat)}</span><Delta value={h.scores.combatDelta} hideZero /></div>
+          <div className="hs"><span className="lbl">전투력<RankBadge badge={h.scores.combatRank} /></span><span className={`v num ${scoreClass('combat', h.scores.combat)}`}>{fmt(h.scores.combat)}</span><Delta value={h.scores.combatDelta} hideZero /></div>
           <div className="hs"><span className="lbl">마도저항</span><span className={`v num ${scoreClass('mdef', h.scores.mdef)}`}>{fmt(h.scores.mdef)}</span><Delta value={h.scores.mdefDelta} hideZero /></div>
         </div>
       )}

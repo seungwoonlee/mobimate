@@ -3,6 +3,8 @@ import { CardHead, Delta, ErrorCard, Fresh, Gauge, Pill, Skeleton } from '../com
 import { fmt } from '../lib/format';
 import { scoreClass, vitalLevel, type ScoreKind } from '../lib/score';
 import { CutoffCard } from './cutoffs';
+import { RankPanel } from './rankings';
+import { RankBadge } from '../components/RankBadge';
 
 /** 스탯 (FR-DT-01) + 콘텐츠 추천 (FR-CO-07). 5대 점수(전투력·마도저항·생활력·매력·데코)를 같은 크기로, 점수 색은 게임과 같다(FR-DT-11). */
 export function StatsView() {
@@ -20,13 +22,15 @@ export function StatsView() {
       </div>
       {h ? (
         <div className="tiles five">
-          <Tile label="전투력" value={h.scores.combat} kind="combat" delta={h.scores.combatDelta} />
+          <Tile label="전투력" badge={<RankBadge badge={h.scores.combatRank} />} value={h.scores.combat} kind="combat" delta={h.scores.combatDelta} />
           <Tile label="마도저항" value={h.scores.mdef} kind="mdef" delta={h.scores.mdefDelta} />
           <Tile label="생활력" value={h.scores.living} />
           <Tile label="매력" value={h.scores.attract} kind="attract" />
           <Tile label="데코 점수" value={c?.DecorScore?.Value} />
         </div>
       ) : header.isError ? <ErrorCard error={header.error} onRetry={() => header.refetch()} /> : <Skeleton lines={2} />}
+
+      <RankPanel />
 
       <section aria-labelledby="cut-h">
         <div className="view-head sub-head">
@@ -59,10 +63,10 @@ export function StatsView() {
 
 const pctOf = (cur: number, max: number) => (max ? (cur / max) * 100 : 0);
 
-function Tile({ label, value, kind, delta }: { label: string; value: number | undefined; kind?: ScoreKind; delta?: number }) {
+function Tile({ label, value, kind, delta, badge }: { label: string; value: number | undefined; kind?: ScoreKind; delta?: number; badge?: React.ReactNode }) {
   return (
     <div className="tile">
-      <span className="l">{label}</span>
+      <span className="l">{label}{badge}</span>
       <span className={`v num ${kind && value != null ? scoreClass(kind, value) : ''}`}>{fmt(value)}</span>
       {delta !== undefined && <Delta value={delta} hideZero />}
     </div>
