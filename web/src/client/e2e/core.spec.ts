@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { clearRanking, seedRanking } from './ranking-seed';
 
 /** 도크(채팅·AI)를 연다: 옆 패널이 닫혀 있거나 시트면 레일·하단 탭의 "채팅"을 누른다 */
 async function openDock(page: Page, tab: '게임 채팅' | 'AI 도우미') {
@@ -395,7 +396,8 @@ test('전체 탭 카드의 자동 판정 칩은 세 줄(숙제 / 레이드 / 어
   }
 });
 
-test('서버 랭킹: 전투력 옆에 등급 뱃지가 붙고, 개요·스탯 탭에 4종 순위가 보인다 (v0.3)', async ({ page }) => {
+test('서버 랭킹: 전투력 옆에 등급 뱃지가 붙고, 개요·스탯 탭에 4종 순위가 보인다 (v0.3)', async ({ page, request }) => {
+  await seedRanking(request);
   // 전투력 523위 = 핑크. 상단 점수 칩과 전체 탭 카드의 "전투력" 옆에 뱃지만 달린다
   await page.goto('/characters');
   const badge = page.getByRole('img', { name: /서버 523위 · 핑크/ }).filter({ visible: true });
@@ -415,7 +417,8 @@ test('서버 랭킹: 전투력 옆에 등급 뱃지가 붙고, 개요·스탯 �
   }
 });
 
-test('서버 랭킹: 랭킹 갱신 창에서 북마크릿 안내를 보고 순위를 직접 고쳐 저장한다 (v0.3)', async ({ page }) => {
+test('서버 랭킹: 랭킹 갱신 창에서 북마크릿 안내를 보고 순위를 직접 고쳐 저장한다 (v0.3)', async ({ page, request }) => {
+  await seedRanking(request);
   await page.goto('/stats');
   await page.getByRole('button', { name: '랭킹 갱신' }).click();
   const dlg = page.getByRole('dialog', { name: '서버 랭킹 갱신' });
@@ -433,3 +436,4 @@ test('서버 랭킹: 랭킹 갱신 창에서 북마크릿 안내를 보고 순�
   await expect(page.locator('.rank-panel').getByText('서버 523위')).toBeVisible();
 });
 
+test.afterEach(async ({ request }, info) => { if (info.title.startsWith('서버 랭킹:')) await clearRanking(request); });

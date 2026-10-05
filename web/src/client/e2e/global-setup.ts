@@ -55,7 +55,7 @@ export default async function globalSetup(config: FullConfig) {
 
   // 서버가 응답할 때까지 기다린다 (최대 20초)
   for (let i = 0; i < 100; i++) {
-    try { if ((await fetch(`${baseURL}/api/ping`)).ok) { await seedRanking(baseURL); return; } } catch { /* 아직 안 떴다 */ }
+    try { if ((await fetch(`${baseURL}/api/ping`)).ok) return; } catch { /* 아직 안 떴다 */ }
     await new Promise(r => setTimeout(r, 200));
   }
   server.kill();
@@ -91,12 +91,4 @@ function seedClassImage(dir: string) {
   const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64');
   mkdirSync(join(dir, 'class-images'), { recursive: true });
   writeFileSync(join(dir, 'class-images', 'thief_3.png'), png);
-}
-
-/** 서버 랭킹 시험용: 현재 캐릭터(아이라_격투가)에 별칭을 달고 순위를 직접 입력한 상태로 둔다 (전투력 523위 = 핑크 뱃지). */
-async function seedRanking(baseURL: string) {
-  const put = (path: string, body: unknown) => fetch(`${baseURL}${path}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-  await fetch(`${baseURL}/api/header`);   // 가짜 게임의 캐릭터를 기록에 올린다
-  await put('/api/profile/nickname', { nickname: '시험캐릭터' });
-  for (const [kind, rank, score] of [[1, 523, 88737], [4, 612, 150000], [3, 2400, 23011], [2, 8800, 19745]]) await put('/api/rankings/manual', { key: '아이라_격투가', kind, rank, score });
 }

@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { clearRanking, seedRanking } from './ranking-seed';
 
 /**
  * 북마크릿(앱이 만들어 주는 javascript: 코드)을 실제 브라우저(Edge)에서 돌려 본다.
@@ -17,6 +18,7 @@ const item = (rank: number, name: string, type: string, scores: string[]) =>
 test('북마크릿: 넥슨 랭킹 페이지에서 누르면 순위를 가져와 앱에 저장한다', async ({ page, request }, testInfo) => {
   test.skip(testInfo.project.name !== 'pc-1440', '한 환경에서만 확인한다 (브라우저 동작은 화면 크기와 무관)');
   test.setTimeout(60_000);
+  await seedRanking(request);
 
   const setup = await (await request.get('/api/rankings/setup')).json();
   const code: string = setup.data.bookmarklet;
@@ -55,9 +57,7 @@ test('북마크릿: 넥슨 랭킹 페이지에서 누르면 순위를 가져와 
   expect(e.living.rank).toBe(40);
   expect(e.attract.rank).toBe(150);
 
-  // 다른 시험에 영향이 없게 처음 값으로 되돌린다
-  for (const [kind, rank, score] of [[1, 523, 88737], [4, 612, 150000], [3, 2400, 23011], [2, 8800, 19745]])
-    await request.put('/api/rankings/manual', { data: { key: '아이라_격투가', kind, rank, score } });
+  await clearRanking(request);   // 다른 시험에 영향이 없게 되돌린다
 });
 
 test('북마크릿: 토큰이 틀리면 앱이 거절한다', async ({ page, request }, testInfo) => {
