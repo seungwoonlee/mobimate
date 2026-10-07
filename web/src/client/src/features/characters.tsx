@@ -304,7 +304,7 @@ function AssignDialog({ data, onClose }: { data: AccountGroup[]; onClose: () => 
   };
 
   return (
-    <Dialog title="계정 편집" onClose={onClose}>
+    <Dialog title="계정 편집" onClose={onClose} wide>
       <p className="small muted">
         데카·M캐시가 같았던 캐릭터는 자동으로 같은 계정이 됩니다. 잘못 묶였거나 묶이지 않은 캐릭터는 여기서 직접 정할 수 있고, 직접 정한 캐릭터는 자동으로 바뀌지 않습니다.
       </p>

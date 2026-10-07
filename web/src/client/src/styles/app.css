@@ -544,3 +544,20 @@ button.toast { border: 0; text-align: left; cursor: pointer; }
 @media (max-width:520px){.rank-row{grid-template-columns:4em minmax(0,1fr) auto}.rank-row .rk-s{display:none}}
 .btn.danger-text{color:var(--danger);border-color:var(--danger)}
 .assign-row .del-confirm{display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap}
+
+/* ── 계정 편집 창: 줄마다 이름 | 소속 계정 | 삭제 세 칸으로 고정한다 (긴 이름은 …, 버튼이 줄마다 다른 자리로 내려가지 않게) ── */
+.assign-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(120px,170px) 4.5em;align-items:center;gap:6px 10px}
+.assign-row>span:first-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.assign-row select{max-width:none;width:100%;min-width:0}
+.assign-row>.btn{justify-self:end;white-space:nowrap}
+.assign-row>.btn:not(.danger-text){grid-column:1/-1}   /* 접속 중 캐릭터의 "다른 캐릭터로 나누기"는 줄 아래에 따로 */
+.assign-row>.del-confirm{grid-column:1/-1;justify-self:end}
+
+/* 넓은 창 (계정 편집 등): 화면 폭의 대부분을 쓴다. 폰(compact)은 원래 화면 아래에서 가득 차게 열린다 */
+.dlg.wide{width:min(1000px,94vw)}
+.dlg.wide .assign-list{max-height:60vh}
+.dlg.wide .assign-row{grid-template-columns:minmax(0,1fr) minmax(180px,260px) 5em}
+/* 폰(compact): 이름은 윗줄 전체, 아랫줄에 소속 계정 선택과 삭제 */
+.app[data-size="compact"] .dlg.wide .assign-row{grid-template-columns:minmax(0,1fr) 4.5em;padding-bottom:6px;border-bottom:1px solid var(--line)}
+.app[data-size="compact"] .assign-row>span:first-child{grid-column:1/-1}
+
