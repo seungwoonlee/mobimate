@@ -198,7 +198,7 @@ function CharacterCardView({ c, now }: { c: CharacterCard; now: number }) {
   const body = (
     <>
       <CardHead
-        title={<span className="cc-name">{name}
+        title={<span className="cc-name"><span className="cc-nm">{name}</span>
           {!c.isCurrent && <button type="button" className="cc-del" aria-label={`${name} 삭제`} title="이 캐릭터 삭제" onClick={() => setAsking(true)}><Icon name="x" size={12} /></button>}
         </span>}
         right={
@@ -263,6 +263,7 @@ function AssignDialog({ data, onClose }: { data: AccountGroup[]; onClose: () => 
   const toast = useUi(s => s.toast);
   const [busy, setBusy] = useState(false);
   const [splitAsk, setSplitAsk] = useState(false);
+  const [delAsk, setDelAsk] = useState<string | null>(null);
   const chars = data.flatMap(a => a.members.map(m => ({ ...m, account: a.id })));
   const options = data.map(a => ({ id: a.id, label: a.solo ? `${a.name} (혼자)` : `${a.name} 계정` }));
 
@@ -289,6 +290,19 @@ function AssignDialog({ data, onClose }: { data: AccountGroup[]; onClose: () => 
     } finally { setBusy(false); }
   };
 
+  // 잘못 기록된 캐릭터(장비만 바꿔 끼워 다른 직업으로 읽힌 경우 등)를 목록에서 지운다. 지금 접속한 캐릭터는 곧바로 다시 기록되므로 지울 수 없다.
+  const remove = async (key: string) => {
+    setBusy(true);
+    try {
+      await api.del(`/api/characters?key=${encodeURIComponent(key)}`);
+      setDelAsk(null);
+      await queryClient.invalidateQueries({ queryKey: keys.characters });
+      toast('캐릭터를 지웠습니다', 'ok');
+    } catch (e) {
+      toast(e instanceof ApiError ? e.message : '캐릭터를 지우지 못했습니다', 'warn');
+    } finally { setBusy(false); }
+  };
+
   return (
     <Dialog title="계정 편집" onClose={onClose}>
       <p className="small muted">
@@ -305,6 +319,9 @@ function AssignDialog({ data, onClose }: { data: AccountGroup[]; onClose: () => 
             {c.isCurrent && (splitAsk
               ? <span className="del-confirm"><button type="button" className="btn" disabled={busy} onClick={() => setSplitAsk(false)}>아니오</button><button type="button" className="btn danger" disabled={busy} onClick={() => void split(c.key)}>예, 나눕니다</button></span>
               : <button type="button" className="btn" disabled={busy} title="다른 계정의 같은 서버·직업 캐릭터가 이 카드에 합쳐져 있을 때" onClick={() => setSplitAsk(true)}>다른 캐릭터로 나누기</button>)}
+          {!c.isCurrent && (delAsk === c.key
+              ? <span className="del-confirm"><span className="small">지울까요?</span><button type="button" className="btn" disabled={busy} onClick={() => setDelAsk(null)}>아니오</button><button type="button" className="btn danger" disabled={busy} onClick={() => void remove(c.key)}>예, 삭제</button></span>
+              : <button type="button" className="btn danger-text" disabled={busy} aria-label={`${c.nickname ?? c.realm}${c.variant > 1 ? ` #${c.variant}` : ''} 삭제`} title="잘못 기록된 캐릭터를 목록에서 지웁니다" onClick={() => setDelAsk(c.key)}>삭제</button>)}
           </label>
         ))}
       </div>
