@@ -371,7 +371,7 @@ button.toast { border: 0; text-align: left; cursor: pointer; }
 .mem-chip.none{border-style:dashed}
 .mem-inputs{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .assign-list{display:grid;gap:8px;max-height:50vh;overflow-y:auto}
-.assign-row{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:14px}
+.assign-row{display:flex;align-items:center;justify-content:space-between;gap:6px 10px;flex-wrap:wrap;font-size:14px}
 .assign-row select{font:inherit;color:var(--text-1);background:var(--bg-2);border:1px solid var(--line);border-radius:8px;padding:5px 8px;max-width:55%}
 
 /* 색이 깔린 카드 위의 흐린 글씨는 대비를 높인다 (접근성) */
@@ -434,7 +434,9 @@ button.toast { border: 0; text-align: left; cursor: pointer; }
 .pl-tag,.pl-job,.pl-lv,.pl-cs,.pl-title,.pl-combat{white-space:nowrap}
 .pl-title,.cc-title{overflow:hidden;text-overflow:ellipsis;min-width:0;max-width:100%}
 .cc-jt>span{overflow:hidden;text-overflow:ellipsis;max-width:100%}
-.cc-head .cc-name,.cc-name{display:inline-block;max-width:100%;overflow:hidden;text-overflow:ellipsis;vertical-align:bottom}
+.cc-head .cc-name,.cc-name{display:flex;align-items:center;gap:6px;max-width:100%;min-width:0}
+.cc-nm{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}   /* 긴 이름만 …로 줄이고 삭제 ×는 늘 보인다 */
+.cc-name .cc-del{flex:none}
 
 /* ── 전체 현황 카드 정렬: 은동전·마족공물은 늘 한 줄씩 쌓고, 같은 줄의 카드는 구역(머리·직업·점수·생활력·재화·알림) 높이를 맞춘다 ── */
 .card.char .card-h{align-items:flex-start;margin-bottom:0}
@@ -540,4 +542,5 @@ button.toast { border: 0; text-align: left; cursor: pointer; }
 .linklike{background:none;border:0;padding:0;color:var(--accent);text-decoration:underline;cursor:pointer;font:inherit}
 .btn.bookmarklet{display:inline-flex;text-decoration:none;cursor:grab}
 @media (max-width:520px){.rank-row{grid-template-columns:4em minmax(0,1fr) auto}.rank-row .rk-s{display:none}}
-
+.btn.danger-text{color:var(--danger);border-color:var(--danger)}
+.assign-row .del-confirm{display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap}

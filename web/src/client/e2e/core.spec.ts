@@ -368,6 +368,42 @@ test('전체 탭: 카드의 x 아이콘으로 캐릭터를 삭제한다 (예/아
   await expect(page.locator('.card.char', { hasText: '음유시인' })).toHaveCount(0);
 });
 
+test('전체 탭: 이름이 길어도 카드의 삭제 x가 보인다', async ({ page }, info) => {
+  test.skip(info.project.name !== 'iphone-390' && info.project.name !== 'pc-1440', '좁은 폰과 PC에서 확인');
+  await page.goto('/');
+  // 가짜 데이터에는 긴 이름이 없어, 화면에서 한 카드의 이름을 아주 길게 바꿔 본다 (서버 값은 건드리지 않는다)
+  const card = page.locator('.card.char:not(.cur)').first();
+  await card.locator('.cc-nm').evaluate(el => { el.textContent = '아주아주아주긴캐릭터이름이라서한줄에다들어가지않는이름'; });
+  const del = card.locator('.cc-del');
+  await expect(del).toBeVisible();
+  const box = await del.boundingBox();
+  const cardBox = await card.boundingBox();
+  expect(box!.x + box!.width).toBeLessThanOrEqual(cardBox!.x + cardBox!.width);   // 카드 안에 들어 있다
+  expect(box!.width).toBeGreaterThan(0);
+});
+
+test('계정 편집: 캐릭터를 삭제할 수 있다 (접속 중은 삭제 버튼 없음, 기본은 취소)', async ({ page, request }, info) => {
+  test.skip(info.project.name !== 'pc-1440', '한 번만 지울 수 있어 한 화면에서만 확인');
+  // 지울 캐릭터: 시험 데이터에 따로 둔 화염술사 (다른 시험이 쓰지 않는다)
+  await page.goto('/');
+  await page.getByRole('button', { name: '계정 편집' }).click();
+  const dlg = page.getByRole('dialog', { name: '계정 편집' });
+  await expect(dlg).toBeVisible();
+  const rows = dlg.locator('.assign-row');
+  const cur = rows.filter({ hasText: '격투가' }).first();
+  await expect(cur.getByRole('button', { name: /삭제$/ })).toHaveCount(0);   // 접속 중인 캐릭터는 지울 수 없다
+  const target = rows.filter({ hasText: '화염술사' });
+  await expect(target).toHaveCount(1);
+  await target.getByRole('button', { name: /삭제$/ }).click();
+  await target.getByRole('button', { name: '아니오' }).click();               // 취소하면 그대로
+  await expect(rows.filter({ hasText: '화염술사' })).toHaveCount(1);
+  await target.getByRole('button', { name: /삭제$/ }).click();
+  await target.getByRole('button', { name: '예, 삭제' }).click();
+  await expect(rows.filter({ hasText: '화염술사' })).toHaveCount(0);
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.card.char', { hasText: '화염술사' })).toHaveCount(0);
+});
+
 test('전체 탭: 서버가 여러 곳인 계정은 헤더에 서버를 함께 보여 준다', async ({ page }) => {
   await page.goto('/');
   const first = page.locator('section.acct').first();                    // 아이라(격투가) + 바람(도적·마법사)
