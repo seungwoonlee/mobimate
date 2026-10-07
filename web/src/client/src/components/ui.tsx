@@ -141,7 +141,7 @@ export function Toasts() {
  * 대화상자 (상세설계 §4.7): 제목 연결, 열 때 첫 조작 요소에 포커스, Tab 순환 가두기, Esc로 닫기, 닫으면 연 요소로 포커스 복귀.
  * Compact에서는 CSS가 하단 시트 모양으로 바꾼다.
  */
-export function Dialog({ title, onClose, children, actions }: { title: string; onClose: () => void; children: ReactNode; actions?: ReactNode }) {
+export function Dialog({ title, onClose, children, actions, wide }: { title: string; onClose: () => void; children: ReactNode; actions?: ReactNode; /** 목록·표처럼 가로로 넓게 보여야 하는 창 */ wide?: boolean }) {
   const id = useId();
   const box = useRef<HTMLDivElement>(null);
   const close = useRef(onClose);
@@ -166,7 +166,7 @@ export function Dialog({ title, onClose, children, actions }: { title: string; o
   }, []);
   return (
     <div className="dlg-wrap open" onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="dlg" role="dialog" aria-modal="true" aria-labelledby={id} ref={box} tabIndex={-1}>
+      <div className={`dlg${wide ? ' wide' : ''}`} role="dialog" aria-modal="true" aria-labelledby={id} ref={box} tabIndex={-1}>
         <h3 id={id}>{title}</h3>
         {children}
         <div className="acts">{actions ?? <button type="button" className="btn" onClick={onClose}>닫기</button>}</div>
