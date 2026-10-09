@@ -77,14 +77,14 @@ public class GameCliTests
     }
 
     [Fact]
-    public async Task Gather_PassesCount_AndStopActionReachesCliWithinOneSecond()
+    public async Task Gather_StopActionReachesCliWithinOneSecond()
     {
         // NFR-06 / TST-03: 채집(장시간 레인)이 도는 동안 정지(우선 경로)가 1초 안에 CLI에 닿고, 채집이 "stopped"로 끝난다
         using var env = new FakeCliEnv();
         env.Set("FAKECLI_DELAY_EXECUTE_GATHERING", "8000");
         var cli = env.CreateCli();
 
-        var gather = cli.RunAsync(new CliCommand("execute_gathering", Body: new { displayName = "사과", count = 12 }));
+        var gather = cli.RunAsync(new CliCommand("execute_gathering", Body: new { displayName = "사과" }));
         await WaitForAsync(() => env.ReadCalls().Any(c => c.Command == "execute_gathering" && c.Phase == "start"));
 
         // 일반 레인 조회는 채집에 막히지 않는다
@@ -111,9 +111,6 @@ public class GameCliTests
         var g = await gather.WaitAsync(TimeSpan.FromSeconds(5));
         Assert.True(g.Ok, g.Error);
         Assert.Contains("\"stopped\"", g.Stdout);
-
-        var gatherCall = env.ReadCalls().First(c => c.Command == "execute_gathering" && c.Phase == "start");
-        Assert.Contains("\"count\":12", gatherCall.Args); // D-06: 부족 수량을 count로 전달
     }
 
     [Fact]
@@ -124,7 +121,7 @@ public class GameCliTests
         env.Set("FAKECLI_STOPFILE", null); // 정지 신호 없이 프로세스 종료만으로 끝나는지 본다
         var cli = env.CreateCli();
 
-        var gather = cli.RunAsync(new CliCommand("execute_gathering", Body: new { displayName = "사과", count = 3 }));
+        var gather = cli.RunAsync(new CliCommand("execute_gathering", Body: new { displayName = "사과" }));
         await WaitForAsync(() => env.ReadCalls().Any(c => c.Command == "execute_gathering" && c.Phase == "start"));
 
         Assert.Equal(1, cli.KillLongRunning());

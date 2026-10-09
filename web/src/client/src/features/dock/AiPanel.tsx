@@ -5,6 +5,7 @@ import { keys, keys5, useEngines } from '../../api/queries';
 import type { AskEvent, Engine, Envelope, Life } from '../../api/types';
 import { Dialog, Icon, Pill } from '../../components/ui';
 import { collectAll, startGather } from '../../lib/actions';
+import { GATHER_BATCH, WINGS_PER_BATCH, gatherBatches } from '../life';
 import { useBusy } from '../../lib/busy';
 import { Markdown } from '../../lib/markdown';
 import { queryClient } from '../../lib/queryClient';
@@ -264,7 +265,7 @@ function GatherCard({ m }: { m: Extract<Msg, { who: 'gather' }> }) {
     <div className={`intent ${m.state === 'pending' ? '' : 'done'}`}>
       <h4><Icon name="leaf" />{m.item} 채집</h4>
       {m.state === 'pending' ? <>
-        <p>{m.count != null ? <>목표 {m.count}개{m.have != null && <> · 가방 {m.have}개 → <b>{need}개 더</b></>} 채집합니다.</> : '목표 없이 채집을 시작합니다.'} 정령의 날개 5개를 씁니다.</p>
+        <p>{m.count != null ? <>목표 {m.count}개{m.have != null && <> · 가방 {m.have}개 → <b>{need}개 더</b></>} 채집합니다.</> : '목표 없이 채집을 시작합니다.'} 정령의 날개 {need != null ? gatherBatches(need) * WINGS_PER_BATCH : WINGS_PER_BATCH}개를 씁니다{need != null && need > GATHER_BATCH && ' (100개씩 이어서 채집)'}.</p>
         <div className="acts">
           <button type="button" className="btn primary" disabled={gathering} data-needs-conn onClick={async () => { if (await startGather(m.item, need ?? null)) patch(m.id, { state: 'started' }); }}>채집 시작</button>
           <button type="button" className="btn" onClick={() => patch(m.id, { state: 'cancelled' })}>취소</button>

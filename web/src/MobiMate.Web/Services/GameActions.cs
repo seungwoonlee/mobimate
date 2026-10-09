@@ -3,14 +3,28 @@ using MobiMate.Web.Infrastructure;
 
 namespace MobiMate.Web.Services;
 
+/// <summary>
+/// 채집 작업. 게임의 execute_gathering은 한 번에 최대 100개(<see cref="GameActions.BatchSize"/>)만 채집하고 멈추므로,
+/// 목표가 100을 넘으면 서버가 사람 개입 없이 100개씩 이어서 호출한다. Count는 이번에 채집할 개수(null이면 100).
+/// </summary>
 public sealed record GatherJob(string JobId, string Item, int? Count, string DeviceId, DateTimeOffset StartedAt)
 {
     public string State { get; set; } = "running";
     public int Gained { get; set; }
+    public int Batch { get; set; }
     public string? Message { get; set; }
+    public volatile bool StopRequested;
+
+    public int Target => Count ?? GameActions.BatchSize;
+    public int Batches => (Target + GameActions.BatchSize - 1) / GameActions.BatchSize;
+
+    public object Snapshot() => new { jobId = JobId, state = State, item = Item, gained = Gained, target = Target, batch = Batch, batches = Batches, message = Message };
 }
 
 public enum StartGatherResult { Started, Conflict, UnknownItem, CliMissing }
+
+/// <summary>한 번의 execute_gathering 응답. Error가 있으면 게임이 시작 전 거절했거나 도중에 끊긴 것이다.</summary>
+public sealed record GatherReply(string Result, int Gained, int Target, string? Error, string? Message);
 
 /// <summary>
 /// 조작 API (§7): 채집 작업(FR-DT-08, 장시간 레인), 긴급 정지(우선 경로), 가공물 수거.
@@ -18,10 +32,21 @@ public enum StartGatherResult { Started, Conflict, UnknownItem, CliMissing }
 /// </summary>
 public sealed class GameActions(GameQueries q, SseHub hub, HomeworkWatcher homework, ILogger<GameActions> log)
 {
+    /// <summary>게임이 execute_gathering 한 번에 채집하는 최대 개수 (CLI 스키마: "One call gathers up to 100").</summary>
+    public const int BatchSize = 100;
+    /// <summary>한 작업의 최대 목표. 호출마다 날개 5개가 들기 때문에 실수로 너무 크게 잡지 않게 막는다.</summary>
+    public const int MaxTarget = 5000;
+    /// <summary>게임은 9분에 스스로 멈춘다. 그 응답을 받을 수 있게 조금 더 기다린다.</summary>
+    internal static readonly TimeSpan BatchTimeout = TimeSpan.FromMinutes(10);
+
     private readonly object _lock = new();
     private GatherJob? _current;
+    private GatherJob? _last;
 
     public GatherJob? Current { get { lock (_lock) return _current is { State: "running" } ? _current : null; } }
+
+    /// <summary>진행 중인 작업, 없으면 가장 최근에 끝난 작업. 새로 연결한 화면이 상태를 그리는 데 쓴다.</summary>
+    public object? Snapshot() { lock (_lock) return (_current ?? _last)?.Snapshot(); }
 
     public async Task<(StartGatherResult Result, GatherJob? Job)> StartGatherAsync(string item, int? count, string deviceId, CancellationToken ct)
     {
@@ -41,70 +66,116 @@ public sealed class GameActions(GameQueries q, SseHub hub, HomeworkWatcher homew
 
     private async Task RunGatherAsync(GatherJob job)
     {
-        object body = job.Count is { } c ? new { displayName = job.Item, count = c } : new { displayName = job.Item };
-        hub.Broadcast("gather", new { jobId = job.JobId, state = "running", item = job.Item, gained = 0, message = (string?)null });
+        hub.Broadcast("gather", job.Snapshot());
         // 어떤 예외가 나도 작업은 반드시 종료 상태가 된다. "running"에 묶이면 재시작 전까지 모든 채집이 409가 된다.
         try
         {
-            var r = await q.Cli.RunAsync(new CliCommand("execute_gathering", Body: body));
-            lock (_lock)
+            // 목표를 채울 때까지 100개씩 이어서 호출한다. 한 개도 못 캔 호출이 나오면 멈춘다(날개만 소모하는 헛바퀴 방지).
+            var maxCalls = job.Batches + 3;   // 게임이 100보다 적게 돌려주는 경우를 위한 여유
+            for (var call = 0; call < maxCalls && job.Gained < job.Target; call++)
             {
-                if (r.Ok)
+                if (job.StopRequested) { Finish(job, "stopped", null); break; }
+                lock (_lock) job.Batch = Math.Min(job.Batches, call + 1);
+                hub.Broadcast("gather", job.Snapshot());
+
+                var r = await q.Cli.RunAsync(new CliCommand("execute_gathering", Body: new { displayName = job.Item }, Timeout: BatchTimeout));
+                q.Invalidate("get_items", "get_my_info", "get_currencies", "get_activity");
+                if (!r.Ok) { Finish(job, job.StopRequested ? "stopped" : "failed", r.Error); break; }
+
+                var reply = ParseGather(r.Stdout);
+                lock (_lock) job.Gained += Math.Max(0, reply.Gained);
+                log.LogInformation("채집 작업 {JobId} 배치 {Call}: {Result}{Error} +{Gained} (누적 {Total}/{Target})", job.JobId, call + 1, reply.Result, reply.Error, reply.Gained, job.Gained, job.Target);
+
+                if (reply.Error is { } err)
                 {
-                    var (result, gained) = ParseGather(r.Stdout);
-                    job.State = result;
-                    job.Gained = gained;
+                    // 게임이 9분 제한으로 끊은 경우만 이어 간다. 그 외(막힘·무게·도구·날개·사용자 취소)는 사람이 풀어야 하므로 멈춘다.
+                    if (err == "timeout" && reply.Gained > 0 && !job.StopRequested) { hub.Broadcast("gather", job.Snapshot()); continue; }
+                    Finish(job, err == "canceled" || job.StopRequested ? "stopped" : "failed", Describe(err, reply.Message));
+                    break;
                 }
-                else
-                {
-                    job.State = "failed";
-                    job.Message = r.Error;
-                }
+                if (reply.Result == "started") { Finish(job, "started", null); break; }           // 낚시: 목표가 없다
+                if (reply.Result == "stopped") { Finish(job, "stopped", reply.Message); break; }  // 긴급 정지 등
+                if (reply.Gained <= 0) { Finish(job, "failed", "한 개도 채집하지 못해 멈췄습니다."); break; }
+                hub.Broadcast("gather", job.Snapshot());
+            }
+            if (job.State == "running")
+            {
+                var reached = job.Gained >= job.Target;
+                Finish(job, reached ? "completed" : "stopped", reached ? null : "더 이상 채집이 진행되지 않아 멈췄습니다.");
             }
         }
         catch (Exception ex)
         {
-            lock (_lock)
-            {
-                job.State = "failed";
-                job.Message = ex.Message;
-            }
+            Finish(job, "failed", ex.Message);
             log.LogWarning(ex, "채집 작업 {JobId} 예외", job.JobId);
         }
+        lock (_lock) _last = job;
         q.Invalidate("get_items", "get_my_info", "get_currencies", "get_activity");
-        hub.Broadcast("gather", new { jobId = job.JobId, state = job.State, item = job.Item, gained = job.Gained, message = job.Message });
+        hub.Broadcast("gather", job.Snapshot());
+        var got = job.Batches > 1 || job.Gained > 0 ? $" · +{job.Gained}개{(job.Batches > 1 ? $" / 목표 {job.Target}개" : "")}" : "";
         hub.Broadcast("toast", job.State switch
         {
-            "completed" => new { level = "ok", message = $"{job.Item} 채집 완료 · +{job.Gained}개" },
-            "stopped" => new { level = "warn", message = $"{job.Item} 채집을 멈췄습니다 · +{job.Gained}개" },
+            "completed" => new { level = "ok", message = $"{job.Item} 채집 완료{got}" },
+            "stopped" => new { level = "warn", message = $"{job.Item} 채집을 멈췄습니다{got}" },
             "started" => new { level = "ok", message = $"{job.Item} 자동 채집이 시작되었습니다" },
-            _ => new { level = "danger", message = $"{job.Item} 채집 실패: {job.Message}" },
+            _ => new { level = "danger", message = $"{job.Item} 채집 실패: {job.Message}{got}" },
         });
         log.LogInformation("채집 작업 {JobId} 종료: {State}", job.JobId, job.State);
     }
 
-    internal static (string Result, int Gained) ParseGather(string stdout)
+    private void Finish(GatherJob job, string state, string? message)
+    {
+        lock (_lock) { job.State = state; job.Message = message; }
+    }
+
+    private static string Describe(string error, string? message) => error switch
+    {
+        "blocked" => "화면에 확인이 필요한 창이 떠 있습니다. 게임에서 해결해 주세요.",
+        "overweight" => "가방이 가득 찼습니다.",
+        "tool_broken" or "tool_missing" => "채집 도구가 없거나 망가졌습니다.",
+        "not_enough_currency" => "정령의 날개가 부족합니다.",
+        "insufficient_living_skill_level" => "생활 스킬 레벨이 부족합니다.",
+        "no_route" => "채집 장소까지 갈 길이 없습니다.",
+        "not_in_field" => "필드에서만 채집할 수 있습니다.",
+        "required_consumable_missing" => "채집에 필요한 소모품이 없습니다.",
+        "timeout" => "시간 제한(9분)으로 멈췄습니다.",
+        _ => string.IsNullOrWhiteSpace(message) ? error : $"{error}: {message}",
+    };
+
+    internal static GatherReply ParseGather(string stdout)
     {
         try
         {
             using var doc = JsonDocument.Parse(stdout);
             var root = doc.RootElement;
-            if (root.ValueKind != JsonValueKind.Object) return ("completed", 0);
-            var result = root.TryGetProperty("result", out var res) && res.ValueKind == JsonValueKind.String ? res.GetString() ?? "completed" : "completed";
-            var gained = root.TryGetProperty("gained", out var g) && g.ValueKind == JsonValueKind.Number && g.TryGetInt32(out var n) ? n : 0;
-            return (result, gained);
+            if (root.ValueKind != JsonValueKind.Object) return new GatherReply("completed", 0, 0, null, null);
+            string? Str(string name) => root.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
+            int Int(string name) => root.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.Number && v.TryGetInt32(out var n) ? n : 0;
+            return new GatherReply(Str("result") ?? "completed", Int("gained"), Int("target"), Str("error"), Str("message"));
         }
         catch (JsonException)
         {
-            return ("completed", 0);
+            return new GatherReply("completed", 0, 0, null, null);
         }
     }
 
     /// <summary>긴급 정지 (FR-AC-01). stop_action은 CLI 우선 경로로 대기 없이 실행된다.</summary>
     public async Task<CliResult> StopAsync(CancellationToken ct)
     {
+        // 100개 단위 반복 중이면 지금 배치만 끊는 게 아니라 다음 배치도 시작하지 않아야 한다.
+        lock (_lock) { if (_current is { State: "running" } job) job.StopRequested = true; }
         var r = await q.Cli.RunAsync(new CliCommand("stop_action"), ct);
         q.Invalidate("get_activity");
+        // 정지가 배치와 배치 사이(막 시작하려는 순간)에 끼면 stop_action이 멈출 대상을 못 찾는다. 잠시 뒤에도 같은 작업이 돌고 있으면 한 번 더 보낸다.
+        GatherJob? running;
+        lock (_lock) running = _current is { State: "running" } j && j.StopRequested ? j : null;
+        if (running != null) _ = Task.Run(async () =>
+        {
+            await Task.Delay(TimeSpan.FromSeconds(2));
+            bool still;
+            lock (_lock) still = running.State == "running";
+            if (still) await q.Cli.RunAsync(new CliCommand("stop_action"));
+        });
         hub.Broadcast("toast", r.Ok
             ? new { level = "danger", message = "행동 정지를 요청했습니다" }
             : new { level = "warn", message = $"행동 정지 실패: {r.Error}" });

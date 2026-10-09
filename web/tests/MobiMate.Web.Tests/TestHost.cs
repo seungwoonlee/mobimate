@@ -40,7 +40,7 @@ public sealed class TestHost : WebApplicationFactory<Program>
         Directory.CreateDirectory(StorageDir);
         FakeCliLog = Path.Combine(StorageDir, "fakecli.log");
         StopFile = Path.Combine(StorageDir, "stop.flag");
-        foreach (var k in new[] { "FAKECLI_DELAY_EXECUTE_GATHERING", "FAKECLI_STATE", "FAKECLI_FAIL_GET_MY_INFO" })
+        foreach (var k in new[] { "FAKECLI_DELAY_EXECUTE_GATHERING", "FAKECLI_GATHER_SCRIPT", "FAKECLI_STATE", "FAKECLI_FAIL_GET_MY_INFO" })
             Environment.SetEnvironmentVariable(k, null);
         Environment.SetEnvironmentVariable("FAKECLI_LOG", FakeCliLog);
         // 호스트 빌드 전에 읽는 값은 환경변수로만 바꿀 수 있다: 단일 인스턴스 끄기, 실제 포트와 겹치지 않는 포트

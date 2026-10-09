@@ -55,6 +55,12 @@ export interface Missions { daily: MissionGroup; weekly: MissionGroup }
 
 export interface Work { name: string; facility: string; remainingSeconds: number; done: boolean; remainingText: string; kind: string; kindLabel: string }
 export interface Gatherable { name: string; toolOk: boolean; inBag: number; favorite: boolean }
+/** 채집 작업 진행 (서버 GatherJob.Snapshot). 게임은 한 번에 100개씩만 캐므로 목표가 크면 서버가 batches번 이어서 호출한다. */
+export interface GatherJob {
+  jobId: string; item: string;
+  state: 'running' | 'completed' | 'stopped' | 'failed' | 'started';
+  gained: number; target: number; batch: number; batches: number; message: string | null;
+}
 export interface Life { works: Work[] | null; gatherables: Gatherable[] | null }
 
 export interface NearPlayer {

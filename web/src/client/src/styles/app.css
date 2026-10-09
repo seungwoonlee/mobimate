@@ -561,3 +561,14 @@ button.toast { border: 0; text-align: left; cursor: pointer; }
 .app[data-size="compact"] .dlg.wide .assign-row{grid-template-columns:minmax(0,1fr) 4.5em;padding-bottom:6px;border-bottom:1px solid var(--line)}
 .app[data-size="compact"] .assign-row>span:first-child{grid-column:1/-1}
 
+
+/* 채집 진행 배너: 100개씩 이어서 채집하는 동안 어느 화면에서든 진행 상황과 정지를 보여 준다 */
+.gather-banner { margin: 0 0 12px; padding: 10px 12px; border-radius: 10px; background: var(--bg-2); border: 1px solid var(--line); }
+.gather-banner.completed { border-color: var(--ok); }
+.gather-banner.failed { border-color: var(--danger); }
+.gather-banner.stopped { border-color: var(--warn); }
+.gather-banner .gb-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.gather-banner .gb-head .btn { margin-left: auto; min-height: 36px; padding: 4px 14px; }
+.gather-banner .gb-bar { height: 6px; margin-top: 8px; border-radius: 3px; background: rgba(127,127,127,.25); overflow: hidden; }
+.gather-banner .gb-bar > i { display: block; height: 100%; background: var(--accent); transition: width .4s ease; }
+.gather-banner .gb-msg { margin: 6px 0 0; font-size: .875rem; opacity: .85; }
