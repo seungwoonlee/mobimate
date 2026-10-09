@@ -10,7 +10,6 @@ import { useRouter } from '../state/router';
 import { useUi } from '../state/ui';
 
 const CATS = ['전체', '벌목', '채광', '농축산', '약초', '기타'] as const;
-const PRESETS = [5, 50, 100, 200, 300, 500, 1000];
 /** 게임은 채집 한 번에 최대 100개만 캔다. 더 큰 목표는 서버가 100개씩 자리 비움 없이 이어서 채집한다. 호출마다 정령의 날개 5개. */
 export const GATHER_BATCH = 100;
 export const WINGS_PER_BATCH = 5;
@@ -23,18 +22,37 @@ export const DEFAULT_GATHER_TARGET = 100;
 const WORK_KIND_ORDER = ['metal', 'wood', 'leather', 'cloth', 'medicine', 'food', 'other'];
 /** 가공 종류 이름 (서버 work_categories.json의 labels와 같다). 비어 있는 종류도 카드로 보여 주려고 클라이언트에도 둔다. */
 const WORK_KIND_LABEL: Record<string, string> = { metal: '금속 가공', wood: '목재 가공', leather: '가죽 가공', cloth: '옷감 가공', medicine: '약품 가공', food: '식재료 가공', other: '기타 가공' };
-/** 가공 칸 수는 열어 둔 만큼 사람마다 다르다(2~7칸). 게임이 알려 주지 않으므로 사용자가 고르고, 이 기기에 기억한다. */
-export const SLOT_CHOICES = [2, 3, 4, 5, 6, 7];
-const SLOT_KEY = 'mm.workSlots';
-function useWorkSlots(): [number | null, (n: number | null) => void] {
-  const [slots, set] = useState<number | null>(() => {
-    try { const n = Number(localStorage.getItem(SLOT_KEY)); return SLOT_CHOICES.includes(n) ? n : null; } catch { return null; }
-  });
-  const save = (n: number | null) => {
-    set(n);
-    try { n == null ? localStorage.removeItem(SLOT_KEY) : localStorage.setItem(SLOT_KEY, String(n)); } catch { /* 저장 못 해도 이번 화면에서는 동작한다 */ }
-  };
-  return [slots, save];
+/**
+ * 열어 둔 가공 칸 수는 사람마다 다르고(2~7칸) 게임 CLI가 알려 주지 않는다. 대신 종류별로 지금까지 본 최대 동시 건수를
+ * 칸 수로 쓴다(칸을 다 채운 적이 있으면 정확하다). 이 기기에 기억한다.
+ */
+const SLOT_KEY = 'mm.workSlotsSeen';
+function readSeen(): Record<string, number> {
+  try { return JSON.parse(localStorage.getItem(SLOT_KEY) ?? '{}') as Record<string, number>; } catch { return {}; }
+}
+function useSeenSlots(counts: Record<string, number>): Record<string, number> {
+  const [seen, setSeen] = useState(readSeen);
+  const sig = Object.entries(counts).map(([k, v]) => `${k}:${v}`).join(',');
+  useEffect(() => {
+    setSeen(prev => {
+      let changed = false;
+      const next = { ...prev };
+      for (const [k, v] of Object.entries(counts)) if (v > (next[k] ?? 0)) { next[k] = v; changed = true; }
+      if (!changed) return prev;
+      try { localStorage.setItem(SLOT_KEY, JSON.stringify(next)); } catch { /* 저장 못 해도 이번 화면에서는 동작한다 */ }
+      return next;
+    });
+  }, [sig]); // eslint-disable-line react-hooks/exhaustive-deps
+  return seen;
+}
+
+/** 완료 예정 시각: 오늘이면 "19:42", 내일이면 "내일 02:10", 그 뒤는 "10/12 02:10" */
+export function finishClock(nowMs: number, afterSeconds: number): string {
+  const t = new Date(nowMs + afterSeconds * 1000);
+  const hm = `${String(t.getHours()).padStart(2, '0')}:${String(t.getMinutes()).padStart(2, '0')}`;
+  const day = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const diff = Math.round((day(t) - day(new Date(nowMs))) / 86_400_000);
+  return diff <= 0 ? hm : diff === 1 ? `내일 ${hm}` : `${t.getMonth() + 1}/${t.getDate()} ${hm}`;
 }
 
 /**
@@ -74,7 +92,7 @@ export function LifeView() {
   );
 }
 
-/** 가공 대기열을 가공 종류별로 묶는다 (FR-DT-20): 종류마다 카드 하나, 안에 진행 중·수거 대기 목록. */
+/** 가공 대기열을 가공 종류별로 묶는다 (FR-DT-20): 종류마다 카드 하나, 안에 진행 중·수거 대기 목록(항목은 2줄). */
 function Works({ works, at }: { works: Work[]; at: number }) {
   const collecting = useBusy('collect');
   const now = useNow();
@@ -82,60 +100,51 @@ function Works({ works, at }: { works: Work[]; at: number }) {
   const left = (s: number) => Math.max(0, s - Math.floor((now - base) / 1000));
   const isDone = (w: Work) => w.done || left(w.remainingSeconds) === 0;
   const ready = works.filter(isDone).map(w => w.name);
-  const [slots, setSlots] = useWorkSlots();
   // 여섯 가지 가공은 비어 있어도 항상 보여 주고(칸 사용량 확인용), 기타 가공은 있을 때만 보여 준다.
   const groups = WORK_KIND_ORDER
     .map(kind => [kind, works.filter(w => (WORK_KIND_ORDER.includes(w.kind) ? w.kind : 'other') === kind)] as const)
     .filter(([kind, list]) => kind !== 'other' || list.length > 0);
+  const seen = useSeenSlots(Object.fromEntries(groups.map(([k, l]) => [k, l.length])));
   return (
     <div className="card">
       <CardHead icon="clock" title="가공 대기열"
         right={<button type="button" className="btn primary" disabled={!ready.length || collecting} onClick={() => collectAll(ready)} data-needs-conn><Icon name="inbox" />완료분 모두 수거{ready.length ? ` (${ready.length})` : ''}</button>} />
-      <div className="toolbar mb-10">
-        <label className="muted small" htmlFor="wkSlots">열어 둔 가공 칸 수 (종류마다)</label>
-        <select id="wkSlots" value={slots ?? ''} onChange={e => setSlots(e.target.value ? Number(e.target.value) : null)}>
-          <option value="">모름</option>
-          {SLOT_CHOICES.map(n => <option key={n} value={n}>{n}칸</option>)}
-        </select>
-      </div>
-      {works.length === 0 && <p className="muted">진행 중인 가공이 없습니다.</p>}
-      {(
-        <div className="wk-groups">
-          {groups.map(([kind, list]) => {
-            const waiting = list.filter(isDone);
-            // 수거 대기를 위로, 진행 중은 게임이 준 순서(= 끝나는 순서) 그대로
-            const rows = [...list.filter(isDone), ...list.filter(w => !isDone(w))];
-            const cum = cumulativeSeconds(rows.map(w => left(w.remainingSeconds)), rows.map(isDone));
-            const label = WORK_KIND_LABEL[kind] ?? list[0]?.kindLabel ?? kind;
-            return (
-              <section className={`wk ${list.length === 0 ? 'empty' : ''}`} key={kind} aria-label={label}>
-                <div className="wk-h">
-                  <h4>{label} <span className={`faint num ${slots && list.length >= slots ? 'warn-text' : ''}`}>{slots ? `${list.length}/${slots}칸` : `${list.length}건`}</span></h4>
-                  {waiting.length > 0 && <button type="button" className="btn" disabled={collecting} onClick={() => collectAll(waiting.map(w => w.name))} data-needs-conn>수거 {waiting.length}</button>}
+      <div className="wk-groups">
+        {groups.map(([kind, list]) => {
+          const waiting = list.filter(isDone);
+          // 수거 대기를 위로, 진행 중은 게임이 준 순서(= 끝나는 순서) 그대로
+          const rows = [...list.filter(isDone), ...list.filter(w => !isDone(w))];
+          const cum = cumulativeSeconds(rows.map(w => left(w.remainingSeconds)), rows.map(isDone));
+          const firstActive = rows.findIndex(w => !isDone(w));
+          const label = WORK_KIND_LABEL[kind] ?? list[0]?.kindLabel ?? kind;
+          const max = Math.max(seen[kind] ?? 0, list.length);
+          return (
+            <section className={`wk ${list.length === 0 ? 'empty' : ''}`} key={kind} aria-label={label}>
+              <div className="wk-h">
+                <h4>{label} <span className="faint num" title="칸 수는 지금까지 본 최대 동시 건수입니다">{max > list.length ? `${list.length}/${max}칸` : `${list.length}건`}</span></h4>
+                {waiting.length > 0 && <button type="button" className="btn" disabled={collecting} onClick={() => collectAll(waiting.map(w => w.name))} data-needs-conn>수거 {waiting.length}</button>}
+              </div>
+              {list.length === 0 ? <p className="muted small wk-empty">비어 있습니다.</p> : (
+                <div className="wk-list">
+                  {rows.map((w, i) => {
+                    const done = isDone(w);
+                    return (
+                      <div className="wk-row" key={w.facility + w.name + i}>
+                        <span className="n">{w.name}</span>
+                        {done
+                          ? <button type="button" className="btn wk-take" disabled={collecting} onClick={() => collect(w.name)} data-needs-conn>수거</button>
+                          : <b className="tm num" aria-label={`완료까지 ${remaining(cum[i])}`}>{remaining(cum[i])}</b>}
+                        <span className="s">{done ? <Pill tone="ok">수거 대기 ✓</Pill> : <Pill>{i === firstActive ? '진행 중' : '대기'}</Pill>}</span>
+                        {!done && <small className="at num">{finishClock(now, cum[i])} 완료</small>}
+                      </div>
+                    );
+                  })}
                 </div>
-                {list.length === 0 ? <p className="muted small">비어 있습니다.</p> : (
-                  <div className="list">
-                    {rows.map((w, i) => {
-                      const done = isDone(w);
-                      return (
-                        <div className="row" key={w.facility + w.name + i}>
-                          <div className="t"><span>{w.name}</span></div>
-                          <div className="r">
-                            {done
-                              ? <button type="button" className="btn" disabled={collecting} onClick={() => collect(w.name)} data-needs-conn>수거</button>
-                              : <span className="num strong" aria-label={`완료까지 ${remaining(cum[i])}`}>{remaining(cum[i])}</span>}
-                          </div>
-                          <div className="m">{w.facility} · {done ? <Pill tone="ok">수거 대기 ✓</Pill> : <><Pill>{i === rows.findIndex(x => !isDone(x)) ? '진행 중' : '대기'}</Pill> <span className="faint">개별 {remaining(left(w.remainingSeconds))}</span></>}</div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </section>
-            );
-          })}
-        </div>
-      )}
+              )}
+            </section>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -164,13 +173,13 @@ function GatherHelper({ items }: { items: Gatherable[] }) {
   const rows = items
     .filter(g => cat === '전체' || gatherCategory(g.name) === cat)
     .filter(g => !search || g.name.includes(search))
-    .sort((a, b) => Number(b.favorite) - Number(a.favorite));   // 안정 정렬: 즐겨찾기만 앞으로
+    .sort((a, b) => Number(b.favorite) - Number(a.favorite) || b.inBag - a.inBag);   // 즐겨찾기 먼저, 그다음 보유 수량이 많은 순
 
   return (
     <div className="card">
       <CardHead icon="leaf" title="스마트 채집 도우미" right={<span className="faint small">100개마다 정령의 날개 5개</span>} />
       {/* 검색창을 분류 칩 줄 맨 앞에 둔다 (v1.1.0, FR-DT-05) */}
-      <div className="toolbar mb-10">
+      <div className="toolbar gx-bar">
         <label className="search grow-0">
           <Icon name="search" />
           <input type="search" placeholder="채집물 검색" value={text} onChange={e => setText(e.target.value)} aria-label="채집물 검색" />
@@ -178,38 +187,29 @@ function GatherHelper({ items }: { items: Gatherable[] }) {
         <div className="seg" role="group" aria-label="분류">
           {CATS.map(c => <button key={c} type="button" aria-pressed={cat === c} onClick={() => setCat(c)}>{c}</button>)}
         </div>
-      </div>
-      <div className="toolbar mb-10">
         <span className="muted small">목표 수량</span>
         <div className="stepper">
-          {[-100, -5, -1].map(d => <button key={d} type="button" onClick={() => setTarget(t => Math.max(1, t + d))}>{d}</button>)}
+          <button type="button" onClick={() => setTarget(t => Math.max(GATHER_BATCH, t - GATHER_BATCH))} aria-label="100 줄이기">-100</button>
           <span className="v num" aria-live="polite">{target}</span>
-          {[1, 5, 100].map(d => <button key={d} type="button" onClick={() => setTarget(t => Math.min(MAX_GATHER_TARGET, t + d))}>+{d}</button>)}
+          <button type="button" onClick={() => setTarget(t => Math.min(MAX_GATHER_TARGET, t + GATHER_BATCH))} aria-label="100 늘리기">+100</button>
         </div>
-        {PRESETS.map(v => <button key={v} type="button" className="chip" aria-pressed={target === v} onClick={() => setTarget(v)}>{v}개</button>)}
       </div>
       {rows.length === 0 ? <p className="muted">조건에 맞는 채집물이 없습니다.</p> : (
-        <div className="list gather">
+        <div className="gx-list">
           {rows.map(g => {
             const need = Math.max(0, target - g.inBag);
             return (
-              <div className={`row ${g.favorite ? 'fav' : ''}`} key={g.name}>
-                <div className="t">
-                  <button type="button" className="star" aria-pressed={g.favorite} aria-label={`${g.name} 즐겨찾기`} title={g.favorite ? '즐겨찾기 해제' : '즐겨찾기'}
-                    onClick={() => void setFavorite('gather', g.name, !g.favorite)}>{g.favorite ? '★' : '☆'}</button>
-                  <span>{g.name}</span>
-                </div>
-                <div className="r">
-                  {!g.toolOk ? <Pill tone="danger">도구 없음</Pill>
-                    : need === 0 ? <Pill tone="ok">목표 달성</Pill>
-                    : <button type="button" className="btn primary" onClick={() => setConfirm({ name: g.name, need })} data-needs-conn>채집</button>}
-                </div>
-                <div className="m">
+              <div className={`gx-row ${g.favorite ? 'fav' : ''}`} key={g.name}>
+                <button type="button" className="star" aria-pressed={g.favorite} aria-label={`${g.name} 즐겨찾기`} title={g.favorite ? '즐겨찾기 해제' : '즐겨찾기'}
+                  onClick={() => void setFavorite('gather', g.name, !g.favorite)}>{g.favorite ? '★' : '☆'}</button>
+                <span className="n">{g.name}</span>
+                <span className="m">
                   <span className="have">보유 <b className="num">{fmt(g.inBag)}</b></span>
-                  <span className="num faint">/ 목표 {fmt(target)}</span>
                   {need > 0 && <span className="num warn-text">부족 {fmt(need)}</span>}
-                  <Pill>{gatherCategory(g.name)}</Pill>
-                </div>
+                </span>
+                {!g.toolOk ? <Pill tone="danger">도구 없음</Pill>
+                  : need === 0 ? <Pill tone="ok">목표 달성</Pill>
+                  : <button type="button" className="btn primary" onClick={() => setConfirm({ name: g.name, need })} data-needs-conn>채집</button>}
               </div>
             );
           })}
