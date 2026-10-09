@@ -6,6 +6,9 @@ import { useUi, type ToastLevel } from '../state/ui';
 import { api } from '../api/http';
 import type { GatherJob, Header } from '../api/types';
 
+/** 캐릭터 선택창(selecting)은 마지막 캐릭터를 흐리게 보여 줄 뿐이라 전환으로 치지 않는다 */
+export const characterSwitched = (prev: Header | undefined, next: Header) => !!prev && !next.selecting && prev.characterKey !== next.characterKey;
+
 /**
  * SSE 이벤트 → 쿼리 무효화·토스트 (상세설계 §4.3).
  * - header: 다른 기기가 새로 받은 헤더를 그대로 캐시에 넣는다(추가 조회 없음)
@@ -35,9 +38,16 @@ export function useServerEvents() {
     },
     onEvent: (type, data) => {
       switch (type) {
-        case 'header':
-          queryClient.setQueryData(keys.header, { data: data as Header, fetchedAt: new Date().toISOString() });
+        case 'header': {
+          const next = data as Header;
+          const prev = queryClient.getQueryData<{ data: Header }>(keys.header)?.data;
+          queryClient.setQueryData(keys.header, { data: next, fetchedAt: new Date().toISOString() });
+          // 캐릭터가 바뀌었다: 상단 바만이 아니라 열려 있는 화면(스탯·가방·재화·숙제·생활·전체)도 다음 자동 갱신(최대 30초)을 기다리지 않고 바로 새로 읽는다
+          if (characterSwitched(prev, next)) {
+            void queryClient.invalidateQueries({ predicate: q => q.queryKey[0] !== keys.header[0] });
+          }
           break;
+        }
         case 'status':
           void queryClient.invalidateQueries({ queryKey: keys.status });
           // 게임 연결이 돌아왔다(캐릭터를 바꾸면 선택창을 거치며 끊긴다): 다음 자동 갱신을 기다리지 않고 지금 화면을 바로 새로 읽는다
