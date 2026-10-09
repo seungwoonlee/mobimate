@@ -1,4 +1,4 @@
-import { cardTone, lastSeenText, membershipLeft, splitHwRows, waitText } from './characters';
+import { cardTone, lastSeenText, membershipLeft, splitHwRows, waitText, fillText } from './characters';
 import type { CoinView, HomeworkAuto } from '../api/types';
 
 const coin = (level: CoinView['level']): CoinView => ({ held: 1, expected: 1, cap: 100, percent: 0.5, level, minutesToFull: 60 });
@@ -66,3 +66,10 @@ describe('자동 판정 칩 줄', () => {
   });
 });
 
+
+describe('fillText', () => {
+  const at = new Date(2026, 9, 10, 18, 0, 0).getTime();   // 10/10 18:00
+  it('자정 전에 차면 남은 시간', () => expect(fillText(200, at)).toBe('3시간 20분 뒤'));
+  it('자정을 넘기면 내일 현실 시각', () => expect(fillText(8 * 60, at)).toBe('내일 02:00에'));
+  it('이틀 이상 뒤는 월/일 시각', () => expect(fillText(50 * 60, at)).toBe('10/12 20:00에'));
+});
