@@ -45,6 +45,9 @@ public sealed class MobiMateOptions
     /// <summary>접속 중인 캐릭터를 읽어 기록하는 간격 (v1.5). 0이면 끈다.</summary>
     public TimeSpan RecordInterval { get; set; } = TimeSpan.FromSeconds(60);
 
+    /// <summary>캐릭터 전환 감시 간격 (v1.6). 0이면 끈다(테스트).</summary>
+    public TimeSpan WatchInterval { get; set; } = TimeSpan.FromSeconds(4);
+
     public TimeSpan QueryCacheTtl { get; set; } = TimeSpan.FromSeconds(3);
     public TimeSpan SsePingInterval { get; set; } = TimeSpan.FromSeconds(20);
 }

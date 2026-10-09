@@ -140,6 +140,20 @@ public class RealCharacterTests : IDisposable
     }
 
     [Fact]
+    public void PreviousReadAlreadyHoldingTheNewCharactersWallet_IsNotAJobSwap()
+    {
+        // 접속 인식 지연 재현 (2026-10-10): 재화가 캐릭터 정보보다 먼저 바뀌어 앞선 읽기(before)가 새 캐릭터 재화가 된 뒤
+        // 직업이 읽히면 "같은 재화 + 다른 직업"이라 부직업 전환으로 오인해 새 캐릭터를 알아채지 못했다
+        var m = new SnapshotManager(_dir);
+        m.UpdateSnapshot(Info("에린", "격투가", 100, 88737), Wallet(10285, 5619, 11144590), null, "에린_격투가");
+        var dancerWallet = Wallet(10285, 5619, 2310450);
+        Assert.Null(m.DetectJobSwap("에린_격투가", Info("에린", "댄서", 100, 99961), dancerWallet, dancerWallet));
+        // 진짜 부직업 전환은 그대로 알아본다 (재화가 기록과 같다)
+        var same = Wallet(10285, 5619, 11144590);
+        Assert.Equal("에린_격투가", m.DetectJobSwap("에린_격투가", Info("에린", "댄서", 100, 90000), same, same));
+    }
+
+    [Fact]
     public void SmallGold_IsNeverTreatedAsAnotherCharacters()
     {
         var m = new SnapshotManager(_dir);

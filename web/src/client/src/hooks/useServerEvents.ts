@@ -40,6 +40,8 @@ export function useServerEvents() {
           break;
         case 'status':
           void queryClient.invalidateQueries({ queryKey: keys.status });
+          // 게임 연결이 돌아왔다(캐릭터를 바꾸면 선택창을 거치며 끊긴다): 다음 자동 갱신을 기다리지 않고 지금 화면을 바로 새로 읽는다
+          if ((data as { state?: string })?.state === 'connected') void queryClient.invalidateQueries({ type: 'active' });
           break;
         case 'toast': {
           const t = data as { level?: string; message?: string };
