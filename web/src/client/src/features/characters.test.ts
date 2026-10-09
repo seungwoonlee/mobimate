@@ -67,9 +67,13 @@ describe('자동 판정 칩 줄', () => {
 });
 
 
-describe('fillText', () => {
-  const at = new Date(2026, 9, 10, 18, 0, 0).getTime();   // 10/10 18:00
-  it('자정 전에 차면 남은 시간', () => expect(fillText(200, at)).toBe('3시간 20분 뒤'));
-  it('자정을 넘기면 내일 현실 시각', () => expect(fillText(8 * 60, at)).toBe('내일 02:00에'));
-  it('이틀 이상 뒤는 월/일 시각', () => expect(fillText(50 * 60, at)).toBe('10/12 20:00에'));
+describe('fillText: 다가오는 오전 6시 전이면 남은 시간, 이후면 현실 시각', () => {
+  const evening = new Date(2026, 9, 10, 18, 0, 0).getTime();   // 10/10 18:00 → 기준은 내일 06:00
+  const night = new Date(2026, 9, 11, 2, 0, 0).getTime();      // 10/11 02:00 → 기준은 오늘 06:00
+  it('저녁에 내일 새벽 6시 전에 차면 남은 시간', () => expect(fillText(11 * 60, evening)).toBe('11시간 뒤'));     // 05:00
+  it('저녁에 6시 이후에 차면 내일 시각', () => expect(fillText(13 * 60, evening)).toBe('내일 07:00에'));
+  it('이틀 뒤는 월/일 시각', () => expect(fillText(50 * 60, evening)).toBe('10/12 20:00에'));
+  it('새벽에 6시 전에 차면 남은 시간', () => expect(fillText(3 * 60, night)).toBe('3시간 뒤'));             // 05:00
+  it('새벽에 6시 이후에 차면 오늘 시각', () => expect(fillText(5 * 60, night)).toBe('오늘 07:00에'));
+  it('정각 6시는 현실 시각', () => expect(fillText(12 * 60, evening)).toBe('내일 06:00에'));
 });
