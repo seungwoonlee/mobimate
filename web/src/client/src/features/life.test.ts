@@ -29,7 +29,7 @@ describe('cumulativeSeconds', () => {
 
 describe('finishClock', () => {
   const at = new Date(2026, 9, 9, 18, 30, 0).getTime();
-  it('오늘은 시각만', () => expect(finishClock(at, 600)).toBe('18:40'));
-  it('자정을 넘기면 내일', () => expect(finishClock(at, 6 * 3600)).toBe('내일 00:30'));
-  it('이틀 뒤는 월/일', () => expect(finishClock(at, 30 * 3600)).toBe('10/11 00:30'));
+  it('오늘은 오전/오후 시각만', () => expect(finishClock(at, 600)).toBe('오후 06:40'));
+  it('자정을 넘기면 내일', () => expect(finishClock(at, 6 * 3600)).toBe('내일 오전 12:30'));
+  it('이틀 뒤는 월/일', () => expect(finishClock(at, 30 * 3600)).toBe('10/11 오전 12:30'));
 });
