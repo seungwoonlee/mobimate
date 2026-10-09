@@ -31,12 +31,18 @@ export function waitText(minutes: number): string {
 }
 
 /**
- * 가득 차는 시점 안내: 자정 전에 차면 남은 시간("3시간 20분 뒤"), 자정을 넘기면 현실 시각("내일 03:10에", "10/12 03:10에").
- * 며칠 뒤인 걸 "52시간 뒤"로 읽는 것보다 몇 시에 접속해야 하는지가 바로 보인다.
+ * 가득 차는 시점 안내: 다가오는 오전 6시 전에 차면 남은 시간("3시간 20분 뒤"), 그 뒤면 현실 시각("오늘 08:10에", "내일 03:10에").
+ * 6시 전이면 그 사이 깨어 있으므로 남은 시간이 직관적이고, 그 뒤는 몇 시에 접속해야 하는지가 바로 보인다.
  */
+export const FILL_CUTOFF_HOUR = 6;
 export function fillText(minutes: number, nowMs: number): string {
+  const now = new Date(nowMs);
+  const cutoff = new Date(now.getFullYear(), now.getMonth(), now.getDate(), FILL_CUTOFF_HOUR);
+  if (cutoff.getTime() <= nowMs) cutoff.setDate(cutoff.getDate() + 1);   // 이미 6시가 지났으면 다음 날 6시
+  const fillMs = nowMs + Math.max(0, minutes) * 60_000;
+  if (fillMs < cutoff.getTime()) return `${waitText(minutes)} 뒤`;
   const clock = finishClock(nowMs, Math.max(0, minutes) * 60);
-  return /^\d{2}:\d{2}$/.test(clock) ? `${waitText(minutes)} 뒤` : `${clock}에`;
+  return `${/^\d{2}:\d{2}$/.test(clock) ? '오늘 ' : ''}${clock}에`;
 }
 
 /** 카드 상태: 충전 재화가 가득이면 빨강, 80% 이상이면 노랑, 데카·M캐시가 어긋나면 진회색 (우선순위 순) */
