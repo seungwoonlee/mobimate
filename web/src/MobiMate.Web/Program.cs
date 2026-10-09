@@ -99,6 +99,7 @@ builder.Services.AddSingleton<StatusMonitor>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<StatusMonitor>());
 builder.Services.AddHostedService<StartupTasks>();
 builder.Services.AddHostedService<CharacterRecorder>();
+builder.Services.AddHostedService<CharacterWatcher>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<LanService>());
 builder.Services.AddHostedService<InstancePipeListener>();
 builder.Services.AddHostedService<TrayHost>();

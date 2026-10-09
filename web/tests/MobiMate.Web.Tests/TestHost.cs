@@ -27,6 +27,7 @@ public sealed class TestHost : WebApplicationFactory<Program>
     public string FakeCliLog { get; }
     public string StopFile { get; }
     public bool KeepStorage { get; init; }
+    public string WatchInterval { get; init; } = "00:00:00";
 
     /// <summary>가짜 네트워크: 기본은 개인 네트워크 192.168.0.23 하나.</summary>
     public FakeNetwork Network { get; } = new();
@@ -58,6 +59,7 @@ public sealed class TestHost : WebApplicationFactory<Program>
         builder.UseSetting("MobiMate:SsePingInterval", "00:00:01");
         builder.UseSetting("MobiMate:Tray", "false");
         builder.UseSetting("MobiMate:ClassImageDownload", "false");   // 네트워크로 내려받지 않는다
+        builder.UseSetting("MobiMate:WatchInterval", WatchInterval);   // 기본은 끈다. 감시 테스트만 짧게 켠다
         builder.UseSetting("MobiMate:RecordInterval", "00:00:00");   // 자동 기록은 끈다 (테스트가 직접 부른다)
         builder.UseSetting("MobiMate:LanConfirmDelay", "00:00:00");
         builder.ConfigureServices(s => s.AddSingleton<IStartupFilter, RemoteIpStartupFilter>());

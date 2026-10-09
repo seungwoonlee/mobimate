@@ -276,7 +276,12 @@ public class SnapshotManager
             if (h != null) last = new Wallet(h.Deca, h.MCash, h.Gold);
         }
         bool Swap(Wallet? w) => CharacterIdentity.IsJobSwap(p.RealmName, p.JobName, ch!.RealmName, ch.JobName, w, cur);
-        if (!(Swap(WalletOf(before)) || Swap(last))) return null;
+        // 앞서 읽어 둔 재화(before)가 이미 새 캐릭터의 재화일 수 있다(재화는 캐릭터 정보보다 먼저 바뀐다): 그 캐릭터의 기록(last)과 골드가
+        // 크게 다르면 믿지 않는다. 믿으면 새 캐릭터로 접속했는데 "같은 재화 + 다른 직업"이라 부직업 전환으로 오인해 이전 캐릭터에 머문다.
+        var beforeWallet = WalletOf(before);
+        var beforeIsTrustworthy = beforeWallet == null || last == null
+            || Math.Abs(beforeWallet.Gold - last.Gold) <= Math.Max(beforeWallet.Gold, last.Gold) * 0.10;
+        if (!((beforeIsTrustworthy && Swap(beforeWallet)) || Swap(last))) return null;
         // 이 골드가 이미 알고 있는 다른 캐릭터의 골드와 같으면 직업 전환이 아니라 그 캐릭터로 접속한 것이다
         // (게임이 캐릭터 정보는 늦게, 재화는 먼저 바꿔 알려 주면 이전 캐릭터 기록에 새 캐릭터의 골드가 섞여 전환처럼 보인다)
         return WalletBelongsToOther(currentKey, cur.Gold, ignoreOwn: true) ? null : currentKey;   // 기록이 이미 섞였더라도 다른 캐릭터와 같으면 전환이 아니다
