@@ -14,6 +14,7 @@ using System.Text.Json.Nodes;
 //   FAKECLI_STATE=disconnected    status가 실패한다 (게임 미연결)
 //   FAKECLI_LOG=path              호출 기록(탭 구분: 시각·pid·phase·command·args)을 덧붙인다
 //   FAKECLI_STOPFILE=path         stop_action이 이 파일을 만들고, 실행 중인 execute_gathering이 이를 보고 "stopped"로 끝난다
+//   FAKECLI_GATHER_SCRIPT=path    execute_gathering 호출마다 이 파일의 첫 줄(JSON)을 응답으로 쓰고 그 줄을 지운다. 비면 기본 응답(100개 완료)
 //   FAKECLI_SAMPLES_DIR=dir       내장 샘플 대신 <dir>/<command>.json을 쓴다
 
 Console.OutputEncoding = new UTF8Encoding(false);
@@ -96,13 +97,12 @@ finally
 
 async Task<int> Gather()
 {
+    // 실제 CLI 규격: count는 받지 않고 한 번에 최대 100개를 채집한다. 오류도 exit 0에 {"error":..} 본문으로 온다.
     string? name = null;
-    int? count = null;
     try
     {
         var body = JsonNode.Parse(rest.LastOrDefault() ?? "{}");
         name = body?["displayName"]?.GetValue<string>();
-        count = body?["count"]?.GetValue<int>();
     }
     catch (JsonException) { }
 
@@ -120,14 +120,25 @@ async Task<int> Gather()
         if (stopFile != null && File.Exists(stopFile))
         {
             try { File.Delete(stopFile); } catch { }
-            Console.WriteLine(JsonSerializer.Serialize(new { result = "stopped", gained = Math.Min(count ?? 5, 1 + waited / 500) }, json));
+            Console.WriteLine(JsonSerializer.Serialize(new { result = "stopped", gained = Math.Min(99, 1 + waited / 500), target = 100, message = "stopped by user" }, json));
             return 0;
         }
         await Task.Delay(25);
         waited += 25;
     }
 
-    Console.WriteLine(JsonSerializer.Serialize(new { result = "completed", gained = count ?? 5, displayName = name }, json));
+    if (Env("FAKECLI_GATHER_SCRIPT") is { } script && File.Exists(script))
+    {
+        var lines = File.ReadAllLines(script).Where(l => l.Trim().Length > 0).ToList();
+        if (lines.Count > 0)
+        {
+            File.WriteAllLines(script, lines.Skip(1));
+            Console.WriteLine(lines[0]);
+            return 0;
+        }
+    }
+
+    Console.WriteLine(JsonSerializer.Serialize(new { result = "completed", gained = 100, target = 100 }, json));
     return 0;
 }
 

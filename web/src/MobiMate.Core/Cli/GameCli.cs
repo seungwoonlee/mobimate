@@ -41,7 +41,7 @@ public static class CliLanes
 
     public static TimeSpan DefaultTimeout(string command) => command switch
     {
-        "execute_gathering" => TimeSpan.FromSeconds(120),
+        "execute_gathering" => TimeSpan.FromMinutes(10),   // 게임이 9분에 스스로 멈추고 응답한다
         "get_items" => TimeSpan.FromSeconds(5),
         "complete_altering_work" => TimeSpan.FromSeconds(6),
         _ => TimeSpan.FromSeconds(4)

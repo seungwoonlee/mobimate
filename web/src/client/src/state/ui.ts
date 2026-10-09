@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { SseState } from '../api/sse';
+import type { GatherJob } from '../api/types';
 
 export type ToastLevel = 'ok' | 'warn' | 'danger' | 'info';
 export interface Toast { id: number; level: ToastLevel; message: string }
@@ -28,6 +29,10 @@ interface UiState {
   /** 한 번이라도 연결된 적이 있는가. 이후 open이 아니면 끊김으로 본다 (FR-MB-12) */
   everOpen: boolean;
   setSse: (s: SseState, retryAt?: number) => void;
+
+  /** 채집 작업: 진행 중이거나 방금 끝난 것. 끝난 작업은 사용자가 닫을 때까지 결과를 보여 준다. */
+  gatherJob: GatherJob | null;
+  setGatherJob: (j: GatherJob | null) => void;
 
   /** 가장 최근 네트워크 오류(PC 연결 끊김) */
   offline: boolean;
@@ -85,6 +90,8 @@ export const useUi = create<UiState>(set => ({
 
   offline: false,
   setOffline: v => set({ offline: v }),
+  gatherJob: null,
+  setGatherJob: j => set({ gatherJob: j }),
 
   refreshTick: 0,
   bumpRefresh: () => set(s => ({ refreshTick: s.refreshTick + 1 })),

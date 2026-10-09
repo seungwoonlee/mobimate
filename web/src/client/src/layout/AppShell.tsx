@@ -99,7 +99,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       {offline && <OfflineBanner />}
       <NavRail chatOpen={dockVisible} canToggle={dockMode !== 'split'} onChat={toggleChat} actions={actions} showActions={railShown} />
       <main className="main" ref={main} tabIndex={0} aria-label="본문">
-        <div className="main-inner">{children}</div>
+        <div className="main-inner"><GatherBanner />{children}</div>
       </main>
       <div className="hinge" aria-hidden="true" />
       {dockMode === 'sheet' && dockOpen && <div className="scrim" onClick={() => setDock(false)} />}
@@ -126,6 +126,36 @@ function PairHost() {
     }
   }, [setOpen]);
   return open ? <PairDialog onClose={() => setOpen(false)} /> : null;
+}
+
+/**
+ * 채집 진행 배너: 어느 화면에서든 보인다. 게임이 100개씩만 채집하므로 "배치 2/3 · 140/300개"처럼 보여 주고,
+ * 끝나면(완료·멈춤·실패) 자리를 비운 사이 결과를 볼 수 있게 닫을 때까지 남긴다.
+ */
+export function GatherBanner() {
+  const job = useUi(s => s.gatherJob);
+  const set = useUi(s => s.setGatherJob);
+  if (!job) return null;
+  const running = job.state === 'running';
+  const pct = job.target > 0 ? Math.min(100, Math.round((job.gained / job.target) * 100)) : 0;
+  const title = running ? `${job.item} 채집 중`
+    : job.state === 'completed' ? `${job.item} 채집 완료`
+    : job.state === 'started' ? `${job.item} 자동 채집 시작`
+    : job.state === 'stopped' ? `${job.item} 채집 멈춤` : `${job.item} 채집 실패`;
+  return (
+    <div className={`gather-banner ${job.state}`}>
+      <div className="gb-head">
+        <Icon name="leaf" size={16} />
+        <b role="status" aria-live="polite">{title}</b>
+        {job.state !== 'started' && <span className="num">{job.gained} / {job.target}개{job.batches > 1 && ` · ${Math.max(job.batch, 1)}/${job.batches}회`}</span>}
+        {running
+          ? <button type="button" className="btn danger" onClick={stopAction}>정지</button>
+          : <button type="button" className="btn" onClick={() => set(null)}>닫기</button>}
+      </div>
+      {job.state !== 'started' && <div className="gb-bar" role="progressbar" aria-label="채집 진행률" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct}><i style={{ width: `${pct}%` }} /></div>}
+      {!running && job.message && <p className="gb-msg">{job.message}</p>}
+    </div>
+  );
 }
 
 /** 끊김 배너 (FR-MB-12): 다음 재시도까지 남은 초를 센다. */

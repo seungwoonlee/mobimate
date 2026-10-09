@@ -7,14 +7,44 @@ import { collect, collectAll, setFavorite, startGather } from '../lib/actions';
 import { useBusy } from '../lib/busy';
 import { fmt, remaining } from '../lib/format';
 import { useRouter } from '../state/router';
+import { useUi } from '../state/ui';
 
 const CATS = ['전체', '벌목', '채광', '농축산', '약초', '기타'] as const;
-const PRESETS = [5, 50, 100, 200, 300];
+const PRESETS = [5, 50, 100, 200, 300, 500, 1000];
+/** 게임은 채집 한 번에 최대 100개만 캔다. 더 큰 목표는 서버가 100개씩 자리 비움 없이 이어서 채집한다. 호출마다 정령의 날개 5개. */
+export const GATHER_BATCH = 100;
+export const WINGS_PER_BATCH = 5;
+export const MAX_GATHER_TARGET = 5000;
+export const gatherBatches = (need: number) => Math.ceil(need / GATHER_BATCH);
 /** 채집 목표 수량 기본값 (FR-DT-22) */
 export const DEFAULT_GATHER_TARGET = 100;
 
 /** 가공 종류 순서 (서버 WorkKinds.Order와 같다) */
 const WORK_KIND_ORDER = ['metal', 'wood', 'leather', 'cloth', 'medicine', 'food', 'other'];
+/** 가공 종류 이름 (서버 work_categories.json의 labels와 같다). 비어 있는 종류도 카드로 보여 주려고 클라이언트에도 둔다. */
+const WORK_KIND_LABEL: Record<string, string> = { metal: '금속 가공', wood: '목재 가공', leather: '가죽 가공', cloth: '옷감 가공', medicine: '약품 가공', food: '식재료 가공', other: '기타 가공' };
+/** 가공 칸 수는 열어 둔 만큼 사람마다 다르다(2~7칸). 게임이 알려 주지 않으므로 사용자가 고르고, 이 기기에 기억한다. */
+export const SLOT_CHOICES = [2, 3, 4, 5, 6, 7];
+const SLOT_KEY = 'mm.workSlots';
+function useWorkSlots(): [number | null, (n: number | null) => void] {
+  const [slots, set] = useState<number | null>(() => {
+    try { const n = Number(localStorage.getItem(SLOT_KEY)); return SLOT_CHOICES.includes(n) ? n : null; } catch { return null; }
+  });
+  const save = (n: number | null) => {
+    set(n);
+    try { n == null ? localStorage.removeItem(SLOT_KEY) : localStorage.setItem(SLOT_KEY, String(n)); } catch { /* 저장 못 해도 이번 화면에서는 동작한다 */ }
+  };
+  return [slots, save];
+}
+
+/**
+ * 한 종류의 가공은 앞에서부터 차례로 끝난다. 줄마다 "그 품목이 나오기까지" 걸리는 시간을 보이려고
+ * 아직 안 끝난 줄의 남은 시간을 앞에서부터 누적한다. 수거 대기(끝난) 줄은 0이다.
+ */
+export function cumulativeSeconds(remaining: number[], done: boolean[]): number[] {
+  let sum = 0;
+  return remaining.map((r, i) => (done[i] ? 0 : (sum += r)));
+}
 
 /** 채집물 분류: WPF판과 같은 이름 규칙 (ClassifyGatherCategory). */
 export function gatherCategory(name: string): string {
@@ -52,38 +82,55 @@ function Works({ works, at }: { works: Work[]; at: number }) {
   const left = (s: number) => Math.max(0, s - Math.floor((now - base) / 1000));
   const isDone = (w: Work) => w.done || left(w.remainingSeconds) === 0;
   const ready = works.filter(isDone).map(w => w.name);
-  const groups = WORK_KIND_ORDER.map(kind => [kind, works.filter(w => (WORK_KIND_ORDER.includes(w.kind) ? w.kind : 'other') === kind)] as const).filter(([, list]) => list.length > 0);
+  const [slots, setSlots] = useWorkSlots();
+  // 여섯 가지 가공은 비어 있어도 항상 보여 주고(칸 사용량 확인용), 기타 가공은 있을 때만 보여 준다.
+  const groups = WORK_KIND_ORDER
+    .map(kind => [kind, works.filter(w => (WORK_KIND_ORDER.includes(w.kind) ? w.kind : 'other') === kind)] as const)
+    .filter(([kind, list]) => kind !== 'other' || list.length > 0);
   return (
     <div className="card">
       <CardHead icon="clock" title="가공 대기열"
         right={<button type="button" className="btn primary" disabled={!ready.length || collecting} onClick={() => collectAll(ready)} data-needs-conn><Icon name="inbox" />완료분 모두 수거{ready.length ? ` (${ready.length})` : ''}</button>} />
-      {works.length === 0 ? <p className="muted">진행 중인 가공이 없습니다.</p> : (
+      <div className="toolbar mb-10">
+        <label className="muted small" htmlFor="wkSlots">열어 둔 가공 칸 수 (종류마다)</label>
+        <select id="wkSlots" value={slots ?? ''} onChange={e => setSlots(e.target.value ? Number(e.target.value) : null)}>
+          <option value="">모름</option>
+          {SLOT_CHOICES.map(n => <option key={n} value={n}>{n}칸</option>)}
+        </select>
+      </div>
+      {works.length === 0 && <p className="muted">진행 중인 가공이 없습니다.</p>}
+      {(
         <div className="wk-groups">
           {groups.map(([kind, list]) => {
             const waiting = list.filter(isDone);
+            // 수거 대기를 위로, 진행 중은 게임이 준 순서(= 끝나는 순서) 그대로
+            const rows = [...list.filter(isDone), ...list.filter(w => !isDone(w))];
+            const cum = cumulativeSeconds(rows.map(w => left(w.remainingSeconds)), rows.map(isDone));
+            const label = WORK_KIND_LABEL[kind] ?? list[0]?.kindLabel ?? kind;
             return (
-              <section className="wk" key={kind} aria-label={list[0].kindLabel}>
+              <section className={`wk ${list.length === 0 ? 'empty' : ''}`} key={kind} aria-label={label}>
                 <div className="wk-h">
-                  <h4>{list[0].kindLabel} <span className="faint num">{list.length}건</span></h4>
+                  <h4>{label} <span className={`faint num ${slots && list.length >= slots ? 'warn-text' : ''}`}>{slots ? `${list.length}/${slots}칸` : `${list.length}건`}</span></h4>
                   {waiting.length > 0 && <button type="button" className="btn" disabled={collecting} onClick={() => collectAll(waiting.map(w => w.name))} data-needs-conn>수거 {waiting.length}</button>}
                 </div>
-                <div className="list">
-                  {list.map(w => {
-                    const s = left(w.remainingSeconds);
-                    const done = isDone(w);
-                    return (
-                      <div className="row" key={w.facility + w.name}>
-                        <div className="t"><span>{w.name}</span></div>
-                        <div className="r">
-                          {done
-                            ? <button type="button" className="btn" disabled={collecting} onClick={() => collect(w.name)} data-needs-conn>수거</button>
-                            : <span className="num strong">{remaining(s)}</span>}
+                {list.length === 0 ? <p className="muted small">비어 있습니다.</p> : (
+                  <div className="list">
+                    {rows.map((w, i) => {
+                      const done = isDone(w);
+                      return (
+                        <div className="row" key={w.facility + w.name + i}>
+                          <div className="t"><span>{w.name}</span></div>
+                          <div className="r">
+                            {done
+                              ? <button type="button" className="btn" disabled={collecting} onClick={() => collect(w.name)} data-needs-conn>수거</button>
+                              : <span className="num strong" aria-label={`완료까지 ${remaining(cum[i])}`}>{remaining(cum[i])}</span>}
+                          </div>
+                          <div className="m">{w.facility} · {done ? <Pill tone="ok">수거 대기 ✓</Pill> : <><Pill>{i === rows.findIndex(x => !isDone(x)) ? '진행 중' : '대기'}</Pill> <span className="faint">개별 {remaining(left(w.remainingSeconds))}</span></>}</div>
                         </div>
-                        <div className="m">{w.facility} · {done ? <Pill tone="ok">수거 대기 ✓</Pill> : <Pill>진행 중</Pill>}</div>
-                      </div>
-                    );
-                  })}
-                </div>
+                      );
+                    })}
+                  </div>
+                )}
               </section>
             );
           })}
@@ -95,7 +142,9 @@ function Works({ works, at }: { works: Work[]; at: number }) {
 
 /** 채집 도우미: 즐겨찾기가 맨 위, 줄마다 보유량을 먼저 보여 준다. 목표 수량 기본값은 100개 (FR-DT-21·22). */
 function GatherHelper({ items }: { items: Gatherable[] }) {
-  const gathering = useBusy('gather');
+  const busy = useBusy('gather');   // 훅은 항상 같은 순서로 호출해야 하므로 ||로 잇지 않는다
+  const jobRunning = useUi(s => s.gatherJob?.state === 'running');
+  const gathering = busy || jobRunning;
   const [cat, setCat] = useState<(typeof CATS)[number]>('전체');
   const [text, setText] = useState('');
   const search = useDeferredValue(text.trim());
@@ -119,7 +168,7 @@ function GatherHelper({ items }: { items: Gatherable[] }) {
 
   return (
     <div className="card">
-      <CardHead icon="leaf" title="스마트 채집 도우미" right={<span className="faint small">시작할 때마다 정령의 날개 5개</span>} />
+      <CardHead icon="leaf" title="스마트 채집 도우미" right={<span className="faint small">100개마다 정령의 날개 5개</span>} />
       {/* 검색창을 분류 칩 줄 맨 앞에 둔다 (v1.1.0, FR-DT-05) */}
       <div className="toolbar mb-10">
         <label className="search grow-0">
@@ -133,9 +182,9 @@ function GatherHelper({ items }: { items: Gatherable[] }) {
       <div className="toolbar mb-10">
         <span className="muted small">목표 수량</span>
         <div className="stepper">
-          {[-5, -1].map(d => <button key={d} type="button" onClick={() => setTarget(t => Math.max(1, t + d))}>{d}</button>)}
+          {[-100, -5, -1].map(d => <button key={d} type="button" onClick={() => setTarget(t => Math.max(1, t + d))}>{d}</button>)}
           <span className="v num" aria-live="polite">{target}</span>
-          {[1, 5].map(d => <button key={d} type="button" onClick={() => setTarget(t => Math.min(999, t + d))}>+{d}</button>)}
+          {[1, 5, 100].map(d => <button key={d} type="button" onClick={() => setTarget(t => Math.min(MAX_GATHER_TARGET, t + d))}>+{d}</button>)}
         </div>
         {PRESETS.map(v => <button key={v} type="button" className="chip" aria-pressed={target === v} onClick={() => setTarget(v)}>{v}개</button>)}
       </div>
@@ -176,7 +225,11 @@ function GatherHelper({ items }: { items: Gatherable[] }) {
           </>}
         >
           <p>목표 {fmt(target)}개 · 부족한 <b>{fmt(confirm.need)}개</b>를 채집합니다.</p>
-          <p className="warn-text">정령의 날개 5개를 씁니다. 채집 중에도 긴급 정지와 다른 조회는 그대로 쓸 수 있습니다.</p>
+          <p className="warn-text">
+            정령의 날개 {fmt(gatherBatches(confirm.need) * WINGS_PER_BATCH)}개를 씁니다 ({gatherBatches(confirm.need)}회 × {WINGS_PER_BATCH}개).
+            {gatherBatches(confirm.need) > 1 && <> 게임은 한 번에 {GATHER_BATCH}개씩만 캐므로, 끝나면 자리를 비워도 알아서 이어서 채집합니다. 100개 단위라 목표보다 조금 더 캘 수 있습니다.</>}
+            {' '}채집 중에도 긴급 정지와 다른 조회는 그대로 쓸 수 있습니다.
+          </p>
         </Dialog>
       )}
     </div>

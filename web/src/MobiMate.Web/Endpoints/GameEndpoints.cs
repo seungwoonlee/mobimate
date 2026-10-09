@@ -203,16 +203,18 @@ public static class GameEndpoints
         api.MapPost("/actions/gather", async (HttpContext ctx, GatherRequest req, GameActions a, CancellationToken ct) =>
         {
             if (string.IsNullOrWhiteSpace(req.DisplayName)) return ApiResults.Error(400, "VALIDATION", "displayName이 필요합니다.");
-            if (req.Count is < 0 or > 999) return ApiResults.Error(400, "VALIDATION", "count는 0~999입니다.");
+            if (req.Count is < 0 or > GameActions.MaxTarget) return ApiResults.Error(400, "VALIDATION", $"count는 0~{GameActions.MaxTarget}입니다.");
             var (result, job) = await a.StartGatherAsync(req.DisplayName.Trim(), req.Count, ClientId.Of(ctx), ct);
             return result switch
             {
-                StartGatherResult.Started => ApiResults.Accepted(new { jobId = job!.JobId, item = job.Item, count = job.Count }),
+                StartGatherResult.Started => ApiResults.Accepted(new { jobId = job!.JobId, item = job.Item, count = job.Count, target = job.Target, batches = job.Batches }),
                 StartGatherResult.Conflict => ApiResults.Error(409, "CONFLICT", $"이미 '{job!.Item}' 채집이 진행 중입니다."),
                 StartGatherResult.CliMissing => ApiResults.Error(503, "CLI_MISSING", "게임 CLI를 찾을 수 없습니다."),
                 _ => ApiResults.Error(400, "VALIDATION", $"채집할 수 없는 아이템입니다: {req.DisplayName}"),
             };
         });
+
+        api.MapGet("/actions/gather/current", (GameActions a) => ApiResults.Ok(new { job = a.Snapshot() }));
 
         api.MapPost("/actions/collect", async (CollectRequest? req, GameActions a, CancellationToken ct) =>
         {

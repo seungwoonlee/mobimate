@@ -133,11 +133,9 @@ public class ApiTests
             Assert.Equal(HttpStatusCode.OK, (await c.PostAsync("/api/actions/stop", null)).StatusCode);
             Assert.True(sw.Elapsed < TimeSpan.FromSeconds(2), $"정지가 늦었다: {sw.Elapsed}");
 
-            var gatherEvent = await ReadEvent(reader, "gather", TimeSpan.FromSeconds(8));
-            Assert.Equal("running", gatherEvent.GetProperty("state").GetString());
-            gatherEvent = await ReadEvent(reader, "gather", TimeSpan.FromSeconds(8));
+            var gatherEvent = await WaitGatherEnd(reader, TimeSpan.FromSeconds(8));
             Assert.Equal("stopped", gatherEvent.GetProperty("state").GetString());
-            Assert.Contains(host.CliCalls(), x => x.StartsWith("execute_gathering") && x.Contains("\"count\":12"));
+            Assert.DoesNotContain(host.CliCalls(), x => x.StartsWith("execute_gathering") && x.Contains("count"));   // 게임은 count를 받지 않는다
         }
         finally
         {
@@ -151,9 +149,160 @@ public class ApiTests
     [InlineData("[]")]
     public void ParseGather_OddShapes_DoNotThrow(string stdout)
     {
-        var (result, gained) = MobiMate.Web.Services.GameActions.ParseGather(stdout);
-        Assert.Equal("completed", result);
-        Assert.Equal(0, gained);
+        var r = MobiMate.Web.Services.GameActions.ParseGather(stdout);
+        Assert.Equal("completed", r.Result);
+        Assert.Equal(0, r.Gained);
+        Assert.Null(r.Error);
+    }
+
+    [Fact]
+    public void ParseGather_ErrorBody_IsNotCompleted()
+    {
+        var r = MobiMate.Web.Services.GameActions.ParseGather("{\"error\":\"overweight\",\"message\":\"full\",\"gained\":40,\"target\":100}");
+        Assert.Equal("overweight", r.Error);
+        Assert.Equal(40, r.Gained);
+        Assert.Equal(100, r.Target);
+    }
+
+    private static async Task<JsonElement> WaitGatherEnd(StreamReader reader, TimeSpan timeout)
+    {
+        var end = DateTime.UtcNow + timeout;
+        while (DateTime.UtcNow < end)
+        {
+            var e = await ReadEvent(reader, "gather", end - DateTime.UtcNow);
+            if (e.GetProperty("state").GetString() != "running") return e;
+        }
+        throw new TimeoutException("채집 종료 이벤트가 오지 않았다");
+    }
+
+    private static int GatherCalls(TestHost host) => host.CliCalls().Count(x => x.StartsWith("execute_gathering"));
+
+    [Theory]
+    [InlineData(100, 1)]
+    [InlineData(101, 2)]
+    [InlineData(300, 3)]
+    [InlineData(500, 5)]
+    public async Task Gather_Over100_RunsInBatchesOf100_WithoutUserAction(int count, int calls)
+    {
+        using var host = new TestHost();
+        var c = await host.LocalAsync();
+        var sse = await c.GetAsync("/api/events", HttpCompletionOption.ResponseHeadersRead);
+        using var reader = new StreamReader(await sse.Content.ReadAsStreamAsync());
+
+        var r = await c.PostAsJsonAsync("/api/actions/gather", new { displayName = "사과", count });
+        Assert.Equal(HttpStatusCode.Accepted, r.StatusCode);
+
+        var end = await WaitGatherEnd(reader, TimeSpan.FromSeconds(30));
+        Assert.Equal("completed", end.GetProperty("state").GetString());
+        Assert.Equal(calls, GatherCalls(host));
+        Assert.Equal(calls * 100, end.GetProperty("gained").GetInt32());
+        Assert.Equal(count, end.GetProperty("target").GetInt32());
+    }
+
+    [Fact]
+    public async Task Gather_StopsOnGameError_WithoutCallingAgain_AndKeepsGained()
+    {
+        using var host = new TestHost();
+        var script = Path.Combine(host.StorageDir, "gather.script");
+        File.WriteAllText(script, "{\"result\":\"completed\",\"gained\":100,\"target\":100}\n{\"error\":\"overweight\",\"message\":\"full\",\"gained\":30,\"target\":100}\n");
+        Environment.SetEnvironmentVariable("FAKECLI_GATHER_SCRIPT", script);
+        try
+        {
+            var c = await host.LocalAsync();
+            var sse = await c.GetAsync("/api/events", HttpCompletionOption.ResponseHeadersRead);
+            using var reader = new StreamReader(await sse.Content.ReadAsStreamAsync());
+            await c.PostAsJsonAsync("/api/actions/gather", new { displayName = "사과", count = 500 });
+
+            var end = await WaitGatherEnd(reader, TimeSpan.FromSeconds(30));
+            Assert.Equal("failed", end.GetProperty("state").GetString());
+            Assert.Equal(130, end.GetProperty("gained").GetInt32());
+            Assert.Contains("가득", end.GetProperty("message").GetString());
+            Assert.Equal(2, GatherCalls(host));   // 3번째 호출은 없다
+        }
+        finally { Environment.SetEnvironmentVariable("FAKECLI_GATHER_SCRIPT", null); }
+    }
+
+    [Fact]
+    public async Task Gather_GameTimeoutWithProgress_ContinuesToTarget()
+    {
+        using var host = new TestHost();
+        var script = Path.Combine(host.StorageDir, "gather.script");
+        File.WriteAllText(script, "{\"error\":\"timeout\",\"message\":\"9min\",\"gained\":60,\"target\":100}\n{\"result\":\"completed\",\"gained\":100,\"target\":100}\n");
+        Environment.SetEnvironmentVariable("FAKECLI_GATHER_SCRIPT", script);
+        try
+        {
+            var c = await host.LocalAsync();
+            var sse = await c.GetAsync("/api/events", HttpCompletionOption.ResponseHeadersRead);
+            using var reader = new StreamReader(await sse.Content.ReadAsStreamAsync());
+            await c.PostAsJsonAsync("/api/actions/gather", new { displayName = "사과", count = 160 });
+
+            var end = await WaitGatherEnd(reader, TimeSpan.FromSeconds(30));
+            Assert.Equal("completed", end.GetProperty("state").GetString());
+            Assert.Equal(160, end.GetProperty("gained").GetInt32());
+            Assert.Equal(2, GatherCalls(host));
+        }
+        finally { Environment.SetEnvironmentVariable("FAKECLI_GATHER_SCRIPT", null); }
+    }
+
+    [Fact]
+    public async Task Gather_ZeroGain_StopsInsteadOfLoopingForever()
+    {
+        using var host = new TestHost();
+        var script = Path.Combine(host.StorageDir, "gather.script");
+        File.WriteAllText(script, "{\"result\":\"completed\",\"gained\":0,\"target\":100}\n");
+        Environment.SetEnvironmentVariable("FAKECLI_GATHER_SCRIPT", script);
+        try
+        {
+            var c = await host.LocalAsync();
+            var sse = await c.GetAsync("/api/events", HttpCompletionOption.ResponseHeadersRead);
+            using var reader = new StreamReader(await sse.Content.ReadAsStreamAsync());
+            await c.PostAsJsonAsync("/api/actions/gather", new { displayName = "사과", count = 500 });
+            var end = await WaitGatherEnd(reader, TimeSpan.FromSeconds(30));
+            Assert.Equal("failed", end.GetProperty("state").GetString());
+            Assert.Equal(1, GatherCalls(host));
+        }
+        finally { Environment.SetEnvironmentVariable("FAKECLI_GATHER_SCRIPT", null); }
+    }
+
+    [Fact]
+    public async Task Gather_StopBetweenBatches_DoesNotStartNextBatch()
+    {
+        using var host = new TestHost();
+        Environment.SetEnvironmentVariable("FAKECLI_DELAY_EXECUTE_GATHERING", "1500");
+        try
+        {
+            var c = await host.LocalAsync();
+            var sse = await c.GetAsync("/api/events", HttpCompletionOption.ResponseHeadersRead);
+            using var reader = new StreamReader(await sse.Content.ReadAsStreamAsync());
+            await c.PostAsJsonAsync("/api/actions/gather", new { displayName = "사과", count = 500 });
+            await WaitFor(() => GatherCalls(host) >= 1);
+            await c.PostAsync("/api/actions/stop", null);   // 첫 배치를 끊고, 이후 배치도 시작하지 않는다
+            var end = await WaitGatherEnd(reader, TimeSpan.FromSeconds(20));
+            Assert.Equal("stopped", end.GetProperty("state").GetString());
+            await Task.Delay(2500);
+            Assert.Equal(1, GatherCalls(host));
+        }
+        finally { Environment.SetEnvironmentVariable("FAKECLI_DELAY_EXECUTE_GATHERING", null); }
+    }
+
+    [Fact]
+    public async Task GatherCurrent_ReportsRunningJob_ForNewlyConnectedScreens()
+    {
+        using var host = new TestHost();
+        Environment.SetEnvironmentVariable("FAKECLI_DELAY_EXECUTE_GATHERING", "1500");
+        try
+        {
+            var c = await host.LocalAsync();
+            Assert.Equal(JsonValueKind.Null, (await c.GetFromJsonAsync<JsonElement>("/api/actions/gather/current")).GetProperty("data").GetProperty("job").ValueKind);
+            await c.PostAsJsonAsync("/api/actions/gather", new { displayName = "사과", count = 300 });
+            await WaitFor(() => GatherCalls(host) >= 1);
+            var job = (await c.GetFromJsonAsync<JsonElement>("/api/actions/gather/current")).GetProperty("data").GetProperty("job");
+            Assert.Equal("running", job.GetProperty("state").GetString());
+            Assert.Equal(300, job.GetProperty("target").GetInt32());
+            Assert.Equal(3, job.GetProperty("batches").GetInt32());
+            await c.PostAsync("/api/actions/stop", null);
+        }
+        finally { Environment.SetEnvironmentVariable("FAKECLI_DELAY_EXECUTE_GATHERING", null); }
     }
 
     [Fact]
