@@ -100,6 +100,7 @@ test('생활: 채집 목표 수량 기본값은 100개 (FR-DT-22)', async ({ pag
   await page.goto('/life');
   await expect(page.locator('.stepper .v')).toHaveText('100');
   await expect(page.getByRole('heading', { name: /금속 가공|가죽 가공|옷감 가공/ }).first()).toBeVisible();   // 종류별 묶음 (FR-DT-20)
+  for (const k of ['금속', '목재', '가죽', '옷감', '약품', '식재료']) await expect(page.getByRole('heading', { name: new RegExp(`${k} 가공`) })).toBeVisible();   // 비어 있어도 여섯 종류 모두
 });
 
 test('가방 즐겨찾기: 별을 누르면 맨 위로 오고 즐겨찾기 보기에 모인다 (FR-DT-15)', async ({ page }) => {

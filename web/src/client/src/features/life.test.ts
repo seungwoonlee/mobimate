@@ -15,7 +15,7 @@ describe('gatherBatches', () => {
   });
 });
 
-import { cumulativeSeconds, SLOT_CHOICES } from './life';
+import { cumulativeSeconds, finishClock } from './life';
 
 // 가공은 앞에서부터 차례로 끝난다: 줄마다 앞선 줄의 남은 시간을 더한 값이 "그 품목이 나오기까지"다
 describe('cumulativeSeconds', () => {
@@ -25,5 +25,11 @@ describe('cumulativeSeconds', () => {
   it('수거 대기(끝난) 줄은 0이고 누적에 더하지 않는다', () => {
     expect(cumulativeSeconds([0, 0, 12, 24], [true, true, false, false])).toEqual([0, 0, 12, 36]);
   });
-  it('가공 칸 수는 사람마다 달라 2~7칸 중 고른다', () => expect(SLOT_CHOICES).toEqual([2, 3, 4, 5, 6, 7]));
+});
+
+describe('finishClock', () => {
+  const at = new Date(2026, 9, 9, 18, 30, 0).getTime();
+  it('오늘은 시각만', () => expect(finishClock(at, 600)).toBe('18:40'));
+  it('자정을 넘기면 내일', () => expect(finishClock(at, 6 * 3600)).toBe('내일 00:30'));
+  it('이틀 뒤는 월/일', () => expect(finishClock(at, 30 * 3600)).toBe('10/11 00:30'));
 });

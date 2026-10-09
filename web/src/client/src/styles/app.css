@@ -250,7 +250,7 @@ button.toast { border: 0; text-align: left; cursor: pointer; }
 
 /* ── 스탯·재화 타일 ── */
 .tiles.five{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
-.tiles.core{grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
+.tiles.core{grid-template-columns:repeat(auto-fit,minmax(180px,1fr))}
 .tile.big .v{font-size:calc(34px * var(--scale))}
 .group-h{margin:6px 0 8px;font-size:13px;font-weight:600;color:var(--text-2);letter-spacing:.02em}
 .vitals{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
@@ -262,7 +262,7 @@ button.toast { border: 0; text-align: left; cursor: pointer; }
 .row.fav{background:var(--gold-soft)}
 .have{font-size:13.5px;color:var(--text-1)}
 .have b{font-size:16px}
-.wk-groups{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
+.wk-groups{display:grid;gap:8px;grid-template-columns:repeat(auto-fit,minmax(180px,1fr))}
 .wk{border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:var(--bg-1)}
 .wk-h{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px}
 .wk-h h4{margin:0;font-size:14px}
@@ -572,3 +572,27 @@ button.toast { border: 0; text-align: left; cursor: pointer; }
 .gather-banner .gb-bar { height: 6px; margin-top: 8px; border-radius: 3px; background: rgba(127,127,127,.25); overflow: hidden; }
 .gather-banner .gb-bar > i { display: block; height: 100%; background: var(--accent); transition: width .4s ease; }
 .gather-banner .gb-msg { margin: 6px 0 0; font-size: .875rem; opacity: .85; }
+
+/* 가공 대기열: 항목은 2줄(이름·카운트 / 상태·완료 예정 시각)로 낮춘다 */
+.wk { padding: 8px 10px; }
+.wk-h { margin-bottom: 2px; }
+.wk-empty { margin: 4px 0 2px; }
+.wk-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 10px; row-gap: 0; align-items: center; padding: 4px 2px; border-top: 1px solid var(--line); }
+.wk-row:first-child { border-top: 0; }
+.wk-row .n { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wk-row .tm { text-align: right; font-size: 15px; }
+.wk-row .s { display: flex; align-items: center; min-width: 0; }
+.wk-row .at { text-align: right; font-size: 11px; color: var(--text-3); }
+.wk-row .wk-take { grid-row: 1 / span 2; grid-column: 2; min-height: 30px; padding: 2px 12px; }
+.app[data-touch="true"] .wk-row .wk-take { min-height: 44px; }
+
+/* 스마트 채집 도우미: 목표 수량은 한 줄, 채집물은 여러 칸으로 촘촘하게 */
+.gx-bar { margin: 8px 0; }
+.gx-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 0 12px; }
+.gx-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; gap: 8px; padding: 4px 6px; border-top: 1px solid var(--line); }
+.gx-row.fav { background: var(--gold-soft); }
+.gx-row .n { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gx-row .m { display: flex; gap: 8px; font-size: 12.5px; color: var(--text-2); white-space: nowrap; }
+.gx-row .btn { min-height: 30px; padding: 2px 14px; }
+.app[data-touch="true"] .gx-row .btn { min-height: 44px; }
+.gx-row .pill.danger { color: color-mix(in srgb, var(--danger) 65%, var(--text-1)); }   /* 작은 글씨라 대비를 높인다 (axe 4.5:1) */
