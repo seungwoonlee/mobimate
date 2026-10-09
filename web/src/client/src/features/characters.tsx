@@ -42,7 +42,7 @@ export function fillText(minutes: number, nowMs: number): string {
   const fillMs = nowMs + Math.max(0, minutes) * 60_000;
   if (fillMs < cutoff.getTime()) return `${waitText(minutes)} 뒤`;
   const clock = finishClock(nowMs, Math.max(0, minutes) * 60);
-  return `${/^\d{2}:\d{2}$/.test(clock) ? '오늘 ' : ''}${clock}에`;
+  return `${/^(오전|오후) /.test(clock) ? '오늘 ' : ''}${clock}에`;
 }
 
 /** 카드 상태: 충전 재화가 가득이면 빨강, 80% 이상이면 노랑, 데카·M캐시가 어긋나면 진회색 (우선순위 순) */

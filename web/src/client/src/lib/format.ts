@@ -52,10 +52,11 @@ export function agoMs(at: number, now = Date.now()): string {
 
 export const pct = (done: number, total: number) => (total > 0 ? Math.round((done / total) * 100) : 0);
 
-/** 완료 예정 시각: 오늘이면 "19:42", 내일이면 "내일 02:10", 그 뒤는 "10/12 02:10" */
+/** 완료 예정 시각(12시간제): 오늘이면 "오후 07:42", 내일이면 "내일 오전 02:10", 그 뒤는 "10/12 오전 02:10" */
 export function finishClock(nowMs: number, afterSeconds: number): string {
   const t = new Date(nowMs + afterSeconds * 1000);
-  const hm = `${String(t.getHours()).padStart(2, '0')}:${String(t.getMinutes()).padStart(2, '0')}`;
+  const h12 = t.getHours() % 12 || 12;
+  const hm = `${t.getHours() < 12 ? '오전' : '오후'} ${String(h12).padStart(2, '0')}:${String(t.getMinutes()).padStart(2, '0')}`;
   const day = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
   const diff = Math.round((day(t) - day(new Date(nowMs))) / 86_400_000);
   return diff <= 0 ? hm : diff === 1 ? `내일 ${hm}` : `${t.getMonth() + 1}/${t.getDate()} ${hm}`;
