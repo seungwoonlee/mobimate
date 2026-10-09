@@ -242,7 +242,7 @@ test('전체 현황: 가득 = 빨강 + 설명, 80% 이상 = 노랑, 동기화 �
   await expect(mage).toContainText('같은 계정의 다른 캐릭터와 달라요');
   const priest = page.locator('.card.char', { hasText: '사제' });
   await expect(priest).toHaveClass(/tone-yellow/);
-  await expect(priest).toContainText(/은동전이 .* 뒤 가득 차요/);
+  await expect(priest).toContainText(/은동전이 .*(뒤|에) 가득 차요/);
   await expect(priest.locator('.coins')).toContainText(/은동전 8\d\/100/);   // 82 + 2시간분 = 약 84
 });
 

@@ -5,7 +5,7 @@ import { RankBadge } from '../components/RankBadge';
 import type { AccountGroup, CharacterCard, CoinView, HomeworkAuto } from '../api/types';
 import { CardHead, Dialog, ErrorCard, Fresh, Icon, JobIcon, Pill, Skeleton } from '../components/ui';
 import { useNow } from '../hooks/layout';
-import { fmt } from '../lib/format';
+import { finishClock, fmt } from '../lib/format';
 import { queryClient } from '../lib/queryClient';
 import { scoreClass } from '../lib/score';
 import { useDevice } from '../state/device';
@@ -28,6 +28,15 @@ export function waitText(minutes: number): string {
   const h = Math.floor(m / 60);
   if (h < 48) return m % 60 ? `${h}시간 ${m % 60}분` : `${h}시간`;
   return `${Math.floor(h / 24)}일 ${h % 24}시간`;
+}
+
+/**
+ * 가득 차는 시점 안내: 자정 전에 차면 남은 시간("3시간 20분 뒤"), 자정을 넘기면 현실 시각("내일 03:10에", "10/12 03:10에").
+ * 며칠 뒤인 걸 "52시간 뒤"로 읽는 것보다 몇 시에 접속해야 하는지가 바로 보인다.
+ */
+export function fillText(minutes: number, nowMs: number): string {
+  const clock = finishClock(nowMs, Math.max(0, minutes) * 60);
+  return /^\d{2}:\d{2}$/.test(clock) ? `${waitText(minutes)} 뒤` : `${clock}에`;
 }
 
 /** 카드 상태: 충전 재화가 가득이면 빨강, 80% 이상이면 노랑, 데카·M캐시가 어긋나면 진회색 (우선순위 순) */
@@ -189,9 +198,9 @@ function CharacterCardView({ c, now }: { c: CharacterCard; now: number }) {
   const days = Math.floor((now - new Date(c.lastSeen).getTime()) / 86_400_000);
   const notes: string[] = [];
   if (c.silver.level === 'full') notes.push(`은동전이 가득 차 충전이 멈췄어요 (${fmt(c.silver.expected)}/${fmt(c.silver.cap)})`);
-  else if (c.silver.level === 'near') notes.push(`은동전이 ${waitText(c.silver.minutesToFull)} 뒤 가득 차요`);
+  else if (c.silver.level === 'near') notes.push(`은동전이 ${fillText(c.silver.minutesToFull, now)} 가득 차요`);
   if (c.tribute.level === 'full') notes.push(`마족 공물이 가득 차 충전이 멈췄어요 (${fmt(c.tribute.expected)}/${fmt(c.tribute.cap)})`);
-  else if (c.tribute.level === 'near') notes.push(`마족 공물이 ${waitText(c.tribute.minutesToFull)} 뒤 가득 차요`);
+  else if (c.tribute.level === 'near') notes.push(`마족 공물이 ${fillText(c.tribute.minutesToFull, now)} 가득 차요`);
   if (tone === 'red') notes.push('지금 접속해서 사용하세요.');
   if (c.stale) notes.push(`데카·M캐시가 같은 계정의 다른 캐릭터와 달라요. ${days >= 1 ? `${days}일째 접속하지 않아` : '마지막 접속 이후 값이 바뀌어'} 아직 동기화되지 않은 것입니다.`);
 

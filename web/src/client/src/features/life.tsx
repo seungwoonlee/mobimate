@@ -5,7 +5,8 @@ import { CardHead, Dialog, ErrorCard, Fresh, Icon, Pill, Skeleton } from '../com
 import { useNow } from '../hooks/layout';
 import { collect, collectAll, setFavorite, startGather } from '../lib/actions';
 import { useBusy } from '../lib/busy';
-import { fmt, remaining } from '../lib/format';
+import { finishClock, fmt, remaining } from '../lib/format';
+export { finishClock };
 import { useRouter } from '../state/router';
 import { useUi } from '../state/ui';
 
@@ -44,15 +45,6 @@ function useSeenSlots(counts: Record<string, number>): Record<string, number> {
     });
   }, [sig]); // eslint-disable-line react-hooks/exhaustive-deps
   return seen;
-}
-
-/** 완료 예정 시각: 오늘이면 "19:42", 내일이면 "내일 02:10", 그 뒤는 "10/12 02:10" */
-export function finishClock(nowMs: number, afterSeconds: number): string {
-  const t = new Date(nowMs + afterSeconds * 1000);
-  const hm = `${String(t.getHours()).padStart(2, '0')}:${String(t.getMinutes()).padStart(2, '0')}`;
-  const day = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
-  const diff = Math.round((day(t) - day(new Date(nowMs))) / 86_400_000);
-  return diff <= 0 ? hm : diff === 1 ? `내일 ${hm}` : `${t.getMonth() + 1}/${t.getDate()} ${hm}`;
 }
 
 /**
