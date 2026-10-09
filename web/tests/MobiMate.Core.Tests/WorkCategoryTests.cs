@@ -59,6 +59,14 @@ public class WorkCategoryTests : IDisposable
     [InlineData("무언가", "가죽 작업대", WorkKinds.Leather)]
     [InlineData("무언가", "베틀", WorkKinds.Cloth)]
     [InlineData("무언가", "약품 작업대", WorkKinds.Medicine)]
+    // 실기 확인(2026-10-10): 게임의 시설 이름은 "○○ 가공 시설". 이름 표에 없는 가공품(백금강괴, 버섯 진액 등)도 시설로 정해진다.
+    [InlineData("백금강괴", "금속 가공 시설", WorkKinds.Metal)]
+    [InlineData("쑥쑥 버섯 진액", "약품 가공 시설", WorkKinds.Medicine)]
+    [InlineData("끈적 풀 가루", "약품 가공 시설", WorkKinds.Medicine)]
+    [InlineData("무언가", "식재료 가공 시설", WorkKinds.Food)]
+    [InlineData("무언가", "옷감 가공 시설", WorkKinds.Cloth)]
+    [InlineData("무언가", "목재 가공 시설", WorkKinds.Wood)]
+    [InlineData("무언가", "가죽 가공 시설", WorkKinds.Leather)]
     public void FacilityDecidesWhenTheNameIsUnknown(string name, string facility, string kind) => Assert.Equal(kind, _c.Classify(name, facility));
 
     [Theory]

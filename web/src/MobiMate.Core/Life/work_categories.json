@@ -22,7 +22,13 @@
     "제련로": "metal",
     "가죽 작업대": "leather",
     "베틀": "cloth",
-    "약품 작업대": "medicine"
+    "약품 작업대": "medicine",
+    "금속 가공 시설": "metal",
+    "목재 가공 시설": "wood",
+    "가죽 가공 시설": "leather",
+    "옷감 가공 시설": "cloth",
+    "약품 가공 시설": "medicine",
+    "식재료 가공 시설": "food"
   },
   "keywords": {
     "metal": ["광석", "강철", "합금", "운철"],
