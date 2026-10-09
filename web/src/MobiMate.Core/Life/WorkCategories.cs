@@ -89,13 +89,23 @@ public sealed class WorkCategoryCatalog
         return c;
     }
 
-    /// <summary>가공품 이름과 작업대 이름으로 종류 id를 정한다. 모르면 "other".</summary>
+    /// <summary>
+    /// 가공품 이름과 작업대 이름으로 종류 id를 정한다. 모르면 "other".
+    /// 게임은 가공을 시설 여섯 곳(금속·목재·가죽·옷감·약품·식재료 가공 시설)으로 나누므로 시설 이름이 가장 믿을 만하다:
+    /// 이름 표에 없는 새 가공품도 시설로 정해진다. 시설을 모를 때만 이름 표·키워드를 쓴다.
+    /// </summary>
     public string Classify(string? name, string? facility)
     {
+        var f = Norm(facility);
+        if (f.Length > 0)
+        {
+            if (_byFacility.TryGetValue(f, out var byFacility)) return byFacility;
+            // "금속 가공 시설"처럼 종류 이름("금속 가공")이 들어 있으면 그 종류다
+            foreach (var kind in WorkKinds.Order)
+                if (kind != WorkKinds.Other && _labels.TryGetValue(kind, out var label) && f.Contains(Norm(label), StringComparison.Ordinal)) return kind;
+        }
         var n = Norm(name);
         if (n.Length > 0 && _byName.TryGetValue(n, out var byName)) return byName;
-        var f = Norm(facility);
-        if (f.Length > 0 && _byFacility.TryGetValue(f, out var byFacility)) return byFacility;
         if (n.Length > 0)
         {
             foreach (var kind in WorkKinds.Order)
