@@ -46,7 +46,7 @@ test('숙제 화면: 캐릭터마다 가로 박스 한 줄에 중요 숙제가 �
   const rows = page.locator('.hw-row');
   await expect(rows.first()).toBeVisible();
   const row = rows.first();
-  for (const name of ['요일던전', '길드의뢰', '카브락', '에이렐', '화이트서큐', '허상', '광기', '물길', '필드보스'])
+  for (const name of ['요일던전', '길드의뢰', '뱅가드', '카브락', '에이렐', '화이트 서큐버스', '허상의 정박지', '광기의 동굴', '흩어진 물길', '필드보스'])
     await expect(row.getByText(name, { exact: true })).toBeVisible();
   // 옛 화면 요소(상점·교환·인게임 미션 탭, 카드 그리드)는 없다
   await expect(page.getByRole('tab', { name: '상점·교환' })).toHaveCount(0);

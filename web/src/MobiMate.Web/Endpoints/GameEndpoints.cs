@@ -7,7 +7,8 @@ namespace MobiMate.Web.Endpoints;
 
 public sealed record GatherRequest(string? DisplayName, int? Count);
 public sealed record CollectRequest(string? DisplayName);
-public sealed record HomeworkSetRequest(bool? Completed, int? Count);
+/// <summary>CharacterKey가 없으면 지금 접속한 캐릭터. 있으면 알려진 다른 캐릭터의 숙제를 수동으로 고친다(숙제 화면의 캐릭터별 칸).</summary>
+public sealed record HomeworkSetRequest(bool? Completed, int? Count, string? CharacterKey = null);
 public sealed record HomeworkResetRequest(string? Scope);
 public sealed record NicknameRequest(string? Nickname);
 public sealed record FavoriteRequest(string? Name, bool? Favorite);
@@ -160,13 +161,23 @@ public static class GameEndpoints
             return ApiResults.Ok(new { characterKey = key, board.Cards, board.Daily, board.Weekly, board.NextDailyResetUtc, board.NextWeeklyResetUtc });
         });
 
-        api.MapPut("/homework/{id}", (string id, HomeworkSetRequest req, HomeworkWatcher hw, GameStateCache state) =>
+        api.MapPut("/homework/{id}", (string id, HomeworkSetRequest req, HomeworkWatcher hw, GameStateCache state, GameViews v) =>
         {
-            if (state.Character == null) return NoCharacter();
             if (req.Completed == null && req.Count == null) return ApiResults.Error(400, "VALIDATION", "completed 또는 count가 필요합니다.");
+            string key;
+            if (!string.IsNullOrWhiteSpace(req.CharacterKey))
+            {
+                if (!v.IsKnownCharacter(req.CharacterKey)) return ApiResults.Error(404, "NOT_FOUND", "알 수 없는 캐릭터입니다.");
+                key = req.CharacterKey;
+            }
+            else
+            {
+                if (state.Character == null) return NoCharacter();
+                key = state.CurrentKey ?? GameViews.CharacterKey(state.Character);
+            }
             try
             {
-                var change = hw.Service.Set(state.CurrentKey ?? GameViews.CharacterKey(state.Character), id, req.Completed, req.Count);
+                var change = hw.Service.Set(key, id, req.Completed, req.Count);
                 hw.Notify(change);
                 return ApiResults.Ok(change);
             }

@@ -365,6 +365,16 @@ public class ApiTests
     }
 
     [Fact]
+    public async Task Homework_SetForAnotherCharacter_RequiresKnownCharacterKey()
+    {
+        using var host = new TestHost();
+        var c = await host.LocalAsync();
+        // 알려지지 않은 캐릭터 키는 만들지 않고 404 (숙제 화면의 캐릭터별 수동 체크)
+        Assert.Equal(HttpStatusCode.NotFound, (await c.PutAsJsonAsync("/api/homework/raid_cavrak", new { completed = true, characterKey = "없는서버_없는직업" })).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await c.PutAsJsonAsync("/api/homework/raid_cavrak", new { characterKey = "없는서버_없는직업" })).StatusCode);
+    }
+
+    [Fact]
     public async Task Homework_ListSetAndReset()
     {
         using var host = new TestHost();
