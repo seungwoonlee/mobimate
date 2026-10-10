@@ -12,7 +12,7 @@ public enum HomeworkCardStatus
 public sealed record HomeworkCard(
     string Id, string Category, string CategoryTitle, HomeworkPeriod Period, HomeworkShare Share, HomeworkMode Mode,
     string Title, string Subtitle, string Icon, int Count, int Goal, HomeworkCardStatus Status,
-    string? Evidence, string? Pool, string? Reward, string? NeedsMeasurement, HomeworkSuggestion? Suggestion = null)
+    string? Evidence, string? Pool, string? Reward, string? NeedsMeasurement, HomeworkSuggestion? Suggestion = null, int? Remaining = null)
 {
     public bool IsDone => Status is HomeworkCardStatus.AutoDone or HomeworkCardStatus.ManualDone or HomeworkCardStatus.PoolDone;
 }
@@ -34,7 +34,7 @@ public sealed record HomeworkChange(string CharacterKey, IReadOnlyList<string> I
 /// 스마트 숙제 트래커 (요구사양서 §5.11). 카탈로그·저장소·평가기를 묶는다. 스레드 안전(내부 잠금).
 /// - 기록은 메모리에 두고, 바뀐 것이 있을 때만 저장한다 (이 폴더는 웹앱만 쓴다).
 /// - 파일을 일시적으로 읽지 못하면 빈 기록으로 덮어쓰지 않는다: 판정은 건너뛰고, 수동 조작은 IOException으로 실패시킨다.
-/// - 진행 통계: 상점·교환은 제외하고, 공유 풀은 1건으로 센다.
+/// - 진행 통계: 공유 풀은 1건으로 센다.
 /// </summary>
 public sealed class HomeworkService
 {
@@ -244,7 +244,8 @@ public sealed class HomeworkService
         return new HomeworkCard(def.Id, def.Category, HomeworkCatalog.CategoryTitles.GetValueOrDefault(def.Category, def.Category),
             def.Period, def.Share, def.EffectiveMode, def.Title, def.Subtitle, def.Icon,
             st?.Count ?? 0, st?.Goal ?? def.Goal, status, st?.Evidence, def.Pool, def.Reward, def.NeedsMeasurement,
-            status is HomeworkCardStatus.Pending or HomeworkCardStatus.InProgress ? st?.Suggestion : null);
+            status is HomeworkCardStatus.Pending or HomeworkCardStatus.InProgress ? st?.Suggestion : null,
+            status is HomeworkCardStatus.Pending or HomeworkCardStatus.InProgress ? st?.RemainingCount : null);
     }
 
     /// <summary>공유 풀 완료 = 풀 안 항목 중 하나라도 완료. 형제 상태를 복사하지 않고 매번 계산한다.</summary>
@@ -254,7 +255,7 @@ public sealed class HomeworkService
 
     private static HomeworkProgress Progress(IReadOnlyList<HomeworkCard> cards, HomeworkPeriod period)
     {
-        var relevant = cards.Where(c => c.Period == period && c.Category != "shop").ToList();
+        var relevant = cards.Where(c => c.Period == period).ToList();
         var singles = relevant.Where(c => c.Pool == null).ToList();
         var pools = relevant.Where(c => c.Pool != null).GroupBy(c => c.Pool!).ToList();
         var done = singles.Count(c => c.IsDone) + pools.Count(g => g.Any(c => c.IsDone));

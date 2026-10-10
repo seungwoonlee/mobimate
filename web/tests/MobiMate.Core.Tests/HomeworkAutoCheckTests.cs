@@ -644,6 +644,46 @@ public class HomeworkAutoCheckTests : IDisposable
         Assert.Contains($"남은 {remaining}회", Card(svc.GetBoard(Main), "weekly_vanguard_breach").Evidence);
     }
 
+    [Theory]
+    [InlineData("[긴급 의뢰] 뱅가드 브리치 (3)", 3)]
+    [InlineData("[긴급 의뢰] 뱅가드 브리치(2)", 2)]
+    [InlineData("<color=orange>[긴급 의뢰]</color> 뱅가드 브리치 (1)", 1)]
+    public void Vanguard_NameSuffixIsTheRemainingCount_AndStaysTheSameQuest(string title, int remaining)
+    {
+        // 사고 재현 (2026-10-11): 이름 뒤 "(N)"이 이름의 일부로 비교되어 퀘스트가 목록에 없는 것으로 읽혔다
+        var svc = NewService();
+        svc.Evaluate(Main, Quests(Quest(title, false), Other));
+        var a = Auto(svc, Main, "weekly_vanguard_breach");
+        Assert.Equal("todo", a.State);
+        Assert.Equal(remaining, a.Remaining);
+        Assert.Equal(HomeworkCardStatus.Pending, Card(svc.GetBoard(Main), "weekly_vanguard_breach").Status);
+        Assert.Contains($"남은 {remaining}회", Card(svc.GetBoard(Main), "weekly_vanguard_breach").Evidence);
+    }
+
+    [Fact]
+    public void Vanguard_NameSuffixCountsDown_ThenVanishingCompletes_NeverBefore()
+    {
+        var svc = NewService();
+        foreach (var n in new[] { 3, 2, 1 })
+        {
+            svc.Evaluate(Main, Quests(Quest($"{Vanguard} ({n})", false), Other));
+            Assert.Equal(HomeworkCardStatus.Pending, Card(svc.GetBoard(Main), "weekly_vanguard_breach").Status);
+            Assert.Equal(n, Auto(svc, Main, "weekly_vanguard_breach").Remaining);
+            _now += TimeSpan.FromMinutes(20);
+        }
+        svc.Evaluate(Main, Quests(Other));   // 3번째 클리어: 퀘스트가 사라진다
+        Assert.Equal(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main), "weekly_vanguard_breach").Status);
+        Assert.Equal("done", Auto(svc, Main, "weekly_vanguard_breach").State);
+    }
+
+    [Fact]
+    public void Vanguard_NameSuffix_WinsOverObjectiveCounts()
+    {
+        var svc = NewService();
+        svc.Evaluate(Main, Quests(Counted($"{Vanguard} (2)", (0, 10))));   // 목표 숫자(0/10)는 횟수가 아니다
+        Assert.Equal(2, Auto(svc, Main, "weekly_vanguard_breach").Remaining);
+    }
+
     [Fact]
     public void Vanguard_RemainingCount_CountsIncompleteObjectivesAndTracksProgress()
     {

@@ -188,9 +188,17 @@ public static partial class HomeworkEvaluator
         return titles.Select(HomeworkText.Normalize).ToHashSet();
     }
 
+    [System.Text.RegularExpressions.GeneratedRegex(@"\(\d+\)$")]
+    private static partial System.Text.RegularExpressions.Regex RemainingSuffix();
+
+    [System.Text.RegularExpressions.GeneratedRegex(@"\((\d+)\)\s*$")]
+    private static partial System.Text.RegularExpressions.Regex RemainingSuffixCapture();
+
     private static bool MatchesQuest(HomeworkDefinition def, HashSet<string> titles, string? questTitle)
     {
         var n = HomeworkText.Normalize(questTitle);
+        // 남은 횟수를 이름 뒤 "(N)"으로 보여 주는 퀘스트(뱅가드 브리치): 횟수는 이름의 일부가 아니다. "(3)"이 붙어도 같은 퀘스트다
+        if (def.ShowRemaining) n = RemainingSuffix().Replace(n, "");
         return n.Length > 0 && (def.TitleContains ? titles.Any(t => n.Contains(t, StringComparison.Ordinal)) : titles.Contains(n));
     }
 
@@ -238,11 +246,14 @@ public static partial class HomeworkEvaluator
     private static partial System.Text.RegularExpressions.Regex Progress();
 
     /// <summary>
-    /// 퀘스트에 남은 횟수가 있으면 읽는다: 목표마다 (Goal − Count)의 합. Count/Goal이 없으면 이름의 "N/M"(M − N). 모르면 null.
+    /// 퀘스트에 남은 횟수가 있으면 읽는다: 이름 뒤 "(N)"이 가장 우선(뱅가드 브리치는 이름 뒤 숫자가 남은 횟수다, 승운 확인 2026-10-11).
+    /// 없으면 목표마다 (Goal − Count)의 합, 그것도 없으면 이름의 "N/M"(M − N). 모르면 null.
     /// 완료한 목표(IsCompleted)는 0으로 센다.
     /// </summary>
     internal static int? RemainingOf(QuestItem q)
     {
+        var suffix = RemainingSuffixCapture().Match(HomeworkText.StripTags(q.QuestTitle));
+        if (suffix.Success && int.Parse(suffix.Groups[1].Value) is > 0 and var left) return left;
         if (q.Objectives is { Count: > 0 } objs && objs.Any(o => o.Goal is > 0))
         {
             var sum = objs.Where(o => o.Goal is > 0).Sum(o => o.IsCompleted ? 0 : Math.Max(0, o.Goal!.Value - Math.Max(0, o.Count ?? 0)));

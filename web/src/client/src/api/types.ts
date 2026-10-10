@@ -85,6 +85,7 @@ export interface HomeworkCard {
   mode: string; title: string; subtitle: string; icon: string; count: number; goal: number; status: HomeworkStatus;
   evidence: string | null; pool: string | null; reward: string | null; needsMeasurement: string | null;
   suggestion: HomeworkSuggestion | null; isDone: boolean;
+  /** 남은 횟수 (뱅가드 등, 아직 끝나지 않았고 알 때만) */ remaining: number | null;
 }
 export interface Progress { done: number; total: number }
 export interface HomeworkBoard {

@@ -18,8 +18,8 @@ export const ROUTES: { name: RouteName; path: string; label: string; icon: strin
 export interface Location { name: RouteName; params: URLSearchParams }
 
 function parse(): Location {
-  // 호환: 미션 화면은 숙제의 탭으로 옮겼다. 주소도 바꿔 두어야 탭을 옮길 수 있다.
-  if (window.location.pathname.replace(/\/+$/, '') === '/missions') window.history.replaceState(null, '', '/homework?tab=missions');
+  // 호환: 미션 화면은 없어졌다(2026-10-11). 옛 주소는 숙제 화면으로 보낸다.
+  if (window.location.pathname.replace(/\/+$/, '') === '/missions') window.history.replaceState(null, '', '/homework');
   const path = window.location.pathname.replace(/\/+$/, '') || '/';
   const r = ROUTES.find(x => x.path === path);
   return { name: r?.name ?? 'characters', params: new URLSearchParams(window.location.search) };
