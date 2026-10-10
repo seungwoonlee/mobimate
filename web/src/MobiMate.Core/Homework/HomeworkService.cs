@@ -20,6 +20,9 @@ public sealed record HomeworkCard(
 /// <summary>캐릭터 카드에 보여 줄 자동 판정 숙제 한 줄. State: done / todo / unknown.</summary>
 public sealed record HomeworkAutoStatus(string Id, string Title, string Period, string State, string? Evidence, int? Remaining = null, string Category = "");
 
+/// <summary>공유 풀(필드 보스 택1)의 캐릭터별 현황. State: done / todo / unknown, Item = 넘긴 보스 이름(완료일 때).</summary>
+public sealed record HomeworkPoolStatus(string State, string? Item);
+
 public sealed record HomeworkProgress(int Done, int Total);
 
 public sealed record HomeworkBoard(
@@ -226,6 +229,29 @@ public sealed class HomeworkService
                     list.Add(new HomeworkAutoStatus(def.Id, def.CardLabel ?? def.Title, def.Period == HomeworkPeriod.Daily ? "daily" : "weekly", state, st?.Evidence, state == "todo" ? st?.RemainingCount : null, def.Category));
                 }
                 result[key] = list;
+            }
+            return result;
+        }
+    }
+
+    /// <summary>
+    /// 필드 보스 택1의 캐릭터별 현황: 이번 주기에 넘긴 보스가 있으면 done(보스 이름), 이번 주기 기록이 있는데 없으면 todo, 기록이 없으면 unknown.
+    /// 읽기 전용(리셋을 적용해 저장하지 않고, 지난 주기의 값은 없는 것으로 본다).
+    /// </summary>
+    public IReadOnlyDictionary<string, HomeworkPoolStatus> GetFieldBossStatuses(IEnumerable<string> characterKeys, string pool = "field_boss_weekly")
+    {
+        lock (_lock)
+        {
+            TryLoad(out var file);
+            var lastWeekly = KstClock.LastWeeklyReset(_now());
+            var defs = _catalog.Items.Where(d => d.Active && d.Pool == pool && d.Share == HomeworkShare.Character).ToList();
+            var result = new Dictionary<string, HomeworkPoolStatus>(StringComparer.OrdinalIgnoreCase);
+            foreach (var key in characterKeys)
+            {
+                file.Characters.TryGetValue(key, out var ledger);
+                var fresh = ledger != null && ledger.LastWeeklyResetUtc >= lastWeekly;
+                var cleared = fresh ? defs.FirstOrDefault(d => ledger!.Items.GetValueOrDefault(d.Id)?.Completed == true) : null;
+                result[key] = cleared != null ? new HomeworkPoolStatus("done", cleared.Title) : new HomeworkPoolStatus(fresh ? "todo" : "unknown", null);
             }
             return result;
         }

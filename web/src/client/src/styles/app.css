@@ -597,39 +597,92 @@ button.toast { border: 0; text-align: left; cursor: pointer; }
 .app[data-touch="true"] .gx-row .btn { min-height: 44px; }
 .gx-row .pill.danger { color: color-mix(in srgb, var(--danger) 65%, var(--text-1)); }   /* 작은 글씨라 대비를 높인다 (axe 4.5:1) */
 
-/* 숙제 첫 화면 요약 (2026-10-11) */
-.hw-dash { display: grid; gap: 12px; grid-template-columns: minmax(0, 1fr); margin-bottom: 12px; }
-@container main (min-width: 760px) { .hw-dash { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); } }
-.hw-overall-body { display: flex; gap: 16px; align-items: center; margin-top: 8px; }
-.hw-bigring { position: relative; flex: none; width: 92px; height: 92px; }
-.hw-bigring .ring text { display: none; }
-.hw-bigring b { position: absolute; inset: 0; display: grid; place-items: center; font-size: 20px; }
-.hw-bars { flex: 1; min-width: 0; display: grid; gap: 7px; }
-.hw-bar-row { display: grid; grid-template-columns: 72px minmax(0, 1fr) 40px; gap: 8px; align-items: center; font-size: 13px; }
-.hw-bar-name { color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.hw-bar { height: 10px; border-radius: 999px; background: var(--bg-3); overflow: hidden; }
-.hw-bar i { display: block; height: 100%; border-radius: 999px; background: var(--accent); transition: width .3s; }
-.hw-bar.full i { background: var(--ok); }
-.hw-bar-num { text-align: right; color: var(--text-2); }
-.hw-resets { display: flex; gap: 6px 16px; flex-wrap: wrap; margin-top: 10px; }
+/* 숙제: 캐릭터마다 가로로 긴 박스 한 줄 (2026-10-11 개편) */
+.hw-resets { display: flex; gap: 6px 16px; flex-wrap: wrap; }
 .hw-resets span { display: inline-flex; align-items: center; gap: 4px; }
-.hw-key-groups { display: grid; gap: 10px; margin-top: 8px; }
-.hw-key-group { display: grid; gap: 4px; }
-.hw-key-title { font-size: 12px; color: var(--text-3); font-weight: 600; }
-.hw-key-tiles { display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(104px, 1fr)); }
-.hw-key-tile { display: grid; gap: 1px; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg-1); }
-.hw-key-name { font-weight: 700; font-size: 14px; }
-.hw-key-state { font-size: 12.5px; color: var(--text-2); display: inline-flex; align-items: center; gap: 4px; }
-.hw-key-note { font-size: 12px; color: var(--text-3); }
-.hw-key-tile.done { background: var(--ok-soft); border-color: transparent; }
-.hw-key-tile.done .hw-key-state { color: var(--ok); font-weight: 700; }
-.hw-key-tile.progress { border-color: var(--accent); }
-.hw-key-tile.progress .hw-key-state { color: var(--accent); font-weight: 600; }
-.hw-key-tile.todo { border-style: dashed; }
-.app[data-size="compact"] .hw-overall-body { flex-direction: column; align-items: stretch; }
-.app[data-size="compact"] .hw-bigring { align-self: center; }
+.hw-acct { display: grid; gap: 8px; }
+.hw-acct-h { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.hw-acct-h h3 { margin: 0; font-size: 15px; display: flex; align-items: center; gap: 6px; }
+.hw-rows { display: grid; gap: 8px; }
+.card.hw-row { display: flex; align-items: center; gap: 14px; padding: 10px 14px; }
+.card.hw-row.current { border-color: var(--accent); }
+.card.hw-row.all-done { background: var(--ok-soft); border-color: transparent; }
+.hw-who { display: flex; align-items: center; gap: 10px; flex: none; width: 230px; min-width: 0; }
+.hw-who-t { display: grid; min-width: 0; flex: 1; }
+.hw-who-name { font-weight: 700; display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.hw-count { font-size: 15px; font-weight: 700; color: var(--text-2); }
+.hw-count.ok { color: var(--ok); }
+.hw-cells { display: flex; flex-wrap: wrap; gap: 6px 14px; flex: 1; min-width: 0; }
+.hw-cg { display: flex; gap: 6px; flex-wrap: wrap; }
+.hw-cell { display: grid; gap: 1px; min-width: 76px; padding: 5px 9px; border-radius: 9px; border: 1px solid var(--line); background: var(--bg-1); text-align: left; font: inherit; color: inherit; }
+button.hw-cell { cursor: pointer; }
+button.hw-cell:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.hw-cell-name { font-weight: 700; font-size: 13.5px; white-space: nowrap; }
+.hw-cell-state { font-size: 12.5px; color: var(--text-2); display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+.hw-cell.done { background: var(--ok-soft); border-color: transparent; }
+.hw-cell.done .hw-cell-name { color: var(--text-3); text-decoration: line-through; }
+.hw-cell.done .hw-cell-state { color: var(--ok); font-weight: 700; }
+.hw-cell.todo { border-color: var(--warn); }
+.hw-cell.todo .hw-cell-state { color: var(--warn); font-weight: 600; }
+.hw-cell.unknown { border-style: dashed; }
+.hw-legend.done { color: var(--ok); font-weight: 700; }
+.hw-legend.todo { color: var(--warn); font-weight: 600; }
+.hw-boss-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.app[data-size="compact"] .card.hw-row { flex-direction: column; align-items: stretch; gap: 8px; }
+.app[data-size="compact"] .hw-who { width: auto; }
+.app[data-size="compact"] .hw-cell { min-width: 68px; }
 
-/* 숙제 카드 설명 말풍선: 카드 왼쪽 아래에서 열고 줄바꿈을 살린다 */
-.hw-grid [data-tip]::after { left: 12px; right: auto; top: calc(100% - 4px); white-space: pre-line; }
-.hw-grid [data-tip]::before { left: 24px; right: auto; top: calc(100% - 10px); }
-.hw-grid [data-tip]:hover, .hw-grid [data-tip]:focus-visible { z-index: 20; }
+/* 캐릭(개요) 화면 압축 (2026-10-11): 카드를 내용 높이로 두고 영역 배치로 빈 공간을 없앤다 */
+.ov { display: grid; gap: 8px; }
+.ov-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 0; }
+.ov-top .alerts { flex: 1; min-width: 0; }
+.ov-top:not(:has(.alerts)) { justify-content: flex-end; }
+.ov-grid { display: grid; gap: 10px; align-items: start; grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: "scores" "weight" "gold" "rank" "hw" "works" "near" "cut" "qa"; }
+.ov-grid > .scores { grid-area: scores; } .ov-grid > .weight { grid-area: weight; } .ov-grid > .gold { grid-area: gold; }
+.ov-grid > .ov-rank { grid-area: rank; } .ov-grid > .hwsum { grid-area: hw; } .ov-grid > .works { grid-area: works; }
+.ov-grid > .near { grid-area: near; } .ov-grid > .cutsum { grid-area: cut; } .ov-grid > .qa { grid-area: qa; }
+@container main (min-width: 560px) {
+  .ov-grid { grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-areas: "scores weight" "gold gold" "rank rank" "hw works" "near near" "cut cut" "qa qa"; }
+}
+@container main (min-width: 900px) {
+  .ov-grid { grid-template-columns: 1fr 1fr 1.15fr;
+    grid-template-areas: "scores weight gold" "rank rank hw" "works near near" "cut cut cut" "qa qa qa"; }
+}
+.ov .card { padding: 10px 14px; }
+.ov .card-h { margin-bottom: 6px; }
+.ov .score-main { gap: 10px; }
+.ov .score-main .big { font-size: calc(32px * var(--scale)); }
+.ov .big { font-size: calc(28px * var(--scale)); }
+.ov .gauge { margin: 6px 0 4px; height: 10px; }
+.ov .kv { padding: 1px 0; }
+.ov .gold .gold-body, .ov .gold .gold-body > div + div { margin-top: 0; }
+.ov .gold .mt-6, .ov .gold .mt-10 { margin-top: 4px; }
+.ov .rank-panel { gap: 4px; }
+@container main (min-width: 700px) {
+  .ov .rank-list { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 24px; }
+}
+.ov .rank-row { padding: 2px 2px; }
+.hwsum-rings { display: flex; gap: 10px; flex-wrap: wrap; }
+.hwbtn { display: flex; align-items: center; gap: 10px; flex: 1 1 140px; min-width: 0; padding: 4px 8px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg-1); text-align: left; color: inherit; font: inherit; cursor: pointer; }
+.hwbtn:hover { border-color: var(--line-strong); }
+.hwbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.hwbtn-t { display: grid; gap: 0; min-width: 0; line-height: 1.35; }
+.ov .work { padding: 2px 0; }
+.ov .pl-list { gap: 0; }
+.ov .cut-mini { gap: 3px; }
+.ov .qa { gap: 8px; }
+.ov .qa button { min-height: 44px; padding: 8px 12px; }
+/* 캐릭 화면: 재화 카드는 가로로 눕히고, 넓은 3열에서만 세로로 둔다 */
+.ov .gold .gold-body { display: flex; align-items: center; gap: 4px 28px; flex-wrap: wrap; }
+.ov .gold .gold-body > div:first-child { display: flex; align-items: center; gap: 8px; }
+.ov .gold .gold-body > div + div { display: flex; gap: 4px 22px; flex-wrap: wrap; }
+.ov .gold .kv { gap: 8px; }
+@container main (min-width: 900px) {
+  .ov-grid { grid-template-columns: 1fr 1fr 1.3fr; }
+  .ov .gold .gold-body { display: block; }
+  .ov .gold .gold-body > div + div { display: block; }
+  .ov .gold .gold-body > div:first-child { flex-wrap: wrap; }
+}
+.hwbtn-t > * { white-space: nowrap; }

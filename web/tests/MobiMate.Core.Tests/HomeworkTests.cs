@@ -337,6 +337,22 @@ public class HomeworkTests : IDisposable
     }
 
     [Fact]
+    public void FieldBossStatuses_ShowWhichBossWasCleared_PerCharacter_AndExpireOnWeeklyReset()
+    {
+        var svc = NewService();
+        svc.Set(Main, "fieldboss_krama", completed: true);
+        svc.GetBoard(Alt);   // 다른 캐릭터는 기록만 만든다
+
+        var s = svc.GetFieldBossStatuses(new[] { Main, Alt });
+        Assert.Equal(new HomeworkPoolStatus("done", "크라마"), s[Main]);
+        Assert.Equal("todo", s[Alt].State);
+        Assert.Equal("unknown", svc.GetFieldBossStatuses(new[] { "없는_캐릭터" })["없는_캐릭터"].State);
+
+        _now = Kst(2026, 10, 5, 6, 1);   // 다음 주 월요일 새벽: 지난 주 완료는 이번 주기의 근거가 아니다
+        Assert.NotEqual("done", svc.GetFieldBossStatuses(new[] { Main })[Main].State);
+    }
+
+    [Fact]
     public void ResetAll_ClearsCharacter_AndOptionallyAccount()
     {
         var svc = NewService();

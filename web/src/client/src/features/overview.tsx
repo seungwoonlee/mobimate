@@ -17,7 +17,7 @@ import { RankBadge } from '../components/RankBadge';
 /** 가공 종류 순서 (서버 WorkKinds.Order와 같다) */
 const WORK_KIND_ORDER = ['metal', 'wood', 'leather', 'cloth', 'medicine', 'food', 'other'];
 
-/** 개요 (FR-OV-01~03): 경고 스트립 → 핵심 수치 → 진행 카드 → 콘텐츠 추천 → 퀵 액션. */
+/** 캐릭(옛 개요, FR-OV-01~03): 경고 스트립 → 핵심 수치 → 랭킹·숙제 → 가공·주변 → 콘텐츠 추천 → 퀵 액션. 빈 공간 없이 촘촘하게 둔다(2026-10-11). */
 export function OverviewView() {
   const q = useOverview();
   const layout = useLayout();
@@ -34,25 +34,21 @@ export function OverviewView() {
   }
 
   return (
-    <>
-      <div className="view-head compact-head"><h2 className="sr-only">개요</h2><Fresh at={q.dataUpdatedAt} /></div>
-      <Alerts d={d} />
-      <section className="g-hero">
+    <div className="ov">
+      <div className="ov-top"><Alerts d={d} /><Fresh at={q.dataUpdatedAt} /></div>
+      <div className="ov-grid">
         <ScoresCard h={d.header} />
         <WeightCard h={d.header} />
         <CurrencyCard d={d} />
-      </section>
-      <section className="g-rank"><RankPanel /></section>
-      <section className="g-prog">
-        <HomeworkRingCard kind="daily" d={d} onOpen={() => setPeek('daily')} />
-        <HomeworkRingCard kind="weekly" d={d} onOpen={() => setPeek('weekly')} />
+        <div className="ov-rank"><RankPanel /></div>
+        <HomeworkSummary d={d} onOpen={setPeek} />
         <WorksCard life={d.life} at={q.dataUpdatedAt} />
         <NearbyCard nearby={d.nearby} />
-      </section>
-      {d.cutoffs && <CutoffSummary contents={d.cutoffs.contents} />}
-      <QuickActions life={d.life} />
+        {d.cutoffs && <CutoffSummary contents={d.cutoffs.contents} />}
+        <QuickActions life={d.life} />
+      </div>
       {peek && <HomeworkPeek kind={peek} onClose={() => setPeek(null)} />}
-    </>
+    </div>
   );
 }
 
@@ -70,7 +66,7 @@ function Alerts({ d }: { d: OverviewData }) {
       <button key="c" type="button" className="chip ok" disabled={collecting} onClick={() => collectAll(ready.map(x => x.name))} data-needs-conn><Icon name="inbox" />수거 가능 {ready.length}건</button>
     ),
     dailyLeft > 0 && (
-      <button key="h" type="button" className="chip info" onClick={() => go('homework', { tab: 'daily' })}><Icon name="list" />오늘 숙제 {dailyLeft}개 남음</button>
+      <button key="h" type="button" className="chip info" onClick={() => go('homework')}><Icon name="list" />오늘 숙제 {dailyLeft}개 남음</button>
     ),
   ].filter(Boolean);
   if (!chips.length) return null;
@@ -98,7 +94,7 @@ function ScoresCard({ h }: { h: Header }) {
 function WeightCard({ h }: { h: Header }) {
   const w = h.weight;
   return (
-    <LinkCard to="inventory">
+    <LinkCard to="inventory" className="weight">
       <CardHead icon="bag" title="가방 무게" right={w && <Delta value={w.delta} inverse />} />
       {w ? (
         <>
@@ -133,23 +129,33 @@ function CurrencyCard({ d }: { d: OverviewData }) {
   );
 }
 
-/** 숙제 진행 링 (FR-OV-01·02): 누르면 개요를 벗어나지 않고 남은 숙제를 띄운다. */
-function HomeworkRingCard({ kind, d, onOpen }: { kind: 'daily' | 'weekly'; d: OverviewData; onOpen: () => void }) {
+/** 숙제 진행 (FR-OV-01·02): 일일·주간 링을 한 카드에 나란히. 누르면 개요를 벗어나지 않고 남은 숙제를 띄운다. */
+function HomeworkSummary({ d, onOpen }: { d: OverviewData; onOpen: (k: 'daily' | 'weekly') => void }) {
+  return (
+    <section className="card hwsum" aria-label="숙제 진행">
+      <CardHead title="숙제" right={<span className="faint small">누르면 남은 숙제</span>} />
+      <div className="hwsum-rings">
+        <HomeworkRing kind="daily" d={d} onOpen={() => onOpen('daily')} />
+        <HomeworkRing kind="weekly" d={d} onOpen={() => onOpen('weekly')} />
+      </div>
+    </section>
+  );
+}
+
+function HomeworkRing({ kind, d, onOpen }: { kind: 'daily' | 'weekly'; d: OverviewData; onOpen: () => void }) {
   const now = useNow(30_000);
   const p = d.homework[kind];
   const left = p.total - p.done;
   const reset = kind === 'daily' ? d.homework.nextDailyReset : d.homework.nextWeeklyReset;
   const title = kind === 'daily' ? '일일 숙제' : '주간 숙제';
   return (
-    <button type="button" className="card link" onClick={onOpen} aria-haspopup="dialog">
-      <CardHead title={title} />
-      <div className="ring-row">
-        <Ring done={p.done} total={p.total} label={title} />
-        <div className="muted small">
-          {left ? `${left}개 남음` : '모두 완료'}<br />
-          <span className="faint"><Icon name="clock" size={13} /> 리셋 {until(reset, now)}</span>
-        </div>
-      </div>
+    <button type="button" className="hwbtn" onClick={onOpen} aria-haspopup="dialog">
+      <Ring done={p.done} total={p.total} size={56} label={title} />
+      <span className="hwbtn-t">
+        <b>{kind === 'daily' ? '일일' : '주간'}</b>
+        <span className="muted small">{left ? `${left}개 남음` : '모두 완료'}</span>
+        <span className="faint small"><Icon name="clock" size={12} /> {until(reset, now)}</span>
+      </span>
     </button>
   );
 }
@@ -168,7 +174,7 @@ function WorksCard({ life, at }: { life: Life | null; at: number }) {
   }).filter(g => g.total > 0);
   const ready = groups.reduce((n, g) => n + g.waiting, 0);
   return (
-    <LinkCard to="life">
+    <LinkCard to="life" className="works">
       <CardHead icon="clock" title="가공 대기열" right={ready > 0 && <Pill tone="ok">수거 {ready}</Pill>} />
       {groups.length === 0 && <p className="muted small">진행 중인 가공이 없습니다.</p>}
       {groups.map(g => (
@@ -186,7 +192,7 @@ function NearbyCard({ nearby }: { nearby: Nearby | null }) {
   const p = nearby?.players ?? [];
   const shown = p.slice(0, 5);
   return (
-    <LinkCard to="nearby">
+    <LinkCard to="nearby" className="near">
       <CardHead icon="users" title="주변" right={<span className="num muted">{nearby?.count ?? 0}명</span>} />
       {p.length === 0 && <p className="muted small">주변에 플레이어가 없습니다.</p>}
       <div className="pl-list">
@@ -200,7 +206,7 @@ function NearbyCard({ nearby }: { nearby: Nearby | null }) {
 /** 콘텐츠 추천 요약 (FR-CO-07, FR-OV-14): 콘텐츠당 한 줄, `입장 가능: 지옥1 · 추천: 매우 어려움` */
 function CutoffSummary({ contents }: { contents: CutoffContent[] }) {
   return (
-    <LinkCard to="stats" params={{ tab: 'cutoffs' }}>
+    <LinkCard to="stats" params={{ tab: 'cutoffs' }} className="cutsum">
       <CardHead icon="trophy" title="콘텐츠 추천" right={<span className="faint small">전투력·마도저항 기준</span>} />
       <div className="cut-mini">
         {contents.map(c => {
@@ -224,7 +230,7 @@ function QuickActions({ life }: { life: Life | null }) {
   const ready = life?.works?.filter(w => w.done).map(w => w.name) ?? [];
   return (
     <section className="qa" aria-label="퀵 액션">
-      <button type="button" onClick={() => go('homework', { tab: 'daily' })}><Icon name="list" /><span><b>일일 숙제 점검</b><span>남은 숙제와 인게임 미션</span></span></button>
+      <button type="button" onClick={() => go('homework')}><Icon name="list" /><span><b>일일 숙제 점검</b><span>오늘 못 한 숙제 확인</span></span></button>
       <button type="button" onClick={() => go('inventory', { loc: 'diet' })}><Icon name="scale" /><span><b>가방 다이어트</b><span>이번 접속에 늘어난 잡템 순</span></span></button>
       <button type="button" disabled={collecting} onClick={() => collectAll(ready)} data-needs-conn><Icon name="inbox" /><span><b>작업대 수거</b><span>{ready.length ? `완료된 가공물 ${ready.length}건` : '완료된 가공물 없음'}</span></span></button>
       <button type="button" className="danger" onClick={stopAction}><Icon name="stop" /><span><b>행동 정지</b><span>채집·이동·자동사냥 중단</span></span></button>
@@ -236,14 +242,14 @@ function QuickActions({ life }: { life: Life | null }) {
 function HomeworkPeek({ kind, onClose }: { kind: 'daily' | 'weekly'; onClose: () => void }) {
   const q = useHomework();
   const go = useRouter(s => s.go);
-  const cards: HomeworkCard[] = q.data?.data.cards.filter(c => c.period === kind && !c.isDone && c.category !== 'shop') ?? [];
+  const cards: HomeworkCard[] = q.data?.data.cards.filter(c => c.period === kind && !c.isDone) ?? [];
   const title = kind === 'daily' ? '남은 일일 숙제' : '남은 주간 숙제';
   return (
     <Dialog
       title={title}
       onClose={onClose}
       actions={<>
-        <button type="button" className="btn" onClick={() => { onClose(); go('homework', { tab: kind }); }}>숙제 화면에서 전체 보기</button>
+        <button type="button" className="btn" onClick={() => { onClose(); go('homework'); }}>숙제 화면에서 전체 보기</button>
         <button type="button" className="btn primary" onClick={onClose}>닫기</button>
       </>}
     >
@@ -276,7 +282,7 @@ function Glance({ d, onPeek, onFull, tabletop, peek, closePeek }: {
       </button>
       {!tabletop && <>
         <button type="button" className="stop-btn glance-stop" onClick={stopAction}><Icon name="stop" />긴급 정지</button>
-        <button type="button" className="btn" onClick={onFull}>전체 개요 보기</button>
+        <button type="button" className="btn" onClick={onFull}>전체 보기</button>
       </>}
       {peek && <HomeworkPeek kind={peek} onClose={closePeek} />}
     </div>

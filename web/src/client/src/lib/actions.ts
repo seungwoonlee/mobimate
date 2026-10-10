@@ -128,6 +128,7 @@ export async function setHomework(id: string, body: { completed?: boolean; count
     if (--homeworkInFlight === 0) {
       void queryClient.invalidateQueries({ queryKey: keys.homework });
       void queryClient.invalidateQueries({ queryKey: keys.overview });
+      void queryClient.invalidateQueries({ queryKey: keys.characters });   // 숙제 화면은 캐릭터별 현황을 쓴다
     }
   }
 }
@@ -145,5 +146,6 @@ async function resetHomeworkOnce(scope: 'character' | 'characterAndAccount') {
   } finally {
     void queryClient.invalidateQueries({ queryKey: keys.homework });
     void queryClient.invalidateQueries({ queryKey: keys.overview });
+    void queryClient.invalidateQueries({ queryKey: keys.characters });
   }
 }

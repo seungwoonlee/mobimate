@@ -29,31 +29,39 @@ test('개요: 4대 점수·가방·숙제·콘텐츠 추천이 보이고 카드�
   }
 });
 
-test('숙제: 카드를 누르면 수동 완료, 다시 누르면 되돌아간다 (FR-HW-08·12)', async ({ page }) => {
-  await page.goto('/homework?tab=raid');
-  const card = page.getByRole('button', { name: /카브락/ });
-  await expect(card).toHaveAttribute('aria-pressed', 'false');
-  await card.click();
-  await expect(card).toHaveAttribute('aria-pressed', 'true');
-  await expect(card.getByText('수동 완료')).toBeVisible();
-  await card.click();
-  await expect(card).toHaveAttribute('aria-pressed', 'false');
+test('숙제: 지금 접속한 캐릭터의 칸을 누르면 수동 완료, 다시 누르면 되돌아간다 (FR-HW-08·12)', async ({ page }) => {
+  await page.goto('/homework');
+  const row = page.locator('.hw-row.current');
+  const cell = row.getByRole('button', { name: /^카브락 / });
+  await expect(cell).toHaveAttribute('aria-pressed', 'false');
+  await cell.click();
+  await expect(cell).toHaveAttribute('aria-pressed', 'true');
+  await expect(cell).toContainText('완료');
+  await cell.click();
+  await expect(cell).toHaveAttribute('aria-pressed', 'false');
 });
 
-test('숙제 첫 화면: 전체 진척 그래프·분류별 막대·중요 숙제가 보이고, 설명은 말풍선으로만 나온다 (2026-10-11)', async ({ page }) => {
+test('숙제 화면: 캐릭터마다 가로 박스 한 줄에 중요 숙제가 보이고 세로로 쌓인다 (2026-10-11)', async ({ page }) => {
   await page.goto('/homework');
-  await expect(page.getByRole('img', { name: /전체 숙제 \d+\/\d+ 완료/ })).toBeVisible();
-  await expect(page.getByRole('meter', { name: /^레이드 \d+\/\d+$/ })).toBeVisible();
-  const key = page.locator('.hw-key');
+  const rows = page.locator('.hw-row');
+  await expect(rows.first()).toBeVisible();
+  const row = rows.first();
   for (const name of ['요일던전', '길드의뢰', '카브락', '에이렐', '화이트서큐', '허상', '광기', '물길', '필드보스'])
-    await expect(key.getByRole('group', { name: new RegExp(`^${name} `) })).toBeVisible();
-  // 상점·교환과 인게임 미션 탭은 없다
+    await expect(row.getByText(name, { exact: true })).toBeVisible();
+  // 옛 화면 요소(상점·교환·인게임 미션 탭, 카드 그리드)는 없다
   await expect(page.getByRole('tab', { name: '상점·교환' })).toHaveCount(0);
   await expect(page.getByRole('tab', { name: '인게임 미션' })).toHaveCount(0);
-  // 카드 본문에는 설명이 없고 말풍선(data-tip)에만 있다
-  const card = page.locator('.hw-grid .card.hw', { hasText: '카브락' }).first();
-  await expect(card).toHaveAttribute('data-tip', /주간 레이드/);
-  await expect(card.getByText(/주간 레이드/)).toHaveCount(0);
+  await expect(page.locator('.hw-grid')).toHaveCount(0);
+});
+
+test('좌측 바: 숙제가 전체 바로 아래, 그 다음이 "캐릭"(옛 개요)이다 (2026-10-11)', async ({ page }) => {
+  const names = await page.locator('nav a, nav button').allInnerTexts();
+  const flat = names.map(t => t.trim()).filter(Boolean).join('|');
+  const idx = (n: string) => flat.indexOf(n);
+  expect(idx('전체')).toBeGreaterThanOrEqual(0);
+  expect(idx('숙제')).toBeGreaterThan(idx('전체'));
+  expect(idx('캐릭')).toBeGreaterThan(idx('숙제'));
+  expect(idx('개요')).toBe(-1);
 });
 
 test('게임 채팅: 미리보기 후 전송하면 로그에 이모지·행동과 함께 남는다 (FR-GC-03·04·05)', async ({ page }, info) => {

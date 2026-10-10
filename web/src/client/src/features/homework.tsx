@@ -1,241 +1,170 @@
 import { useState } from 'react';
-import { useHomework } from '../api/queries';
-import type { HomeworkBoard, HomeworkCard } from '../api/types';
-import { CardHead, Dialog, ErrorCard, Fresh, Icon, Pill, Ring, Skeleton } from '../components/ui';
+import { useCharacters, useHomework } from '../api/queries';
+import type { AccountGroup, CharacterCard, HomeworkAuto } from '../api/types';
+import { Dialog, ErrorCard, Fresh, Icon, JobIcon, Pill, Skeleton } from '../components/ui';
 import { useNow } from '../hooks/layout';
 import { resetHomework, setHomework } from '../lib/actions';
 import { useBusy } from '../lib/busy';
 import { until } from '../lib/format';
-import { useRouter } from '../state/router';
+import { charName } from './characters';
 
-/** 탭 (FR-HW-12). 일일·주간은 주기 기준, 나머지는 분류 기준. 상점·교환과 인게임 미션 탭은 없앴다(2026-10-11). */
-const TABS: { id: string; label: string; match: (c: HomeworkCard) => boolean }[] = [
-  { id: 'all', label: '전체', match: () => true },
-  { id: 'daily', label: '일일', match: c => c.period === 'daily' },
-  { id: 'weekly', label: '주간', match: c => c.period === 'weekly' },
-  { id: 'fieldBoss', label: '필드 보스', match: c => c.category === 'fieldBoss' },
-  { id: 'raid', label: '레이드', match: c => c.category === 'raid' },
-  { id: 'abyss', label: '어비스', match: c => c.category === 'abyss' },
-  { id: 'etc', label: '생활·계정', match: c => ['life', 'account', 'guild', 'goal'].includes(c.category) },
+/**
+ * 숙제 화면 (2026-10-11 개편): 계정의 캐릭터마다 가로로 긴 박스 한 줄, 그 안에 중요 숙제의 완료 여부.
+ * 세로로 쌓아 두어 어떤 캐릭터가 어떤 숙제를 아직 못 했는지 한눈에 본다.
+ * 지금 접속한 캐릭터의 칸은 눌러서 수동으로 고칠 수 있다(자동 판정이 놓친 경우). 다른 캐릭터는 마지막으로 본 값이다.
+ */
+export const HW_GROUPS: { title: string; cells: { id: string; label: string }[] }[] = [
+  { title: '일일·주간', cells: [{ id: 'daily_day_dungeon', label: '요일던전' }, { id: 'weekly_guild_regular', label: '길드의뢰' }] },
+  { title: '레이드', cells: [{ id: 'raid_cavrak', label: '카브락' }, { id: 'raid_airel', label: '에이렐' }, { id: 'raid_white_succubus', label: '화이트서큐' }] },
+  { title: '어비스', cells: [{ id: 'abyss_illusory_anchorage', label: '허상' }, { id: 'abyss_madness_cave', label: '광기' }, { id: 'abyss_scattered_waterway', label: '물길' }] },
 ];
 
-/** 한눈에 볼 중요 숙제 (2026-10-11 승운 지정). 필드 보스는 여섯 중 하나만 넘기면 되므로 따로 묶어 넘긴 보스 이름을 보여 준다. */
-const KEY_GROUPS: { title: string; items: { id: string; label: string }[] }[] = [
-  { title: '일일·주간', items: [{ id: 'daily_day_dungeon', label: '요일던전' }, { id: 'weekly_guild_regular', label: '길드의뢰' }] },
-  { title: '레이드', items: [{ id: 'raid_cavrak', label: '카브락' }, { id: 'raid_airel', label: '에이렐' }, { id: 'raid_white_succubus', label: '화이트서큐' }] },
-  { title: '어비스', items: [{ id: 'abyss_illusory_anchorage', label: '허상' }, { id: 'abyss_madness_cave', label: '광기' }, { id: 'abyss_scattered_waterway', label: '물길' }] },
-];
+type State = 'done' | 'todo' | 'unknown';
 
-/** 분류 막대의 순서 */
-const CATEGORY_ORDER = ['daily', 'weekly', 'goal', 'raid', 'abyss', 'fieldBoss', 'guild', 'life', 'account'];
+interface Cell { key: string; label: string; state: State; note?: string; toggleId?: string; boss?: boolean }
 
-const STATUS: Record<HomeworkCard['status'], { label: string; tone: 'ok' | 'info' | 'plain' | 'cyan' | 'warn' }> = {
-  autoDone: { label: '⚡ 자동 완료', tone: 'ok' },
-  manualDone: { label: '✍ 수동 완료', tone: 'ok' },
-  poolDone: { label: '택1 완료', tone: 'plain' },
-  inProgress: { label: '● 진행 중', tone: 'info' },
-  pending: { label: '미완료', tone: 'plain' },
-};
-
-const isDoneStatus = (c: HomeworkCard) => c.status === 'autoDone' || c.status === 'manualDone';
-
-/** 진척 단위: 같은 풀(필드 보스 택1)은 1건으로 센다 (서버 통계와 같은 규칙). */
-function progressUnits(cards: HomeworkCard[]) {
-  const singles = cards.filter(c => c.pool == null).map(c => ({ category: c.category, title: c.categoryTitle, done: c.isDone }));
-  const pools = new Map<string, HomeworkCard[]>();
-  for (const c of cards) if (c.pool != null) pools.set(c.pool, [...(pools.get(c.pool) ?? []), c]);
-  const pooled = [...pools.values()].map(g => ({ category: g[0].category, title: g[0].categoryTitle, done: g.some(c => c.isDone) }));
-  return [...singles, ...pooled];
+/** 한 캐릭터의 칸들: 일반 숙제 8개 + 필드 보스 1개 */
+export function cellsOf(c: Pick<CharacterCard, 'homework' | 'fieldBoss'>): Cell[] {
+  const byId = new Map<string, HomeworkAuto>(c.homework.map(h => [h.id, h]));
+  const cells: Cell[] = HW_GROUPS.flatMap(g => g.cells.map(x => {
+    const h = byId.get(x.id);
+    return { key: x.id, label: x.label, state: h?.state ?? 'unknown', toggleId: x.id } as Cell;
+  }));
+  cells.push({ key: 'field_boss', label: '필드보스', state: c.fieldBoss.state, note: c.fieldBoss.item ?? undefined, boss: true });
+  return cells;
 }
 
-/** 카드 설명은 주 화면에 두지 않고 마우스를 올리거나 키보드로 포커스하면 말풍선으로 보인다. */
-function tipOf(c: HomeworkCard, done: boolean): string {
-  const parts = [c.subtitle];
-  if (c.evidence && (done || c.mode === 'questSuffix' || c.mode === 'questVanish')) parts.push(done ? `근거: ${c.evidence}` : c.evidence);
-  if (c.needsMeasurement && !done) parts.push('수동 체크 항목 (자동 판정 실측 전)');
-  return parts.join('\n');
-}
+const STATE_TEXT: Record<State, string> = { done: '완료', todo: '미완료', unknown: '미확인' };
 
-/** 스마트 숙제 트래커 (FR-HW-12): 첫 화면 요약, 탭, 카드 그리드(카드 전체가 토글), 전체 초기화. */
 export function HomeworkView() {
-  const q = useHomework();
-  const tab = useRouter(s => s.loc.params.get('tab')) ?? 'all';
-  const setParam = useRouter(s => s.setParam);
+  const q = useCharacters();
+  const hw = useHomework();
   const now = useNow(30_000);
   const [confirm, setConfirm] = useState(false);
+  const [bossFor, setBossFor] = useState(false);
+
+  const accounts: AccountGroup[] = q.data ? [...q.data.data.accounts].sort((a, b) => Number(b.hasCurrent) - Number(a.hasCurrent)) : [];
+  const total = accounts.reduce((n, a) => n + a.members.length, 0);
 
   return (
     <>
       <div className="view-head">
-        <h2>숙제</h2>
+        <h2>숙제 <span className="num muted">({total}명)</span></h2>
         <span className="sub"><Fresh at={q.dataUpdatedAt} /> <button type="button" className="btn" onClick={() => setConfirm(true)}><Icon name="reset" />전체 체크 초기화</button></span>
       </div>
-      {q.data && tab === 'all' && <Dashboard board={q.data.data} now={now} />}
-      {q.data && tab !== 'all' && (
-        <div className="hw-top">
-          <div className="card ring-row"><Ring done={q.data.data.daily.done} total={q.data.data.daily.total} label="일일 숙제" /><div><b>일일</b><div className="faint small"><Icon name="clock" size={13} /> 리셋 {until(q.data.data.nextDailyResetUtc, now)}</div></div></div>
-          <div className="card ring-row"><Ring done={q.data.data.weekly.done} total={q.data.data.weekly.total} label="주간 숙제" /><div><b>주간</b><div className="faint small"><Icon name="clock" size={13} /> 리셋 {until(q.data.data.nextWeeklyResetUtc, now)}</div></div></div>
-        </div>
+      {hw.data && (
+        <p className="hw-resets faint small m0">
+          <span><Icon name="clock" size={13} /> 일일 리셋 {until(hw.data.data.nextDailyResetUtc, now)}</span>
+          <span><Icon name="clock" size={13} /> 주간 리셋 {until(hw.data.data.nextWeeklyResetUtc, now)}</span>
+        </p>
       )}
-      <div className="seg tabs-seg" role="tablist" aria-label="숙제 분류">
-        {TABS.map(t => (
-          <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} onClick={() => setParam('tab', t.id === 'all' ? null : t.id)}>{t.label}</button>
-        ))}
-      </div>
-      {q.isPending ? <Skeleton lines={6} /> : q.isError ? <ErrorCard error={q.error} onRetry={() => q.refetch()} /> : (
-        <div className="hw-grid">
-          {q.data.data.cards.filter((TABS.find(t => t.id === tab) ?? TABS[0]).match).map(c => <HomeworkCardView key={c.id} c={c} />)}
-        </div>
+      {q.isPending ? <Skeleton lines={6} /> : q.isError ? <ErrorCard error={q.error} onRetry={() => q.refetch()} /> : total === 0 ? (
+        <div className="card muted">아직 확인한 캐릭터가 없습니다. 게임에 접속하면 여기에 모입니다.</div>
+      ) : (
+        <>
+          {accounts.map(a => <AccountBoard key={a.id} a={a} onBoss={() => setBossFor(true)} showName={accounts.length > 1} />)}
+          <p className="faint small m0">
+            <span className="hw-legend done">✓ 완료</span> <span className="hw-legend todo">○ 미완료(이번 주기에 확인)</span> <span className="hw-legend unknown">· 미확인(아직 확인 전, 미완료로 봅니다)</span><br />
+            지금 접속한 캐릭터만 실시간이고, 칸을 눌러 수동으로 고칠 수 있습니다. 다른 캐릭터는 마지막으로 접속했을 때 본 값입니다.
+          </p>
+        </>
       )}
       {confirm && <ResetDialog onClose={() => setConfirm(false)} />}
+      {bossFor && <BossDialog onClose={() => setBossFor(false)} />}
     </>
   );
 }
 
-/** 첫 화면 요약 (2026-10-11): 전체 진척 링 + 분류별 막대 그래프 + 중요 숙제 한눈에. */
-function Dashboard({ board, now }: { board: HomeworkBoard; now: number }) {
-  const units = progressUnits(board.cards);
-  const done = units.filter(u => u.done).length;
-  const total = units.length;
-  const pct = total ? Math.round((done / total) * 100) : 0;
-
-  const byCat = new Map<string, { title: string; done: number; total: number }>();
-  for (const u of units) {
-    const e = byCat.get(u.category) ?? { title: u.title, done: 0, total: 0 };
-    e.total += 1;
-    if (u.done) e.done += 1;
-    byCat.set(u.category, e);
-  }
-  const cats = [...byCat.entries()].sort((a, b) => {
-    const ia = CATEGORY_ORDER.indexOf(a[0]), ib = CATEGORY_ORDER.indexOf(b[0]);
-    return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
-  });
-
-  const byId = new Map(board.cards.map(c => [c.id, c]));
-  const bosses = board.cards.filter(c => c.category === 'fieldBoss');
-  const bossCleared = bosses.find(isDoneStatus);
-  const bossDone = bossCleared != null || bosses.some(c => c.isDone);
-  const keyCards = KEY_GROUPS.flatMap(g => g.items).map(i => byId.get(i.id)).filter((c): c is HomeworkCard => c != null);
-  const keyTotal = keyCards.length + (bosses.length > 0 ? 1 : 0);
-  const keyDone = keyCards.filter(c => c.isDone).length + (bossDone ? 1 : 0);
-
+function AccountBoard({ a, onBoss, showName }: { a: AccountGroup; onBoss: () => void; showName: boolean }) {
+  const left = a.members.reduce((n, m) => n + cellsOf(m).filter(c => c.state !== 'done').length, 0);
   return (
-    <div className="hw-dash">
-      <div className="card hw-overall">
-        <CardHead title="전체 진척" right={<span className="num muted">{done} / {total}</span>} />
-        <div className="hw-overall-body">
-          <div className="hw-bigring">
-            <Ring done={done} total={total} size={92} label="전체 숙제" />
-            <b className="num" aria-hidden="true">{pct}%</b>
-          </div>
-          <div className="hw-bars">
-            {cats.map(([key, v]) => (
-              <div className="hw-bar-row" key={key}>
-                <span className="hw-bar-name">{v.title}</span>
-                <span className={`hw-bar ${v.done === v.total ? 'full' : ''}`} role="meter" aria-label={`${v.title} ${v.done}/${v.total}`} aria-valuemin={0} aria-valuemax={v.total} aria-valuenow={v.done}>
-                  <i style={{ width: `${v.total ? (v.done / v.total) * 100 : 0}%` }} />
-                </span>
-                <span className="num hw-bar-num">{v.done}/{v.total}</span>
-              </div>
-            ))}
-          </div>
+    <section className="hw-acct" aria-label={`${a.name} 계정 숙제`}>
+      {showName && (
+        <div className="hw-acct-h">
+          <h3>{a.name} 계정 {a.hasCurrent && <Pill tone="ok">접속 중</Pill>}</h3>
+          <span className="small muted">{left === 0 ? '모두 완료' : `남은 숙제 ${left}개`}</span>
         </div>
-        <div className="hw-resets faint small">
-          <span><Icon name="clock" size={13} /> 일일 {board.daily.done}/{board.daily.total} · 리셋 {until(board.nextDailyResetUtc, now)}</span>
-          <span><Icon name="clock" size={13} /> 주간 {board.weekly.done}/{board.weekly.total} · 리셋 {until(board.nextWeeklyResetUtc, now)}</span>
-        </div>
-      </div>
-
-      <div className="card hw-key">
-        <CardHead title="중요 숙제" right={<span className="num muted">{keyDone} / {keyTotal}</span>} />
-        <div className="hw-key-groups">
-          {KEY_GROUPS.map(g => (
-            <div className="hw-key-group" key={g.title}>
-              <span className="hw-key-title">{g.title}</span>
-              <div className="hw-key-tiles">
-                {g.items.map(i => {
-                  const c = byId.get(i.id);
-                  if (!c) return null;
-                  return <KeyTile key={i.id} label={i.label} state={keyState(c)} note={c.remaining != null && !c.isDone ? `남은 ${c.remaining}회` : undefined} />;
-                })}
-              </div>
-            </div>
-          ))}
-          {bosses.length > 0 && (
-            <div className="hw-key-group">
-              <span className="hw-key-title">필드 보스 (택1)</span>
-              <div className="hw-key-tiles">
-                <KeyTile label="필드보스" state={bossDone ? 'done' : bosses.some(c => c.status === 'inProgress') ? 'progress' : 'todo'} note={bossCleared?.title} />
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-type KeyState = 'done' | 'progress' | 'todo';
-const keyState = (c: HomeworkCard): KeyState => (c.isDone ? 'done' : c.status === 'inProgress' || c.suggestion ? 'progress' : 'todo');
-
-function KeyTile({ label, state, note }: { label: string; state: KeyState; note?: string }) {
-  const text = state === 'done' ? '완료' : state === 'progress' ? '진행 중' : '미완료';
-  return (
-    <div className={`hw-key-tile ${state}`} role="group" aria-label={`${label} ${text}${note ? ` ${note}` : ''}`}>
-      <span className="hw-key-name">{label}</span>
-      <span className="hw-key-state">{state === 'done' ? <Icon name="check" size={14} /> : state === 'progress' ? '●' : '○'} {text}</span>
-      {note && <span className="hw-key-note">{note}</span>}
-    </div>
-  );
-}
-
-function HomeworkCardView({ c }: { c: HomeworkCard }) {
-  const st = STATUS[c.status];
-  const done = c.status === 'autoDone' || c.status === 'manualDone';
-  const counter = c.mode === 'manualStepCounter';
-  const label = `${c.title} ${st.label}${c.suggestion ? ' · 클리어 추정' : ''}`;
-  const tip = tipOf(c, done);
-
-  // 단계 카운터 항목은 +/-로, 나머지는 카드 전체를 한 번 눌러 토글한다 (FR-HW-12)
-  const body = (
-    <>
-      <div className="hw-h">
-        <span className="hw-title">{c.title}</span>
-        {c.share === 'account' && <Pill>계정</Pill>}
-      </div>
-      <div className="hw-foot">
-        <Pill tone={st.tone}>{st.label}</Pill>
-        {c.goal > 1 && <span className="num muted">{c.count} / {c.goal}</span>}
-        {c.remaining != null && !done && <Pill tone="warn">남은 {c.remaining}회</Pill>}
-        {c.reward && <span className="faint small">{c.reward}</span>}
-      </div>
-      {c.suggestion && !done && (
-        <p className="hw-suggest"><Icon name="search" size={14} />클리어 추정 — 눌러서 확인 <span className="faint">({c.suggestion.code === 'raidMapEntered' ? `${c.suggestion.item} 진입` : `${c.suggestion.item} ${c.suggestion.from} → ${c.suggestion.to}`})</span></p>
       )}
-    </>
+      <div className="hw-rows">
+        {a.members.map(m => <CharacterRow key={m.key} c={m} onBoss={onBoss} />)}
+      </div>
+    </section>
   );
+}
 
-  if (c.status === 'poolDone') {
-    // 같은 풀(필드 보스 택1)의 다른 항목이 완료됐다. 이 카드를 따로 완료로 세지 않는다 (FR-HW-10)
-    return <div className="card hw pool" data-tip={tip}>{body}</div>;
-  }
-  if (counter) {
-    return (
-      <div className={`card hw ${done ? 'done' : ''}`} role="group" aria-label={label} data-tip={tip}>
-        {body}
-        <div className="stepper mt-8" role="group" aria-label={`${c.title} 단계`}>
-          <button type="button" onClick={() => setHomework(c.id, { count: Math.max(0, c.count - 1) })} disabled={c.count <= 0} aria-label="한 단계 빼기"><Icon name="minus" size={16} /></button>
-          <span className="v num">{c.count}</span>
-          <button type="button" onClick={() => setHomework(c.id, { count: Math.min(c.goal, c.count + 1) })} disabled={c.count >= c.goal} aria-label="한 단계 더하기"><Icon name="plus" size={16} /></button>
+function CharacterRow({ c, onBoss }: { c: CharacterCard; onBoss: () => void }) {
+  const cells = cellsOf(c);
+  const done = cells.filter(x => x.state === 'done').length;
+  const all = done === cells.length;
+  const name = charName(c);
+  return (
+    <div className={`card hw-row ${all ? 'all-done' : ''} ${c.isCurrent ? 'current' : ''}`} role="group" aria-label={`${name} 숙제 ${done}/${cells.length} 완료`}>
+      <div className="hw-who">
+        <JobIcon job={c.job} size={34} />
+        <span className="hw-who-t">
+          <span className="hw-who-name">{name}{c.isCurrent && <Pill tone="ok">접속 중</Pill>}</span>
+          <span className="small muted">{c.job} Lv.{c.level}</span>
+        </span>
+        <span className={`hw-count num ${all ? 'ok' : ''}`} aria-hidden="true">{done}/{cells.length}</span>
+      </div>
+      <div className="hw-cells">
+        {HW_GROUPS.map(g => (
+          <div className="hw-cg" key={g.title}>
+            {cells.filter(x => g.cells.some(y => y.id === x.key)).map(x => <CellView key={x.key} x={x} editable={c.isCurrent} />)}
+          </div>
+        ))}
+        <div className="hw-cg">
+          {cells.filter(x => x.boss).map(x => <CellView key={x.key} x={x} editable={c.isCurrent} onBoss={onBoss} />)}
         </div>
       </div>
-    );
-  }
+    </div>
+  );
+}
+
+function CellView({ x, editable, onBoss }: { x: Cell; editable: boolean; onBoss?: () => void }) {
+  const text = STATE_TEXT[x.state];
+  const label = `${x.label} ${text}${x.note ? ` (${x.note})` : ''}`;
+  const inner = (
+    <>
+      <span className="hw-cell-name">{x.label}</span>
+      <span className="hw-cell-state">{x.state === 'done' ? <Icon name="check" size={13} /> : x.state === 'todo' ? '○' : '·'} {x.note && x.state === 'done' ? x.note : text}</span>
+    </>
+  );
+  if (!editable) return <span className={`hw-cell ${x.state}`} role="img" aria-label={label}>{inner}</span>;
+  if (x.boss) return <button type="button" className={`hw-cell ${x.state} btn-cell`} aria-label={`${label} — 눌러서 수정`} onClick={onBoss}>{inner}</button>;
   return (
-    <button type="button" className={`card hw link ${done ? 'done' : ''} ${c.suggestion && !done ? 'suggest' : ''}`}
-      aria-pressed={done} data-tip={tip} onClick={() => setHomework(c.id, { completed: !done })}>
-      {body}
-    </button>
+    <button type="button" className={`hw-cell ${x.state} btn-cell`} aria-pressed={x.state === 'done'} aria-label={label}
+      onClick={() => void setHomework(x.toggleId!, { completed: x.state !== 'done' })}>{inner}</button>
+  );
+}
+
+/** 필드 보스: 여섯 중 하나만 넘기면 된다. 넘긴 보스를 고르거나 완료를 되돌린다 (지금 접속한 캐릭터). */
+function BossDialog({ onClose }: { onClose: () => void }) {
+  const hw = useHomework();
+  const bosses = (hw.data?.data.cards ?? []).filter(c => c.category === 'fieldBoss');
+  const cleared = bosses.filter(c => c.status === 'autoDone' || c.status === 'manualDone');
+  return (
+    <Dialog title="필드 보스 (주 1회, 택1)" onClose={onClose}
+      actions={<button type="button" className="btn" onClick={onClose}>닫기</button>}>
+      {hw.isPending ? <Skeleton lines={3} /> : (
+        <>
+          <p className="small muted m0">이번 주에 넘긴 보스를 고르세요. 여섯 중 하나만 넘기면 됩니다.</p>
+          <div className="hw-boss-list">
+            {bosses.map(b => {
+              const on = cleared.some(x => x.id === b.id);
+              return (
+                <button key={b.id} type="button" className={`btn ${on ? 'primary' : ''}`} aria-pressed={on}
+                  onClick={async () => {
+                    // 한 번에 하나만: 다른 보스에 체크가 남아 있으면 먼저 거둔다
+                    for (const o of cleared) if (o.id !== b.id) await setHomework(o.id, { completed: false });
+                    await setHomework(b.id, { completed: !on });
+                  }}>{on && <Icon name="check" size={14} />}{b.title}</button>
+              );
+            })}
+          </div>
+        </>
+      )}
+    </Dialog>
   );
 }
 

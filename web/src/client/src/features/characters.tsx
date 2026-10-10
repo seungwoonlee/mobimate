@@ -270,7 +270,7 @@ function CharacterCardView({ c, now }: { c: CharacterCard; now: number }) {
 }
 
 /** 카드·목록에서 쓰는 이름: 캐릭터명이 없으면 서버 · 직업(같은 서버·직업의 다른 캐릭터는 #2) */
-const charName = (c: Pick<CharacterCard, 'nickname' | 'realm' | 'job' | 'variant'>) =>
+export const charName = (c: Pick<CharacterCard, 'nickname' | 'realm' | 'job' | 'variant'>) =>
   c.nickname ?? `${c.realm} · ${c.job}${c.variant > 1 ? ` #${c.variant}` : ''}`;
 
 /** 계정 편집: 자동으로 묶인 계정이 틀렸을 때 캐릭터를 직접 다른 계정에 묶거나 따로 뺀다. 직접 정한 건 자동으로 바뀌지 않는다. */

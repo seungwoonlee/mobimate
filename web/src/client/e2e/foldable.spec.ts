@@ -26,6 +26,6 @@ test('좁은 커버 화면(344px)은 글랜스 모드로 핵심 4개만 보인�
   await page.goto('/overview');
   await expect(page.locator('.glance')).toBeVisible();
   await expect(page.getByText('89K')).toBeVisible();   // 88,737 → 축약
-  await page.getByRole('button', { name: '전체 개요 보기' }).click();
+  await page.getByRole('button', { name: '전체 보기' }).click();
   await expect(page.locator('.glance')).toHaveCount(0);
 });

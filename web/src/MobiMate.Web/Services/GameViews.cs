@@ -398,6 +398,7 @@ public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManag
         var data = accounts.Snapshot();
 
         var hwStatus = homework.GetAutoStatuses(profiles.Select(p => p.CharacterKey));
+        var bossStatus = homework.GetFieldBossStatuses(profiles.Select(p => p.CharacterKey));
         var cards = profiles.Select(p =>
         {
             var last = p.History.LastOrDefault();
@@ -435,6 +436,8 @@ public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManag
                     urgency = Math.Max(silver.Percent, tribute.Percent),
                     // 자동 판정되는 숙제의 현황 (요일 던전·카브락·정기 의뢰 등): done / todo(확인된 미완료) / unknown(아직 확인 못 함)
                     homework = hwStatus.GetValueOrDefault(c.Key) ?? Array.Empty<HomeworkAutoStatus>(),
+                    // 필드 보스 택1: 이번 주기에 넘긴 보스 (done이면 item에 보스 이름)
+                    fieldBoss = bossStatus.GetValueOrDefault(c.Key) ?? new HomeworkPoolStatus("unknown", null),
                     combatRank = rankings.BadgeOf(c.Key),   // 전투력 서버 순위 뱃지 (순위를 모르면 null)
                 };
             }).ToList();
