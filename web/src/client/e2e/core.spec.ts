@@ -40,6 +40,22 @@ test('숙제: 카드를 누르면 수동 완료, 다시 누르면 되돌아간�
   await expect(card).toHaveAttribute('aria-pressed', 'false');
 });
 
+test('숙제 첫 화면: 전체 진척 그래프·분류별 막대·중요 숙제가 보이고, 설명은 말풍선으로만 나온다 (2026-10-11)', async ({ page }) => {
+  await page.goto('/homework');
+  await expect(page.getByRole('img', { name: /전체 숙제 \d+\/\d+ 완료/ })).toBeVisible();
+  await expect(page.getByRole('meter', { name: /^레이드 \d+\/\d+$/ })).toBeVisible();
+  const key = page.locator('.hw-key');
+  for (const name of ['요일던전', '길드의뢰', '카브락', '에이렐', '화이트서큐', '허상', '광기', '물길', '필드보스'])
+    await expect(key.getByRole('group', { name: new RegExp(`^${name} `) })).toBeVisible();
+  // 상점·교환과 인게임 미션 탭은 없다
+  await expect(page.getByRole('tab', { name: '상점·교환' })).toHaveCount(0);
+  await expect(page.getByRole('tab', { name: '인게임 미션' })).toHaveCount(0);
+  // 카드 본문에는 설명이 없고 말풍선(data-tip)에만 있다
+  const card = page.locator('.hw-grid .card.hw', { hasText: '카브락' }).first();
+  await expect(card).toHaveAttribute('data-tip', /주간 레이드/);
+  await expect(card.getByText(/주간 레이드/)).toHaveCount(0);
+});
+
 test('게임 채팅: 미리보기 후 전송하면 로그에 이모지·행동과 함께 남는다 (FR-GC-03·04·05)', async ({ page }, info) => {
   await openDock(page, '게임 채팅');
   const input = page.locator('#chatIn');

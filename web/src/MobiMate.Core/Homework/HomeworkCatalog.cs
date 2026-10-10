@@ -153,7 +153,6 @@ public sealed class HomeworkCatalog
         ["goal"] = "주간 목표",
         ["guild"] = "길드",
         ["life"] = "생활",
-        ["shop"] = "상점·교환",
     };
 
     /// <summary>여러 콘텐츠에 겹치는 일반어. 매칭 키로 단독 사용 금지 (FR-HW-07).</summary>

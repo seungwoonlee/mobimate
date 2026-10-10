@@ -94,19 +94,6 @@
       "needsMeasurement": "근거 미션 제목과 공유 범위(캐릭터/계정) 미확인" },
 
     { "id": "daily_altering", "category": "life", "period": "daily", "share": "character", "mode": "alteringCollected",
-      "title": "가공시설 수거", "subtitle": "대기열 완료된 연금/가공물 수거", "icon": "altering", "goal": 1 },
-
-    { "id": "daily_cash_free_fashion", "category": "shop", "period": "daily", "share": "account", "mode": "manual",
-      "title": "일일 무료 패션 소환", "subtitle": "캐시샵 매일 1회 무료 패션 소환", "icon": "shop", "goal": 1 },
-    { "id": "daily_cash_gem_box", "category": "shop", "period": "daily", "share": "account", "mode": "manual",
-      "title": "조각난 보석 보물상자", "subtitle": "캐시샵 일일 무료 보석 상자 수령", "icon": "shop", "goal": 1 },
-    { "id": "daily_cash_silver_coin", "category": "shop", "period": "daily", "share": "account", "mode": "manual",
-      "title": "은동전 상자 교환", "subtitle": "데카/포인트 은동전 상자 일일 교환", "icon": "shop", "goal": 1 },
-    { "id": "weekly_heart_holy_water", "category": "shop", "period": "weekly", "share": "account", "mode": "manual",
-      "title": "하트 토큰 성수 교환", "subtitle": "하트 상점 주간 성수 교환", "icon": "shop", "goal": 1 },
-    { "id": "weekly_cash_fashion_ticket", "category": "shop", "period": "weekly", "share": "account", "mode": "manual",
-      "title": "할인 패션 티켓 구매", "subtitle": "캐시샵 주간 할인 패션 티켓 교환", "icon": "shop", "goal": 1 },
-    { "id": "weekly_cash_pet_ticket", "category": "shop", "period": "weekly", "share": "account", "mode": "manual",
-      "title": "할인 펫 티켓 구매", "subtitle": "캐시샵 주간 할인 펫 티켓 교환", "icon": "shop", "goal": 1 }
+      "title": "가공시설 수거", "subtitle": "대기열 완료된 연금/가공물 수거", "icon": "altering", "goal": 1 }
   ]
 }
