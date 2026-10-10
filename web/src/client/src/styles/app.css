@@ -613,11 +613,11 @@ button.toast { border: 0; text-align: left; cursor: pointer; }
 .hw-count { font-size: 15px; font-weight: 700; color: var(--text-2); }
 .hw-count.ok { color: var(--ok); }
 .hw-cells { display: flex; flex-wrap: wrap; gap: 6px 14px; flex: 1; min-width: 0; }
-.hw-cg { display: flex; gap: 6px; flex-wrap: wrap; }
-.hw-cell { display: grid; gap: 1px; min-width: 76px; padding: 5px 9px; border-radius: 9px; border: 1px solid var(--line); background: var(--bg-1); text-align: left; font: inherit; color: inherit; }
+.hw-cg { display: flex; gap: 6px; flex: var(--n, 1) 1 calc(var(--n, 1) * 76px); min-width: 0; }
+.hw-cell { display: grid; gap: 1px; flex: 1 1 0; min-width: 0; align-content: center; padding: 5px 9px; border-radius: 9px; border: 1px solid var(--line); background: var(--bg-1); text-align: left; font: inherit; color: inherit; }
 button.hw-cell { cursor: pointer; }
 button.hw-cell:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.hw-cell-name { font-weight: 700; font-size: 13.5px; white-space: nowrap; }
+.hw-cell-name { font-weight: 700; font-size: 13.5px; line-height: 1.25; }
 .hw-cell-state { font-size: 12.5px; color: var(--text-2); display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
 .hw-cell.done { background: var(--ok-soft); border-color: transparent; }
 .hw-cell.done .hw-cell-name { color: var(--text-3); text-decoration: line-through; }

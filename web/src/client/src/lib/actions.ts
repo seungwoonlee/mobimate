@@ -3,7 +3,7 @@ import { keys } from '../api/queries';
 import { queryClient } from './queryClient';
 import { isOffline, useUi } from '../state/ui';
 import { runExclusive } from './busy';
-import type { Envelope, HomeworkBoard, Inventory, Life } from '../api/types';
+import type { Characters, Envelope, HomeworkBoard, Inventory, Life } from '../api/types';
 
 const toast = (m: string, l?: 'ok' | 'warn' | 'danger' | 'info') => useUi.getState().toast(m, l);
 
@@ -100,14 +100,30 @@ export async function setFavorite(kind: 'items' | 'gather', name: string, favori
 /** 숙제 수동 설정 (FR-HW-08): 뒤집기가 아니라 목표 상태를 보낸다. */
 let homeworkInFlight = 0;
 
-export async function setHomework(id: string, body: { completed?: boolean; count?: number }) {
+/** characterKey가 없으면 지금 접속한 캐릭터, 있으면 그 캐릭터의 숙제를 수동으로 고친다 */
+export async function setHomework(id: string, body: { completed?: boolean; count?: number; characterKey?: string }) {
   if (blockedOffline()) return;
   // 낙관적 갱신: 연달아 눌러도 다음 목표 상태를 최신 값에서 계산하게 한다.
   // 진행 중인 재조회는 취소한다(늦게 온 옛 값이 낙관적 값을 덮지 않게). 신선도 시각은 서버 확인 전이므로 그대로 둔다.
   await queryClient.cancelQueries({ queryKey: keys.homework });
   const updatedAt = queryClient.getQueryState(keys.homework)?.dataUpdatedAt;
   homeworkInFlight++;
-  queryClient.setQueryData<Envelope<HomeworkBoard>>(keys.homework, old => old && {
+  // 캐릭터별 숙제 현황(숙제 화면)도 바로 바꿔 보인다
+  if (body.completed !== undefined) {
+    queryClient.setQueryData<Envelope<Characters>>(keys.characters, old => old && {
+      ...old,
+      data: {
+        ...old.data,
+        accounts: old.data.accounts.map(a => ({
+          ...a,
+          members: a.members.map(m => (body.characterKey ? m.key === body.characterKey : m.isCurrent)
+            ? { ...m, homework: m.homework.map(h => h.id === id ? { ...h, state: body.completed ? 'done' as const : 'todo' as const } : h) }
+            : m),
+        })),
+      },
+    });
+  }
+  if (!body.characterKey) queryClient.setQueryData<Envelope<HomeworkBoard>>(keys.homework, old => old && {
     ...old,
     data: {
       ...old.data,
