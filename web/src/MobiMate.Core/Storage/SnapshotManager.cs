@@ -93,6 +93,12 @@ public class SessionDelta
     public int MissionDiff => Baseline.HasMissionBaseline ? (Current.CompletedDailyMissions - Baseline.CompletedDailyMissions) : 0;
 }
 
+/// <summary>
+/// 캐릭터 스냅숏·기록 DB 관리. 같은 저장 폴더를 다른 프로세스(숙제 앱)도 쓸 수 있으므로(공유 저장 패치) 모든 수정은
+/// "서비스 잠금(_lock) → 공유 잠금(_shared) → 파일이 바뀌었으면 다시 읽기 → 변경 → 바뀐 파일만 저장" 순서로 한다.
+/// 두 파일(스냅숏·기록 DB)은 같은 공유 잠금 안에서 함께 저장한다. 다시 읽기는 TryLoad만 쓰므로, 잠김·교체 중이면
+/// 메모리를 비우지 않고 이번 저장을 미룬다(dirty 표시를 남겨 다음에 저장).
+/// </summary>
 public class SnapshotManager
 {
     private readonly string _storageDir;
@@ -107,6 +113,11 @@ public class SnapshotManager
     private readonly Dictionary<string, CharacterSnapshot> _sessionBaselines = new();
     private readonly object _lock = new();
     private readonly JsonFileStore _store = new();
+    private readonly SharedStorageLock _shared;
+    private readonly SharedFileTracker _snapTracker;
+    private readonly SharedFileTracker _dbTracker;
+    private bool _snapLoaded, _dbLoaded;   // 한 번이라도 파일에서 읽었는가 (못 읽었으면 빈 메모리를 저장해 덮어쓰지 않는다)
+    private bool _snapDirty, _dbDirty;     // 메모리에만 있는 변경 (저장을 미뤘거나 실패)
 
     public string StorageDirectory => _storageDir;
     public string SnapshotsFilePath => _storageFile;
@@ -133,9 +144,18 @@ public class SnapshotManager
         _legacyStorageFile = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "character_snapshots.json");
         _legacyDbStorageFile = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "character_history_db.json");
 
-        EnsureStorageDirectoryAndMigrate();
-        LoadSnapshots();
-        LoadCharacterDb();
+        _shared = SharedStorageLock.For(_storageDir);
+        _snapTracker = new SharedFileTracker(_storageFile);
+        _dbTracker = new SharedFileTracker(_dbStorageFile);
+
+        lock (_lock)
+        {
+            _shared.Run(() =>
+            {
+                EnsureStorageDirectoryAndMigrate();
+                RefreshLocked();
+            });
+        }
     }
 
     private void EnsureStorageDirectoryAndMigrate()
@@ -163,36 +183,85 @@ public class SnapshotManager
         }
     }
 
-    private void LoadSnapshots()
+    /// <summary>
+    /// 공유 잠금과 _lock 안에서 부른다. 파일이 마지막으로 읽거나 쓴 뒤 바뀌었으면 다시 읽는다(TryLoad만 사용).
+    /// 두 파일 모두 쓸 수 있는 최신 상태면 true. 잠김·교체 중이면 false: 메모리는 그대로 두고 호출자가 저장을 미룬다.
+    /// </summary>
+    private bool RefreshLocked() => RefreshLocked(out _);
+
+    private bool RefreshLocked(out bool reloaded)
     {
-        var list = _store.Load<List<CharacterSnapshot>>(_storageFile);
-        lock (_lock)
+        reloaded = false;
+        var ok = true;
+
+        var r1 = _snapTracker.Refresh<List<CharacterSnapshot>>(_snapLoaded, out var snaps);
+        if (r1 == RefreshResult.Reloaded)
         {
             _savedSnapshots.Clear();
-            if (list == null) return;
-            foreach (var s in list) _savedSnapshots[s.GetKey()] = s;
+            if (snaps != null) foreach (var s in snaps) _savedSnapshots[s.GetKey()] = s;
+            _snapLoaded = true;
+            _snapDirty = false;
+            reloaded = true;
         }
-    }
+        else if (r1 == RefreshResult.KeepMemory) _snapDirty = true;   // 파일이 사라짐·격리됨: 메모리가 기준, 다음 저장이 다시 만든다
+        else if (r1 == RefreshResult.Unavailable) ok = false;
 
-    private void LoadCharacterDb()
-    {
-        var list = _store.Load<List<CharacterProfile>>(_dbStorageFile);
-        lock (_lock)
+        var r2 = _dbTracker.Refresh<List<CharacterProfile>>(_dbLoaded, out var profiles);
+        if (r2 == RefreshResult.Reloaded)
         {
             _characterDb.Clear();
-            if (list == null) return;
-            foreach (var p in list) _characterDb[p.CharacterKey] = p;
+            if (profiles != null) foreach (var p in profiles) _characterDb[p.CharacterKey] = p;
+            _dbLoaded = true;
+            _dbDirty = false;
+            reloaded = true;
+        }
+        else if (r2 == RefreshResult.KeepMemory) _dbDirty = true;
+        else if (r2 == RefreshResult.Unavailable) ok = false;
+
+        return ok;
+    }
+
+    /// <summary>읽기 경로용: 파일이 바뀌었으면 다시 읽는다(잠금 없이 stat만으로 먼저 확인). 실패해도 메모리 값으로 계속한다.</summary>
+    private void EnsureFresh()
+    {
+        if (_snapLoaded && _dbLoaded && !_snapTracker.IsStale && !_dbTracker.IsStale) return;
+        try
+        {
+            lock (_lock) _shared.Run(() => RefreshLocked());
+        }
+        catch (IOException) { /* 잠금을 못 얻으면 메모리 값으로 */ }
+    }
+
+    /// <summary>
+    /// 다른 프로세스가 파일을 바꿨으면 다시 읽고 true. 변경 감지기가 부른다. 자기 쓰기는 바뀐 것으로 치지 않는다.
+    /// </summary>
+    public bool RefreshExternal()
+    {
+        if (_snapLoaded && _dbLoaded && !_snapTracker.IsStale && !_dbTracker.IsStale) return false;
+        lock (_lock)
+        {
+            return _shared.Run(() =>
+            {
+                RefreshLocked(out var reloaded);
+                return reloaded;
+            });
         }
     }
 
-    public void SaveSnapshotsNow()
+    /// <summary>공유 잠금과 _lock 안에서 부른다. 메모리에서 바뀐(dirty) 파일을 같은 잠금 안에서 함께 저장한다. 실패하면 dirty를 남겨 다음에 다시 저장한다.</summary>
+    private bool SaveLocked(bool snapshots = false, bool db = false)
     {
-        List<CharacterSnapshot> toSave;
-        List<CharacterProfile> dbToSave;
-        lock (_lock)
+        snapshots |= _snapDirty;
+        db |= _dbDirty;
+        var ok = true;
+        if (snapshots)
         {
-            toSave = _savedSnapshots.Values.Select(s => s.Clone()).ToList();
-            dbToSave = _characterDb.Values.Select(p => new CharacterProfile
+            if (_store.Save(_storageFile, _savedSnapshots.Values.Select(s => s.Clone()).ToList())) { _snapTracker.MarkWritten(); _snapDirty = false; }
+            else { _snapDirty = true; ok = false; }
+        }
+        if (db)
+        {
+            var dbToSave = _characterDb.Values.Select(p => new CharacterProfile
             {
                 CharacterKey = p.CharacterKey,
                 RealmName = p.RealmName,
@@ -202,21 +271,26 @@ public class SnapshotManager
                 LastSeen = p.LastSeen,
                 History = new List<CharacterHistoryRecord>(p.History)
             }).ToList();
+            if (_store.Save(_dbStorageFile, dbToSave)) { _dbTracker.MarkWritten(); _dbDirty = false; }
+            else { _dbDirty = true; ok = false; }
         }
-
-        _store.Save(_storageFile, toSave);
-        _store.Save(_dbStorageFile, dbToSave);
+        return ok;
     }
 
-    public void SaveSnapshotsAsync()
+    /// <summary>메모리의 스냅숏·기록 DB를 그대로 저장한다(다시 읽지 않는다). 내부 수정 경로는 이 메서드를 쓰지 않고 공유 잠금 안에서 저장한다.</summary>
+    public void SaveSnapshotsNow()
     {
-        Task.Run(SaveSnapshotsNow);
+        lock (_lock) _shared.Run(() => SaveLocked(true, true));
     }
+
+    /// <summary>호환용 이름. 순서가 뒤집히지 않도록 더는 Task.Run을 쓰지 않고 공유 잠금 안에서 동기로 저장한다.</summary>
+    public void SaveSnapshotsAsync() => SaveSnapshotsNow();
 
     public CharacterProfile? GetProfile(string realm, string job) => GetProfileByKey($"{realm}_{job}");
 
     public CharacterProfile? GetProfileByKey(string key)
     {
+        EnsureFresh();
         lock (_lock)
         {
             return _characterDb.TryGetValue(key, out var p) ? p : null;
@@ -229,6 +303,7 @@ public class SnapshotManager
     /// </summary>
     public string ResolveKey(CharacterInfo? ch, IEnumerable<CurrencyItem>? currencies = null)
     {
+        EnsureFresh();
         var baseKey = CharacterIdentity.BaseKey(ch?.RealmName, ch?.JobName);
         long? deca = null, mcash = null;
         if (currencies != null)
@@ -268,6 +343,7 @@ public class SnapshotManager
     public string? DetectJobSwap(string? currentKey, CharacterInfo? ch, IEnumerable<CurrencyItem>? now, IEnumerable<CurrencyItem>? before)
     {
         if (currentKey == null || !IsRealCharacter(ch) || WalletOf(now) is not { } cur) return null;
+        EnsureFresh();
         CharacterProfile? p; Wallet? last = null;
         lock (_lock)
         {
@@ -296,6 +372,7 @@ public class SnapshotManager
         const long MinGold = 100_000;   // 작은 값은 우연히 같을 수 있다
         if (gold < MinGold) return false;
         bool Near(long a) => a >= MinGold && Math.Abs(a - gold) <= Math.Max(a, gold) * CharacterIdentity.GoldDriftRatio;
+        EnsureFresh();
         lock (_lock)
         {
             long LastGold(CharacterProfile p) => p.History.AsEnumerable().Reverse().FirstOrDefault(r => r.Gold > 0)?.Gold ?? 0;
@@ -311,6 +388,7 @@ public class SnapshotManager
     public bool IsSubJob(string key, CharacterInfo? ch)
     {
         if (ch == null || string.IsNullOrWhiteSpace(ch.JobName)) return false;
+        EnsureFresh();
         lock (_lock) return _characterDb.TryGetValue(key, out var p) && !string.IsNullOrWhiteSpace(p.JobName) && p.JobName != ch.JobName;
     }
 
@@ -321,8 +399,9 @@ public class SnapshotManager
     public string? SplitLatest(string key)
     {
         string? newKey = null;
-        lock (_lock)
+        lock (_lock) return _shared.Run(() =>
         {
+            if (!RefreshLocked()) return null;   // 최신 기록을 읽지 못했다: 나누지 않고 미룬다
             if (!_characterDb.TryGetValue(key, out var p) || p.History.Count < 2) return null;
             var last = p.History[^1];
             p.History.RemoveAt(p.History.Count - 1);
@@ -342,9 +421,10 @@ public class SnapshotManager
             }
             _sessionBaselines.Remove(key);
             p.LastSeen = prev.Timestamp;
-        }
-        SaveSnapshotsNow();
-        return newKey;
+            _snapDirty = _dbDirty = true;
+            SaveLocked();
+            return newKey;
+        });
     }
 
     /// <summary>마지막으로 저장된 전투력 (서버를 다시 켠 직후 전투력 재확인의 기준, FR-DT-10). 없으면 null.</summary>
@@ -352,6 +432,7 @@ public class SnapshotManager
 
     public long? GetSavedCombat(string key)
     {
+        EnsureFresh();
         lock (_lock)
         {
             return _savedSnapshots.TryGetValue(key, out var s) && s.CombatScore > 0 ? s.CombatScore : null;
@@ -362,8 +443,9 @@ public class SnapshotManager
 
     public void SetCustomName(string key, string realm, string job, string customName)
     {
-        lock (_lock)
+        lock (_lock) _shared.Run(() =>
         {
+            var fresh = RefreshLocked();   // 못 읽었으면 메모리만 고치고 저장은 미룬다(dirty)
             if (!_characterDb.TryGetValue(key, out var p))
             {
                 p = new CharacterProfile
@@ -377,26 +459,35 @@ public class SnapshotManager
                 _characterDb[key] = p;
             }
             p.CustomName = customName.Trim();
-            SaveSnapshotsAsync();
-        }
+            _dbDirty = true;
+            if (fresh) SaveLocked();
+        });
     }
 
     /// <summary>필요 없는 캐릭터의 기록을 지운다(승운 요청). 다시 접속하면 새 기록으로 다시 생긴다. 지운 게 있으면 true.</summary>
     public bool RemoveCharacter(string characterKey)
     {
-        bool removed;
         lock (_lock)
         {
-            removed = _characterDb.Remove(characterKey);
-            removed |= _savedSnapshots.Remove(characterKey);
-            _sessionBaselines.Remove(characterKey);
+            return _shared.Run(() =>
+            {
+                if (!RefreshLocked()) return false;   // 최신 기록을 읽지 못했다: 지우지 않고 미룬다
+                var removed = _characterDb.Remove(characterKey);
+                removed |= _savedSnapshots.Remove(characterKey);
+                _sessionBaselines.Remove(characterKey);
+                if (removed)
+                {
+                    _snapDirty = _dbDirty = true;
+                    SaveLocked();
+                }
+                return removed;
+            });
         }
-        if (removed) SaveSnapshotsNow();
-        return removed;
     }
 
     public List<CharacterProfile> GetAllProfiles()
     {
+        EnsureFresh();
         lock (_lock)
         {
             return _characterDb.Values.OrderByDescending(p => p.LastSeen).ToList();
@@ -418,29 +509,31 @@ public class SnapshotManager
 
         var targets = new[] { _storageFile, _dbStorageFile, _customPersonasFile };
 
-        var copied = 0;
-        foreach (var target in targets)
+        lock (_lock)
         {
-            var source = Path.Combine(sourceDir, Path.GetFileName(target));
-            try
+            return _shared.Run(() =>
             {
-                if (File.Exists(target) || !File.Exists(source)) continue;
-                Directory.CreateDirectory(_storageDir);
-                File.Copy(source, target, overwrite: false);
-                copied++;
-            }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-            {
-                // 복사 실패는 빈 저장소로 시작하는 것과 같다
-            }
-        }
+                var copied = 0;
+                foreach (var target in targets)
+                {
+                    var source = Path.Combine(sourceDir, Path.GetFileName(target));
+                    try
+                    {
+                        if (File.Exists(target) || !File.Exists(source)) continue;
+                        Directory.CreateDirectory(_storageDir);
+                        File.Copy(source, target, overwrite: false);
+                        copied++;
+                    }
+                    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                    {
+                        // 복사 실패는 빈 저장소로 시작하는 것과 같다
+                    }
+                }
 
-        if (copied > 0)
-        {
-            LoadSnapshots();
-            LoadCharacterDb();
+                if (copied > 0) RefreshLocked();   // 새로 생긴 파일을 읽는다
+                return copied;
+            });
         }
-        return copied;
     }
 
     /// <summary>
@@ -478,8 +571,9 @@ public class SnapshotManager
         }
         var suffix = key.StartsWith($"{realm}_{job}", StringComparison.Ordinal) ? key[$"{realm}_{job}".Length..] : "";
 
-        lock (_lock)
+        lock (_lock) return _shared.Run(() =>
         {
+            var fresh = RefreshLocked();   // 못 읽었으면(잠김) 메모리만 갱신하고 저장은 미룬다
             _savedSnapshots.TryGetValue(key, out var prevSaved);
 
             // 1. 현재 데이터 구성 (미수신 필드는 이전 저장값 보존)
@@ -565,9 +659,11 @@ public class SnapshotManager
                 }
             }
 
+            var snapChanged = prevSaved == null || !SameSnapshot(prevSaved, current);   // 시각(Timestamp)만 다른 것은 바뀐 것이 아니다
             _savedSnapshots[key] = current;
 
             // 3. 캐릭터 프로필 및 누적 히스토리 DB 갱신
+            var profileCreated = false;
             if (!_characterDb.TryGetValue(key, out var profile))
             {
                 profile = new CharacterProfile
@@ -579,8 +675,9 @@ public class SnapshotManager
                     LastSeen = DateTime.Now
                 };
                 _characterDb[key] = profile;
+                profileCreated = true;
             }
-            profile.LastSeen = DateTime.Now;
+            profile.LastSeen = DateTime.Now;   // 기록할 것이 없는 호출은 메모리에만 반영한다(저장은 값이 바뀌거나 5분마다 쌓는 기록과 함께)
 
             // 히스토리 중복 방지 (수치 변동 또는 최소 5분 경과 시 누적 기록)
             var lastRecord = profile.History.LastOrDefault();
@@ -631,11 +728,20 @@ public class SnapshotManager
                 });
             }
 
-            SaveSnapshotsAsync();
+            // 기록할 것이 없으면 저장하지 않는다 (4초 주기 감시가 파일을 갈아 쓰지 않게)
+            if (snapChanged) _snapDirty = true;
+            if (profileCreated || shouldRecord) _dbDirty = true;
+            if (fresh && (_snapDirty || _dbDirty)) SaveLocked();
 
             return new SessionDelta(baseline, current);
-        }
+        });
     }
+
+    private static bool SameSnapshot(CharacterSnapshot a, CharacterSnapshot b) =>
+        a.RealmName == b.RealmName && a.JobName == b.JobName && a.KeySuffix == b.KeySuffix && a.Level == b.Level && a.Title == b.Title
+        && a.CombatScore == b.CombatScore && a.ArcaneResistance == b.ArcaneResistance && a.WeightCurrent == b.WeightCurrent
+        && a.Gold == b.Gold && a.Wings == b.Wings && a.NyangToken == b.NyangToken
+        && a.CompletedDailyMissions == b.CompletedDailyMissions && a.HasCurrencyBaseline == b.HasCurrencyBaseline && a.HasMissionBaseline == b.HasMissionBaseline;
 
     public static string FormatDiff(long diff, string unit = "")
     {
