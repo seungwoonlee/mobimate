@@ -81,10 +81,3 @@ public sealed class FakeCliCollection
 {
     public const string Name = "FakeCli";
 }
-
-/// <summary>전역 정적 상태(ChatText.Mode 등)를 바꾸는 테스트. 다른 테스트와 겹치지 않게 따로 돈다.</summary>
-[CollectionDefinition(Name, DisableParallelization = true)]
-public sealed class GlobalStateCollection
-{
-    public const string Name = "GlobalState";
-}

@@ -150,22 +150,6 @@ public class GameCliTests
     }
 
     [Fact]
-    public async Task SendGameChat_UsesWriteChatArgv_AndRejectsEmpty()
-    {
-        using var env = new FakeCliEnv();
-        var cli = env.CreateCli();
-
-        var empty = await cli.SendGameChatAsync("  \n ");
-        Assert.False(empty.Ok);
-
-        var ok = await cli.SendGameChatAsync("안녕하세요\n반가워요 😊");
-        Assert.True(ok.Ok, ok.Error);
-
-        var call = env.ReadCalls().Single(c => c.Command == "write_chat" && c.Phase == "start");
-        Assert.Equal("안녕하세요 반가워요 😊", call.Args);
-    }
-
-    [Fact]
     public async Task FakeCliSamples_ThroughHomeworkEvaluation_ProduceNoFalsePositives()
     {
         // 실측과 같은 조건: 계정 도전과제 "레이드 1회 1/1", 목표 일부만 끝난 뱅가드 퀘스트(태그 포함), 이벤트 퀘스트가 슬롯 점유

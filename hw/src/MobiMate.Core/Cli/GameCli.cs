@@ -222,13 +222,4 @@ public static class GameCliExtensions
             return (false, default, $"JSON 파싱 오류: {ex.Message} (응답: {head})");
         }
     }
-
-    /// <summary>게임 전체 채팅 1건 전송 (write_chat + argv). 개행 치환·50자 절단은 ChatText 규칙을 따른다.</summary>
-    public static async Task<(bool Ok, string? Error)> SendGameChatAsync(this IGameCli cli, string message, CancellationToken ct = default)
-    {
-        var text = ChatText.Truncate(ChatText.Sanitize(message), ChatText.MaxLength);
-        if (text.Length == 0) return (false, "채팅 내용이 비어 있습니다.");
-        var r = await cli.RunAsync(new CliCommand("write_chat", Args: new[] { text }), ct);
-        return (r.Ok, r.Error);
-    }
 }
