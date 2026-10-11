@@ -1,0 +1,25 @@
+<Window x:Class="MobiMateHomeWork.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="MobiMate 숙제 (임시 상태 창)" Width="640" Height="420" MinWidth="480" MinHeight="300"
+        Background="#1E1E22" Foreground="#E8E8EC" FontSize="13">
+    <!-- H2a 임시 창: 화면은 H3에서 다시 만든다. 게임 연결·계정/캐릭터 수·최근 이벤트만 보여 준다. -->
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <StackPanel Grid.Row="0">
+            <TextBlock x:Name="StatusText" FontSize="16" FontWeight="SemiBold" Text="게임 연결: 확인 중" />
+            <TextBlock x:Name="CliText" Margin="0,4,0,0" Foreground="#A8A8B3" TextTrimming="CharacterEllipsis" />
+            <TextBlock x:Name="StorageText" Margin="0,2,0,0" Foreground="#A8A8B3" TextTrimming="CharacterEllipsis" />
+            <TextBlock x:Name="CountText" Margin="0,8,0,0" Text="계정 - · 캐릭터 -" />
+            <TextBlock x:Name="CurrentText" Margin="0,2,0,0" />
+        </StackPanel>
+        <TextBlock x:Name="WarningText" Grid.Row="1" Margin="0,10,0,0" Foreground="#FFB454" TextWrapping="Wrap" Visibility="Collapsed" />
+        <ListBox x:Name="EventList" Grid.Row="2" Margin="0,12,0,0" Background="#26262B" BorderBrush="#3A3A42" Foreground="#E8E8EC" />
+        <Button x:Name="QuitButton" Grid.Row="3" Margin="0,12,0,0" HorizontalAlignment="Right" Padding="16,4" Content="종료" Click="OnQuit" />
+    </Grid>
+</Window>
