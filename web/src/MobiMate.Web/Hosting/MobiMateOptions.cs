@@ -48,6 +48,17 @@ public sealed class MobiMateOptions
     /// <summary>캐릭터 전환 감시 간격 (v1.6). 0이면 끈다(테스트).</summary>
     public TimeSpan WatchInterval { get; set; } = TimeSpan.FromSeconds(4);
 
+    /// <summary>
+    /// 같은 저장 폴더를 쓰는 다른 프로그램(숙제 앱)의 변경을 감지해 화면에 알린다 (공유 저장 패치). 테스트 호스트는 끈다.
+    /// </summary>
+    public bool ExternalWatch { get; set; } = true;
+
+    /// <summary>외부 변경 이벤트를 묶는 시간 (파일이 여러 번 바뀌어도 마지막 이벤트 뒤 한 번만 처리).</summary>
+    public TimeSpan ExternalWatchDebounce { get; set; } = TimeSpan.FromMilliseconds(300);
+
+    /// <summary>폴더 감시가 끊겨도 변경을 따라가기 위한 폴링 간격.</summary>
+    public TimeSpan ExternalWatchPoll { get; set; } = TimeSpan.FromSeconds(10);
+
     public TimeSpan QueryCacheTtl { get; set; } = TimeSpan.FromSeconds(3);
     public TimeSpan SsePingInterval { get; set; } = TimeSpan.FromSeconds(20);
 }
