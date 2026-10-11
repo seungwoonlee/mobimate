@@ -1,0 +1,48 @@
+<Window x:Class="MobiMateHomeWork.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="설정" Width="460" SizeToContent="Height" ResizeMode="NoResize" ShowInTaskbar="False"
+        WindowStyle="None" WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource Brush.Bg}" Foreground="{DynamicResource Brush.Text}"
+        FontFamily="{StaticResource Font.Text}" FontSize="{DynamicResource Font.Base}"
+        UseLayoutRounding="True" SnapsToDevicePixels="True" TextOptions.TextFormattingMode="Display"
+        Topmost="{Binding AlwaysOnTop}">
+    <WindowChrome.WindowChrome>
+        <WindowChrome CaptionHeight="32" ResizeBorderThickness="0" GlassFrameThickness="0" CornerRadius="0" UseAeroCaptionButtons="False" />
+    </WindowChrome.WindowChrome>
+
+    <Border BorderBrush="{DynamicResource Brush.Line}" BorderThickness="1">
+        <StackPanel>
+            <!-- 제목줄 -->
+            <Grid Height="32" Background="{DynamicResource Brush.Surface}">
+                <StackPanel Orientation="Horizontal" Margin="12,0,0,0" VerticalAlignment="Center">
+                    <TextBlock Text="&#xE713;" FontFamily="{StaticResource Font.Icon}" FontSize="14" Foreground="{DynamicResource Brush.Accent}" VerticalAlignment="Center" />
+                    <TextBlock Text="설정" FontWeight="SemiBold" Margin="8,0,0,0" VerticalAlignment="Center" />
+                </StackPanel>
+                <Button Style="{StaticResource Button.CaptionClose}" Content="&#xE8BB;" HorizontalAlignment="Right" Click="OnCloseClick"
+                        WindowChrome.IsHitTestVisibleInChrome="True" ToolTip="닫기" AutomationProperties.Name="닫기" />
+            </Grid>
+
+            <StackPanel Margin="16,16,16,16">
+                <TextBlock Text="게임 CLI 경로" FontWeight="SemiBold" />
+                <TextBlock Text="비워 두면 웹앱 설정 → 기본 경로 순으로 찾습니다." Style="{StaticResource Text.Small}" Margin="0,2,0,8" TextWrapping="Wrap" />
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBox x:Name="CliBox" AutomationProperties.Name="게임 CLI 경로" KeyDown="OnCliKeyDown" LostFocus="OnCliLostFocus" />
+                    <Button Grid.Column="1" Content="찾아보기" Margin="8,0,0,0" Click="OnBrowse" />
+                </Grid>
+                <TextBlock x:Name="CliState" Style="{StaticResource Text.Small}" Margin="0,6,0,0" TextWrapping="Wrap" />
+
+                <Rectangle Height="1" Fill="{DynamicResource Brush.Line}" Margin="0,16,0,16" />
+
+                <CheckBox x:Name="TopBox" Style="{StaticResource CheckBox.Toggle}" Content="항상 위 (게임 옆에 띄워 두기)" Click="OnTopClick" AutomationProperties.Name="항상 위" />
+                <CheckBox x:Name="TrayBox" Style="{StaticResource CheckBox.Toggle}" Content="닫으면 트레이로 (끄면 닫을 때 종료)" Margin="0,12,0,0" Click="OnTrayClick" AutomationProperties.Name="닫으면 트레이로" />
+
+                <Button Content="닫기" Style="{StaticResource Button.Accent}" HorizontalAlignment="Right" Margin="0,20,0,0" MinWidth="72" IsDefault="True" IsCancel="True" Click="OnCloseClick" />
+            </StackPanel>
+        </StackPanel>
+    </Border>
+</Window>

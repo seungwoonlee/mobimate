@@ -1,7 +1,20 @@
 <Application x:Class="MobiMateHomeWork.App"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:views="clr-namespace:MobiMateHomeWork.Views"
              ShutdownMode="OnExplicitShutdown">
-    <!-- StartupUri 없음: 시작은 App.OnStartup이 Generic Host를 띄운 뒤 창을 연다. 닫기 = 트레이 숨김은 H3에서 붙이므로 종료는 명시적(App.Quit)이다. -->
-    <Application.Resources />
+    <!-- StartupUri 없음: 시작은 App.OnStartup이 Generic Host를 띄운 뒤 창을 연다. 종료는 명시적(App.Quit)이다. -->
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="Themes/Colors.xaml" />
+                <ResourceDictionary Source="Themes/Typography.xaml" />
+                <ResourceDictionary Source="Themes/Controls.xaml" />
+                <!-- 배치 단계 파일: 항상 마지막 자리(App.TierDictionaryIndex)에 하나만 둔다. 창 폭에 따라 App.ApplyTier가 바꿔 끼운다. -->
+                <ResourceDictionary Source="Themes/Tier.Narrow.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+            <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
+            <views:InvertBoolToVisibilityConverter x:Key="InvertBoolToVisibility" />
+        </ResourceDictionary>
+    </Application.Resources>
 </Application>

@@ -10,7 +10,7 @@ public sealed class AppSettingsData
 {
     public string? CliPath { get; set; }
 
-    // 창 위치·크기 (H3에서 채운다. 없으면 첫 실행 규칙으로 4분할 위치)
+    // 창 위치·크기: 물리 픽셀(가상 화면 좌표), 일반(최대화 아닌) 상태의 값. 없으면 첫 실행 규칙(작업 영역 4분할, 오른쪽 위).
     public double? WindowLeft { get; set; }
     public double? WindowTop { get; set; }
     public double? WindowWidth { get; set; }
@@ -19,6 +19,9 @@ public sealed class AppSettingsData
 
     public bool AlwaysOnTop { get; set; }
     public bool CloseToTray { get; set; } = true;
+
+    /// <summary>"트레이에서 계속 확인합니다" 안내 풍선을 보여 줬는가(처음 숨길 때 한 번만).</summary>
+    public bool TrayHintShown { get; set; }
 
     /// <summary>캐릭터 키별 부가 정보. 게임 기록(character_history_db.json)에 없는 값만 둔다.</summary>
     public Dictionary<string, CharacterAppInfo> Characters { get; set; } = new(StringComparer.OrdinalIgnoreCase);
