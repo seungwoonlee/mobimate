@@ -63,13 +63,13 @@ public sealed class FakeCliEnv : IDisposable
 
     private static string Locate()
     {
-        // tests/MobiMate.Core.Tests/bin/<Config>/net8.0 → web/tools/FakeCli/bin/<Config>/net8.0
+        // tests/MobiMate.Core.Tests/bin/<Config>/net8.0 → hw/tools/FakeCli/bin/<Config>/net8.0
         var baseDir = AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar);
         var tfm = Path.GetFileName(baseDir);
         var config = Path.GetFileName(Path.GetDirectoryName(baseDir)!);
         var dir = new DirectoryInfo(baseDir);
         while (dir != null && !Directory.Exists(Path.Combine(dir.FullName, "tools", "FakeCli"))) dir = dir.Parent;
-        if (dir == null) throw new InvalidOperationException("web/tools/FakeCli 폴더를 찾지 못했습니다.");
+        if (dir == null) throw new InvalidOperationException("hw/tools/FakeCli 폴더를 찾지 못했습니다.");
         var exe = Path.Combine(dir.FullName, "tools", "FakeCli", "bin", config, tfm, "MabinogiMobile_CLI.exe");
         if (!File.Exists(exe)) throw new FileNotFoundException("가짜 CLI가 빌드되지 않았습니다. 솔루션 전체를 빌드하세요.", exe);
         return exe;

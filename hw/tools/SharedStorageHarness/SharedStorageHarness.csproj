@@ -12,8 +12,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\MobiMate.Core\MobiMate.Core.csproj" />
-    <!-- AccountStore는 Web 프로젝트에 있지만 Core 형식만 쓰므로 소스를 연결해서 쓴다 -->
-    <Compile Include="..\..\src\MobiMate.Web\Hosting\AccountStore.cs" Link="AccountStore.cs" />
   </ItemGroup>
 
 </Project>

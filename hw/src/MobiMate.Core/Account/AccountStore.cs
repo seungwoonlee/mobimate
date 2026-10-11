@@ -1,4 +1,4 @@
-namespace MobiMate.Web.Hosting;
+namespace MobiMate;
 
 /// <summary>
 /// accounts.json 저장소 (v1.5): 캐릭터-계정 묶음과 계정별 멤버십. 모든 기기가 같이 본다.

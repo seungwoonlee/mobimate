@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using System.Text.Json;
-using MobiMate.Web.Hosting;
 
 namespace MobiMate.Tests;
 
@@ -80,6 +79,18 @@ public class SharedStorageTests : IDisposable
         foreach (var role in new[] { "A", "B" })
             for (var i = 2; i < PerProcess; i += 3)
                 Assert.Equal(role, assign[$"acct_{role}_{i}"].Account);
+    }
+
+    /// <summary>웹 Web.Tests ExternalWatchOff_ReadsStillSeeTheChange의 저장소 부분: 다른 저장소 객체가 쓴 지정이 조회 시 다시 읽혀 보인다.</summary>
+    [Fact]
+    public void AccountStore_ReadsAnotherInstancesWrite()
+    {
+        var a = new AccountStore(_dir);
+        Assert.True(a.Update(d => { d.Assign["a_b"] = new AccountAssignment { Account = "x", Manual = true }; return true; }));
+        var b = new AccountStore(_dir);
+        Assert.True(b.Update(d => { d.Assign["c_d"] = new AccountAssignment { Account = "y", Manual = true }; return true; }));
+        var assign = a.Snapshot().Assign;
+        Assert.True(assign.ContainsKey("a_b") && assign.ContainsKey("c_d"), "두 쪽의 지정이 모두 남아야 한다");
     }
 
     /// <summary>하네스를 실행한다. 출력은 비동기로 받고, 시간 안에 끝나지 않으면 프로세스 트리를 죽이고 실패시킨다(읽기 대기로 멈추지 않게).</summary>

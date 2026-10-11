@@ -24,10 +24,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- 가짜 CLI 호출 로그 판독기 (Web 테스트와 공유) -->
+    <!-- 가짜 CLI 호출 로그 판독기 (웹앱 이력 참고용 공유 파일) -->
     <Compile Include="..\FakeCliLogReader.cs" Link="FakeCliLogReader.cs" />
-    <!-- AccountStore는 Web 프로젝트에 있지만 Core 형식만 쓴다: 공유 저장 테스트에서 소스를 연결해 쓴다 -->
-    <Compile Include="..\..\src\MobiMate.Web\Hosting\AccountStore.cs" Link="AccountStore.cs" />
   </ItemGroup>
 
   <ItemGroup>

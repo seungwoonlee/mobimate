@@ -1,5 +1,4 @@
 using MobiMate;
-using MobiMate.Web.Hosting;
 
 // 사용법: SharedStorageHarness <저장 폴더> <역할 문자> <반복 횟수>
 // 반복마다 세 가지 쓰기를 번갈아 한다. 키는 모두 역할 문자와 번호로 유일해서, 끝난 뒤 파일에 전부 남아 있어야 한다.
