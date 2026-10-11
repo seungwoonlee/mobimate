@@ -25,6 +25,7 @@ public static class AppServices
         s.AddSingleton(_ => new HomeworkStore(options.StorageDir));
         s.AddSingleton(sp => new HomeworkService(sp.GetRequiredService<HomeworkCatalog>(), sp.GetRequiredService<HomeworkStore>()));
         s.AddSingleton<CombatScoreGuard>();
+        s.AddSingleton<WeightGuard>();
         s.AddSingleton<HomeworkWatcher>();
         s.AddSingleton<CharacterSession>();
         s.AddSingleton<HomeworkCommands>();

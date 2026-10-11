@@ -10,7 +10,7 @@ namespace MobiMateHomeWork.Services;
 /// </summary>
 public sealed class CharacterSession(GameQueries q, GameStateCache state, SnapshotManager snapshots, AppEvents events,
     AccountStore accounts, HomeworkService homework, CombatScoreGuard guard, AppOptions options, AppSettingsStore settings,
-    IHostApplicationLifetime life, ILogger<CharacterSession> log)
+    IHostApplicationLifetime life, WeightGuard weights, ILogger<CharacterSession> log)
 {
     private string? _loggedKey;   // 마지막으로 "기록" 로그를 남긴 캐릭터 (캐릭터가 바뀔 때만 한 줄)
 
@@ -125,7 +125,12 @@ public sealed class CharacterSession(GameQueries q, GameStateCache state, Snapsh
         }
         // 현재 맵·가방 최대 무게는 게임 기록에 없다: 숙제 앱 설정 파일에 캐릭터별로 남긴다(바뀔 때만 저장). 캐릭터가 확정된 읽기에서만 남긴다.
         // 전환 직후 읽기는 맵·무게가 이전 캐릭터 것일 수 있어 건너뛴다(다음 읽기에서 저장).
-        if (!switched) settings.RememberCharacter(key, env.Value?.GameSpaceDisplayName, ch.Value!.Vitals?.WeightMax);
+        if (!switched)
+        {
+            // 비정상 무게 읽기의 최대는 저장하지 않는다 (맵 이동 때 튀는 값)
+            var abnormal = weights.Resolve(key, env.Value?.GameSpaceDisplayName, ch.Value!.Vitals, settings.CharacterInfo(key)?.WeightMax).Abnormal;
+            settings.RememberCharacter(key, env.Value?.GameSpaceDisplayName, abnormal ? null : ch.Value.Vitals?.WeightMax);
+        }
         var dto = BuildHeader(ch.Value!, key, env.Value, delta);
         events.RaiseHeaderChanged(dto);
         return new CliData<HeaderView>(dto, null, ch.FetchedAt);
@@ -173,7 +178,7 @@ public sealed class CharacterSession(GameQueries q, GameStateCache state, Snapsh
             ch.CombatScore?.Value ?? 0, delta.CombatScoreDiff, ch.ArcaneResistance?.Value ?? 0, delta.ArcaneResistanceDiff,
             ScoreReading.OrLast(ch.LivingScore?.Value, lastRec?.LivingScore), ScoreReading.OrLast(ch.AttractivenessScore?.Value, lastRec?.AttractivenessScore),
             InProgressOf(homework.Catalog, env), map,
-            v == null ? null : WeightView.Of(v.WeightCurrent, v.WeightMax > 0 ? v.WeightMax : saved?.WeightMax));
+            weights.Resolve(key, map, v, saved?.WeightMax).View);
     }
 
     /// <summary>재화를 읽어 기록한다. 캐릭터 정보가 따라올 때까지(재화가 다른 캐릭터 것으로 보이면) 기록하지 않는다.</summary>
@@ -259,7 +264,8 @@ public sealed class CharacterSession(GameQueries q, GameStateCache state, Snapsh
                 var stale = g.Count() > 1 && c.Key != reference.Key && (c.Deca != reference.Deca || c.MCash != reference.MCash);
                 var saved = settings.CharacterInfo(c.Key);
                 // 가방 무게: 접속 중이면 실시간(최대를 못 읽으면 저장된 값), 아니면 마지막 기록의 현재 무게 + 저장된 최대. 기록이 전혀 없으면 null.
-                WeightView? weight = c.LiveVitals is { } v ? WeightView.Of(v.WeightCurrent, v.WeightMax > 0 ? v.WeightMax : saved?.WeightMax)
+                var liveWeight = c.LiveVitals is { } v ? weights.Resolve(c.Key, c.LiveMap, v, saved?.WeightMax) : null;
+                WeightView? weight = liveWeight != null ? liveWeight.View ?? (c.LastWeight is > 0 ? WeightView.Of(c.LastWeight.Value, saved?.WeightMax) : null)
                     : c.LastWeight is > 0 ? WeightView.Of(c.LastWeight.Value, saved?.WeightMax) : null;   // 기록의 0은 "모름"
                 var map = c.LiveMap is { Length: > 0 } lm ? lm : saved?.LastMap;
                 return new CharacterView(
