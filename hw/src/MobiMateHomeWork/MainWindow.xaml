@@ -3,6 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="clr-namespace:MobiMateHomeWork.ViewModels"
         xmlns:svc="clr-namespace:MobiMateHomeWork.Services"
+        xmlns:views="clr-namespace:MobiMateHomeWork.Views"
         Title="숙제" Width="960" Height="520" MinWidth="760" MinHeight="380"
         WindowStyle="None" ResizeMode="CanResize" WindowStartupLocation="Manual"
         Background="{DynamicResource Brush.Bg}" Foreground="{DynamicResource Brush.Text}"
@@ -90,72 +91,57 @@
                 </Grid>
             </Border>
 
-            <!-- 계정 탭 줄 28 -->
+            <!-- 계정 탭 줄 28: 이름 · 남은 숙제 칸 수 배지(모두 마치면 ✓) · 접속 중 계정은 초록 점 -->
             <Grid Grid.Row="2" Margin="12,0,12,0">
-                <ListBox Style="{StaticResource PillTabs}" ItemsSource="{Binding Accounts}" SelectedItem="{Binding SelectedAccount}" VerticalAlignment="Center"
+                <ListBox Style="{StaticResource PillTabs}" ItemsSource="{Binding Board.Accounts}" SelectedItem="{Binding Board.SelectedAccount}" VerticalAlignment="Center"
                          AutomationProperties.Name="계정">
                     <ListBox.Visibility>
                         <Binding Path="IsFirstReadPending" Converter="{StaticResource InvertBoolToVisibility}" />
                     </ListBox.Visibility>
                     <ListBox.ItemTemplate>
                         <DataTemplate DataType="{x:Type vm:AccountTab}">
-                            <StackPanel Orientation="Horizontal">
+                            <StackPanel Orientation="Horizontal" ToolTip="{Binding Tooltip}">
                                 <Ellipse Width="6" Height="6" Fill="{DynamicResource Brush.Done}" Margin="0,0,6,0" VerticalAlignment="Center"
-                                         Visibility="{Binding IsCurrent, Converter={StaticResource BoolToVisibility}}" ToolTip="접속 중인 계정" />
+                                         Visibility="{Binding IsCurrent, Converter={StaticResource BoolToVisibility}}" />
                                 <TextBlock Text="{Binding Name}" VerticalAlignment="Center" />
-                                <Border Background="{DynamicResource Brush.Surface2}" CornerRadius="8" MinWidth="16" Height="16" Margin="6,0,0,0" Padding="5,0">
-                                    <TextBlock Text="{Binding Badge}" Style="{StaticResource Text.Small}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                <Border x:Name="BadgeBox" Background="{DynamicResource Brush.Surface2}" CornerRadius="8" MinWidth="16" Height="16" Margin="6,0,0,0" Padding="5,0">
+                                    <TextBlock x:Name="BadgeText" Text="{Binding Badge}" Style="{StaticResource Text.Small}" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                 </Border>
                             </StackPanel>
+                            <DataTemplate.Triggers>
+                                <DataTrigger Binding="{Binding AllDone}" Value="True">
+                                    <Setter TargetName="BadgeBox" Property="Background" Value="{DynamicResource Brush.DoneFill}" />
+                                    <Setter TargetName="BadgeText" Property="Foreground" Value="{DynamicResource Brush.Done}" />
+                                </DataTrigger>
+                            </DataTemplate.Triggers>
                         </DataTemplate>
                     </ListBox.ItemTemplate>
                 </ListBox>
             </Grid>
 
-            <!-- 본문: 왼쪽 숙제 표 영역(H4) + 오른쪽 캐릭터 카드 영역(폭은 배치 단계가 정한다) -->
+            <!-- 본문: 왼쪽 숙제 표 + 오른쪽 캐릭터 카드(폭은 배치 단계가 정한다). 첫 읽기 전이나 기록이 없을 때는 안내 글만 보인다. -->
             <Grid Grid.Row="3">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="{DynamicResource Metrics.CardWidth}" />
-                </Grid.ColumnDefinitions>
-
-                <!-- 숙제 표 자리 (임시: 선택 계정의 캐릭터 이름 목록) -->
-                <Grid Grid.Column="0" Margin="12,8,0,8" Visibility="{Binding IsFirstReadPending, Converter={StaticResource InvertBoolToVisibility}}">
-                    <ListBox x:Name="CharacterList" Style="{StaticResource List}" ItemsSource="{Binding Characters}" SelectedItem="{Binding SelectedCharacter}"
-                             Padding="0,0,10,0" AutomationProperties.Name="캐릭터">
-                        <ListBox.ItemTemplate>
-                            <DataTemplate DataType="{x:Type vm:CharacterRow}">
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="Auto" />
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel>
-                                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
-                                        <TextBlock Text="{Binding Detail}" Style="{StaticResource Text.Small}" TextTrimming="CharacterEllipsis" Margin="0,2,0,0" />
-                                    </StackPanel>
-                                    <Border Grid.Column="1" Background="{DynamicResource Brush.DoneFill}" CornerRadius="8" Height="18" Padding="8,0" VerticalAlignment="Center"
-                                            Visibility="{Binding IsCurrent, Converter={StaticResource BoolToVisibility}}">
-                                        <TextBlock Text="접속 중" Style="{StaticResource Text.Small}" Foreground="{DynamicResource Brush.Done}" VerticalAlignment="Center" />
-                                    </Border>
-                                </Grid>
-                            </DataTemplate>
-                        </ListBox.ItemTemplate>
-                    </ListBox>
+                <Grid x:Name="BoardArea">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="{DynamicResource Metrics.CardWidth}" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.Style>
+                        <Style TargetType="Grid">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsFirstReadPending}" Value="True"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger>
+                                <DataTrigger Binding="{Binding Board.HasAccounts}" Value="False"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Grid.Style>
+                    <views:HomeworkTableView x:Name="Table" Grid.Column="0" Margin="8,8,0,8" DataContext="{Binding Board}" />
+                    <views:CharacterCardView Grid.Column="1" Margin="0,8,8,8" DataContext="{Binding Board}" />
                 </Grid>
 
-                <!-- 캐릭터 카드 자리 (임시: 선택 캐릭터 이름) -->
-                <Border Grid.Column="1" Margin="12,8,12,8" Visibility="{Binding IsFirstReadPending, Converter={StaticResource InvertBoolToVisibility}}" Background="{DynamicResource Brush.Surface}" BorderBrush="{DynamicResource Brush.Line}" BorderThickness="1" CornerRadius="8" Padding="12">
-                    <StackPanel>
-                        <TextBlock Text="{Binding SelectedCharacter.Name, FallbackValue=선택한 캐릭터가 없습니다}" FontSize="{StaticResource Font.Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
-                        <TextBlock Text="{Binding SelectedCharacter.Detail}" Style="{StaticResource Text.Small}" Margin="0,4,0,0" TextTrimming="CharacterEllipsis" />
-                    </StackPanel>
-                </Border>
-
                 <!-- 첫 읽기 전 자리 표시 / 기록이 하나도 없을 때 안내 -->
-                <TextBlock Grid.ColumnSpan="2" Text="{Binding PendingText}" Style="{StaticResource Text.Muted}" HorizontalAlignment="Center" VerticalAlignment="Center"
+                <TextBlock Text="{Binding PendingText}" Style="{StaticResource Text.Muted}" HorizontalAlignment="Center" VerticalAlignment="Center"
                            Visibility="{Binding IsFirstReadPending, Converter={StaticResource BoolToVisibility}}" Padding="16,8" />
-                <TextBlock Grid.ColumnSpan="2" Text="{Binding EmptyText}" HorizontalAlignment="Center" VerticalAlignment="Center" TextWrapping="Wrap"
+                <TextBlock Text="{Binding EmptyText}" HorizontalAlignment="Center" VerticalAlignment="Center" TextWrapping="Wrap"
                            TextAlignment="Center" Margin="24,0">
                     <TextBlock.Style>
                         <Style TargetType="TextBlock" BasedOn="{StaticResource Text.Muted}">
@@ -163,7 +149,7 @@
                             <Style.Triggers>
                                 <MultiDataTrigger>
                                     <MultiDataTrigger.Conditions>
-                                        <Condition Binding="{Binding HasAccounts}" Value="False" />
+                                        <Condition Binding="{Binding Board.HasAccounts}" Value="False" />
                                         <Condition Binding="{Binding IsFirstReadPending}" Value="False" />
                                     </MultiDataTrigger.Conditions>
                                     <Setter Property="Visibility" Value="Visible" />
@@ -172,6 +158,54 @@
                         </Style>
                     </TextBlock.Style>
                 </TextBlock>
+            </Grid>
+
+            <!-- 알림 띠(토스트): 명령 실패 같은 일을 몇 초 보이고 사라진다 -->
+            <Border Grid.Row="3" VerticalAlignment="Bottom" HorizontalAlignment="Center" Margin="16,0,16,14" MaxWidth="560" Padding="12,6,4,6" CornerRadius="8"
+                    Background="{DynamicResource Brush.Surface2}" BorderBrush="{DynamicResource Brush.Warn}" BorderThickness="1"
+                    Visibility="{Binding Board.NoticeVisible, Converter={StaticResource BoolToVisibility}}" AutomationProperties.LiveSetting="Assertive">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="{Binding Board.NoticeText}" TextWrapping="Wrap" VerticalAlignment="Center" />
+                    <Button Grid.Column="1" Style="{StaticResource Button.Icon}" Content="&#xE711;" FontSize="10" Width="26" Height="24" Margin="6,0,0,0"
+                            Command="{Binding Board.DismissNoticeCommand}" ToolTip="닫기" AutomationProperties.Name="알림 닫기" />
+                </Grid>
+            </Border>
+
+            <!-- 필드 보스 고르기 팝업: 창 안을 어둡게 덮고 가운데에 띄운다. 바깥을 누르거나 Esc로 닫는다. -->
+            <Grid Grid.RowSpan="4" x:Name="BossOverlay" Background="#99000000" MouseLeftButtonDown="OnBossScrimPressed">
+                <Grid.Style>
+                    <Style TargetType="Grid">
+                        <Setter Property="Visibility" Value="Visible" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding Board.BossPicker}" Value="{x:Null}"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Grid.Style>
+                <Border HorizontalAlignment="Center" VerticalAlignment="Center" Background="{DynamicResource Brush.Surface2}" BorderBrush="{DynamicResource Brush.Line}"
+                        BorderThickness="1" CornerRadius="10" Padding="16" MinWidth="340" MouseLeftButtonDown="OnBossDialogPressed"
+                        DataContext="{Binding Board.BossPicker}" AutomationProperties.Name="필드 보스 고르기">
+                    <StackPanel>
+                        <TextBlock Text="{Binding Title}" FontWeight="SemiBold" FontSize="{DynamicResource Font.Title}" TextWrapping="Wrap" />
+                        <TextBlock Text="{Binding Hint}" Style="{StaticResource Text.Muted}" TextWrapping="Wrap" Margin="0,4,0,10" />
+                        <ItemsControl ItemsSource="{Binding Bosses}" Focusable="False">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate><UniformGrid Columns="3" /></ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="{x:Type vm:BossDef}">
+                                    <Button Content="{Binding Title}" Margin="0,0,6,6" MinHeight="32"
+                                            Command="{Binding DataContext.Board.ChooseBossCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}" />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <Button Content="닫기" HorizontalAlignment="Right" Margin="0,4,0,0"
+                                Command="{Binding DataContext.Board.CloseBossPickerCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
+                    </StackPanel>
+                </Border>
             </Grid>
         </Grid>
     </Border>

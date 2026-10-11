@@ -10,11 +10,13 @@
                 <ResourceDictionary Source="Themes/Colors.xaml" />
                 <ResourceDictionary Source="Themes/Typography.xaml" />
                 <ResourceDictionary Source="Themes/Controls.xaml" />
+                <ResourceDictionary Source="Themes/Board.xaml" />
                 <!-- 배치 단계 파일: 항상 마지막 자리(App.TierDictionaryIndex)에 하나만 둔다. 창 폭에 따라 App.ApplyTier가 바꿔 끼운다. -->
                 <ResourceDictionary Source="Themes/Tier.Narrow.xaml" />
             </ResourceDictionary.MergedDictionaries>
             <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
             <views:InvertBoolToVisibilityConverter x:Key="InvertBoolToVisibility" />
+            <views:LastWordInitialConverter x:Key="FirstLetter" />
         </ResourceDictionary>
     </Application.Resources>
 </Application>
