@@ -6,19 +6,23 @@ namespace MobiMate;
 /// 재화 변화 기록 (실측용). 같은 캐릭터를 이어서 관찰하는 동안 재화 수량이 바뀐 것을 한 줄씩 남긴다:
 /// 시각, 캐릭터, 위치, 바뀐 재화의 (이름, 전, 후). 레이드를 클리어하고 새로고침한 뒤 이 파일을 보면
 /// 어떤 재화가 얼마나 늘었는지(예: 원정의 증거 종류별 증가량)를 난이도별로 알 수 있다.
-/// 파일은 %APPDATA%\MobiMateWeb\currency_changes.jsonl. 쓰기에 실패해도 앱 동작에는 영향이 없다.
+/// 파일은 %APPDATA%\MobiMateWeb\currency_changes.jsonl. 쓰기에 실패해도 앱 동작에는 영향이 없지만, 실패는 무시하지 않고 알린다(onError, 기본은 Trace).
+/// 쓰기는 폴더 공유 잠금 안에서 한다 (공유 저장 패치: 다른 프로세스의 저장과 겹치지 않게). 숙제 앱은 이 로그를 쓰지 않는다.
 /// </summary>
 public sealed class CurrencyDeltaLog
 {
     private readonly string _path;
     private readonly Func<DateTimeOffset> _now;
     private readonly object _lock = new();
+    private readonly Action<string, Exception>? _onError;
     private string? _lastKey;
     private Dictionary<string, long>? _last;
 
-    public CurrencyDeltaLog(string path, Func<DateTimeOffset>? now = null)
+    /// <param name="onError">쓰기 실패를 알릴 곳(웹앱은 로거). 없으면 Trace로 남긴다.</param>
+    public CurrencyDeltaLog(string path, Func<DateTimeOffset>? now = null, Action<string, Exception>? onError = null)
     {
         _path = path;
+        _onError = onError;
         _now = now ?? (() => DateTimeOffset.UtcNow);
     }
 
@@ -58,10 +62,17 @@ public sealed class CurrencyDeltaLog
                 place,
                 changes = changes.Select(c => new { name = c.Name, before = c.Before, after = c.After, diff = c.After - c.Before }),
             }, new JsonSerializerOptions { Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping });
-            Directory.CreateDirectory(Path.GetDirectoryName(_path)!);
-            File.AppendAllText(_path, line + Environment.NewLine);
+            var dir = Path.GetDirectoryName(Path.GetFullPath(_path))!;
+            Directory.CreateDirectory(dir);
+            SharedStorageLock.For(dir).Run(() => File.AppendAllText(_path, line + Environment.NewLine));
         }
-        catch { /* 실측 보조 기록이라 실패해도 무시 */ }
+        catch (Exception ex)
+        {
+            // 실측 보조 기록이라 앱 동작에는 영향이 없지만, 조용히 사라지지 않게 알린다
+            var message = $"재화 변화 기록을 쓰지 못했습니다: {_path}";
+            if (_onError != null) _onError(message, ex);
+            else System.Diagnostics.Trace.TraceWarning($"{message} ({ex.GetType().Name}: {ex.Message})");
+        }
     }
 }
 
