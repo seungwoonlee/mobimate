@@ -102,7 +102,7 @@ public partial class App : Application
             });
         }
 
-        ConfigureServices(builder.Services, options, events);
+        AppServices.Configure(builder.Services, options, events);
         builder.Services.Configure<HostOptions>(o => o.ShutdownTimeout = StopTimeout);   // 종료가 오래 걸리면 기다리지 않는다
 
         _host = builder.Build();
@@ -112,36 +112,6 @@ public partial class App : Application
         _window = new MainWindow(_host.Services);
         MainWindow = _window;
         _window.Show();
-    }
-
-    private static void ConfigureServices(IServiceCollection s, AppOptions options, AppEvents events)
-    {
-        s.AddSingleton(options);
-        s.AddSingleton(events);
-        s.AddSingleton(sp => new AppSettingsStore(options.StorageDir, sp.GetRequiredService<ILogger<AppSettingsStore>>()));
-
-        s.AddSingleton(sp => new GameCli(AppSettingsStore.ResolveCliPath(options, sp.GetRequiredService<AppSettingsStore>())));
-        s.AddSingleton<IGameCli>(sp => sp.GetRequiredService<GameCli>());
-        s.AddSingleton<QueryCache>();
-        s.AddSingleton<GameQueries>();
-        s.AddSingleton<GameStateCache>();
-        s.AddSingleton(_ => new SnapshotManager(options.StorageDir));
-        s.AddSingleton(_ => new AccountStore(options.StorageDir));
-        s.AddSingleton(_ => HomeworkCatalog.LoadEmbedded());
-        s.AddSingleton(_ => new HomeworkStore(options.StorageDir));
-        s.AddSingleton(sp => new HomeworkService(sp.GetRequiredService<HomeworkCatalog>(), sp.GetRequiredService<HomeworkStore>()));
-        s.AddSingleton<CombatScoreGuard>();
-        s.AddSingleton<HomeworkWatcher>();
-        s.AddSingleton<CharacterSession>();
-        s.AddSingleton<HomeworkCommands>();
-
-        // 등록 순서 = 시작 순서: 가져오기를 먼저 한다
-        s.AddHostedService<StartupTasks>();
-        s.AddSingleton<StatusMonitor>();
-        s.AddHostedService(sp => sp.GetRequiredService<StatusMonitor>());
-        s.AddHostedService<ExternalChangeMonitor>();
-        s.AddHostedService<CharacterRecorder>();
-        s.AddHostedService<CharacterWatcher>();
     }
 
     /// <summary>기존 창을 앞으로 가져온다(두 번째 실행의 신호, 트레이 "열기"). UI 스레드에서 부른다.</summary>
@@ -182,19 +152,8 @@ public partial class App : Application
         var host = _host;
         if (host == null) return;
         _log?.LogInformation("숙제 앱을 종료합니다.");
-        try
-        {
-            // 호스트 자체 제한(ShutdownTimeout)이 먼저 걸리고, 이 토큰은 그보다 조금 긴 안전망이다
-            using var cts = new CancellationTokenSource(StopTimeout + TimeSpan.FromSeconds(2));
-            await Task.Run(() => host.StopAsync(cts.Token));
-        }
-        catch (Exception ex)
-        {
-            // OperationCanceled·AggregateException 등 무엇이든 종료를 막지 않는다
-            _log?.LogWarning(ex, "호스트 종료 중 오류(무시하고 계속 종료)");
-        }
-        try { host.Dispose(); }
-        catch (Exception ex) { _log?.LogWarning(ex, "호스트 정리 중 오류"); }
+        // 호스트 자체 제한(ShutdownTimeout)이 먼저 걸리고, 이 토큰은 그보다 조금 긴 안전망이다
+        await HostShutdown.StopAsync(host, _log, StopTimeout + TimeSpan.FromSeconds(2));
     }
 
     protected override void OnExit(ExitEventArgs e)
