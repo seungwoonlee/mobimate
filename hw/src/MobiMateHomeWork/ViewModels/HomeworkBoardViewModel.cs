@@ -25,9 +25,11 @@ public sealed partial class HomeworkBoardViewModel : ObservableObject
     private string? _pickedKey;
     private DateTimeOffset _cycleDaily, _cycleWeekly;
     private int _noticeSeq;
+    private readonly TimeSpan _settleTimeout;
 
-    public HomeworkBoardViewModel(IHomeworkActions actions, Func<Task>? refresh = null, Action<Action>? post = null, Func<DateTimeOffset>? clock = null, TimeSpan? noticeDuration = null)
+    public HomeworkBoardViewModel(IHomeworkActions actions, Func<Task>? refresh = null, Action<Action>? post = null, Func<DateTimeOffset>? clock = null, TimeSpan? noticeDuration = null, TimeSpan? settleTimeout = null)
     {
+        _settleTimeout = settleTimeout ?? TimeSpan.FromSeconds(2);
         _actions = actions;
         _refresh = refresh ?? (() => Task.CompletedTask);
         _post = post ?? (a => a());
@@ -65,12 +67,13 @@ public sealed partial class HomeworkBoardViewModel : ObservableObject
     }
 
     /// <summary>캐릭터 현황을 받아 표·탭·카드를 고친다 (UI 스레드).</summary>
-    public void Apply(CharactersSnapshot snap)
+    /// <param name="readAt">현황을 읽기 직전의 시각(없으면 지금). 리셋 경계는 이 시각 기준이라, 읽는 도중 리셋을 지났으면 다음 Tick에서 다시 읽는다.</param>
+    public void Apply(CharactersSnapshot snap, DateTimeOffset? readAt = null)
     {
         _last = snap;
-        var now = _clock();
-        _cycleDaily = KstClock.LastDailyReset(now);
-        _cycleWeekly = KstClock.LastWeeklyReset(now);
+        var at = readAt ?? _clock();
+        _cycleDaily = KstClock.LastDailyReset(at);
+        _cycleWeekly = KstClock.LastWeeklyReset(at);
         Redraw();
     }
 
@@ -192,23 +195,38 @@ public sealed partial class HomeworkBoardViewModel : ObservableObject
     public async Task ToggleCellAsync(CellViewModel? cell)
     {
         if (cell == null) return;
+        // 같은 칸은 명령이 끝나 화면이 갱신될 때까지 한 번만: 되돌리기 클릭이 옛 값을 다시 보내지 않게
+        if (!_busyCells.TryAdd(cell.CharacterKey + "|" + cell.Id, 0)) return;
+        try
+        {
+            var before = (cell.State, cell.Note);
+            if (await ToggleCoreAsync(cell))
+                for (var until = DateTime.UtcNow + _settleTimeout; DateTime.UtcNow < until && (cell.State, cell.Note) == before; ) await Task.Delay(20);   // 화면이 새 값으로 갱신될 때까지(최대 2초)
+        }
+        finally { _busyCells.TryRemove(cell.CharacterKey + "|" + cell.Id, out _); }
+    }
+
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte> _busyCells = new();
+
+    /// <returns>명령을 보냈고 성공했으면 true(화면이 바뀌기를 기다릴 가치가 있다).</returns>
+    private async Task<bool> ToggleCoreAsync(CellViewModel cell)
+    {
         var key = cell.CharacterKey;
         if (!cell.IsBoss)
         {
             var target = cell.State != CellState.Done;
             var id = cell.Id;
-            await RunAsync(() => [_actions.SetHomework(id, target, null, key)]);
-            return;
+            return await RunAsync(() => [_actions.SetHomework(id, target, null, key)]);
         }
         if (cell.State != CellState.Done)
         {
             OpenBossPicker(key);
-            return;
+            return false;
         }
         var note = cell.Note;
         var named = HomeworkBoardLayout.Bosses.Where(b => b.Title == note).ToList();
         var ids = (named.Count > 0 ? named : [.. HomeworkBoardLayout.Bosses]).Select(b => b.Id).ToList();
-        await RunAsync(() => [.. ids.Select(id => _actions.SetHomework(id, false, null, key))]);
+        return await RunAsync(() => [.. ids.Select(id => _actions.SetHomework(id, false, null, key))]);
     }
 
     /// <summary>필드 보스 고르기 팝업을 연다.</summary>
@@ -231,14 +249,16 @@ public sealed partial class HomeworkBoardViewModel : ObservableObject
         await RunAsync(() => [_actions.SetHomework(boss.Id, true, null, picker.CharacterKey)]);
     }
 
-    private async Task RunAsync(Func<IReadOnlyList<HomeworkCommandResult>> work)
+    private async Task<bool> RunAsync(Func<IReadOnlyList<HomeworkCommandResult>> work)
     {
         IReadOnlyList<HomeworkCommandResult> results;
         try { results = await Task.Run(work); }   // 파일 저장이 UI 스레드를 막지 않게
         catch (Exception ex) { results = [HomeworkCommandResult.Fail(CommandError.StorageUnavailable, ex.Message)]; }
-        if (results.FirstOrDefault(r => !r.Ok) is { } bad) _post(() => ShowNotice(Describe(bad.Error, bad.Message)));
+        var failed = results.FirstOrDefault(r => !r.Ok);
+        if (failed is { } bad) _post(() => ShowNotice(Describe(bad.Error, bad.Message)));
         try { await _refresh(); }
         catch (Exception) { /* 다음 알림에 다시 */ }
+        return failed == null;
     }
 
     private static string Describe(CommandError error, string? message) => error switch
@@ -280,6 +300,7 @@ public sealed partial class HomeworkBoardViewModel : ObservableObject
     public void BeginRename()
     {
         if (SelectedRow == null || !HasCard) return;
+        _pickedKey ??= Card.Key;   // 편집 중 접속 캐릭터가 바뀌어도 선택(과 입력)을 지킨다
         Card.RenameText = Card.Nickname ?? "";
         Card.RenameError = null;
         Card.IsRenaming = true;

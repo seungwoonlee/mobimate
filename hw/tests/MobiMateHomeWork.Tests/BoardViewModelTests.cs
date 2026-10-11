@@ -16,7 +16,7 @@ public class BoardViewModelTests
         public Fixture(TimeSpan? notice = null)
         {
             Board = new HomeworkBoardViewModel(Actions, refresh: () => { Interlocked.Increment(ref Refreshes); return Task.CompletedTask; },
-                post: a => a(), clock: () => Clock, noticeDuration: notice ?? TimeSpan.FromMinutes(5));
+                post: a => a(), clock: () => Clock, noticeDuration: notice ?? TimeSpan.FromMinutes(5), settleTimeout: TimeSpan.FromMilliseconds(30));
         }
     }
 
@@ -337,6 +337,53 @@ public class BoardViewModelTests
         f.Board.Apply(Snap(Acct("A", Char("a_1"))));
         f.Clock = new DateTimeOffset(2026, 10, 19, 6, 0, 0, TimeSpan.FromHours(9));
         Assert.True(f.Board.ResetCrossed());
+    }
+
+    [Fact]
+    public void ResetCrossed_UsesTheTimeBeforeTheRead_NotTheTimeItWasApplied()
+    {
+        var f = new Fixture();
+        var readAt = new DateTimeOffset(2026, 10, 14, 5, 59, 59, 900, TimeSpan.FromHours(9));
+        f.Clock = new DateTimeOffset(2026, 10, 14, 6, 0, 0, 100, TimeSpan.FromHours(9));   // 읽는 도중 리셋을 지나 적용됨
+        f.Board.Apply(Snap(Acct("A", Char("a_1"))), readAt);
+        Assert.True(f.Board.ResetCrossed());      // 다음 Tick에서 다시 읽는다
+        f.Board.Apply(Snap(Acct("A", Char("a_1"))), f.Clock);
+        Assert.False(f.Board.ResetCrossed());
+    }
+
+    [Fact]
+    public void Rename_PinsTheSelection_SoALiveCharacterSwitchDoesNotDropTheInput()
+    {
+        var aira = Char("아이라_격투가", current: true, combat: 88_000);
+        var rogue = Char("바람_도적", "도적", "바람", 99_000);
+        var f = new Fixture();
+        f.Board.Apply(Snap(Acct("A", aira, rogue)));
+        Assert.Equal("아이라_격투가", f.Board.SelectedRow?.Key);   // 고른 적 없이 접속 중을 따라가는 상태
+        f.Board.BeginRename();
+        f.Board.Card.RenameText = "입력 중";
+        f.Board.Apply(Snap(Acct("A", Char("아이라_격투가", combat: 88_000), Char("바람_도적", "도적", "바람", 99_000, current: true))));
+        Assert.Equal("아이라_격투가", f.Board.SelectedRow?.Key);
+        Assert.True(f.Board.Card.IsRenaming);
+        Assert.Equal("입력 중", f.Board.Card.RenameText);
+    }
+
+    [Fact]
+    public async Task Click_WhileThatCellsCommandIsStillRunning_IsIgnored()
+    {
+        var f = WithRow();
+        using var gate = new ManualResetEventSlim();
+        f.Actions.OnSet = _ => { gate.Wait(5000); return new HomeworkCommandResult(CommandError.None, null, null); };
+        var first = f.Board.ToggleCellAsync(Cell(f, "raid_airel"));
+        await Task.Delay(50);
+        await f.Board.ToggleCellAsync(Cell(f, "raid_airel"));     // 같은 칸 두 번째 클릭: 무시
+        var other = f.Board.ToggleCellAsync(Cell(f, "raid_white_succubus"));   // 다른 칸은 그대로 보낸다
+        await Task.Delay(50);
+        gate.Set();
+        await first;
+        await other;
+        Assert.Equal(["raid_airel", "raid_white_succubus"], f.Actions.Sets.Select(x => x.Id).Order());
+        await f.Board.ToggleCellAsync(Cell(f, "raid_airel"));     // 끝난 뒤에는 다시 누를 수 있다
+        Assert.Equal(3, f.Actions.Sets.Count);
     }
 
     // ── 칸 클릭 → 명령 ──

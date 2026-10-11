@@ -147,8 +147,9 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         if (Interlocked.Exchange(ref _refreshing, 1) == 1) { ScheduleRefresh(); return; }
         try
         {
+            var readAt = _clock();   // 읽기 직전 시각: 리셋 경계 판정의 기준
             var snap = await Task.Run(_source);
-            _post(() => Board.Apply(snap));
+            _post(() => Board.Apply(snap, readAt));
         }
         catch (Exception) { /* 다음 이벤트에 다시 */ }
         finally { Interlocked.Exchange(ref _refreshing, 0); }
