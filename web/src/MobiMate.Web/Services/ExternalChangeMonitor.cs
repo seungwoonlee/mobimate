@@ -16,13 +16,19 @@ public sealed class ExternalChangeMonitor(MobiMateOptions options, HomeworkServi
 
     public Task StartAsync(CancellationToken ct)
     {
+        // 공유 뮤텍스를 만들 수 없으면 숙제 앱과 동시에 쓸 때 보호되지 않는다: 로그로 드러낸다
+        if (SharedStorageLock.DegradedReason is { } reason) log.LogWarning("{Reason}", reason);
+        SharedStorageLock.Degraded += OnDegraded;
         if (options.ExternalWatch)
             _watcher = new SharedStorageWatcher(options.StorageDir, Check, options.ExternalWatchDebounce, options.ExternalWatchPoll);
         return Task.CompletedTask;
     }
 
+    private void OnDegraded(string reason) => log.LogWarning("{Reason}", reason);
+
     public Task StopAsync(CancellationToken ct)
     {
+        SharedStorageLock.Degraded -= OnDegraded;
         _watcher?.Dispose();
         _watcher = null;
         return Task.CompletedTask;

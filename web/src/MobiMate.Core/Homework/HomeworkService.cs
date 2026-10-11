@@ -192,12 +192,34 @@ public sealed class HomeworkService
         lock (_lock)
         {
             var now = _now();
-            // 읽기에 실패해도 화면은 보여 준다(빈 기록 기준, 저장하지 않음)
-            var loaded = TryLoad(out var file);
-            // 최신으로 읽지 못했으면 메모리 값(없으면 빈 기록)의 복사본으로 보여 주고, 원본은 건드리지 않는다(저장도 하지 않음)
-            if (!loaded) file = _file != null ? HomeworkStore.Clone(_file) : new HomeworkFile();
-            var (character, resetIds, created) = Prepare(file, characterKey, now);
-            if (loaded && (created || resetIds.Count > 0)) _store.Lock.Run(() => SaveLocked(file));
+            // 리셋·새 장부 생성이 필요하면 공유 잠금 안에서 "다시 읽기 → Prepare → 바뀐 때만 저장"을 한 묶음으로 한다(EvaluateLocked와 같은 형태).
+            var current = false;
+            try
+            {
+                current = _store.Lock.Run(() =>
+                {
+                    if (!Refresh(out HomeworkFile f)) return false;
+                    var before = Json(f);
+                    Prepare(f, characterKey, now);
+                    if (Json(f) != before) SaveLocked(f);
+                    return _file != null;
+                });
+            }
+            catch (IOException) { /* 잠금을 못 얻으면 아래 복사본으로 화면만 만든다 */ }
+
+            HomeworkFile file;
+            HomeworkLedger character;
+            if (current)
+            {
+                file = _file!;   // 방금 잠금 안에서 맞춘 최신 기록: 여기서는 읽기만 한다
+                character = file.Characters[characterKey];
+            }
+            else
+            {
+                // 최신으로 읽지 못했다: 살아 있는 기록은 건드리지 않고, 메모리 값(없으면 빈 기록)의 복사본으로만 화면을 만든다(저장 없음)
+                file = _file != null ? HomeworkStore.Clone(_file) : new HomeworkFile();
+                character = Prepare(file, characterKey, now).Character;
+            }
 
             var signals = _signals.GetValueOrDefault(characterKey);
             var all = _catalog.Items.Where(d => d.Active).Select(def => ToCard(def, file, character, signals, now)).ToList();
