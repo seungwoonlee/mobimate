@@ -287,3 +287,7 @@ hw/
 - `HomeworkAutoStatus`에 `Suggestion`(선택 값)을 더했다 — 표의 "완료 제안" 모서리 점용. 판정 로직은 그대로고 읽어서 노출만 한다(웹앱에도 같은 한 줄이면 된다).
 - 배치 단계 파일에 표 치수(`Metrics.*`)와 보이는 것(`Show.*`)을 두었다. 정보 열은 남는 폭을 받고(`CharInfoWidth`가 최소), 칸은 고정 폭이다. 넓게 단계에서 1280을 넘으면 `TierResources.ApplyScale`이 줄 높이·칸·카드 폭을 창 폭에 비례(최대 1.2배)로 키우고, 표는 `TableMaxWidth`(1100)로 가운데 정렬한다.
 - 숨은 옵션 `--render-snapshots` 데모 데이터를 늘렸다(계정 2개: 6명 + 8명, 숙제 상태가 섞인 기록). 크기 6종 + 필드 보스 팝업 + 이름 바꾸기 + 두 번째 계정 2장을 `hw\snapshots\h4\`에 그린다.
+
+## 13. H5 진행 기록 (배포)
+
+- 아이콘 `hw/src/MobiMateHomeWork/app.ico`(16~256px 7종, 작은 크기는 BMP·256은 PNG)는 `hw/tools/IconGen`(WPF DrawingVisual)이 그린다. exe·창·제목줄·트레이가 같은 파일을 쓴다(트레이는 임베디드 리소스에서 DPI에 맞는 크기를 고름). `dotnet publish hw/src/MobiMateHomeWork -c Release -o hw/dist` 한 번으로 단일 exe + zip(exe만)을 만들고, 버전 `1.0.MMdd.HHmm`은 제목줄 아이콘 툴팁·설정 팝업·로그 시작 줄에 보인다. 실기 점검 항목은 `docs/H6-실기점검-체크리스트.md`.

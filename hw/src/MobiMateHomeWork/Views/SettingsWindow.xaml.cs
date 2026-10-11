@@ -19,6 +19,7 @@ public partial class SettingsWindow : Window
         CliBox.Text = _applied;
         TopBox.IsChecked = vm.AlwaysOnTop;
         TrayBox.IsChecked = vm.CloseToTray;
+        VersionText.Text = $"MobiMate 숙제 {Hosting.AppInfo.Version}";
         ShowCliState();
     }
 

@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- 앱 아이콘(app.ico) 생성 도구, 수동 실행용. 인자: ico 경로, 선택으로 미리보기 PNG 폴더 -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>MobiMate.IconGen</RootNamespace>
+  </PropertyGroup>
+
+</Project>

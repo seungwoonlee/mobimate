@@ -21,7 +21,26 @@
     <Version>1.0.$(BuildStamp)</Version>
     <InformationalVersion>1.0.$(BuildStamp)</InformationalVersion>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+
+    <!-- 아이콘: hw/tools/IconGen이 그린 app.ico (exe 아이콘·창 아이콘·트레이 아이콘이 같은 파일을 쓴다) -->
+    <ApplicationIcon>app.ico</ApplicationIcon>
   </PropertyGroup>
+
+  <!--
+    배포: `dotnet publish hw/src/MobiMateHomeWork -c Release -o hw/dist` 한 번으로
+    단일 exe(.NET 8 데스크톱 런타임 필요, 기호 파일 없음)와 전달용 zip(exe만)을 만든다.
+  -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>false</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <DebugType>none</DebugType>
+    <CopyOutputSymbolsToPublishDirectory>false</CopyOutputSymbolsToPublishDirectory>
+  </PropertyGroup>
+  <Target Name="ZipAfterPublish" AfterTargets="Publish" Condition="'$(PublishDir)' != ''">
+    <Exec Command="powershell -NoProfile -Command &quot;Compress-Archive -Path '$(PublishDir)MobiMateHomeWork.exe' -DestinationPath '$(PublishDir)MobiMateHomeWork.zip' -Force&quot;" />
+    <Message Importance="high" Text="배포물: $(PublishDir)MobiMateHomeWork.exe, $(PublishDir)MobiMateHomeWork.zip" />
+  </Target>
 
   <!-- WinForms 전역 using은 WPF 형식(Application, Window, Timer 등)과 이름이 겹치므로 뺀다. 트레이 코드만 별칭으로 쓴다. -->
   <ItemGroup>
@@ -37,6 +56,12 @@
   <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.3.2" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- 창 아이콘(WPF 리소스)과 트레이 아이콘(임베디드 리소스)이 같은 파일을 읽는다 -->
+    <Resource Include="app.ico" />
+    <EmbeddedResource Include="app.ico" LogicalName="app.ico" />
   </ItemGroup>
 
   <ItemGroup>

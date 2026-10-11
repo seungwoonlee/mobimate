@@ -1,4 +1,3 @@
-using System.Runtime.InteropServices;
 using Drawing = System.Drawing;
 using Forms = System.Windows.Forms;
 
@@ -7,7 +6,7 @@ namespace MobiMateHomeWork.Hosting;
 /// <summary>
 /// 트레이 아이콘 (웹앱 Tray.cs를 숙제 앱에 맞춰 줄였다): 메뉴 = 열기 / 항상 위(체크) / 종료, 더블클릭 = 열기.
 /// WPF UI 스레드에서 만든다(NotifyIcon은 만든 스레드의 메시지 루프를 쓰고, WPF Dispatcher가 그 루프를 돈다).
-/// 아이콘 그림은 일단 코드로 그린 단순한 것이다(정식 아이콘은 H5).
+/// 아이콘은 앱 프로젝트의 app.ico(hw/tools/IconGen이 그린 것)를 임베디드 리소스로 읽는다.
 /// </summary>
 internal sealed class TrayIcon : IDisposable
 {
@@ -18,7 +17,7 @@ internal sealed class TrayIcon : IDisposable
 
     public TrayIcon(Action open, Func<bool> getAlwaysOnTop, Action<bool> setAlwaysOnTop, Action quit)
     {
-        _image = Draw();
+        _image = Load();
         var menu = new Forms.ContextMenuStrip
         {
             BackColor = Drawing.Color.FromArgb(0x1E, 0x22, 0x2B),
@@ -62,36 +61,19 @@ internal sealed class TrayIcon : IDisposable
         _image.Dispose();
     }
 
-    /// <summary>강조색 둥근 사각형 안에 체크 표시. 16×16 한 장이면 트레이에서 충분하다.</summary>
-    private static Drawing.Icon Draw()
+    /// <summary>
+    /// 임베디드 app.ico에서 트레이 크기(DPI 반영)에 맞는 그림을 고른다. 읽지 못하면 시스템 기본 아이콘.
+    /// </summary>
+    internal static Drawing.Icon Load()
     {
-        using var bmp = new Drawing.Bitmap(32, 32);
-        using (var g = Drawing.Graphics.FromImage(bmp))
-        {
-            g.SmoothingMode = Drawing.Drawing2D.SmoothingMode.AntiAlias;
-            g.Clear(Drawing.Color.Transparent);
-            using var path = new Drawing.Drawing2D.GraphicsPath();
-            const int r = 8, size = 30;
-            path.AddArc(1, 1, r * 2, r * 2, 180, 90);
-            path.AddArc(1 + size - r * 2, 1, r * 2, r * 2, 270, 90);
-            path.AddArc(1 + size - r * 2, 1 + size - r * 2, r * 2, r * 2, 0, 90);
-            path.AddArc(1, 1 + size - r * 2, r * 2, r * 2, 90, 90);
-            path.CloseFigure();
-            using var fill = new Drawing.SolidBrush(Drawing.Color.FromArgb(0x7C, 0x9C, 0xFF));
-            g.FillPath(fill, path);
-            using var pen = new Drawing.Pen(Drawing.Color.FromArgb(0x0F, 0x11, 0x15), 4f) { StartCap = Drawing.Drawing2D.LineCap.Round, EndCap = Drawing.Drawing2D.LineCap.Round, LineJoin = Drawing.Drawing2D.LineJoin.Round };
-            g.DrawLines(pen, [new Drawing.PointF(9, 16.5f), new Drawing.PointF(14, 21.5f), new Drawing.PointF(23, 10.5f)]);
-        }
-        var handle = bmp.GetHicon();
         try
         {
-            using var temp = Drawing.Icon.FromHandle(handle);
-            return (Drawing.Icon)temp.Clone();   // 복제본은 핸들을 따로 갖는다 → 원래 핸들은 바로 해제
+            using var stream = typeof(TrayIcon).Assembly.GetManifestResourceStream("app.ico");
+            if (stream != null) return new Drawing.Icon(stream, Forms.SystemInformation.SmallIconSize);
         }
-        finally { DestroyIcon(handle); }
+        catch (Exception) { /* 아이콘을 못 읽어도 트레이는 떠야 한다 */ }
+        return (Drawing.Icon)Drawing.SystemIcons.Application.Clone();
     }
-
-    [DllImport("user32.dll")] [return: MarshalAs(UnmanagedType.Bool)] private static extern bool DestroyIcon(IntPtr handle);
 
     /// <summary>어두운 메뉴: 올린 항목만 약간 밝게, 테두리는 선 색.</summary>
     private sealed class DarkRenderer : Forms.ToolStripProfessionalRenderer
