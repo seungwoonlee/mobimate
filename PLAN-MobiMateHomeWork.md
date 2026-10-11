@@ -63,14 +63,18 @@ hw/
 |---|---|---|
 | `Homework/` | Catalog(+json), Evaluator, Service, Records(Store·WPF 가져오기), KstClock, CurrencyDeltaLog | 핵심. 손대지 않는다 |
 | `Account/` | AccountGrouping, CoinForecast | 계정 묶기. CoinForecast는 은동전·공물 표시를 안 하면 빼도 됨(보류: 우선 남김) |
-| `Game/` | CharacterIdentity, CombatScoreGuard, GameStateCache, ScoreReading, DisplayFormat | 캐릭터 식별·전투력 재확인 |
-| `Storage/` | SnapshotManager, JsonFileStore | 페르소나 저장(custom_personas) 부분만 떼어 낸다 |
-| `Cli/` | GameCli | |
+| `Game/` | CharacterIdentity, CombatScoreGuard, GameStateCache, ScoreReading, DisplayFormat | 캐릭터 식별·전투력 재확인. GameStateCache의 `BuildAiContext`·`BuildChatterContext`는 지운다(`DescribeActivity`는 남김) |
+| `Storage/` | SnapshotManager, JsonFileStore | 페르소나 저장(`CustomPersona` 사용처 101·114·132·419·657-684행, `ImportMissingFrom`의 대상 목록 포함)을 떼어 낸다 |
+| `Cli/` | GameCli | `SendGameChatAsync`(채팅 전송, `ChatText` 의존)는 지운다 |
 | `Models/` | GameModels | |
 
 ### Core — 지우는 것
 
-`Ai/`, `Chat/`, `Chatter/`(PersonaTemplatesData 1,126줄 포함), `Intent/`, `Ranking/`, `Cutoff/`(+json), `Life/`(+json), `Refresh/`, `Game/NearbyRanker`. 해당 테스트(AiEngine, ChatPlan, InGameChatter, InteractiveFeatures, Ranking, Cutoff, WorkCategory)도 지운다.
+`Ai/`, `Chat/`, `Chatter/`(PersonaTemplatesData 1,126줄 포함), `Intent/`, `Ranking/`, `Cutoff/`(+json), `Life/`(+json), `Refresh/`, `Game/NearbyRanker`. **`MobiMate.Core.csproj`의 EmbeddedResource 두 줄(cutoff·work_categories json)도 함께 지운다.**
+
+테스트: 파일째 지움 — `AiEngineTests`, `ChatPlanTests`, `InGameChatterTests`, `InteractiveFeaturesTests`, `RankingTests`, `CutoffTests`, `WorkCategoryTests`. 클래스만 지움(혼합 파일) — `CoreRulesTests`의 `ChatTextTests`·`CommandIntentParserTests`·`AiEngineManagerTests`, `GameStateCacheTests`의 AI·Chatter 문맥 테스트, `HomeworkTests`의 `DisplayAndRankingTests`·`PersonaGeneratorTests`. `FakeCliFixture`의 `GlobalStateCollection`(ChatText.Mode용)은 정리한다. H1 완료 기준은 "숙제·레이드·계정·식별 테스트가 하나도 빠지지 않음"이며, 지운 테스트 이름을 커밋 메시지에 남긴다.
+
+`daily_altering`(가공시설 수거)은 앱의 수거 버튼(`GameActions.CollectAsync`)이 유일한 자동 근거였다. 수거 기능을 가져오지 않으므로 수동 전용이 된다(숙제 보드 10칸에는 원래 없음).
 
 ### Web 계층 → 앱 서비스로 옮길 로직 (중요)
 
@@ -80,15 +84,26 @@ hw/
 |---|---|---|
 | `Infrastructure/QueryCache.cs` (QueryCache·GameQueries) | 그대로 | 없음 |
 | `Services/StatusMonitor.cs` | 그대로 | SSE 대신 `AppEvents.StatusChanged` |
-| `Services/GameViews.cs` 중 `HeaderAsync`·`ResolveKeyAsync`·`Stabilize`·`KeepTitle`·`RecheckCombatAsync`·`IsMixedRead`·`CurrenciesAsync`·`RecordNowAsync`·`Characters()` | `CharacterSession.cs` | 화면용 익명 객체 대신 형식 있는 레코드(`AccountView`·`CharacterView`). 랭킹·컷오프·생활·인벤토리 부분은 버린다. 캐릭터 선택창·재화 섞임 처리는 **그대로** |
+| `Services/GameViews.cs` 중 `HeaderAsync`·`ResolveKeyAsync`·`Stabilize`·`KeepTitle`·`RecheckCombatAsync`·`IsMixedRead`·`CurrenciesAsync`·`RecordNowAsync`·`Characters()`·`InProgressOf`·`IsKnownCharacter`·`IsCurrentCharacter` | `CharacterSession.cs` | 화면용 익명 객체 대신 형식 있는 레코드(`AccountView`·`CharacterView`). **칸 데이터의 원천은 `Characters()` 안의 `GetAutoStatuses`·`GetFieldBossStatuses`** 다(`GetBoard` 아님). 진행 중 신호는 `InProgressOf(catalog, env)`. `rankings.BadgeOf`·컷오프·생활·인벤토리 호출은 명시적으로 제거. 캐릭터 선택창·재화 섞임 처리는 **그대로**. `RecheckCombatAsync`의 종료 신호(`ApplicationStopping`)를 Generic Host 종료와 연결 |
 | `Services/GameActions.cs` 중 `HomeworkWatcher` | `HomeworkWatcher.cs` | SSE 대신 `AppEvents.HomeworkChanged` |
 | `Services/CharacterRecorder.cs`, `CharacterWatcher.cs` | 그대로 | 없음 (BackgroundService) |
 | `Hosting/AccountStore.cs`, `FileLogger.cs`, `MobiMateOptions.cs` | 그대로 / 줄여서 | 옵션에서 포트·LAN·mDNS·SSE 제거 |
 | `Hosting/WebSettings.cs` | `AppSettings.cs` | CLI 경로만 |
-| `Hosting/Tray.cs` | `TrayIcon.cs` | 트레이 메뉴: 열기 / 종료 |
+| `Hosting/Tray.cs` | `TrayIcon.cs` + `SingleInstance.cs` | 트레이 메뉴: 열기 / 종료. **뮤텍스 이름을 `Local\MobiMateHomeWork.Single.*`로** 바꾼다(웹앱 `MobiMateWeb.Single.*`와 겹치면 서로 "이미 실행 중"으로 오인) |
 | `Program.cs`의 단일 인스턴스·첫 실행 가져오기·DI 등록 | `App.xaml.cs` | 이미 실행 중이면 기존 창을 앞으로 |
-| `GameEndpoints`의 `PUT /homework/{id}` 처리 (현재 캐릭터면 키 생략 등) | `HomeworkCommands.cs` | API 대신 메서드 호출 |
+| `GameEndpoints`의 `PUT /homework/{id}` 처리 (현재 캐릭터면 키 생략 등) | `HomeworkCommands.cs` | API 대신 메서드 호출. 대상 확인(`IsKnownCharacter`), 현재 캐릭터면 키 생략·아니면 키 지정 규칙 유지 |
+| `GameEndpoints`의 `PUT /profile/nickname` | `HomeworkCommands.RenameCharacter` | 원본은 **현재 접속 캐릭터 전용**. 아무 줄에서나 바꿀 수 있게 프로필의 서버·직업·번호로 `SetCustomName`을 부르는 메서드를 새로 만든다 |
 | 화면 `homework.tsx`의 `HW_GROUPS`·`cellsOf`·필드보스 해제 규칙 | `HomeworkBoardViewModel` | 같은 규칙. 필드보스 완료→미완료는 넘긴 보스만, 이름 모르면 여섯 모두 해제 |
+
+### 첫 실행 데이터 복사
+
+기존 가져오기 메서드는 쓰지 않는다. `SnapshotManager.ImportMissingFrom`은 세 파일만 옮기고, `HomeworkStore.ImportFromWpfIfMissing`은 **WPF 형식 변환기**라 웹앱 기록에 쓰면 망가진다. 단순 파일 복사기(`FirstRunImporter`)를 새로 만든다.
+
+- 조건: `%APPDATA%\MobiMateHomeWork`에 `character_history_db.json`이 없을 때 한 번
+- 대상(있는 것만, `.bak` 제외): `character_snapshots.json`, `character_history_db.json`, `homework_records.json`, `accounts.json`(없으면 계정 목록이 비어 보임), `web_settings.json`(CLI 경로만 `app_settings.json`으로 옮김), `currency_changes.jsonl`
+- 원본 폴더에는 쓰지 않는다. 복사 결과를 로그에 남긴다
+
+### 이벤트
 
 `AppEvents`는 단순 C# 이벤트 묶음이다. ViewModel은 이벤트를 받으면 `Dispatcher`로 넘겨 보드를 다시 만든다(연속 이벤트는 200ms 묶음 처리).
 
@@ -98,11 +113,11 @@ hw/
 ┌──────────────────────────────────────────────────────────────────────────────┐ 40
 │ ◆ MobiMate 숙제   ● 게임 연결됨          일일 리셋 5시간 12분 · 주간 2일 5시간  ─ ✕│
 ├───────────────┬──────────────────────────────────────────────────────────────┤
-│ 계정           │  OO 계정  · 접속 중                    남은 숙제 17개   ⟳      │ 52
-│ ▶ OO   17 남음 │ ─────────────────────────────────────────────────────────────│
-│   △△    4 남음 │ [직업] 닉네임  ● 접속중 │일일·주간│ 레이드  │ 어비스   │필드│ 7/10 │
-│   □□   완료   │ 기사 Lv.85 · 전투력 2.1만│요일 길드 뱅가│카브 에이 화이│허상 광기 흩어│보스│      │ 96
-│   ◇◇    9 남음 │ 마지막 접속 3시간 전     │ ✓  ○  남2 │ ✓  ·  ○ │ ○  ✓  · │✓페리│      │
+│ 계정           │  OO 계정  · 접속 중                    남은 숙제 17개   ⟳      │ 44
+│ ▶ OO   17 남음 │              일일·주간        레이드           어비스        필드 │ 20 (묶음 머리)
+│   △△    4 남음 │ [직업] 닉네임 7/10│ 요일 길드 뱅가드│카브락 에이렐 화이트 │허상의 광기의 흩어진│필드│
+│   □□   완료   │ 기사 Lv.85       │ 던전 의뢰      │              서큐버스│정박지 동굴  물길  │보스│ 92
+│   ◇◇    9 남음 │ 2.1만 · 3시간 전  │ ✓   ○   남2   │  ✓    ·     ○   │ ○    ✓    ·   │✓페리│
 │               │ ─ (최대 6줄, 그 이상은 이 영역만 스크롤) ─                      │ ×6
 │               │                                                              │
 │ ⚙ 설정        │                                                              │
@@ -112,16 +127,21 @@ hw/
    220                                   1060
 ```
 
-높이: 제목 40 + 계정 머리 52 + 캐릭터 6줄×96 = 576 + 하단 28 → **696 ≤ 720**.
+높이: 제목 40 + 계정 머리 44 + 묶음 머리 20 + 캐릭터 6줄×92 = 552 + 하단 28 → **684 ≤ 720** (여유 36).
+
+폭: 보드 1060 − 좌우 여백 32 − 얇은 스크롤바 자리 12 = 1016 → 줄 안쪽 여백 24 빼고 992 = 정보 200 + 간격 16 + 칸 10×70 + 묶음 간격 3×12 + 칸 간격 6×4 = **976 ≤ 992**. `7/10`은 정보 영역 첫 줄로 옮긴다.
+
+칸 이름은 두 줄까지(11.5pt): 요일/던전, 길드/의뢰, 뱅가드, 카브락, 에이렐, 화이트/서큐버스, 허상의/정박지, 광기의/동굴, 흩어진/물길, 필드/보스. 전체 이름은 툴팁.
 
 - **왼쪽 계정 목록(220)**: 계정 이름(대표 캐릭터 닉네임), 남은 숙제 수, 접속 중 표시. 접속 중인 계정이 맨 위·기본 선택. 계정이 하나뿐이면 목록은 그대로 두되 자동 선택
 - **오른쪽 계정 보드(1060)**: 그 계정 캐릭터를 전투력 순으로. 6명을 넘으면 이 영역만 스크롤
-- **캐릭터 줄(96)**: 왼쪽 정보 240 — 직업 뱃지(직업 색 + 첫 글자), 닉네임(없으면 서버명), 직업·레벨·전투력, 마지막 접속. 오른쪽 칸 10개(일일·주간 3 · 레이드 3 · 어비스 3 · 필드보스 1)를 묶음별 간격으로, 칸 하나 약 76×72. 끝에 `7/10`
+- **캐릭터 줄(92)**: 왼쪽 정보 200 — 직업 뱃지(직업 색 + 첫 글자), 닉네임(없으면 서버명)과 `7/10`, 직업·레벨, 전투력·마지막 접속. 오른쪽 칸 10개(일일·주간 3 · 레이드 3 · 어비스 3 · 필드보스 1)를 묶음별 간격으로, 칸 하나 70×72
 - **칸 상태**: 완료(채운 초록 + ✓) / 미완료(외곽선 + ○, 뱅가드는 "남은 N회") / 미확인(흐림 + ·). 진행 중 신호(보스 교전·공간 입장)는 칸 테두리 맥동. 레이드 완료 제안(수동 미완료인데 증표 증가)은 칸 모서리 점 + 툴팁
 - **칸 클릭** = 완료↔미완료 수동 전환. 필드보스 칸은 완료로 바꿀 때 보스 6개 고르기 팝업
 - **우클릭 메뉴(캐릭터 정보 부분)**: 닉네임 바꾸기. (캐릭터 삭제·계정 옮기기는 P2)
 - **모두 완료한 줄**: 은은하게 접고 "모두 완료" 표시
 - 툴팁: 칸마다 판정 근거(Evidence) — "주간 미션 '…' 1/1" 등. 수동 체크는 "수동"
+- **시각 갱신**: 30초 타이머로 리셋 카운트다운·"마지막 접속"을 다시 그리고, 일일(06:00 KST)·주간 리셋 시각을 지나면 보드를 다시 만든다(지난 주기 값은 미확인으로 바뀜)
 - 게임 미연결·CLI 없음: 제목 표시줄 점 색 + 하단 안내. 기록된 값은 계속 보인다
 - 설정(팝업): 게임 CLI 경로, 시작 시 트레이로, Windows 시작 시 실행(P2)
 - 닫기(✕) = 트레이로 숨김(관찰은 계속, 요일던전은 "보였다가 사라짐"을 지켜봐야 판정된다). 트레이 메뉴에서 종료
@@ -138,7 +158,7 @@ hw/
 |---|---|---|
 | **H0** 뼈대 정리 | `web/src/MobiMate.Core`·`tests/MobiMate.Core.Tests`·`tools/FakeCli`를 `hw/`로 `git mv`. 나머지 `web/` 삭제. `hw/MobiMateHomeWork.sln`. CLAUDE.md·README를 이 프로젝트용으로 | `dotnet build`·`dotnet test` 통과 (Core 테스트 전부) |
 | **H1** Core 가지치기 | §4의 지울 폴더·테스트 제거, SnapshotManager에서 페르소나 분리, 저장 폴더 기본값 `MobiMateHomeWork`·가져오기 원본 `MobiMateWeb`로 설정화, CurrencyDeltaLog 주석 경로 | 경고 0, 남은 Core 테스트 전부 통과(숙제 106개·레이드 15개·계정 25개 등 손실 0) |
-| **H2** 앱 서비스 이식 | WPF 프로젝트 생성(빈 창), Generic Host, §4 표의 서비스 이식, `AppEvents`, 첫 실행 데이터 복사, 단일 인스턴스, 파일 로그 | 새 테스트 프로젝트에서 웹 테스트(CharacterSelect·CharacterWatcher·CombatRecheck·Views·Accounts 중 숙제·캐릭터 관련)를 FakeCli로 옮겨 통과 |
+| **H2** 앱 서비스 이식 | WPF 프로젝트 생성(빈 창), Generic Host, §4 표의 서비스 이식, `AppEvents`, 첫 실행 데이터 복사, 단일 인스턴스, 파일 로그 | 서비스 직접 호출 테스트 하니스(FakeCli + 임시 폴더)를 새로 만들고, 웹 테스트의 **시나리오**를 다시 쓴다(HTTP 호출 44회 → 메서드 호출): CharacterSelect·CharacterWatcher·CombatRecheck·InProgress·Views·Accounts 중 숙제·캐릭터 관련 + 첫 실행 복사. 가장 큰 단계라 H2a(서비스)·H2b(테스트)로 나눠도 된다 |
 | **H3** 테마·창 | 색·글꼴·컨트롤 스타일 ResourceDictionary, 1280×720 고정 창, 제목 표시줄, 하단 상태줄, 트레이 | 빈 레이아웃이 디자인대로 보임(스크린샷 확인) |
 | **H4** 숙제 보드 | 계정 목록, 계정 보드, 캐릭터 줄, 칸, 클릭 전환, 필드보스 팝업, 리셋 카운트다운, 툴팁, 닉네임 바꾸기, 실시간 갱신 | ViewModel 테스트(칸 만들기·전환·필드보스 해제·정렬·6명 초과 스크롤). FakeCli로 앱을 띄워 스크린샷 점검 |
 | **H5** 배포 | 아이콘, 버전 도장, publish 단일 exe + zip, 설정 팝업(CLI 경로) | `hw/dist/MobiMateHomeWork.exe` 실행, 웹앱과 다른 저장 폴더 사용 확인 |
