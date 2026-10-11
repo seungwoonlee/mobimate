@@ -7,7 +7,7 @@ namespace MobiMateHomeWork.Services;
 /// 보유량(은동전·마족 공물·데카·M캐시)이 최신으로 남아야 로그오프 뒤의 예상 보유량을 정확히 계산할 수 있다.
 /// 게임에 접속 중일 때만 읽고, 간격이 0이면 끈다.
 /// </summary>
-public sealed class CharacterRecorder(CharacterSession session, HomeworkWatcher homework, StatusMonitor status, AppOptions options, ILogger<CharacterRecorder> log) : BackgroundService
+public sealed class CharacterRecorder(CharacterSession session, StatusMonitor status, AppOptions options, ILogger<CharacterRecorder> log) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -20,9 +20,7 @@ public sealed class CharacterRecorder(CharacterSession session, HomeworkWatcher 
                 if (status.State != GameConnection.Connected) continue;
                 try
                 {
-                    await session.RecordNowAsync(stoppingToken);
-                    // 화면을 열지 않아도 퀘스트·증표 변화를 놓치지 않게 같은 주기로 관찰한다 (요일 던전은 보였다가 사라지는 순간이 근거다)
-                    await homework.ObserveAsync(stoppingToken);
+                    await session.RecordNowAsync(stoppingToken);   // 숙제 관찰은 HomeworkObserver가 따로 돈다
                 }
                 catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { break; }
                 catch (Exception ex)

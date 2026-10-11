@@ -36,6 +36,8 @@ public static class AppServices
         s.AddHostedService(sp => sp.GetRequiredService<StatusMonitor>());
         s.AddHostedService<ExternalChangeMonitor>();
         s.AddHostedService<CharacterRecorder>();
+        s.AddSingleton<HomeworkObserver>();
+        s.AddHostedService(sp => sp.GetRequiredService<HomeworkObserver>());
         s.AddHostedService<CharacterWatcher>();
     }
 }
