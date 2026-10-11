@@ -120,7 +120,7 @@ public class SharedStorageTests : IDisposable
         var config = Path.GetFileName(Path.GetDirectoryName(baseDir)!);
         var dir = new DirectoryInfo(baseDir);
         while (dir != null && !Directory.Exists(Path.Combine(dir.FullName, "tools", "SharedStorageHarness"))) dir = dir.Parent;
-        if (dir == null) throw new InvalidOperationException("web/tools/SharedStorageHarness 폴더를 찾지 못했습니다.");
+        if (dir == null) throw new InvalidOperationException("hw/tools/SharedStorageHarness 폴더를 찾지 못했습니다.");
         var exe = Path.Combine(dir.FullName, "tools", "SharedStorageHarness", "bin", config, tfm, "SharedStorageHarness.exe");
         if (!File.Exists(exe)) throw new FileNotFoundException("하네스가 빌드되지 않았습니다. 솔루션 전체를 빌드하세요.", exe);
         return exe;

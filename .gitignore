@@ -4,6 +4,8 @@ __pycache__/
 **/bin/
 **/obj/
 dist/
-dist_update/
 character_history_db.json
-dist-next/
+
+# 숙제 앱 배포 산출물
+hw/dist/
+hw/publish/
