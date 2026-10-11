@@ -1,0 +1,185 @@
+<UserControl x:Class="MobiMateHomeWork.Views.HomeworkTableView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:MobiMateHomeWork.ViewModels"
+             xmlns:views="clr-namespace:MobiMateHomeWork.Views">
+    <!-- 숙제 표: 묶음 머리 + 캐릭터 줄(최대 6줄은 스크롤 없이, 넘으면 줄 영역만 세로 스크롤).
+         DataContext = HomeworkBoardViewModel. 머리와 줄은 같은 틀(정보 열 *, 묶음 4개)이라 가로 위치가 맞는다.
+         스크롤바 자리 10은 항상 비워 둔다(7명이 되어도 폭이 변하지 않게). -->
+    <UserControl.Resources>
+        <!-- 줄의 작은 막대(넓게): 한 글자 이름 + 얇은 막대. 값은 툴팁으로 -->
+        <DataTemplate x:Key="MeterMiniTemplate" DataType="{x:Type vm:MeterModel}">
+            <Grid ToolTip="{Binding Tooltip}" Background="Transparent">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="{Binding Label, Converter={StaticResource FirstLetter}}" Style="{StaticResource Text.Small}" Margin="0,0,4,0" VerticalAlignment="Center" />
+                <ProgressBar Grid.Column="1" Style="{StaticResource MeterBar}" Height="5" Value="{Binding Fraction, Mode=OneWay}" VerticalAlignment="Center"
+                             Visibility="{Binding HasBar, Converter={StaticResource BoolToVis}}" />
+            </Grid>
+        </DataTemplate>
+
+        <!-- 칸 -->
+        <DataTemplate x:Key="CellTemplate" DataType="{x:Type vm:CellViewModel}">
+            <Button Style="{StaticResource Cell.Button}" Width="{DynamicResource Metrics.CellWidth}" Height="{DynamicResource Metrics.CellHeight}"
+                    Margin="{DynamicResource Metrics.CellMargin}" ToolTip="{Binding Tooltip}" AutomationProperties.Name="{Binding AutomationName}"
+                    Command="{Binding DataContext.ToggleCellCommand, RelativeSource={RelativeSource AncestorType=views:HomeworkTableView}}"
+                    CommandParameter="{Binding}">
+                <Grid>
+                    <!-- 좁게·보통: 상태 기호 (보통은 뱅가드 같은 남은 횟수를 아래에) -->
+                    <StackPanel Visibility="{DynamicResource Show.CellSymbol}" VerticalAlignment="Center" HorizontalAlignment="Center">
+                        <views:StateGlyph FontSize="{DynamicResource Metrics.CellGlyph}" HorizontalAlignment="Center" />
+                        <StackPanel Visibility="{DynamicResource Show.CellLeft}">
+                            <TextBlock Text="{Binding LeftText}" Style="{StaticResource Text.Small}" HorizontalAlignment="Center" Foreground="{DynamicResource Brush.Text}"
+                                       Visibility="{Binding HasLeft, Converter={StaticResource BoolToVis}}" />
+                        </StackPanel>
+                    </StackPanel>
+                    <!-- 넓게: 두 줄 이름 + 상태 -->
+                    <Grid Visibility="{DynamicResource Show.CellName}" Margin="2,3,2,3">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="{Binding Line1}" FontSize="{DynamicResource Font.Small}" Foreground="{DynamicResource Brush.Text}" TextAlignment="Center" TextTrimming="CharacterEllipsis" />
+                            <TextBlock Text="{Binding Line2}" FontSize="{DynamicResource Font.Small}" Foreground="{DynamicResource Brush.Text}" TextAlignment="Center" TextTrimming="CharacterEllipsis"
+                                       Visibility="{Binding HasLine2, Converter={StaticResource BoolToVis}}" />
+                        </StackPanel>
+                        <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Center">
+                            <views:StateGlyph FontSize="11" VerticalAlignment="Center" Margin="0,0,3,0" />
+                            <TextBlock Text="{Binding StatusText}" FontSize="11" Style="{StaticResource Text.Muted}" TextTrimming="CharacterEllipsis" MaxWidth="46" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Grid>
+                </Grid>
+            </Button>
+        </DataTemplate>
+
+        <DataTemplate x:Key="GroupTemplate" DataType="{x:Type vm:CellGroupViewModel}">
+            <ItemsControl ItemsSource="{Binding Cells}" ItemTemplate="{StaticResource CellTemplate}" Margin="{DynamicResource Metrics.GroupMargin}" Focusable="False">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+            </ItemsControl>
+        </DataTemplate>
+
+        <!-- 머리 한 묶음: 묶음 이름 + (좁게·보통) 칸마다 두 글자 약칭 -->
+        <DataTemplate x:Key="HeaderGroupTemplate" DataType="{x:Type vm:GroupDef}">
+            <StackPanel Margin="{DynamicResource Metrics.GroupMargin}" VerticalAlignment="Bottom">
+                <Border BorderBrush="{DynamicResource Brush.Line}" BorderThickness="0,0,0,1" Margin="{DynamicResource Metrics.CellMargin}" Padding="0,0,0,2">
+                    <TextBlock Text="{Binding Title}" Style="{StaticResource Text.Small}" FontWeight="SemiBold" HorizontalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                </Border>
+                <ItemsControl ItemsSource="{Binding Cells}" Visibility="{DynamicResource Show.GroupShort}" Focusable="False">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate DataType="{x:Type vm:CellDef}">
+                            <TextBlock Text="{Binding Short}" Width="{DynamicResource Metrics.CellWidth}" Margin="{DynamicResource Metrics.CellMargin}" Style="{StaticResource Text.Small}"
+                                       TextAlignment="Center" ToolTip="{Binding Label}" Padding="0,2,0,0" />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+        </DataTemplate>
+
+        <!-- 캐릭터 줄 -->
+        <DataTemplate x:Key="RowTemplate" DataType="{x:Type vm:CharacterRowViewModel}">
+            <Border x:Name="RowBorder" Height="{DynamicResource Metrics.RowHeight}" BorderBrush="{DynamicResource Brush.Line}" BorderThickness="0,0,0,1"
+                    PreviewMouseLeftButtonDown="OnRowPressed" ToolTip="{Binding Tooltip}" AutomationProperties.Name="{Binding AutomationName}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="3" />
+                        <ColumnDefinition Width="*" MinWidth="{DynamicResource Metrics.CharInfoWidth}" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <!-- 선택 표시 -->
+                    <Border x:Name="SelBar" Background="{DynamicResource Brush.Accent}" Visibility="Collapsed" />
+                    <!-- 정보 열: 뱃지 + 닉네임·완료 수 / 직업 레벨·전투력 / 마지막 접속 / 작은 막대 -->
+                    <Grid Grid.Column="1" Margin="6,0,6,0" x:Name="Info">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Border Width="{DynamicResource Metrics.BadgeSize}" Height="{DynamicResource Metrics.BadgeSize}" CornerRadius="100" Background="{Binding JobColor}"
+                                VerticalAlignment="Center" Margin="0,0,6,0" ToolTip="{Binding Job}">
+                            <TextBlock Text="{Binding JobLetter}" Foreground="{DynamicResource Brush.OnAccent}" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                <Ellipse Grid.Column="1" Width="6" Height="6" Fill="{DynamicResource Brush.Done}" Margin="5,0,0,0" VerticalAlignment="Center" ToolTip="접속 중"
+                                         Visibility="{Binding IsCurrent, Converter={StaticResource BoolToVis}}" />
+                                <TextBlock Grid.Column="2" Text="{Binding DoneText}" x:Name="Count" Style="{StaticResource Text.Small}" Margin="6,0,0,0" VerticalAlignment="Center" />
+                            </Grid>
+                            <TextBlock Text="{Binding JobLevelCombat}" Style="{StaticResource Text.Small}" TextTrimming="CharacterEllipsis" />
+                            <TextBlock Text="{Binding LastSeenText}" Style="{StaticResource Text.Small}" TextTrimming="CharacterEllipsis" Visibility="{DynamicResource Show.RowSub}" />
+                            <Grid Visibility="{DynamicResource Show.RowMeters}" Margin="0,3,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="8" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <ContentControl Content="{Binding Silver}" ContentTemplate="{StaticResource MeterMiniTemplate}" Focusable="False" />
+                                <ContentControl Grid.Column="2" Content="{Binding Tribute}" ContentTemplate="{StaticResource MeterMiniTemplate}" Focusable="False" />
+                            </Grid>
+                        </StackPanel>
+                    </Grid>
+                    <ItemsControl Grid.Column="2" ItemsSource="{Binding Groups}" ItemTemplate="{StaticResource GroupTemplate}" VerticalAlignment="Center" Focusable="False">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                    </ItemsControl>
+                </Grid>
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Setter Property="Background" Value="Transparent" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding AllDone}" Value="True"><Setter Property="Opacity" Value="0.5" /></DataTrigger>
+                            <DataTrigger Binding="{Binding IsSelected}" Value="True"><Setter Property="Background" Value="{DynamicResource Brush.AccentSoft}" /></DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+            </Border>
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                    <Setter TargetName="SelBar" Property="Visibility" Value="Visible" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding AllDone}" Value="True">
+                    <Setter TargetName="Count" Property="Foreground" Value="{DynamicResource Brush.Done}" />
+                </DataTrigger>
+            </DataTemplate.Triggers>
+        </DataTemplate>
+    </UserControl.Resources>
+
+    <Grid MaxWidth="{DynamicResource Metrics.TableMaxWidth}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- 묶음 머리 (스크롤바 자리 10을 줄과 똑같이 비운다) -->
+        <Grid Margin="0,0,10,0" Height="{DynamicResource Metrics.GroupHeaderHeight}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="3" />
+                <ColumnDefinition Width="*" MinWidth="{DynamicResource Metrics.CharInfoWidth}" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <ItemsControl Grid.Column="2" ItemsSource="{x:Static vm:HomeworkBoardLayout.Groups}" ItemTemplate="{StaticResource HeaderGroupTemplate}" VerticalAlignment="Bottom" Focusable="False">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+            </ItemsControl>
+        </Grid>
+
+        <!-- 줄 영역: 6줄까지는 스크롤 없이, 넘으면 이 영역만 세로 스크롤 -->
+        <ScrollViewer x:Name="RowScroll" Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0,0,10,0" Focusable="False">
+            <ItemsControl ItemsSource="{Binding Rows}" ItemTemplate="{StaticResource RowTemplate}" Focusable="False" AutomationProperties.Name="캐릭터 숙제 표" />
+        </ScrollViewer>
+    </Grid>
+</UserControl>

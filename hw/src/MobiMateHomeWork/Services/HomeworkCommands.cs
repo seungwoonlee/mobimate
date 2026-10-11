@@ -27,10 +27,17 @@ public sealed record HomeworkCommandResult(CommandError Error, string? Message, 
     public static HomeworkCommandResult Fail(CommandError e, string message) => new(e, message, null);
 }
 
+/// <summary>화면이 부르는 쓰기 동작. 화면 모델 테스트에서 가짜로 바꿔 끼울 수 있게 인터페이스로 둔다.</summary>
+public interface IHomeworkActions
+{
+    HomeworkCommandResult SetHomework(string id, bool? completed, int? count, string? characterKey = null);
+    CommandResult RenameCharacter(string characterKey, string? nickname);
+}
+
 /// <summary>
 /// 화면이 부르는 쓰기 동작 (웹앱 PUT /homework/{id}, PUT /profile/nickname 처리).
 /// </summary>
-public sealed class HomeworkCommands(HomeworkWatcher homework, CharacterSession session, GameStateCache state, SnapshotManager snapshots, AppEvents events)
+public sealed class HomeworkCommands(HomeworkWatcher homework, CharacterSession session, GameStateCache state, SnapshotManager snapshots, AppEvents events) : IHomeworkActions
 {
     public const int MaxNicknameLength = 20;
 

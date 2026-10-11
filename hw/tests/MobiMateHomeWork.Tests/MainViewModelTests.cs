@@ -10,7 +10,7 @@ internal static class ViewModelFixture
     {
         firstRead = new FirstRead(h.Status, h.Session);
         return new MainViewModel(h.Events, h.Status, h.Services.GetRequiredService<GameCli>(), h.Session, h.Settings, firstRead,
-            refreshDelay: TimeSpan.FromMilliseconds(20));
+            actions: h.Commands, refreshDelay: TimeSpan.FromMilliseconds(20));
     }
 }
 
@@ -40,18 +40,18 @@ public class MainViewModelTests
 
         Assert.True(vm.IsFirstReadPending);
         Assert.False(first.Done);
-        Assert.Empty(vm.Accounts);
+        Assert.Empty(vm.Board.Accounts);
 
         await vm.StartAsync();
 
         Assert.True(first.Done);
         Assert.False(vm.IsFirstReadPending);
         // 게임이 연결돼 있으므로 접속 중 캐릭터(아이라_격투가)가 읽혀 IsCurrent가 켜진다
-        var account = Assert.Single(vm.Accounts, a => a.IsCurrent);
-        Assert.Equal(account, vm.SelectedAccount);
-        Assert.Contains(vm.Characters, c => c.IsCurrent && c.Key == FakeGame.SampleKey);
-        Assert.Equal(FakeGame.SampleKey, vm.SelectedCharacter?.Key);   // 기본 선택 = 접속 중 캐릭터
-        Assert.True(vm.Accounts.Count >= 2);                           // 도적과 같은 계정, 궁수는 다른 계정
+        var account = Assert.Single(vm.Board.Accounts, a => a.IsCurrent);
+        Assert.Equal(account, vm.Board.SelectedAccount);
+        Assert.Contains(vm.Board.Rows, c => c.IsCurrent && c.Key == FakeGame.SampleKey);
+        Assert.Equal(FakeGame.SampleKey, vm.Board.SelectedRow?.Key);   // 기본 선택 = 접속 중 캐릭터
+        Assert.True(vm.Board.Accounts.Count >= 2);                           // 도적과 같은 계정, 궁수는 다른 계정
     }
 
     [Fact]
@@ -68,9 +68,9 @@ public class MainViewModelTests
         Assert.True(first.Done);
         Assert.False(vm.IsFirstReadPending);
         Assert.Equal(GameConnection.Disconnected, h.Status.State);
-        Assert.Equal(2, vm.Accounts.Count);
-        Assert.DoesNotContain(vm.Accounts, a => a.IsCurrent);          // 접속 중인 캐릭터가 없다
-        Assert.NotEmpty(vm.Characters);                                // 기록된 값은 그대로 보인다
+        Assert.Equal(2, vm.Board.Accounts.Count);
+        Assert.DoesNotContain(vm.Board.Accounts, a => a.IsCurrent);          // 접속 중인 캐릭터가 없다
+        Assert.NotEmpty(vm.Board.Rows);                                // 기록된 값은 그대로 보인다
         // 게임을 읽은 적이 없으므로 카드에 쓸 접속 호출은 없었다
         Assert.Empty(CliCalls(game, "get_my_info"));
     }
@@ -88,7 +88,7 @@ public class MainViewModelTests
 
         Assert.True(first.Done);
         Assert.False(vm.IsFirstReadPending);
-        Assert.NotEmpty(vm.Accounts);
+        Assert.NotEmpty(vm.Board.Accounts);
     }
 
     [Fact]
@@ -187,15 +187,15 @@ public class MainViewModelTests
         await using var h = await AppHarness.StartAsync();
         using var vm = ViewModelFixture.Make(h, out _);
         await vm.StartAsync();
-        var before = vm.Accounts.Count;
+        var before = vm.Board.Accounts.Count;
 
         Seed.Write(h.StorageDir,
             Seed.Profile("바람", "도적", DateTime.Now, Seed.Rec(DateTime.Now, 100, 99000, 10285, 5619, 90, 3)),
             Seed.Profile("류트", "검사", DateTime.Now, Seed.Rec(DateTime.Now, 80, 50000, 1, 2, 10, 1)));
         h.Events.RaiseCharactersChanged();   // 다른 프로그램의 변경도 이 길로 온다
 
-        await Wait.UntilAsync(() => vm.Accounts.SelectMany(_ => vm.Characters).Any() && vm.Accounts.Count != before || vm.Accounts.Count >= 2, "계정 목록 갱신");
-        Assert.True(vm.Accounts.Count >= 1);
+        await Wait.UntilAsync(() => vm.Board.Accounts.SelectMany(_ => vm.Board.Rows).Any() && vm.Board.Accounts.Count != before || vm.Board.Accounts.Count >= 2, "계정 목록 갱신");
+        Assert.True(vm.Board.Accounts.Count >= 1);
     }
 
     // ── 설정 저장 ──

@@ -45,8 +45,10 @@ public partial class MainWindow : Window
         var status = sp.GetRequiredService<StatusMonitor>();
         var firstRead = new FirstRead(status, sp.GetRequiredService<CharacterSession>(), sp.GetService<ILoggerFactory>()?.CreateLogger<FirstRead>());
         _vm = new MainViewModel(sp.GetRequiredService<AppEvents>(), status, sp.GetRequiredService<GameCli>(), sp.GetRequiredService<CharacterSession>(),
-            sp.GetRequiredService<AppSettingsStore>(), firstRead, post: a => Dispatcher.BeginInvoke(a));
+            sp.GetRequiredService<AppSettingsStore>(), firstRead, actions: sp.GetRequiredService<HomeworkCommands>(), post: a => Dispatcher.BeginInvoke(a));
         DataContext = _vm;
+        _vm.Board.AccountPicked += () => Table.ScrollToTop();   // 다른 계정 탭을 누르면 표를 맨 위로
+        PreviewKeyDown += OnWindowKeyDown;
 
         _vm.PropertyChanged += OnViewModelChanged;
         SizeChanged += OnSizeChanged;
@@ -131,7 +133,28 @@ public partial class MainWindow : Window
 
     private void OnViewModelChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(MainViewModel.Tier)) TierResources.Apply(Application.Current, _vm.Tier);
+        if (e.PropertyName == nameof(MainViewModel.Tier)) TierResources.Apply(Application.Current, _vm.Tier, _vm.WindowWidth);
+        else if (e.PropertyName == nameof(MainViewModel.WindowWidth)) TierResources.ApplyScale(Application.Current, _vm.Tier, _vm.WindowWidth);
+    }
+
+    // ── 필드 보스 팝업 ────────────────────────────────────────
+
+    private void OnBossScrimPressed(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        _vm.Board.CloseBossPicker();
+        e.Handled = true;
+    }
+
+    /// <summary>팝업 상자 안을 눌러도 바깥(어두운 면)을 누른 것으로 치지 않는다.</summary>
+    private void OnBossDialogPressed(object sender, System.Windows.Input.MouseButtonEventArgs e) => e.Handled = true;
+
+    private void OnWindowKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        if (e.Key == System.Windows.Input.Key.Escape && _vm.Board.BossPicker != null)
+        {
+            _vm.Board.CloseBossPicker();
+            e.Handled = true;
+        }
     }
 
     // ── 최대화·테두리 ─────────────────────────────────────────

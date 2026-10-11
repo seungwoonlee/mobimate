@@ -404,6 +404,24 @@ public class HomeworkAutoCheckTests : IDisposable
     }
 
     [Fact]
+    public void AutoStatus_CarriesTheSuggestion_UntilTheRaidIsDone()
+    {
+        var svc = NewService();
+        var obs = new HomeworkObservation(Environment: new EnvironmentInfo("1채널", null, null, "먼 바다의 바위 협곡"));
+        svc.Evaluate(Main, obs);
+        svc.Set(Main, "raid_cavrak", completed: false);   // 실패해서 수동으로 끈다
+        svc.Evaluate(Main, obs);                           // 아직 안에 있다 → 완료 제안
+        var st = Auto(svc, Main, "raid_cavrak");
+        Assert.NotEqual("done", st.State);
+        Assert.Equal("raidMapEntered", st.Suggestion?.Code);   // 화면의 "완료 제안" 모서리 점이 쓴다
+        Assert.All(svc.GetAutoStatuses(new[] { Main })[Main].Where(x => x.Id != "raid_cavrak"), x => Assert.Null(x.Suggestion));
+
+        svc.Set(Main, "raid_cavrak", completed: true);     // 완료하면 제안은 사라진다
+        Assert.Equal("done", Auto(svc, Main, "raid_cavrak").State);
+        Assert.Null(Auto(svc, Main, "raid_cavrak").Suggestion);
+    }
+
+    [Fact]
     public void Raid_ManuallyReopened_StaysOpen_ButSuggestsWhileStillInside()
     {
         var svc = NewService();
