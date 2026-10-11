@@ -17,14 +17,18 @@ public sealed class SingleInstance : IDisposable
 
     private readonly Mutex _mutex;
     private readonly EventWaitHandle? _show;
+    private readonly string _showEventName;
     private RegisteredWaitHandle? _registration;
     public bool IsFirst { get; }
 
-    public SingleInstance()
+    /// <param name="mutexName">테스트용 이름 바꾸기(기본은 <see cref="MutexName"/>).</param>
+    /// <param name="showEventName">테스트용 이름 바꾸기(기본은 <see cref="ShowEventName"/>).</param>
+    public SingleInstance(string? mutexName = null, string? showEventName = null)
     {
-        _mutex = new Mutex(initiallyOwned: true, MutexName, out var created);
+        _showEventName = showEventName ?? ShowEventName;
+        _mutex = new Mutex(initiallyOwned: true, mutexName ?? MutexName, out var created);
         IsFirst = created;
-        if (created) _show = new EventWaitHandle(false, EventResetMode.AutoReset, ShowEventName);
+        if (created) _show = new EventWaitHandle(false, EventResetMode.AutoReset, _showEventName);
     }
 
     /// <summary>첫 인스턴스에서 "창 앞으로" 신호를 받으면 <paramref name="onShow"/>를 부른다(스레드 풀 스레드. UI 스레드로 넘기는 것은 호출자 몫).</summary>
@@ -35,14 +39,15 @@ public sealed class SingleInstance : IDisposable
     }
 
     /// <summary>이미 실행 중인 인스턴스에 창을 앞으로 가져오라고 알린다. 실패하면 false.</summary>
-    public static bool SignalExisting()
+    public static bool SignalExisting(string? showEventName = null)
     {
+        showEventName ??= ShowEventName;
         AllowSetForegroundWindow(-1);   // 첫 인스턴스가 이 실행(사용자가 방금 연 것)의 전경 권한을 이어받아 창을 앞으로 올릴 수 있게
         for (var i = 0; i < 5; i++)
         {
             try
             {
-                if (EventWaitHandle.TryOpenExisting(ShowEventName, out var ev))
+                if (EventWaitHandle.TryOpenExisting(showEventName, out var ev))
                 {
                     using (ev) { ev.Set(); }
                     return true;
