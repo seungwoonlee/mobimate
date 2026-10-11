@@ -36,6 +36,7 @@ public partial class MainWindow : Window
         _events.CharactersChanged += OnCharacters;
         _events.HomeworkChanged += OnHomework;
         _events.WarningRaised += OnWarning;
+        _events.WarningCleared += OnWarningCleared;
 
         var options = sp.GetRequiredService<AppOptions>();
         StorageText.Text = $"저장 폴더: {options.StorageDir}";
@@ -57,6 +58,7 @@ public partial class MainWindow : Window
         _events.CharactersChanged -= OnCharacters;
         _events.HomeworkChanged -= OnHomework;
         _events.WarningRaised -= OnWarning;
+        _events.WarningCleared -= OnWarningCleared;
         ((App)Application.Current).Quit();
     }
 
@@ -68,6 +70,8 @@ public partial class MainWindow : Window
     private void OnCharacters() => Post("캐릭터 기록 갱신", refreshCounts: true);
     private void OnHomework(HomeworkChange c) => Post($"숙제 변경 [{c.Reason}] {(c.CharacterKey.Length == 0 ? "(전체)" : c.CharacterKey)} {string.Join(",", c.Ids)}", refreshCounts: true);
     private void OnWarning(AppWarning w) => Post($"경고: {w.Message}", showWarnings: true);
+
+    private void OnWarningCleared(AppWarningKind k) => Post($"경고 해제: {k}", showWarnings: true);
 
     private void Post(string line, bool refreshCounts = false, bool showWarnings = false)
     {

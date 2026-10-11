@@ -45,8 +45,15 @@ public sealed class AppOptions
     /// <summary>폴더 감시가 끊겨도 변경을 따라가기 위한 폴링 간격. 0이면 폴링을 끈다.</summary>
     public double ExternalWatchPollSeconds { get; set; } = 10;
 
+    /// <summary>파일 로그 최소 수준. 기본 Information, 환경변수 MobiMate__LogLevel=Debug 로 Debug까지 쓴다.</summary>
+    public string LogLevel { get; set; } = "Information";
+
     /// <summary>조회 캐시 유지 시간(초).</summary>
     public double QueryCacheTtlSeconds { get; set; } = 3;
+
+    public Microsoft.Extensions.Logging.LogLevel MinLogLevel =>
+        Enum.TryParse<Microsoft.Extensions.Logging.LogLevel>(LogLevel, true, out var l) && l is >= Microsoft.Extensions.Logging.LogLevel.Trace and <= Microsoft.Extensions.Logging.LogLevel.Error
+            ? l : Microsoft.Extensions.Logging.LogLevel.Information;
 
     public TimeSpan StatusInterval => Span(StatusIntervalSeconds);
     public TimeSpan CombatRecheckDelay => Span(CombatRecheckDelaySeconds);

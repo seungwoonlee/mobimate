@@ -42,18 +42,39 @@ public sealed class AppSettingsStore
     private readonly string _path;
     private readonly object _lock = new();
     private readonly ILogger<AppSettingsStore>? _log;
-    private AppSettingsData _current;
-    private string _json;
+    private AppSettingsData _current = null!;
 
-    public AppSettingsStore(string storageDir, ILogger<AppSettingsStore>? log = null)
+    /// <param name="retries">잠김(Failed)일 때 다시 읽는 횟수</param>
+    /// <param name="retryDelay">재시도 간격(기본 50ms)</param>
+    public AppSettingsStore(string storageDir, ILogger<AppSettingsStore>? log = null, int retries = 3, TimeSpan? retryDelay = null)
     {
         _path = Path.Combine(storageDir, FileName);
         _log = log;
-        _current = Normalize(_store.Load<AppSettingsData>(_path));
-        _json = JsonSerializer.Serialize(_current, Compact);
+        var delay = retryDelay ?? TimeSpan.FromMilliseconds(50);
+        for (var i = 0; ; i++)
+        {
+            var status = _store.TryLoad<AppSettingsData>(_path, out var data);
+            if (status != LoadStatus.Failed)
+            {
+                _current = Normalize(data);
+                IsLoaded = true;
+                break;
+            }
+            if (i >= retries)
+            {
+                // 계속 못 읽는다: 기본값으로 보여 주되 "로드 안 됨"으로 두고, 저장할 때 파일을 다시 읽어 병합한다(읽기 실패면 저장 보류)
+                _current = Normalize(null);
+                _log?.LogWarning("앱 설정 파일을 읽지 못해 기본값으로 시작합니다(저장은 읽을 수 있을 때까지 보류): {Path}", _path);
+                break;
+            }
+            if (delay > TimeSpan.Zero) Thread.Sleep(delay);
+        }
     }
 
     public string FilePath => _path;
+
+    /// <summary>파일을 읽어 메모리에 올렸는가. false면 기본값이 보이는 상태이고, 저장은 파일을 다시 읽을 수 있을 때까지 보류된다.</summary>
+    public bool IsLoaded { get; private set; }
 
     /// <summary>현재 설정의 복사본.</summary>
     public AppSettingsData Current
@@ -67,24 +88,38 @@ public sealed class AppSettingsStore
     }
 
     /// <summary>
-    /// 변경을 적용하고 <b>바뀐 때만</b> 저장한다. 저장에 실패하면 false이고 메모리 값도 바꾸지 않는다. 바뀐 게 없으면 true(저장 없음).
+    /// 변경을 적용하고 <b>바뀐 때만</b> 저장한다. 저장하기 전에 파일을 다시 읽어 그 위에 변경을 얹는다(다시 읽지 못하면 저장하지 않고 false).
+    /// 저장에 실패해도 false이고 메모리 값은 그대로다. 바뀐 게 없으면 true(저장 없음).
     /// </summary>
     public bool Update(Action<AppSettingsData> change)
     {
         lock (_lock)
         {
-            var next = Clone(_current);
+            AppSettingsData baseData;
+            switch (_store.TryLoad<AppSettingsData>(_path, out var disk))
+            {
+                case LoadStatus.Failed:
+                    _log?.LogDebug("앱 설정 파일을 읽지 못해 저장을 보류합니다: {Path}", _path);
+                    return false;
+                case LoadStatus.Loaded:
+                    baseData = Normalize(disk);
+                    break;
+                default:   // 없음·격리: 읽은 적이 있으면 메모리 값을 유지, 처음이면 기본값
+                    baseData = IsLoaded ? Clone(_current) : Normalize(null);
+                    break;
+            }
+            var baseJson = JsonSerializer.Serialize(baseData, Compact);
+            var next = Clone(baseData);
             change(next);
             next = Normalize(next);
             var json = JsonSerializer.Serialize(next, Compact);
-            if (json == _json) return true;
-            if (!_store.Save(_path, next))
+            if (json != baseJson && !_store.Save(_path, next))
             {
                 _log?.LogWarning("앱 설정을 저장하지 못했습니다: {Path}", _path);
                 return false;
             }
             _current = next;
-            _json = json;
+            IsLoaded = true;
             return true;
         }
     }

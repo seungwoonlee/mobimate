@@ -45,7 +45,7 @@ public sealed class HomeworkCommands(HomeworkWatcher homework, CharacterSession 
         string key;
         if (!string.IsNullOrWhiteSpace(characterKey))
         {
-            if (!session.IsKnownCharacter(characterKey)) return HomeworkCommandResult.Fail(CommandError.UnknownCharacter, "알 수 없는 캐릭터입니다.");
+            if (!session.IsKnownCharacter(characterKey) && !session.IsCurrentCharacter(characterKey)) return HomeworkCommandResult.Fail(CommandError.UnknownCharacter, "알 수 없는 캐릭터입니다.");
             key = characterKey;
         }
         else

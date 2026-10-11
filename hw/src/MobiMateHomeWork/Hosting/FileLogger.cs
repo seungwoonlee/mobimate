@@ -13,12 +13,14 @@ public sealed class FileLoggerProvider : ILoggerProvider
     public const string Prefix = "homework-";
 
     private readonly string _dir;
+    private readonly LogLevel _min;
     private readonly object _lock = new();
     private readonly ConcurrentDictionary<string, FileLogger> _loggers = new();
 
-    public FileLoggerProvider(string dir)
+    public FileLoggerProvider(string dir, LogLevel minLevel = LogLevel.Information)
     {
         _dir = dir;
+        _min = minLevel;
         try
         {
             Directory.CreateDirectory(_dir);
@@ -53,7 +55,7 @@ public sealed class FileLoggerProvider : ILoggerProvider
     private sealed class FileLogger(FileLoggerProvider owner, string category) : ILogger
     {
         public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
-        public bool IsEnabled(LogLevel logLevel) => logLevel >= LogLevel.Information;
+        public bool IsEnabled(LogLevel logLevel) => logLevel >= owner._min;
 
         public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
         {

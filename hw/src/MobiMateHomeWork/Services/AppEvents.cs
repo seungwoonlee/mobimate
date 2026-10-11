@@ -28,6 +28,7 @@ public sealed class AppEvents
     public event Action? CharactersChanged;
     public event Action<HomeworkChange>? HomeworkChanged;
     public event Action<AppWarning>? WarningRaised;
+    public event Action<AppWarningKind>? WarningCleared;
 
     /// <summary>지금까지 올라온 경고(늦게 만들어진 창도 볼 수 있게). 같은 종류는 한 번만 담는다.</summary>
     public IReadOnlyList<AppWarning> Warnings
@@ -53,7 +54,9 @@ public sealed class AppEvents
     /// <summary>경고가 사라졌다(예: 옛 웹앱이 종료됨).</summary>
     public void ClearWarning(AppWarningKind kind)
     {
-        lock (_lock) _warnings.RemoveAll(x => x.Kind == kind);
+        bool removed;
+        lock (_lock) removed = _warnings.RemoveAll(x => x.Kind == kind) > 0;
+        if (removed) Invoke(WarningCleared, h => h(kind));
     }
 
     private static void Invoke<T>(T? evt, Action<T> call) where T : Delegate

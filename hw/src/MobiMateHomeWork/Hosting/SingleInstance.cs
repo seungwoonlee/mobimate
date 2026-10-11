@@ -80,28 +80,31 @@ public static class LegacyWebGuard
     /// <summary>방금 뜬 웹앱은 저장소를 만들기 전일 수 있다: 이 시간 안에 시작했으면 뮤텍스가 생길 때까지 잠시 기다린다.</summary>
     private static readonly TimeSpan YoungProcess = TimeSpan.FromSeconds(30);
 
+    public readonly record struct WebProc(int Pid, DateTime Start);
+
     /// <summary>
-    /// 옛 웹앱이 떠 있으면 true. <paramref name="mutexExists"/>·<paramref name="runningWebStarts"/>는 테스트에서 바꿔 끼운다.
+    /// 옛 웹앱 프로세스의 PID 목록(없으면 빈 목록). <paramref name="mutexExists"/>·<paramref name="runningWeb"/>는 테스트에서 바꿔 끼운다.
+    /// 뮤텍스는 이 앱이 저장소를 만들면 항상 보이게 되므로, 시작 때 한 번만 이 판정을 하고 이후에는 <see cref="LegacyWebWatcher"/>가 그 PID가 살아 있는지만 본다.
     /// </summary>
-    public static async Task<bool> IsLegacyWebRunningAsync(string storageDir, CancellationToken ct = default,
-        Func<string, bool>? mutexExists = null, Func<IReadOnlyList<DateTime>>? runningWebStarts = null)
+    public static async Task<IReadOnlyList<int>> FindLegacyWebAsync(string storageDir, CancellationToken ct = default,
+        Func<string, bool>? mutexExists = null, Func<IReadOnlyList<WebProc>>? runningWeb = null)
     {
         mutexExists ??= MutexExists;
-        runningWebStarts ??= WebProcessStartTimes;
-        var starts = runningWebStarts();
-        if (starts.Count == 0) return false;
+        runningWeb ??= WebProcesses;
+        var procs = runningWeb();
+        if (procs.Count == 0) return [];
 
         var name = SharedStorageLock.MutexNameFor(storageDir);
-        if (mutexExists(name)) return false;
+        if (mutexExists(name)) return [];
 
         // 방금 시작한 웹앱이 있으면 몇 초 기다리며 뮤텍스가 생기는지 본다
         var deadline = DateTime.UtcNow.AddSeconds(5);
-        while (DateTime.UtcNow < deadline && runningWebStarts().Any(s => DateTime.Now - s < YoungProcess))
+        while (DateTime.UtcNow < deadline && runningWeb().Any(s => DateTime.Now - s.Start < YoungProcess))
         {
             await Task.Delay(500, ct);
-            if (mutexExists(name)) return false;
+            if (mutexExists(name)) return [];
         }
-        return runningWebStarts().Count > 0;
+        return [.. runningWeb().Select(p => p.Pid)];
     }
 
     private static bool MutexExists(string name)
@@ -115,10 +118,10 @@ public static class LegacyWebGuard
         catch (UnauthorizedAccessException) { return true; }   // 있는데 열 권한이 없다: 있는 것으로 본다
     }
 
-    /// <summary>같은 로그인 세션에서 실행 중인 웹앱 프로세스의 시작 시각(로컬). 뮤텍스(Local\)는 세션별이라 다른 세션 프로세스는 제외한다.</summary>
-    private static IReadOnlyList<DateTime> WebProcessStartTimes()
+    /// <summary>같은 로그인 세션에서 실행 중인 웹앱 프로세스. 뮤텍스(Local\)는 세션별이라 다른 세션 프로세스는 제외한다.</summary>
+    public static IReadOnlyList<WebProc> WebProcesses()
     {
-        var result = new List<DateTime>();
+        var result = new List<WebProc>();
         var session = Process.GetCurrentProcess().SessionId;
         foreach (var p in Process.GetProcessesByName(WebProcessName))
         {
@@ -127,11 +130,46 @@ public static class LegacyWebGuard
                 try
                 {
                     if (p.SessionId != session || p.HasExited) continue;
-                    result.Add(p.StartTime);
+                    result.Add(new WebProc(p.Id, p.StartTime));
                 }
                 catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception) { }
             }
         }
         return result;
     }
+}
+
+/// <summary>
+/// 시작 때 옛 웹앱으로 판정된 프로세스들이 모두 끝나면(웹앱을 껐거나 패치판으로 바꿔 다시 켬) 경고를 거둔다. 주기적으로(기본 30초) 본다.
+/// 새로 뜬 웹앱은 판정하지 않는다 — 이 앱이 이미 공유 뮤텍스를 만들었기 때문에 뮤텍스로는 패치 여부를 가릴 수 없다.
+/// </summary>
+public sealed class LegacyWebWatcher : IDisposable
+{
+    private readonly Timer _timer;
+    private readonly HashSet<int> _pids;
+    private readonly Func<IReadOnlyList<LegacyWebGuard.WebProc>> _running;
+    private readonly Action _onGone;
+    private int _done;
+
+    public LegacyWebWatcher(IEnumerable<int> legacyPids, Action onGone, TimeSpan? every = null, Func<IReadOnlyList<LegacyWebGuard.WebProc>>? running = null)
+    {
+        _pids = [.. legacyPids];
+        _onGone = onGone;
+        _running = running ?? LegacyWebGuard.WebProcesses;
+        var t = every ?? TimeSpan.FromSeconds(30);
+        _timer = new Timer(_ => Check(), null, t, t);
+    }
+
+    /// <summary>살아 있는 옛 웹앱이 없으면 한 번만 onGone을 부르고 멈춘다.</summary>
+    public void Check()
+    {
+        if (Volatile.Read(ref _done) == 1) return;
+        var alive = _running();
+        if (_pids.Any(pid => alive.Any(a => a.Pid == pid))) return;
+        if (Interlocked.Exchange(ref _done, 1) == 1) return;
+        _timer.Change(Timeout.Infinite, Timeout.Infinite);
+        _onGone();
+    }
+
+    public void Dispose() => _timer.Dispose();
 }

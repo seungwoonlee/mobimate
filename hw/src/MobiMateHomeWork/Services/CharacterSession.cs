@@ -104,7 +104,7 @@ public sealed class CharacterSession(GameQueries q, GameStateCache state, Snapsh
         var switched = state.Character != null && (state.CurrentKey ?? CharacterKey(state.Character)) != key;
         if (switched)
         {
-            q.Invalidate("get_currencies", "get_daily_missions");
+            q.Invalidate("get_currencies", "get_daily_missions", "get_current_environment");   // 맵도 이전 캐릭터 것일 수 있다
             state.ClearPerCharacter();
         }
         state.UpdateHeader(ch.Value, act.Value, env.Value);
@@ -124,7 +124,8 @@ public sealed class CharacterSession(GameQueries q, GameStateCache state, Snapsh
             log.LogInformation("캐릭터 기록: {Key} Lv.{Level} 전투력 {Combat}", key, ch.Value!.Level, ch.Value.CombatScore?.Value ?? 0);
         }
         // 현재 맵·가방 최대 무게는 게임 기록에 없다: 숙제 앱 설정 파일에 캐릭터별로 남긴다(바뀔 때만 저장). 캐릭터가 확정된 읽기에서만 남긴다.
-        settings.RememberCharacter(key, env.Value?.GameSpaceDisplayName, ch.Value!.Vitals?.WeightMax);
+        // 전환 직후 읽기는 맵·무게가 이전 캐릭터 것일 수 있어 건너뛴다(다음 읽기에서 저장).
+        if (!switched) settings.RememberCharacter(key, env.Value?.GameSpaceDisplayName, ch.Value!.Vitals?.WeightMax);
         var dto = BuildHeader(ch.Value!, key, env.Value, delta);
         events.RaiseHeaderChanged(dto);
         return new CliData<HeaderView>(dto, null, ch.FetchedAt);
@@ -259,7 +260,7 @@ public sealed class CharacterSession(GameQueries q, GameStateCache state, Snapsh
                 var saved = settings.CharacterInfo(c.Key);
                 // 가방 무게: 접속 중이면 실시간(최대를 못 읽으면 저장된 값), 아니면 마지막 기록의 현재 무게 + 저장된 최대. 기록이 전혀 없으면 null.
                 WeightView? weight = c.LiveVitals is { } v ? WeightView.Of(v.WeightCurrent, v.WeightMax > 0 ? v.WeightMax : saved?.WeightMax)
-                    : c.LastWeight is { } w ? WeightView.Of(w, saved?.WeightMax) : null;
+                    : c.LastWeight is > 0 ? WeightView.Of(c.LastWeight.Value, saved?.WeightMax) : null;   // 기록의 0은 "모름"
                 var map = c.LiveMap is { Length: > 0 } lm ? lm : saved?.LastMap;
                 return new CharacterView(
                     c.Key, VariantOf(c.Key), c.Realm, c.Job, c.Nickname, c.IsCurrent, c.Level, c.Title, map,

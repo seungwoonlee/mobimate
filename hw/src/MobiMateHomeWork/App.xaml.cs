@@ -19,6 +19,8 @@ public partial class App : Application
     private ILogger _log = null!;
     private FileLoggerProvider? _logProvider;
     private MainWindow? _window;
+    private LegacyWebWatcher? _legacyWatcher;
+    private static readonly TimeSpan StopTimeout = TimeSpan.FromSeconds(5);
     private int _quitting;
     private int _exitCode;
 
@@ -42,8 +44,9 @@ public partial class App : Application
             try { MessageBox.Show($"MobiMate 숙제를 시작하지 못했습니다.\n\n{ex.Message}\n\n로그: {_logProvider?.LogDirectory}", "MobiMate 숙제", MessageBoxButton.OK, MessageBoxImage.Error); }
             catch { }
             _exitCode = 1;
-            await StopHostAsync();
-            Shutdown(1);
+            try { await StopHostAsync(); }
+            catch (Exception stopEx) { _log?.LogWarning(stopEx, "시작 실패 뒤 정리 중 오류"); }
+            finally { Shutdown(1); }   // 창 없는 프로세스와 단일 인스턴스 뮤텍스가 남지 않게 반드시 끝낸다
         }
     }
 
@@ -56,7 +59,7 @@ public partial class App : Application
         Directory.CreateDirectory(options.StorageDir);
 
         // 로그: 웹앱과 같은 logs 폴더, 파일 이름은 homework-*.log
-        _logProvider = new FileLoggerProvider(Path.Combine(options.StorageDir, "logs"));
+        _logProvider = new FileLoggerProvider(Path.Combine(options.StorageDir, "logs"), options.MinLogLevel);
         _log = _logProvider.CreateLogger("MobiMateHomeWork");
         builder.Logging.ClearProviders();
         builder.Logging.AddFilter("Microsoft", LogLevel.Warning);
@@ -86,15 +89,21 @@ public partial class App : Application
         var events = new AppEvents();
 
         // 옛 웹앱 확인: 이 앱이 저장소(=공유 뮤텍스)를 만들기 전에 해야 한다. 공유 저장 패치 이전의 웹앱은 뮤텍스를 만들지 않는다.
-        if (options.LegacyWebCheck && await LegacyWebGuard.IsLegacyWebRunningAsync(options.StorageDir))
+        if (options.LegacyWebCheck && await LegacyWebGuard.FindLegacyWebAsync(options.StorageDir) is { Count: > 0 } legacyPids)
         {
-            const string msg = "공유 저장 패치 이전의 웹앱(MobiMateWeb)이 실행 중입니다. 같이 쓰면 숙제·캐릭터 기록이 서로 덮어써질 수 있습니다. 웹앱을 최신 버전으로 바꿔 주세요.";
+            const string msg = "공유 저장 패치 이전의 웹앱(MobiMateWeb)이 실행 중입니다. 같이 쓰면 숙제·캐릭터 기록이 서로 덮어써질 수 있습니다. 웹앱을 최신 버전으로 바꿔 주세요. (같은 저장 폴더를 쓰는 경우에만 해당합니다.)";
             _log.LogWarning("{Message}", msg);
             events.RaiseWarning(new AppWarning(AppWarningKind.LegacyWebApp, msg));
+            // 옛 웹앱이 모두 끝나면(껐거나 패치판으로 다시 켬) 경고를 거둔다
+            _legacyWatcher = new LegacyWebWatcher(legacyPids, () =>
+            {
+                _log.LogInformation("옛 웹앱이 종료되어 경고를 해제합니다.");
+                events.ClearWarning(AppWarningKind.LegacyWebApp);
+            });
         }
 
         ConfigureServices(builder.Services, options, events);
-        builder.Services.Configure<HostOptions>(o => o.ShutdownTimeout = TimeSpan.FromSeconds(5));   // 종료가 오래 걸리면 기다리지 않는다
+        builder.Services.Configure<HostOptions>(o => o.ShutdownTimeout = StopTimeout);   // 종료가 오래 걸리면 기다리지 않는다
 
         _host = builder.Build();
         // 호스트는 UI 스레드의 동기화 컨텍스트 밖에서 시작한다: 백그라운드 서비스의 await 이어가기가 UI 스레드에서 돌면 화면이 멈춘다
@@ -160,7 +169,7 @@ public partial class App : Application
         {
             try { await StopHostAsync(); }
             catch (Exception ex) { _log?.LogWarning(ex, "종료 중 오류"); }
-            Shutdown(_exitCode);
+            finally { Shutdown(_exitCode); }
         });
     }
 
@@ -169,16 +178,23 @@ public partial class App : Application
     private async Task StopHostAsync()
     {
         if (Interlocked.Exchange(ref _stopped, 1) == 1) return;
+        _legacyWatcher?.Dispose();
         var host = _host;
         if (host == null) return;
         _log?.LogInformation("숙제 앱을 종료합니다.");
         try
         {
-            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+            // 호스트 자체 제한(ShutdownTimeout)이 먼저 걸리고, 이 토큰은 그보다 조금 긴 안전망이다
+            using var cts = new CancellationTokenSource(StopTimeout + TimeSpan.FromSeconds(2));
             await Task.Run(() => host.StopAsync(cts.Token));
         }
-        catch (OperationCanceledException) { _log?.LogWarning("호스트 종료가 시간 안에 끝나지 않았습니다."); }
-        host.Dispose();
+        catch (Exception ex)
+        {
+            // OperationCanceled·AggregateException 등 무엇이든 종료를 막지 않는다
+            _log?.LogWarning(ex, "호스트 종료 중 오류(무시하고 계속 종료)");
+        }
+        try { host.Dispose(); }
+        catch (Exception ex) { _log?.LogWarning(ex, "호스트 정리 중 오류"); }
     }
 
     protected override void OnExit(ExitEventArgs e)
