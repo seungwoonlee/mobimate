@@ -44,28 +44,28 @@ public class SharedStorageTests : IDisposable
     {
         const int PerProcess = 600;   // 프로세스당 600회 × 2 = 1,200회 (숙제 체크·캐릭터 기록·계정 지정을 번갈아)
         var exe = HarnessExe();
-        var runs = new[] { "A", "B" }.Select(role => Task.Run(() =>
-        {
-            using var p = Process.Start(new ProcessStartInfo(exe, $"\"{_dir}\" {role} {PerProcess}")
-            {
-                UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true,
-            })!;
-            var err = p.StandardError.ReadToEnd();
-            var output = p.StandardOutput.ReadToEnd();
-            if (!p.WaitForExit(180_000)) { try { p.Kill(true); } catch { } throw new TimeoutException($"하네스 {role}가 끝나지 않았습니다."); }
-            return (role, p.ExitCode, output, err);
-        })).ToArray();
+        var runs = new[] { "A", "B" }.Select(role => Task.Run(() => RunHarness(exe, role, PerProcess))).ToArray();
         var results = await Task.WhenAll(runs);
-        foreach (var r in results) Assert.True(r.ExitCode == 0, $"{r.role}: exit {r.ExitCode}\n{r.output}\n{r.err}");
+        foreach (var r in results) Assert.True(r.ExitCode == 0, $"{r.role}: exit {r.ExitCode} / {r.output} / {r.err}");
 
         const int PerKind = PerProcess / 3;   // 종류별 200회씩
         var homework = new HomeworkStore(_dir).Load();
+        var defs = _catalog.Items.Where(d => d.Active && d.Share == HomeworkShare.Character).ToList();
+        var sharedChar = homework.Characters["shared_char"];   // 두 프로세스가 같은 캐릭터의 서로 다른 숙제 id를 체크했다: 모두 남아야 한다
+        foreach (var d in defs)
+            Assert.True(sharedChar.Items.GetValueOrDefault(d.Id)?.Completed == true, $"같은 캐릭터 체크 유실: {d.Id}");
+        var uniquePerRole = 0;
         foreach (var role in new[] { "A", "B" })
         {
+            var mineCount = defs.Where((_, idx) => idx % 2 == (role == "A" ? 0 : 1)).Count();
             for (var i = 0; i < PerProcess; i += 3)
+            {
+                if (i / 3 < mineCount) continue;
+                uniquePerRole++;
                 Assert.True(homework.Characters.TryGetValue($"hw_{role}_{i}", out var l) && l.Items.GetValueOrDefault(ManualId)?.Completed == true, $"숙제 체크 유실: hw_{role}_{i}");
+            }
         }
-        Assert.Equal(2 * PerKind, homework.Characters.Count);
+        Assert.Equal(uniquePerRole + 1, homework.Characters.Count);   // 새 장부들 + shared_char
 
         var snapshots = new SnapshotManager(_dir);
         var keys = snapshots.GetAllProfiles().Select(p => p.CharacterKey).ToHashSet();
@@ -80,6 +80,26 @@ public class SharedStorageTests : IDisposable
         foreach (var role in new[] { "A", "B" })
             for (var i = 2; i < PerProcess; i += 3)
                 Assert.Equal(role, assign[$"acct_{role}_{i}"].Account);
+    }
+
+    /// <summary>하네스를 실행한다. 출력은 비동기로 받고, 시간 안에 끝나지 않으면 프로세스 트리를 죽이고 실패시킨다(읽기 대기로 멈추지 않게).</summary>
+    private (string role, int ExitCode, string output, string err) RunHarness(string exe, string role, int count)
+    {
+        using var p = new Process { StartInfo = new ProcessStartInfo(exe, $"\"{_dir}\" {role} {count}") { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true } };
+        var output = new System.Text.StringBuilder();
+        var err = new System.Text.StringBuilder();
+        p.OutputDataReceived += (_, e) => { if (e.Data != null) lock (output) output.AppendLine(e.Data); };
+        p.ErrorDataReceived += (_, e) => { if (e.Data != null) lock (err) err.AppendLine(e.Data); };
+        p.Start();
+        p.BeginOutputReadLine();
+        p.BeginErrorReadLine();
+        if (!p.WaitForExit(180_000))
+        {
+            try { p.Kill(true); } catch { }
+            throw new TimeoutException($"하네스 {role}가 180초 안에 끝나지 않았습니다. {output} / {err}");
+        }
+        p.WaitForExit();   // 비동기 출력 읽기가 모두 끝나도록
+        return (role, p.ExitCode, output.ToString(), err.ToString());
     }
 
     private static string HarnessExe()
@@ -125,16 +145,39 @@ public class SharedStorageTests : IDisposable
         var other = NewService();
         other.Set("c2", ManualId, completed: true);   // 다른 인스턴스가 고쳐서 svc의 기억이 낡았다
         var current = File.ReadAllBytes(HwFile);
-        File.Delete(HwFile);
+        File.Delete(HwFile);   // File.Replace 도중처럼 대상이 잠깐 없다
 
-        // 교체 중이던 파일이 재시도 구간(50ms×3) 안에 돌아온다
-        var restorer = new Thread(() => { Thread.Sleep(60); File.WriteAllBytes(HwFile, current); });
-        restorer.Start();
-        svc.Set("c3", ManualId, completed: true);
-        restorer.Join();
+        // 재시도 훅으로 순서를 정한다: 첫 재시도 때는 아직 없고, 두 번째 재시도 직전에 돌아온다 (시간 경쟁 없음)
+        var attempts = new List<int>();
+        SharedFileTracker.OnMissingRetry = i =>
+        {
+            attempts.Add(i);
+            if (i == 1) File.WriteAllBytes(HwFile, current);
+        };
+        try { svc.Set("c3", ManualId, completed: true); }
+        finally { SharedFileTracker.OnMissingRetry = null; }
 
+        Assert.Equal(new[] { 0, 1 }, attempts);
         var saved = new HomeworkStore(_dir).Load();
         Assert.Equal(new[] { "c1", "c2", "c3" }, saved.Characters.Keys.OrderBy(k => k).ToArray());
+    }
+
+    [Fact]
+    public void StillMissingAfterRetries_DefersAndDoesNotRetryAgainWhileWaiting()
+    {
+        var svc = NewService();
+        svc.Set("c1", ManualId, completed: true);
+        File.Delete(HwFile);
+        var retries = 0;
+        SharedFileTracker.OnMissingRetry = _ => retries++;
+        try
+        {
+            Assert.Throws<IOException>(() => svc.Set("c2", ManualId, completed: true));
+            Assert.Equal(3, retries);   // 처음 한 번만 50ms×3 재시도
+            Assert.Throws<IOException>(() => svc.Set("c2", ManualId, completed: true));
+            Assert.Equal(3, retries);   // 이미 없는 채로 기다리는 중이면 바로 미룬다
+        }
+        finally { SharedFileTracker.OnMissingRetry = null; }
     }
 
     [Fact]
@@ -398,6 +441,123 @@ public class SharedStorageTests : IDisposable
         log.Observe("k", new List<CurrencyItem> { new("골드", 5) });
         Assert.NotNull(log.Observe("k", new List<CurrencyItem> { new("골드", 9) }));   // 앱 동작에는 영향 없다
         Assert.Single(errors);
+    }
+
+    // ---------------- 리뷰 반영 테스트 ----------------
+
+    [Fact]
+    public void GetBoardReset_OverlappingAnotherInstancesManualCheck_KeepsTheCheck()
+    {
+        var web = NewService();
+        web.Set("c1", ManualId, completed: true);   // web의 메모리는 지난 주기 기록
+        _now += TimeSpan.FromDays(8);   // 일간·주간 리셋을 모두 지난다
+        var app = NewService();
+        app.Set("c1", OtherManualId, completed: true);   // 숙제 앱이 새 주기에 리셋하고 체크를 남겼다
+
+        var board = web.GetBoard("c1");   // web은 낡은 메모리로 리셋을 적용해 저장하면 안 된다: 먼저 다시 읽는다
+        Assert.True(board.Cards.Single(c => c.Id == OtherManualId).IsDone);
+        Assert.True(new HomeworkStore(_dir).Load().Characters["c1"].Items[OtherManualId].Completed);
+    }
+
+    [Fact]
+    public void DeferredNicknameFromReadFailure_SurvivesExternalReload()
+    {
+        var a = new SnapshotManager(_dir);
+        a.UpdateSnapshot(Info("류트", "전사", 50), null, null, "류트_전사");
+        var b = new SnapshotManager(_dir);
+        b.UpdateSnapshot(Info("류트", "궁수", 40), null, null, "류트_궁수");   // a의 기억이 낡았다
+
+        using (new FileStream(a.CharacterDbFilePath, FileMode.Open, FileAccess.Read, FileShare.None))
+            a.SetCustomName("류트_전사", "류트", "전사", "별명");   // 읽지 못해 저장을 미룬다
+
+        Assert.True(a.RefreshExternal());   // 풀린 뒤 다시 읽고, 미룬 변경을 재적용해 저장한다
+        var onDisk = new SnapshotManager(_dir);
+        Assert.Equal("별명", onDisk.GetProfileByKey("류트_전사")!.CustomName);
+        Assert.NotNull(onDisk.GetProfileByKey("류트_궁수"));   // 다른 쪽 기록도 남아 있다
+    }
+
+    [Fact]
+    public void RecordsAccumulatedAfterFailedFirstRead_AreMergedOnceReadable()
+    {
+        new SnapshotManager(_dir).UpdateSnapshot(Info("류트", "궁수", 40), null, null, "류트_궁수");
+        var dbFile = Path.Combine(_dir, "character_history_db.json");
+        SnapshotManager late;
+        using (new FileStream(dbFile, FileMode.Open, FileAccess.Read, FileShare.None))
+        {
+            late = new SnapshotManager(_dir);   // 생성자 첫 읽기가 실패한다
+            late.UpdateSnapshot(Info("류트", "전사", 50), null, null, "류트_전사");   // 그 뒤 쌓인 기록 (저장은 미룬다)
+        }
+        Assert.Equal("류트_궁수", new SnapshotManager(_dir).GetAllProfiles().Single().CharacterKey);   // 빈 목록·부분 목록으로 덮어쓰지 않았다
+
+        late.UpdateSnapshot(Info("류트", "전사", 51), null, null, "류트_전사");   // 읽을 수 있게 된 뒤: 파일 내용 위에 미룬 기록이 합쳐진다
+        var keys = new SnapshotManager(_dir).GetAllProfiles().Select(p => p.CharacterKey).OrderBy(k => k).ToArray();
+        Assert.Equal(new[] { "류트_궁수", "류트_전사" }, keys);
+    }
+
+    [Fact]
+    public void DeferredChanges_OfTheSameTarget_OverwriteEachOther()
+    {
+        var m = new SnapshotManager(_dir);
+        m.UpdateSnapshot(Info("류트", "전사", 50), null, null, "류트_전사");
+        new SnapshotManager(_dir).UpdateSnapshot(Info("류트", "궁수", 40), null, null, "류트_궁수");   // m의 기억이 낡았다
+        using (new FileStream(m.CharacterDbFilePath, FileMode.Open, FileAccess.Read, FileShare.None))
+            for (var i = 0; i < 50; i++) m.SetCustomName("류트_전사", "류트", "전사", "이름" + i);   // 같은 대상은 하나로 덮어쓴다
+        Assert.True(m.RefreshExternal());
+        Assert.Equal("이름49", new SnapshotManager(_dir).GetProfileByKey("류트_전사")!.CustomName);
+    }
+
+    [Fact]
+    public void FileStamp_DistinguishesSameTickSameLengthWrites_ByFileId()
+    {
+        var path = Path.Combine(_dir, "stamp.json");
+        var store = new JsonFileStore();
+        Assert.True(store.Save(path, new Dictionary<string, string> { ["a"] = "1111" }));
+        var tracker = new SharedFileTracker(path);
+        Assert.Equal(RefreshResult.Reloaded, tracker.Refresh<Dictionary<string, string>>(false, out _));
+        Assert.False(tracker.IsStale);
+        var ticks = File.GetLastWriteTimeUtc(path);
+
+        // 다른 인스턴스가 같은 길이의 내용을 쓰고, 쓰기 시각까지 같은 틱으로 맞춘다 (거친 시각 해상도를 흉내)
+        Assert.True(new JsonFileStore().Save(path, new Dictionary<string, string> { ["a"] = "2222" }));
+        File.SetLastWriteTimeUtc(path, ticks);
+        Assert.Equal(ticks.Ticks, FileStamp.Of(path).Ticks);
+        Assert.True(tracker.IsStale);   // 시각·길이는 같지만 파일 고유 번호가 다르다
+        Assert.Equal(RefreshResult.Reloaded, tracker.Refresh<Dictionary<string, string>>(true, out var v));
+        Assert.Equal("2222", v!["a"]);
+        Assert.False(tracker.IsStale);
+
+        // 연달아 쓸 때마다 고유 번호가 바뀐다
+        var ids = new HashSet<(uint, ulong)>();
+        for (var i = 0; i < 100; i++)
+        {
+            store.Save(path, new Dictionary<string, string> { ["a"] = (1000 + i).ToString() });
+            var st = FileStamp.Of(path);
+            Assert.False(st.Unknown);
+            ids.Add((st.Volume, st.FileId));
+        }
+        Assert.True(ids.Count >= 99, $"쓰기마다 고유 번호가 바뀌어야 한다: {ids.Count}/100");
+    }
+
+    [Fact]
+    public void FileStamp_LockedFileIsReadable_AndUnknownCountsAsChanged()
+    {
+        var path = Path.Combine(_dir, "locked.json");
+        new JsonFileStore().Save(path, new Dictionary<string, string> { ["a"] = "1" });
+        using (new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.None))
+            Assert.False(FileStamp.Of(path).Unknown);   // 속성 조회 전용 핸들이라 배타적으로 열린 파일도 읽는다
+        Assert.False(new FileStamp(true, 1, 1, Unknown: true).SameAs(new FileStamp(true, 1, 1, Unknown: true)));   // 알 수 없으면 같은 상태로 치지 않는다
+    }
+
+    [Fact]
+    public void FileStamp_Check_IsCheapEnoughForPerRequestUse()
+    {
+        var path = Path.Combine(_dir, "perf.json");
+        new JsonFileStore().Save(path, new Dictionary<string, string> { ["a"] = "1" });
+        FileStamp.Of(path);   // 예열
+        var sw = Stopwatch.StartNew();
+        for (var i = 0; i < 2000; i++) FileStamp.Of(path);
+        sw.Stop();
+        Assert.True(sw.ElapsedMilliseconds < 2000, $"2,000회에 {sw.ElapsedMilliseconds}ms: 호출당 1ms 미만이어야 한다");
     }
 
     private static CharacterInfo Info(string realm, string job, int level) =>

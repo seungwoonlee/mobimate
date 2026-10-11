@@ -3,7 +3,8 @@ using MobiMate.Web.Hosting;
 
 // 사용법: SharedStorageHarness <저장 폴더> <역할 문자> <반복 횟수>
 // 반복마다 세 가지 쓰기를 번갈아 한다. 키는 모두 역할 문자와 번호로 유일해서, 끝난 뒤 파일에 전부 남아 있어야 한다.
-//   i % 3 == 0: 숙제 수동 체크 (새 캐릭터 장부 hw_{역할}_{i})
+//   i % 3 == 0: 숙제 수동 체크. 앞쪽 몇 번은 두 프로세스가 같은 캐릭터 shared_char의 서로 다른 숙제 id를 한 번씩 체크한다(같은 키 충돌).
+//               역할 A는 짝수 번째, B는 홀수 번째 id를 쓴다. 그 뒤로는 새 캐릭터 장부 hw_{역할}_{i}에 체크한다.
 //   i % 3 == 1: 캐릭터 기록 (서버_직업 = 류트_{역할}{i})
 //   i % 3 == 2: 계정 지정 (acct_{역할}_{i} → 계정 {역할})
 // 종료 코드: 0 정상, 1 쓰기 실패(예외·거부)
@@ -13,7 +14,9 @@ var role = args[1];
 var count = int.Parse(args[2]);
 
 var catalog = HomeworkCatalog.LoadEmbedded();
-var def = catalog.Items.First(d => d.Active && d.Share == HomeworkShare.Character);
+var defs = catalog.Items.Where(d => d.Active && d.Share == HomeworkShare.Character).ToList();
+var def = defs[0];
+var mine = defs.Where((_, idx) => idx % 2 == (role == "A" ? 0 : 1)).ToList();
 var homework = new HomeworkService(catalog, new HomeworkStore(dir));
 var snapshots = new SnapshotManager(dir);
 var accounts = new AccountStore(dir);
@@ -26,7 +29,9 @@ for (var i = 0; i < count; i++)
         switch (i % 3)
         {
             case 0:
-                homework.Set($"hw_{role}_{i}", def.Id, completed: true);
+                var j = i / 3;
+                if (j < mine.Count) homework.Set("shared_char", mine[j].Id, completed: true);
+                else homework.Set($"hw_{role}_{i}", def.Id, completed: true);
                 break;
             case 1:
                 var job = $"{role}{i}";
