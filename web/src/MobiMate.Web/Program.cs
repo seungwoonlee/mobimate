@@ -85,7 +85,11 @@ builder.Services.AddSingleton(sp =>
 });
 builder.Services.AddSingleton(sp => new HomeworkStore(Dir(sp)));
 builder.Services.AddSingleton(sp => new HomeworkService(sp.GetRequiredService<HomeworkCatalog>(), sp.GetRequiredService<HomeworkStore>()));
-builder.Services.AddSingleton(sp => new CurrencyDeltaLog(Path.Combine(Dir(sp), "currency_changes.jsonl")));
+builder.Services.AddSingleton(sp =>
+{
+    var log = sp.GetRequiredService<ILogger<CurrencyDeltaLog>>();
+    return new CurrencyDeltaLog(Path.Combine(Dir(sp), "currency_changes.jsonl"), onError: (msg, ex) => log.LogWarning(ex, "{Message}", msg));
+});
 builder.Services.AddSingleton<HomeworkWatcher>();
 builder.Services.AddSingleton<SseHub>();
 builder.Services.AddSingleton<CombatScoreGuard>();
@@ -98,6 +102,7 @@ builder.Services.AddSingleton<AiService>();
 builder.Services.AddSingleton<StatusMonitor>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<StatusMonitor>());
 builder.Services.AddHostedService<StartupTasks>();
+builder.Services.AddHostedService<ExternalChangeMonitor>();
 builder.Services.AddHostedService<CharacterRecorder>();
 builder.Services.AddHostedService<CharacterWatcher>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<LanService>());
