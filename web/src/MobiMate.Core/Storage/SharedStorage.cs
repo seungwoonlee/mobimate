@@ -10,17 +10,26 @@ namespace MobiMate;
 /// - 프로세스 안에서는 먼저 폴더별 모니터를 잡고, 그 안에서 뮤텍스를 잡는다 (순서 고정: 서비스 잠금 → 모니터 → 뮤텍스 → 파일별 잠금).
 /// - 뮤텍스는 스레드 소유다. 그래서 <see cref="Run{T}"/>는 동기 구간만 받는다: await를 걸쳐 쥐지 않는다.
 /// - 같은 스레드에서 중첩 호출해도 된다(모니터·뮤텍스 모두 재진입 가능).
+/// - 이름은 Local\ 접두사(현재 로그인 세션 범위)를 유지한다: 웹앱과 숙제 앱은 같은 사용자의 같은 세션에서 실행되므로 서로 보이고,
+///   다른 사용자 세션의 프로세스와 불필요하게 잠금을 다투지 않는다(Global\은 권한 문제로 만들기 실패할 수 있다).
+/// - 대기는 10초까지다. 넘으면 IOException으로 작업을 미룬다(영원히 멈추지 않게).
 /// - 다른 프로세스가 뮤텍스를 쥔 채 죽으면 AbandonedMutexException이 나는데, 이때도 뮤텍스는 우리가 소유한 것이므로 획득으로 처리한다.
 /// </summary>
 public sealed class SharedStorageLock
 {
     private static readonly ConcurrentDictionary<string, SharedStorageLock> All = new();
-    private static readonly TimeSpan WaitLimit = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan WaitLimit = TimeSpan.FromSeconds(10);
 
     private readonly object _gate = new();
     private readonly Mutex? _mutex;
 
     public string Name { get; }
+
+    /// <summary>뮤텍스를 만들지 못해 프로세스 안 잠금만 쓰는 상태가 되면 그 이유. 호스트가 로그로 드러낸다(없으면 null).</summary>
+    public static string? DegradedReason { get; private set; }
+
+    /// <summary>뮤텍스를 만들지 못했을 때 발생한다(두 프로세스 동시 쓰기 보호가 꺼진 상태).</summary>
+    public static event Action<string>? Degraded;
 
     private SharedStorageLock(string dir)
     {
@@ -29,7 +38,10 @@ public sealed class SharedStorageLock
         catch (Exception ex) when (ex is UnauthorizedAccessException or IOException or WaitHandleCannotBeOpenedException)
         {
             // 뮤텍스를 만들 수 없으면 프로세스 안 잠금만으로 계속한다(웹앱 단독 동작은 그대로)
-            System.Diagnostics.Trace.TraceWarning($"공유 저장 뮤텍스를 만들지 못했습니다({Name}): {ex.Message}");
+            var reason = $"공유 저장 뮤텍스를 만들지 못해 프로세스 안 잠금만 씁니다({Name}): {ex.Message}";
+            System.Diagnostics.Trace.TraceWarning(reason);
+            DegradedReason = reason;
+            Degraded?.Invoke(reason);
         }
     }
 
@@ -67,20 +79,66 @@ public sealed class SharedStorageLock
     public void Run(Action action) => Run<object?>(() => { action(); return null; });
 }
 
-/// <summary>파일의 마지막 쓰기 시각(100ns 단위)과 크기. 파일이 바뀌었는지 판정하는 근거다.</summary>
-public readonly record struct FileStamp(bool Exists, long Ticks, long Length)
+/// <summary>
+/// 파일의 마지막 쓰기 시각(100ns 단위)·크기·파일 고유 번호(볼륨 일련번호 + 파일 인덱스). 파일이 바뀌었는지 판정하는 근거다.
+/// 모든 쓰기가 임시 파일 → File.Replace/File.Move라서 쓰기마다 새 파일이 대상 이름을 차지하고 고유 번호가 바뀐다:
+/// 시각 해상도가 거칠어 같은 틱·같은 길이로 연달아 쓴 경우도 구분된다. 고유 번호를 읽지 못하면 <see cref="Unknown"/>이고
+/// 같은 상태로 치지 않는다(안전한 쪽 = 바뀐 것으로 본다).
+/// </summary>
+public readonly record struct FileStamp(bool Exists, long Ticks, long Length, uint Volume = 0, ulong FileId = 0, bool Unknown = false)
 {
     public static FileStamp Of(string path)
     {
         try
         {
             var fi = new FileInfo(path);
-            return fi.Exists ? new FileStamp(true, fi.LastWriteTimeUtc.Ticks, fi.Length) : default;
+            if (!fi.Exists) return default;
+            var stamp = new FileStamp(true, fi.LastWriteTimeUtc.Ticks, fi.Length);
+            if (!OperatingSystem.IsWindows()) return stamp;
+            return NativeFileId.TryGet(path, out var volume, out var id) ? stamp with { Volume = volume, FileId = id } : stamp with { Unknown = true };
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             return default;
         }
+    }
+
+    /// <summary>마지막으로 기억한 상태와 같은가. 고유 번호를 모르면 같다고 하지 않는다.</summary>
+    public bool SameAs(FileStamp other) => !Unknown && !other.Unknown && this == other;
+}
+
+/// <summary>
+/// GetFileInformationByHandle로 파일 고유 번호를 읽는다. 접근 권한 0(속성 조회만)·FileShare 전부로 열어 바로 닫으므로
+/// 다른 프로그램이 쓰기 중이거나 배타적으로 열어 둔 파일에도 방해하지 않고 열린다(열기 비용은 수십 µs).
+/// </summary>
+internal static class NativeFileId
+{
+    [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
+    private struct ByHandleFileInformation
+    {
+        public uint FileAttributes;
+        public System.Runtime.InteropServices.ComTypes.FILETIME CreationTime, LastAccessTime, LastWriteTime;
+        public uint VolumeSerialNumber, FileSizeHigh, FileSizeLow, NumberOfLinks, FileIndexHigh, FileIndexLow;
+    }
+
+    [System.Runtime.InteropServices.DllImport("kernel32.dll", CharSet = System.Runtime.InteropServices.CharSet.Unicode, SetLastError = true)]
+    private static extern Microsoft.Win32.SafeHandles.SafeFileHandle CreateFileW(string name, uint access, uint share, IntPtr security, uint disposition, uint flags, IntPtr template);
+
+    [System.Runtime.InteropServices.DllImport("kernel32.dll", SetLastError = true)]
+    [return: System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.Bool)]
+    private static extern bool GetFileInformationByHandle(Microsoft.Win32.SafeHandles.SafeFileHandle handle, out ByHandleFileInformation info);
+
+    private const uint ShareAll = 0x1 | 0x2 | 0x4;   // READ | WRITE | DELETE
+    private const uint OpenExisting = 3;
+
+    public static bool TryGet(string path, out uint volume, out ulong id)
+    {
+        volume = 0; id = 0;
+        using var h = CreateFileW(Path.GetFullPath(path), 0, ShareAll, IntPtr.Zero, OpenExisting, 0, IntPtr.Zero);
+        if (h.IsInvalid || !GetFileInformationByHandle(h, out var info)) return false;
+        volume = info.VolumeSerialNumber;
+        id = ((ulong)info.FileIndexHigh << 32) | info.FileIndexLow;
+        return true;
     }
 }
 
@@ -108,6 +166,9 @@ public sealed class SharedFileTracker(string path)
     private const int MissingRetries = 3;
     private const int MissingRetryDelayMs = 50;
 
+    /// <summary>테스트용 훅: 파일이 없어 재시도할 때마다(0부터) 대기 직전에 불린다. 시간 경쟁 없이 "교체 중" 순서를 재현한다. 스레드별.</summary>
+    [ThreadStatic] internal static Action<int>? OnMissingRetry;
+
     private readonly JsonFileStore _store = new();
     private FileStamp _stamp;
     private bool _loadedOnce;
@@ -116,7 +177,7 @@ public sealed class SharedFileTracker(string path)
     public string Path { get; } = path;
 
     /// <summary>마지막으로 읽거나 쓴 뒤 파일이 바뀌었는가(또는 아직 읽은 적이 없는가). 잠금 없이 부를 수 있다.</summary>
-    public bool IsStale => !_loadedOnce || FileStamp.Of(Path) != _stamp;
+    public bool IsStale => !_loadedOnce || !FileStamp.Of(Path).SameAs(_stamp);
 
     /// <summary>
     /// 필요하면 다시 읽는다. <paramref name="hasMemory"/>가 false면(메모리에 쓸 만한 값이 없음) 무조건 읽는다.
@@ -128,14 +189,15 @@ public sealed class SharedFileTracker(string path)
         value = null;
         var before = FileStamp.Of(Path);
         var force = !hasMemory || !_loadedOnce;
-        if (!force && before == _stamp) return RefreshResult.Unchanged;
+        if (!force && before.SameAs(_stamp)) return RefreshResult.Unchanged;
 
         var hadFile = _loadedOnce && _stamp.Exists;
         var status = _store.TryLoad(Path, out value);
-        if (status == LoadStatus.Missing && hadFile)
+        if (status == LoadStatus.Missing && hadFile && _missingSinceMs < 0)   // 이미 없는 채로 기다리는 중이면 재시도(대기)를 반복하지 않는다
         {
             for (var i = 0; i < MissingRetries && status == LoadStatus.Missing; i++)
             {
+                OnMissingRetry?.Invoke(i);
                 Thread.Sleep(MissingRetryDelayMs);
                 before = FileStamp.Of(Path);
                 status = _store.TryLoad(Path, out value);

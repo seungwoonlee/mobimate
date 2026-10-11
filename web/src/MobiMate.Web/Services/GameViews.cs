@@ -356,7 +356,9 @@ public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManag
     public bool RemoveCharacter(string key)
     {
         if (!snapshots.RemoveCharacter(key)) return false;
-        accounts.Update(d => { AccountGrouper.RemoveCharacter(d, key); return true; });
+        // 계정 정보를 못 지워도(파일 잠김 등) 응답 형태는 그대로다: 기록은 이미 지웠으므로 경고만 남긴다
+        if (!accounts.Update(d => { AccountGrouper.RemoveCharacter(d, key); return true; }))
+            log.LogWarning("캐릭터 {Key}의 기록은 지웠지만 계정 정보를 갱신하지 못했습니다(accounts.json을 읽거나 쓸 수 없음).", key);
         return true;
     }
 

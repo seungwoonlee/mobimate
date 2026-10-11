@@ -153,7 +153,7 @@ public class SnapshotManager
             _shared.Run(() =>
             {
                 EnsureStorageDirectoryAndMigrate();
-                RefreshLocked();
+                RefreshAndReplay();
             });
         }
     }
@@ -221,13 +221,50 @@ public class SnapshotManager
         return ok;
     }
 
+    // 읽기 실패(잠김)로 저장을 미룬 변경. 다시 읽어 메모리가 교체되면 사라지므로, "다시 적용할 수 있는 변경 함수"로 보관했다가
+    // 성공적으로 다시 읽은 뒤 재적용해 저장한다. 대상(종류:캐릭터 키)이 같으면 덮어써서 쌓이지 않고, 상한을 넘으면 로그를 남기고 가장 오래된 것을 버린다.
+    private const int MaxPending = 500;
+    private readonly Dictionary<string, Action> _pending = new();
+
+    private void Defer(string target, Action apply)
+    {
+        _pending.Remove(target);   // 나중 변경이 이긴다(순서도 뒤로)
+        _pending[target] = apply;
+        if (_pending.Count > MaxPending)
+        {
+            var oldest = _pending.Keys.First();
+            _pending.Remove(oldest);
+            System.Diagnostics.Trace.TraceWarning($"저장을 미룬 변경이 {MaxPending}개를 넘어 가장 오래된 것({oldest})을 버렸습니다.");
+        }
+    }
+
+    private bool RefreshAndReplay() => RefreshAndReplay(out _);
+
+    /// <summary>
+    /// 공유 잠금과 _lock 안에서 부른다. 다시 읽고(<see cref="RefreshLocked(out bool)"/>), 성공했으면 미룬 변경을 재적용해 저장한다.
+    /// 다시 읽지 않았으면(메모리가 이미 그 변경을 담고 있다) 큐만 비우고 dirty 표시대로 저장한다.
+    /// </summary>
+    private bool RefreshAndReplay(out bool reloaded)
+    {
+        var ok = RefreshLocked(out reloaded);
+        if (!ok) return false;
+        if (_pending.Count > 0)
+        {
+            var ops = _pending.Values.ToList();
+            _pending.Clear();
+            if (reloaded) foreach (var op in ops) op();
+        }
+        if (_snapDirty || _dbDirty) SaveLocked();
+        return true;
+    }
+
     /// <summary>읽기 경로용: 파일이 바뀌었으면 다시 읽는다(잠금 없이 stat만으로 먼저 확인). 실패해도 메모리 값으로 계속한다.</summary>
     private void EnsureFresh()
     {
         if (_snapLoaded && _dbLoaded && !_snapTracker.IsStale && !_dbTracker.IsStale) return;
         try
         {
-            lock (_lock) _shared.Run(() => RefreshLocked());
+            lock (_lock) _shared.Run(() => RefreshAndReplay());
         }
         catch (IOException) { /* 잠금을 못 얻으면 메모리 값으로 */ }
     }
@@ -242,7 +279,7 @@ public class SnapshotManager
         {
             return _shared.Run(() =>
             {
-                RefreshLocked(out var reloaded);
+                RefreshAndReplay(out var reloaded);
                 return reloaded;
             });
         }
@@ -401,7 +438,7 @@ public class SnapshotManager
         string? newKey = null;
         lock (_lock) return _shared.Run(() =>
         {
-            if (!RefreshLocked()) return null;   // 최신 기록을 읽지 못했다: 나누지 않고 미룬다
+            if (!RefreshAndReplay()) return null;   // 최신 기록을 읽지 못했다: 나누지 않고 미룬다
             if (!_characterDb.TryGetValue(key, out var p) || p.History.Count < 2) return null;
             var last = p.History[^1];
             p.History.RemoveAt(p.History.Count - 1);
@@ -445,7 +482,12 @@ public class SnapshotManager
     {
         lock (_lock) _shared.Run(() =>
         {
-            var fresh = RefreshLocked();   // 못 읽었으면 메모리만 고치고 저장은 미룬다(dirty)
+            var fresh = RefreshAndReplay();   // 못 읽었으면 메모리만 고치고 저장은 미룬 변경 큐에 넣는다
+            ApplyName();
+            if (!fresh || !SaveLocked()) Defer("n:" + key, ApplyName);
+
+            void ApplyName()
+            {
             if (!_characterDb.TryGetValue(key, out var p))
             {
                 p = new CharacterProfile
@@ -460,7 +502,7 @@ public class SnapshotManager
             }
             p.CustomName = customName.Trim();
             _dbDirty = true;
-            if (fresh) SaveLocked();
+            }
         });
     }
 
@@ -471,7 +513,7 @@ public class SnapshotManager
         {
             return _shared.Run(() =>
             {
-                if (!RefreshLocked()) return false;   // 최신 기록을 읽지 못했다: 지우지 않고 미룬다
+                if (!RefreshAndReplay()) return false;   // 최신 기록을 읽지 못했다: 지우지 않고 미룬다
                 var removed = _characterDb.Remove(characterKey);
                 removed |= _savedSnapshots.Remove(characterKey);
                 _sessionBaselines.Remove(characterKey);
@@ -530,7 +572,7 @@ public class SnapshotManager
                     }
                 }
 
-                if (copied > 0) RefreshLocked();   // 새로 생긴 파일을 읽는다
+                if (copied > 0) RefreshAndReplay();   // 새로 생긴 파일을 읽는다
                 return copied;
             });
         }
@@ -573,7 +615,14 @@ public class SnapshotManager
 
         lock (_lock) return _shared.Run(() =>
         {
-            var fresh = RefreshLocked();   // 못 읽었으면(잠김) 메모리만 갱신하고 저장은 미룬다
+            var fresh = RefreshAndReplay();   // 못 읽었으면(잠김) 메모리만 갱신하고 저장은 미룬 변경 큐에 넣는다
+            var delta = ApplyUpdate();
+            if (!fresh || ((_snapDirty || _dbDirty) && !SaveLocked())) Defer("u:" + key, () => ApplyUpdate());   // 저장하지 못한 변경도 같은 큐에 둔다
+            return delta;
+
+            // 다시 적용할 수 있는 변경: 메모리에만 반영한다(저장은 호출자가 한다)
+            SessionDelta ApplyUpdate()
+            {
             _savedSnapshots.TryGetValue(key, out var prevSaved);
 
             // 1. 현재 데이터 구성 (미수신 필드는 이전 저장값 보존)
@@ -731,9 +780,9 @@ public class SnapshotManager
             // 기록할 것이 없으면 저장하지 않는다 (4초 주기 감시가 파일을 갈아 쓰지 않게)
             if (snapChanged) _snapDirty = true;
             if (profileCreated || shouldRecord) _dbDirty = true;
-            if (fresh && (_snapDirty || _dbDirty)) SaveLocked();
 
             return new SessionDelta(baseline, current);
+            }
         });
     }
 
