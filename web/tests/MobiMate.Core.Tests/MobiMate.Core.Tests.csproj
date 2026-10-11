@@ -19,11 +19,15 @@
     <ProjectReference Include="..\..\src\MobiMate.Core\MobiMate.Core.csproj" />
     <!-- 가짜 CLI는 참조 어셈블리로 쓰지 않고, 빌드 순서만 보장한다. 실행 파일 경로는 FakeCliLocator가 찾는다. -->
     <ProjectReference Include="..\..\tools\FakeCli\FakeCli.csproj" ReferenceOutputAssembly="false" />
+    <!-- 두 프로세스 동시 쓰기 테스트용 하네스도 같은 방식: 빌드 순서만 보장하고 SharedStorageTests가 실행 파일을 찾는다 -->
+    <ProjectReference Include="..\..\tools\SharedStorageHarness\SharedStorageHarness.csproj" ReferenceOutputAssembly="false" />
   </ItemGroup>
 
   <ItemGroup>
     <!-- 가짜 CLI 호출 로그 판독기 (Web 테스트와 공유) -->
     <Compile Include="..\FakeCliLogReader.cs" Link="FakeCliLogReader.cs" />
+    <!-- AccountStore는 Web 프로젝트에 있지만 Core 형식만 쓴다: 공유 저장 테스트에서 소스를 연결해 쓴다 -->
+    <Compile Include="..\..\src\MobiMate.Web\Hosting\AccountStore.cs" Link="AccountStore.cs" />
   </ItemGroup>
 
   <ItemGroup>
