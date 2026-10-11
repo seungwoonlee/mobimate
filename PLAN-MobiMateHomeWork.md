@@ -1,6 +1,7 @@
 # MobiMateHomeWork — 숙제 전용 데스크톱 앱 계획서 (v2)
 
 > 브랜치 `MobiMateHomeWork` (webapp `e632bbb`에서 분기), 작업 폴더 `V:\workspace\MobiMate\MobiMateHomeWork`.
+> **진행: S0 완료(webapp e4963b5), H0 완료 — 다음 H1.**
 > 계획 = Opus, 구현·검증 = Sonnet. v1 2026-10-11, v2 2026-10-11 (承雲 답변 반영: 기록 공유, 캐릭터 정보 12항목, 창 크기 = 화면 4분할).
 
 ## 1. 목표와 범위
