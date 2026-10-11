@@ -77,6 +77,56 @@ public class LayoutTests
         Assert.Equal(["232", "270", "320"], new[] { narrow, normal, wide }.Select(d => d["Metrics.CardWidth"]));
     }
 
+    // ── H4: 숙제 표 치수 ──
+
+    private static double Num(Dictionary<string, string> d, string key) => double.Parse(d[key], CultureInfo.InvariantCulture);
+    private static double Left(Dictionary<string, string> d, string key) => double.Parse(d[key].Split(',')[0], CultureInfo.InvariantCulture);
+
+    [Fact]
+    public void TierResources_TableMetrics_AreTheDocumentedValues_AndVisibilityIsPerTier()
+    {
+        var t = new[] { LayoutTier.Narrow, LayoutTier.Normal, LayoutTier.Wide }.Select(x => Keys(LayoutTiers.ResourceFile(x))).ToArray();
+        Assert.Equal(["44", "60", "76"], t.Select(d => d["Metrics.RowHeight"]));
+        Assert.Equal(["32", "42", "60"], t.Select(d => d["Metrics.CellWidth"]));
+        Assert.Equal(["32", "44", "56"], t.Select(d => d["Metrics.CellHeight"]));
+        // 좁게 = 기호만 / 보통 = 기호 + 남은 횟수 / 넓게 = 칸 안 두 줄 이름
+        Assert.Equal(["Visible", "Visible", "Collapsed"], t.Select(d => d["Show.CellSymbol"]));
+        Assert.Equal(["Collapsed", "Collapsed", "Visible"], t.Select(d => d["Show.CellName"]));
+        Assert.Equal(["Collapsed", "Visible", "Collapsed"], t.Select(d => d["Show.CellLeft"]));
+        Assert.Equal(["Collapsed", "Visible", "Visible"], t.Select(d => d["Show.RowSub"]));        // 보통 이상: 마지막 접속
+        Assert.Equal(["Collapsed", "Collapsed", "Visible"], t.Select(d => d["Show.RowMeters"]));   // 넓게: 작은 막대
+        Assert.All(t, d => Assert.Contains(d["Show.GroupShort"], new[] { "Visible", "Hidden" }));   // 넓게는 자리만 차지(묶음 폭을 맞춘다)
+        Assert.All(t, d => Assert.True(Num(d, "Metrics.CellWidth") >= 32 && Num(d, "Metrics.CellHeight") >= 32));   // 누를 수 있는 최소 크기
+    }
+
+    // 4분할 크기마다: 6줄이 스크롤 없이 들어가는 높이 + 표가 넘치지 않는 폭 (바깥 테두리 2, 표 여백 8, 카드 여백 8, 스크롤바 자리 10, 제목 32, 계정 탭 28, 본문 위아래 여백 16)
+    [Theory]
+    [InlineData(768, 405)]
+    [InlineData(853, 458)]
+    [InlineData(960, 510)]
+    [InlineData(1024, 552)]
+    [InlineData(1280, 690)]
+    [InlineData(1536, 840)]
+    public void SixRows_FitWithoutScrolling_AtEveryTargetSize(int width, int height)
+    {
+        var tier = LayoutTiers.For(width);
+        var d = Keys(LayoutTiers.ResourceFile(tier));
+        var scale = LayoutTiers.WideScale(tier, width);
+        double Scaled(string key) => Math.Round(Num(d, key) * scale);
+        var rowHeight = Scaled("Metrics.RowHeight");
+        var cardWidth = Math.Round(Num(d, "Metrics.CardWidth") * scale);
+        var infoMin = Scaled("Metrics.CharInfoWidth");
+        var cellWidth = Scaled("Metrics.CellWidth");
+
+        var needHeight = 32 + 28 + 16 + Num(d, "Metrics.GroupHeaderHeight") + 6 * rowHeight;
+        Assert.True(needHeight <= height - 2, $"높이 {needHeight} > {height - 2}");
+
+        var cellGap = 2.0;   // CellMargin 1,1
+        var needWidth = infoMin + 3 + 10 * (cellWidth + cellGap) + 3 * Left(d, "Metrics.GroupMargin");
+        var available = width - 2 - cardWidth - 16 - 10;
+        Assert.True(needWidth <= available, $"폭 {needWidth} > {available} ({tier})");
+    }
+
     // ── 색 대비 (WCAG AA) ──
 
     private static (double R, double G, double B) Rgb(string hex)
