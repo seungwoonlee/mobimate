@@ -29,6 +29,9 @@ public sealed class TestHost : WebApplicationFactory<Program>
     public bool KeepStorage { get; init; }
     public string WatchInterval { get; init; } = "00:00:00";
 
+    /// <summary>다른 프로그램의 공유 파일 변경 감지(공유 저장 패치). 기본은 끄고, 감지 테스트만 짧은 간격으로 켠다.</summary>
+    public bool ExternalWatch { get; init; }
+
     /// <summary>가짜 네트워크: 기본은 개인 네트워크 192.168.0.23 하나.</summary>
     public FakeNetwork Network { get; } = new();
     public FakePortProbe Probe { get; } = new();
@@ -60,6 +63,9 @@ public sealed class TestHost : WebApplicationFactory<Program>
         builder.UseSetting("MobiMate:Tray", "false");
         builder.UseSetting("MobiMate:ClassImageDownload", "false");   // 네트워크로 내려받지 않는다
         builder.UseSetting("MobiMate:WatchInterval", WatchInterval);   // 기본은 끈다. 감시 테스트만 짧게 켠다
+        builder.UseSetting("MobiMate:ExternalWatch", ExternalWatch ? "true" : "false");
+        builder.UseSetting("MobiMate:ExternalWatchDebounce", "00:00:00.050");
+        builder.UseSetting("MobiMate:ExternalWatchPoll", "00:00:00.500");
         builder.UseSetting("MobiMate:RecordInterval", "00:00:00");   // 자동 기록은 끈다 (테스트가 직접 부른다)
         builder.UseSetting("MobiMate:LanConfirmDelay", "00:00:00");
         builder.ConfigureServices(s => s.AddSingleton<IStartupFilter, RemoteIpStartupFilter>());

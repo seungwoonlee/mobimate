@@ -77,21 +77,43 @@ public sealed class HomeworkFile
     public Dictionary<string, HomeworkLedger> Characters { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 }
 
-/// <summary>숙제 기록 저장소. JsonFileStore(고유 임시 파일 + 원자적 교체)를 쓴다 (H-9).</summary>
+/// <summary>
+/// 숙제 기록 저장소. JsonFileStore(고유 임시 파일 + 원자적 교체)를 쓴다 (H-9).
+/// 공유 저장 패치: 폴더 공유 잠금(<see cref="Lock"/>)과 "마지막으로 읽거나 쓴 상태" 추적으로, 다른 프로세스가 고친 파일을 알아낸다.
+/// </summary>
 public sealed class HomeworkStore
 {
     public const string FileName = "homework_records.json";
 
     private readonly JsonFileStore _store = new();
+    private readonly SharedFileTracker _tracker;
     public string FilePath { get; }
 
-    public HomeworkStore(string storageDir) => FilePath = Path.Combine(storageDir, FileName);
+    /// <summary>이 폴더의 공유 잠금. 읽고-고치고-쓰기는 모두 이 안에서 한다.</summary>
+    public SharedStorageLock Lock { get; }
 
-    /// <summary>파일을 읽는다. 읽기에 일시적으로 실패하면 null(빈 기록으로 덮어쓰지 않게 호출자가 건너뛴다).</summary>
-    public HomeworkFile? TryLoad()
+    public HomeworkStore(string storageDir)
     {
-        var status = _store.TryLoad<HomeworkFile>(FilePath, out var file);
-        if (status == LoadStatus.Failed) return null;
+        FilePath = Path.Combine(storageDir, FileName);
+        Lock = SharedStorageLock.For(storageDir);
+        _tracker = new SharedFileTracker(FilePath);
+    }
+
+    /// <summary>마지막으로 읽거나 쓴 뒤 파일이 바뀌었는가 (잠금 없이 부르는 빠른 확인).</summary>
+    public bool IsStale => _tracker.IsStale;
+
+    /// <summary>
+    /// 공유 잠금 안에서 부른다. 바뀌었으면 다시 읽는다(<see cref="SharedFileTracker.Refresh{T}"/>). Reloaded면 file이 새 기록(빈 기록 포함)이다.
+    /// </summary>
+    public RefreshResult Refresh(bool hasMemory, out HomeworkFile? file)
+    {
+        var r = _tracker.Refresh<HomeworkFile>(hasMemory, out var loaded);
+        file = r == RefreshResult.Reloaded ? Normalize(loaded) : null;
+        return r;
+    }
+
+    private static HomeworkFile Normalize(HomeworkFile? file)
+    {
         file ??= new HomeworkFile();
         file.Account ??= new HomeworkLedger();
         file.Account.RestoreComparers();
@@ -100,9 +122,27 @@ public sealed class HomeworkStore
         return file;
     }
 
+    /// <summary>파일을 읽는다. 읽기에 일시적으로 실패하면 null(빈 기록으로 덮어쓰지 않게 호출자가 건너뛴다).</summary>
+    public HomeworkFile? TryLoad()
+    {
+        var status = _store.TryLoad<HomeworkFile>(FilePath, out var file);
+        if (status == LoadStatus.Failed) return null;
+        return Normalize(file);
+    }
+
     public HomeworkFile Load() => TryLoad() ?? throw new IOException($"숙제 기록을 읽을 수 없습니다: {FilePath}");
 
-    public bool Save(HomeworkFile file) => _store.Save(FilePath, file);
+    /// <summary>저장한다(공유 잠금 안에서 부를 것). 성공하면 자기 쓰기로 기억해 바뀐 것으로 치지 않는다.</summary>
+    public bool Save(HomeworkFile file)
+    {
+        if (!_store.Save(FilePath, file)) return false;
+        _tracker.MarkWritten();
+        return true;
+    }
+
+    /// <summary>메모리의 기록을 깊은 복사한다(읽기 실패 때 화면용으로 고쳐 쓰는 사본).</summary>
+    public static HomeworkFile Clone(HomeworkFile file) =>
+        Normalize(System.Text.Json.JsonSerializer.Deserialize<HomeworkFile>(System.Text.Json.JsonSerializer.Serialize(file)));
 
     /// <summary>
     /// 웹앱 쪽 파일이 없을 때만 WPF판 homework_records.json을 변환해서 가져온다 (NFR-13, 파일별 규칙). 원본에는 쓰지 않는다.
@@ -112,7 +152,10 @@ public sealed class HomeworkStore
     /// - 사용자가 직접 체크한 완료만 옮긴다. WPF판 자동 판정에는 오탐 경로(§4.3)가 있으므로 자동 항목은 웹앱 규칙으로 다시 판정한다.
     /// </summary>
     /// <returns>가져온 캐릭터 수. 가져오지 않았으면 0.</returns>
-    public int ImportFromWpfIfMissing(string wpfDir, HomeworkCatalog catalog, DateTimeOffset nowUtc)
+    public int ImportFromWpfIfMissing(string wpfDir, HomeworkCatalog catalog, DateTimeOffset nowUtc) =>
+        Lock.Run(() => ImportCore(wpfDir, catalog, nowUtc));
+
+    private int ImportCore(string wpfDir, HomeworkCatalog catalog, DateTimeOffset nowUtc)
     {
         if (File.Exists(FilePath)) return 0;
         var src = Path.Combine(wpfDir, FileName);

@@ -29,13 +29,14 @@ public sealed record HomeworkBoard(
     IReadOnlyList<HomeworkCard> Cards, HomeworkProgress Daily, HomeworkProgress Weekly,
     DateTimeOffset NextDailyResetUtc, DateTimeOffset NextWeeklyResetUtc);
 
-public enum HomeworkChangeReason { Auto, Manual, Reset }
+public enum HomeworkChangeReason { Auto, Manual, Reset, External }
 
 public sealed record HomeworkChange(string CharacterKey, IReadOnlyList<string> Ids, HomeworkChangeReason Reason);
 
 /// <summary>
 /// 스마트 숙제 트래커 (요구사양서 §5.11). 카탈로그·저장소·평가기를 묶는다. 스레드 안전(내부 잠금).
-/// - 기록은 메모리에 두고, 바뀐 것이 있을 때만 저장한다 (이 폴더는 웹앱만 쓴다).
+/// - 기록은 메모리에 두고, 바뀐 것이 있을 때만 저장한다. 같은 폴더를 다른 프로세스(숙제 앱)도 쓸 수 있으므로(공유 저장 패치)
+///   모든 수정은 "공유 잠금 → 파일이 바뀌었으면 다시 읽기 → 변경 → 바뀐 때만 저장"으로 한다 (잠금 순서: 서비스 잠금 → 공유 잠금).
 /// - 파일을 일시적으로 읽지 못하면 빈 기록으로 덮어쓰지 않는다: 판정은 건너뛰고, 수동 조작은 IOException으로 실패시킨다.
 /// - 진행 통계: 공유 풀은 1건으로 센다.
 /// </summary>
@@ -56,7 +57,14 @@ public sealed class HomeworkService
     /// <summary>마지막으로 판정한 캐릭터 키 (캐릭터 전환 감지용).</summary>
     public string? LastObservedCharacter
     {
-        get { lock (_lock) return _file?.LastObservedCharacter ?? _lastEvaluatedCharacter; }
+        get
+        {
+            lock (_lock)
+            {
+                EnsureFresh();
+                return _file?.LastObservedCharacter ?? _lastEvaluatedCharacter;
+            }
+        }
     }
 
     public HomeworkService(HomeworkCatalog catalog, HomeworkStore store, Func<DateTimeOffset>? utcNow = null)
@@ -70,9 +78,14 @@ public sealed class HomeworkService
     public HomeworkChange? Evaluate(string characterKey, HomeworkObservation obs)
     {
         RequireKey(characterKey);
-        lock (_lock)
+        lock (_lock) return _store.Lock.Run(() => EvaluateLocked(characterKey, obs));
+    }
+
+    private HomeworkChange? EvaluateLocked(string characterKey, HomeworkObservation obs)
+    {
         {
-            if (!TryLoad(out var file)) return null;   // 읽기 실패: 이번 판정 건너뜀 (빈 기록으로 덮어쓰지 않음)
+            if (!Refresh(out HomeworkFile file)) return null;   // 읽기 실패: 이번 판정 건너뜀 (빈 기록으로 덮어쓰지 않음)
+            var before = Json(file);   // 저장할지는 "내용이 실제로 바뀌었는가"로 가른다(관찰 시각·목격 기록 포함)
             var now = _now();
             var (character, resetIds, created) = Prepare(file, characterKey, now);
 
@@ -89,20 +102,15 @@ public sealed class HomeworkService
                     continuityBroken |= (prevLedger.QuestContinuityBroken ??= new HashSet<string>(StringComparer.OrdinalIgnoreCase)).Add(d.Id);
             file.LastObservedCharacter = characterKey;
 
-            var alteringBefore = character.AlteringDoneCounts;
-            var tokensBefore = character.RaidTokens;
-            var sightingsBefore = character.QuestSightings == null ? null : new Dictionary<string, DateTimeOffset>(character.QuestSightings);
-            var brokenBefore = new HashSet<string>(character.QuestContinuityBroken ?? new HashSet<string>(), StringComparer.OrdinalIgnoreCase);
             var result = HomeworkEvaluator.Evaluate(character, file.Account, _catalog, obs, now, switched);
-            // 관찰 시각만 바뀐 경우는 메모리에만 두고 저장하지 않는다 (개수 내용이 바뀌었을 때만 저장)
-            var alteringChanged = !SameCounts(alteringBefore, character.AlteringDoneCounts) || !SameAmounts(tokensBefore, character.RaidTokens);
-            var sightingsChanged = !SameSightings(sightingsBefore, character.QuestSightings) || !brokenBefore.SetEquals(character.QuestContinuityBroken ?? new HashSet<string>());
 
             var signals = SignalsFor(characterKey);
             foreach (var id in result.InProgressIds) signals[id] = now;
 
-            if ((created || resetIds.Count > 0 || result.ChangedIds.Count > 0 || alteringChanged || sightingsChanged || continuityBroken || lastChanged) && !_store.Save(file))
-                _file = null;   // 저장 실패: 메모리 변경을 버리고 다음 호출에서 파일을 다시 읽는다
+            // 판정에 쓰는 관찰 시각(RaidTokensObservedUtc·AlteringObservedUtc)도 저장 대상이다: 다른 프로세스가 이 값으로 판정한다 (공유 저장 패치).
+            // 같은 내용이면 저장하지 않는다(4초 주기 감시가 파일을 갈아 쓰지 않게).
+            var dirty = created || resetIds.Count > 0 || result.ChangedIds.Count > 0 || continuityBroken || lastChanged || Json(file) != before;
+            if (dirty) SaveLocked(file);
 
             var ids = resetIds.Concat(result.ChangedIds).Concat(result.InProgressIds).Distinct().ToList();
             if (ids.Count == 0) return null;
@@ -121,7 +129,11 @@ public sealed class HomeworkService
         var def = _catalog.Find(id) ?? throw new KeyNotFoundException($"알 수 없는 숙제: {id}");
         if (completed == null && count == null) throw new ArgumentException("completed 또는 count가 필요합니다.");
 
-        lock (_lock)
+        lock (_lock) return _store.Lock.Run(() => SetLocked(characterKey, def, completed, count));
+    }
+
+    private HomeworkChange SetLocked(string characterKey, HomeworkDefinition def, bool? completed, int? count)
+    {
         {
             var file = LoadOrThrow();
             var now = _now();
@@ -151,7 +163,11 @@ public sealed class HomeworkService
     public HomeworkChange ResetAll(string characterKey, bool includeAccount)
     {
         RequireKey(characterKey);
-        lock (_lock)
+        lock (_lock) return _store.Lock.Run(() => ResetAllLocked(characterKey, includeAccount));
+    }
+
+    private HomeworkChange ResetAllLocked(string characterKey, bool includeAccount)
+    {
         {
             var file = LoadOrThrow();
             var (character, _, _) = Prepare(file, characterKey, _now());
@@ -176,11 +192,34 @@ public sealed class HomeworkService
         lock (_lock)
         {
             var now = _now();
-            // 읽기에 실패해도 화면은 보여 준다(빈 기록 기준, 저장하지 않음)
-            var loaded = TryLoad(out var file);
-            if (!loaded) file = new HomeworkFile();
-            var (character, resetIds, created) = Prepare(file, characterKey, now);
-            if (loaded && (created || resetIds.Count > 0)) _store.Save(file);
+            // 리셋·새 장부 생성이 필요하면 공유 잠금 안에서 "다시 읽기 → Prepare → 바뀐 때만 저장"을 한 묶음으로 한다(EvaluateLocked와 같은 형태).
+            var current = false;
+            try
+            {
+                current = _store.Lock.Run(() =>
+                {
+                    if (!Refresh(out HomeworkFile f)) return false;
+                    var before = Json(f);
+                    Prepare(f, characterKey, now);
+                    if (Json(f) != before) SaveLocked(f);
+                    return _file != null;
+                });
+            }
+            catch (IOException) { /* 잠금을 못 얻으면 아래 복사본으로 화면만 만든다 */ }
+
+            HomeworkFile file;
+            HomeworkLedger character;
+            if (current)
+            {
+                file = _file!;   // 방금 잠금 안에서 맞춘 최신 기록: 여기서는 읽기만 한다
+                character = file.Characters[characterKey];
+            }
+            else
+            {
+                // 최신으로 읽지 못했다: 살아 있는 기록은 건드리지 않고, 메모리 값(없으면 빈 기록)의 복사본으로만 화면을 만든다(저장 없음)
+                file = _file != null ? HomeworkStore.Clone(_file) : new HomeworkFile();
+                character = Prepare(file, characterKey, now).Character;
+            }
 
             var signals = _signals.GetValueOrDefault(characterKey);
             var all = _catalog.Items.Where(d => d.Active).Select(def => ToCard(def, file, character, signals, now)).ToList();
@@ -288,32 +327,84 @@ public sealed class HomeworkService
         return new HomeworkProgress(done, singles.Count + pools.Count);
     }
 
-    /// <summary>처음 한 번 파일을 읽어 메모리에 둔다. 읽기에 실패하면 다음 호출에서 다시 시도한다.</summary>
+    /// <summary>
+    /// 읽기용: 파일이 바뀌었으면 다시 읽고(공유 잠금 안), 최신 기록이면 true. 읽지 못하면 false(file은 메모리 값 또는 빈 기록).
+    /// 수정 경로는 이 메서드가 아니라 공유 잠금 안에서 <see cref="Refresh(out HomeworkFile)"/>를 쓴다.
+    /// </summary>
     private bool TryLoad(out HomeworkFile file)
     {
-        _file ??= _store.TryLoad();
+        var ok = true;
+        if (_file == null || _store.IsStale) ok = _store.Lock.Run(() => Refresh(out _));
         file = _file ?? new HomeworkFile();
-        return _file != null;
+        return ok && _file != null;
     }
 
+    /// <summary>바뀌었으면 다시 읽는다(실패는 무시: 메모리 값을 그대로 쓴다). 서비스 잠금 안에서 부른다.</summary>
+    private void EnsureFresh()
+    {
+        if (_file != null && !_store.IsStale) return;
+        try { _store.Lock.Run(() => Refresh(out _)); }
+        catch (IOException) { /* 잠금을 못 얻으면 메모리 값으로 */ }
+    }
+
+    /// <summary>
+    /// 공유 잠금 안에서 메모리 기록을 최신으로 맞춘다. 다시 읽기는 TryLoad만 쓴다(Failed·교체 중이면 메모리 유지, 이번 작업 보류).
+    /// 쓸 수 있는 최신 기록이 있으면 true.
+    /// </summary>
+    private bool Refresh(out HomeworkFile file) => Refresh(out file, out _);
+
+    private bool Refresh(out HomeworkFile file, out bool reloaded)
+    {
+        reloaded = false;
+        var r = _store.Refresh(_file != null, out var loaded);
+        if (r == RefreshResult.Unavailable)
+        {
+            file = _file ?? new HomeworkFile();
+            return false;
+        }
+        if (r == RefreshResult.Reloaded)
+        {
+            _file = loaded ?? new HomeworkFile();
+            reloaded = true;
+        }
+        file = _file ??= new HomeworkFile();
+        return true;
+    }
+
+    /// <summary>
+    /// 다른 프로세스가 파일을 바꿨으면 다시 읽고, 내용이 실제로 달라졌으면 true. 변경 감지기가 부른다. 자기 쓰기는 바뀐 것으로 치지 않는다.
+    /// </summary>
+    public bool RefreshExternal()
+    {
+        lock (_lock)
+        {
+            if (_file != null && !_store.IsStale) return false;
+            return _store.Lock.Run(() =>
+            {
+                var before = _file == null ? null : Json(_file);
+                Refresh(out var f, out var reloaded);
+                return reloaded && before != null && Json(f) != before;
+            });
+        }
+    }
+
+    private static string Json(HomeworkFile file) => System.Text.Json.JsonSerializer.Serialize(file);
+
     private HomeworkFile LoadOrThrow() =>
-        TryLoad(out var f) ? f : throw new IOException("숙제 기록 파일을 읽을 수 없어 변경하지 않았습니다. 잠시 후 다시 시도하세요.");
+        Refresh(out HomeworkFile f) ? f : throw new IOException("숙제 기록 파일을 읽을 수 없어 변경하지 않았습니다. 잠시 후 다시 시도하세요.");
+
+    private bool SaveLocked(HomeworkFile file)
+    {
+        if (_store.Save(file)) return true;
+        _file = null;   // 저장 실패: 메모리 변경을 버리고 다음 호출에서 파일을 다시 읽는다
+        return false;
+    }
 
     private void SaveOrThrow(HomeworkFile file)
     {
-        if (_store.Save(file)) return;
-        _file = null;   // 사용자에게 실패를 알렸으니 메모리 변경도 버린다(다음 호출에서 파일을 다시 읽음)
+        if (SaveLocked(file)) return;   // 실패하면 사용자에게 알리고 메모리 변경도 버린다(다음 호출에서 파일을 다시 읽음)
         throw new IOException("숙제 기록을 저장하지 못했습니다.");
     }
-
-    private static bool SameCounts(Dictionary<string, int>? a, Dictionary<string, int>? b) =>
-        a == null ? b == null : b != null && a.Count == b.Count && a.All(kv => b.TryGetValue(kv.Key, out var v) && v == kv.Value);
-
-    private static bool SameSightings(Dictionary<string, DateTimeOffset>? a, Dictionary<string, DateTimeOffset>? b) =>
-        a == null ? b == null || b.Count == 0 : b != null && a.Count == b.Count && a.All(kv => b.TryGetValue(kv.Key, out var v) && v == kv.Value);
-
-    private static bool SameAmounts(Dictionary<string, long>? a, Dictionary<string, long>? b) =>
-        a == null ? b == null : b != null && a.Count == b.Count && a.All(kv => b.TryGetValue(kv.Key, out var v) && v == kv.Value);
 
     private Dictionary<string, DateTimeOffset> SignalsFor(string characterKey) =>
         _signals.TryGetValue(characterKey, out var s) ? s : _signals[characterKey] = new(StringComparer.OrdinalIgnoreCase);

@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- 두 프로세스 동시 쓰기 테스트용 하네스. 같은 저장 폴더에 숙제 체크·캐릭터 기록·계정 지정을 번갈아 쓴다. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>MobiMate.SharedStorageHarness</RootNamespace>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\MobiMate.Core\MobiMate.Core.csproj" />
+    <!-- AccountStore는 Web 프로젝트에 있지만 Core 형식만 쓰므로 소스를 연결해서 쓴다 -->
+    <Compile Include="..\..\src\MobiMate.Web\Hosting\AccountStore.cs" Link="AccountStore.cs" />
+  </ItemGroup>
+
+</Project>
