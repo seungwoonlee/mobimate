@@ -21,6 +21,8 @@ public partial class CharacterCardView : UserControl
         e.Handled = true;
     }
 
+    private void OnRenameButton(object sender, RoutedEventArgs e) => Board?.BeginRename();
+
     private void OnNameKeyDown(object sender, KeyEventArgs e)
     {
         if (e.Key == Key.Enter)
@@ -35,9 +37,13 @@ public partial class CharacterCardView : UserControl
         }
     }
 
-    /// <summary>입력 칸에서 포커스가 나가면(다른 곳을 누름) 저장하지 않고 닫는다.</summary>
+    /// <summary>
+    /// 입력 칸에서 포커스가 창 안 다른 곳으로 옮겨 가면(다른 곳을 누름) 저장하지 않고 닫는다.
+    /// 창 자체가 비활성이 되어(다른 프로그램을 누름) 포커스가 창 밖으로 나가는 것은 취소로 보지 않는다 — 돌아오면 쓰던 입력이 그대로다.
+    /// </summary>
     private void OnNameLostFocus(object sender, KeyboardFocusChangedEventArgs e)
     {
+        if (e.NewFocus == null) return;
         if (Board is { Card.IsRenaming: true } b && !NameBox.IsKeyboardFocusWithin) b.CancelRename();
     }
 

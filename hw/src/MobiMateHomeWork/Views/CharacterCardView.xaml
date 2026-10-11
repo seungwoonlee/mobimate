@@ -14,42 +14,59 @@
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <Border Width="34" Height="34" CornerRadius="100" Background="{Binding JobColor}" VerticalAlignment="Center" Margin="0,0,8,0">
                             <TextBlock Text="{Binding JobLetter}" Foreground="{DynamicResource Brush.OnAccent}" FontWeight="Bold" FontSize="{DynamicResource Font.Title}"
                                        HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </Border>
                         <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                            <!-- 이름: 눌러서 그 자리에서 바꾸기 (Enter 저장 · Esc 취소 · 20자) -->
-                            <TextBlock x:Name="NameText" Text="{Binding Name}" FontWeight="SemiBold" FontSize="{DynamicResource Font.Title}" TextTrimming="CharacterEllipsis"
-                                       Cursor="IBeam" MouseLeftButtonUp="OnNameClicked" ToolTip="눌러서 이름 바꾸기" AutomationProperties.Name="캐릭터 이름 (눌러서 바꾸기)">
-                                <TextBlock.Style>
-                                    <Style TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsRenaming}" Value="True"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </TextBlock.Style>
-                            </TextBlock>
-                            <TextBox x:Name="NameBox" Text="{Binding RenameText, UpdateSourceTrigger=PropertyChanged}" MaxLength="20" MinHeight="26" Padding="6,2"
-                                     KeyDown="OnNameKeyDown" LostKeyboardFocus="OnNameLostFocus" IsVisibleChanged="OnNameBoxVisibleChanged"
-                                     AutomationProperties.Name="새 이름 (Enter 저장, Esc 취소)">
-                                <TextBox.Style>
-                                    <Style TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
-                                        <Setter Property="Visibility" Value="Collapsed" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsRenaming}" Value="True"><Setter Property="Visibility" Value="Visible" /></DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </TextBox.Style>
-                            </TextBox>
-                            <TextBlock Text="{Binding ClassLevel}" Style="{StaticResource Text.Small}" Margin="0,1,0,0" />
+                            <!-- 이름: 눌러서(또는 연필 단추로) 그 자리에서 바꾸기 (Enter 저장 · Esc 취소 · 20자) -->
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock x:Name="NameText" Text="{Binding Name}" FontWeight="SemiBold" FontSize="{DynamicResource Font.Title}" TextTrimming="CharacterEllipsis"
+                                           Cursor="IBeam" MouseLeftButtonUp="OnNameClicked" ToolTip="눌러서 이름 바꾸기" VerticalAlignment="Center">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsRenaming}" Value="True"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                                <TextBox x:Name="NameBox" Grid.ColumnSpan="2" Text="{Binding RenameText, UpdateSourceTrigger=PropertyChanged}" MaxLength="20" MinHeight="26" Padding="6,2"
+                                         KeyDown="OnNameKeyDown" LostKeyboardFocus="OnNameLostFocus" IsVisibleChanged="OnNameBoxVisibleChanged"
+                                         AutomationProperties.Name="새 이름 (Enter 저장, Esc 취소)">
+                                    <TextBox.Style>
+                                        <Style TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsRenaming}" Value="True"><Setter Property="Visibility" Value="Visible" /></DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBox.Style>
+                                </TextBox>
+                                <Button Grid.Column="1" Content="&#xE70F;" FontSize="11" Width="22" Height="22" Margin="2,0,0,0" Click="OnRenameButton"
+                                        ToolTip="이름 바꾸기" AutomationProperties.Name="이름 바꾸기">
+                                    <Button.Style>
+                                        <Style TargetType="Button" BasedOn="{StaticResource Button.Icon}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsRenaming}" Value="True"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                </Button>
+                            </Grid>
+                            <StackPanel Orientation="Horizontal" Margin="0,1,0,0">
+                                <TextBlock Text="{Binding ClassLevel}" Style="{StaticResource Text.Small}" VerticalAlignment="Center" />
+                                <Border Background="{DynamicResource Brush.DoneFill}" CornerRadius="8" Height="16" Padding="7,0" Margin="8,0,0,0" VerticalAlignment="Center"
+                                        Visibility="{Binding IsLive, Converter={StaticResource BoolToVis}}">
+                                    <TextBlock Text="접속 중" Style="{StaticResource Text.Small}" Foreground="{DynamicResource Brush.Done}" VerticalAlignment="Center" />
+                                </Border>
+                            </StackPanel>
                         </StackPanel>
-                        <Border Grid.Column="2" Background="{DynamicResource Brush.DoneFill}" CornerRadius="8" Height="18" Padding="7,0" VerticalAlignment="Top" Margin="6,2,0,0"
-                                Visibility="{Binding IsLive, Converter={StaticResource BoolToVis}}">
-                            <TextBlock Text="접속 중" Style="{StaticResource Text.Small}" Foreground="{DynamicResource Brush.Done}" VerticalAlignment="Center" />
-                        </Border>
                     </Grid>
                     <TextBlock Text="{Binding RenameError}" Foreground="{DynamicResource Brush.Danger}" Style="{StaticResource Text.Small}" TextWrapping="Wrap" Margin="0,2,0,0"
                                Visibility="{Binding HasRenameError, Converter={StaticResource BoolToVis}}" />

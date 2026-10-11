@@ -1,7 +1,7 @@
 # MobiMateHomeWork — 숙제 전용 데스크톱 앱 계획서 (v2)
 
 > 브랜치 `MobiMateHomeWork` (webapp `e632bbb`에서 분기), 작업 폴더 `V:\workspace\MobiMate\MobiMateHomeWork`.
-> **진행: S0 완료(webapp e4963b5), H0·H1·H2a·H2b·H3 완료 — 다음 H4.**
+> **진행: S0 완료(webapp e4963b5), H0·H1·H2a·H2b·H3·H4 완료 — 다음 H5.**
 > 계획 = Opus, 구현·검증 = Sonnet. v1 2026-10-11, v2 2026-10-11 (承雲 답변 반영: 기록 공유, 캐릭터 정보 12항목, 창 크기 = 화면 4분할).
 
 ## 1. 목표와 범위
@@ -279,3 +279,11 @@ hw/
 - 배치 단계 값(글자 12/13/14, 카드 232/270/320, 줄 높이·칸 크기 등)은 `Themes/Tier.*.xaml`에 두고 창 폭이 바뀌면 통째로 바꿔 끼운다. H4는 `Metrics.*` 키를 쓴다.
 - 창 위치·크기는 `homework_app.json`에 **물리 픽셀**로 저장한다(모니터별 배율이 달라도 복원이 맞도록 PerMonitorV2 manifest 사용). 새로 추가한 값: `TrayHintShown`(트레이 안내 풍선 한 번만).
 - 화면 확인용 숨은 옵션: `--render-snapshots <폴더> --storage <임시폴더> --cli <가짜CLI>`(저장 폴더를 안 주면 거부, 데모 데이터 자동 생성).
+
+## 12. H4 진행 기록 (숙제 표·카드)
+
+- 화면 모델: `ViewModels/HomeworkBoardViewModel`(계정 탭·줄·카드·선택·칸 클릭·보스 팝업·이름 바꾸기·알림), 칸 만들기·툴팁은 `HomeworkBoardLayout`(웹앱 `HW_GROUPS`·`cellsOf`·`BOSSES`와 같은 id·규칙), 값 서식은 `CardFormat`, 직업 뱃지 색은 `JobPalette`(고정 표, 모르는 직업은 이름 FNV 해시). 줄·칸·탭은 갱신 때 그 자리에서 고친다(선택·스크롤·맥동 유지).
+- 쓰기 동작은 `IHomeworkActions`(= `HomeworkCommands`)로 주입한다. **칸을 누를 때는 줄의 캐릭터 키를 항상 명시**한다(웹앱은 현재 캐릭터면 키를 생략했지만, 그사이 게임에서 캐릭터를 바꾸면 엉뚱한 캐릭터에 체크될 수 있어서).
+- `HomeworkAutoStatus`에 `Suggestion`(선택 값)을 더했다 — 표의 "완료 제안" 모서리 점용. 판정 로직은 그대로고 읽어서 노출만 한다(웹앱에도 같은 한 줄이면 된다).
+- 배치 단계 파일에 표 치수(`Metrics.*`)와 보이는 것(`Show.*`)을 두었다. 정보 열은 남는 폭을 받고(`CharInfoWidth`가 최소), 칸은 고정 폭이다. 넓게 단계에서 1280을 넘으면 `TierResources.ApplyScale`이 줄 높이·칸·카드 폭을 창 폭에 비례(최대 1.2배)로 키우고, 표는 `TableMaxWidth`(1100)로 가운데 정렬한다.
+- 숨은 옵션 `--render-snapshots` 데모 데이터를 늘렸다(계정 2개: 6명 + 8명, 숙제 상태가 섞인 기록). 크기 6종 + 필드 보스 팝업 + 이름 바꾸기 + 두 번째 계정 2장을 `hw\snapshots\h4\`에 그린다.
