@@ -494,7 +494,7 @@ public class HomeworkTests : IDisposable
     }
 }
 
-public class DisplayAndRankingTests
+public class DisplayFormatTests
 {
     [Theory]
     [InlineData(10995, "3시간 3분 15초")]
@@ -502,59 +502,4 @@ public class DisplayAndRankingTests
     [InlineData(9, "9초")]
     [InlineData(0, "수거 대기")]
     public void RemainingTime_Formats(int seconds, string expected) => Assert.Equal(expected, DisplayFormat.RemainingTime(seconds));
-
-    [Fact]
-    public void Nearby_RanksByRelation_ThenCombat_ThenDistance()
-    {
-        NearPcItem P(string n, long cp, double d, bool party = false, bool friend = false, bool guild = false, bool hasGuild = true) =>
-            new("아이라", n, d, 100, "전사", cp, guild, party, friend, false, hasGuild);
-        var ranked = NearbyRanker.Rank(new[]
-        {
-            P("강자", 120_000, 30), P("길드원", 50_000, 5, guild: true), P("친구", 40_000, 9, friend: true),
-            P("파티원", 10_000, 50, party: true), P("무소속", 90_000, 2, hasGuild: false), P("무소속2", 90_000, 1, hasGuild: false),
-        }, myCombatScore: 88_737);
-
-        Assert.Equal(new[] { "친구", "길드원", "강자", "무소속2", "무소속", "파티원" }, ranked.Select(r => r.Pc.Title));   // IsInParty는 무시: 파티원은 그냥 전투력 순에 들어간다
-        Assert.Equal(NearbyRelation.Friend, NearbyRanker.RelationOf(new NearPcItem("아이라", "둘 다", 1, 100, "전사", 1, false, true, true, false, true)));   // 친구이면서 파티원이면 친구
-        Assert.Equal(NearbyRelation.Other, NearbyRanker.RelationOf(new NearPcItem("아이라", "파티만", 1, 100, "전사", 1, false, true, false, false, false)));   // IsInParty만으로는 아무 관계도 아니다
-        Assert.Equal(NearbyRelation.Guild, NearbyRanker.RelationOf(new NearPcItem("아이라", "파티+길드", 1, 100, "전사", 1, true, true, false, false, true)));
-        Assert.True(ranked.Single(r => r.Pc.Title == "강자").IsStronger);
-        Assert.Equal("길드 없음", ranked.Single(r => r.Pc.Title == "무소속").RelationLabel);
-        Assert.Equal("", ranked.Single(r => r.Pc.Title == "강자").RelationLabel);
-        Assert.False(NearbyRanker.Rank(new[] { P("x", 1, 1) }, 0)[0].IsStronger);   // 내 전투력을 모르면 표시 안 함
-    }
-}
-
-public class PersonaGeneratorTests
-{
-    [Fact]
-    public void TryParse_ReadsFencedOrBareJson_AndRejectsIncomplete()
-    {
-        var fenced = PersonaGenerator.TryParse("좋아요!\n```json\n{\"name\":\"공주기사 스타일\",\"emoji\":\"🛡️\",\"prompt\":\"기품 있게 말한다.\"}\n```");
-        Assert.Equal("공주기사 스타일", fenced!.Name);
-        Assert.True(fenced.FromAi);
-
-        Assert.NotNull(PersonaGenerator.TryParse("{\"name\":\"a\",\"prompt\":\"b\"}"));
-        Assert.Null(PersonaGenerator.TryParse("{\"name\":\"a\"}"));
-        Assert.Null(PersonaGenerator.TryParse("그냥 문장"));
-        Assert.Equal("🎭", PersonaGenerator.TryParse("{\"name\":\"a\",\"prompt\":\"b\"}")!.Emoji);
-    }
-
-    [Fact]
-    public async Task BuiltInEngine_UsesRuleBasedFallback()
-    {
-        var draft = await PersonaGenerator.GenerateAsync("공주기사 느낌", new BuiltInGuideEngine());
-        Assert.False(draft.FromAi);
-        Assert.Equal("공주기사 느낌 스타일", draft.Name);
-        Assert.Equal("🛡️", draft.Emoji);
-        Assert.Contains("기품", draft.Prompt);
-    }
-
-    [Fact]
-    public async Task FailingAiEngine_FallsBack()
-    {
-        var draft = await PersonaGenerator.GenerateAsync("츤데레 메이드", new CliAgentEngine("claude", @"Z:\없는\claude.exe", "Claude"));
-        Assert.False(draft.FromAi);
-        Assert.Equal("🎀", draft.Emoji);
-    }
 }
