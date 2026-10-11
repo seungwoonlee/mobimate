@@ -1,0 +1,33 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=mscorlib">
+    <!-- 글꼴: Segoe UI Variable Text → (한글) 맑은 고딕. Pretendard는 설치돼 있지 않아 쓰지 않는다. 아이콘은 Segoe Fluent Icons → Segoe MDL2 Assets. -->
+    <FontFamily x:Key="Font.Text">Segoe UI Variable Text, Malgun Gothic</FontFamily>
+    <FontFamily x:Key="Font.Icon">Segoe Fluent Icons, Segoe MDL2 Assets</FontFamily>
+
+    <!-- 글자 크기는 배치 단계 파일(Tier.*.xaml)의 Font.Base/Font.Small이 정한다. 최소 11. -->
+    <sys:Double x:Key="Font.Title">15</sys:Double>
+    <sys:Double x:Key="Font.IconSize">12</sys:Double>
+
+    <!-- 기본 글자 스타일. FontSize는 정하지 않는다(창에서 상속). 숫자는 폭이 같은 모양(tabular)으로 맞춘다. -->
+    <Style TargetType="TextBlock">
+        <Setter Property="Typography.NumeralAlignment" Value="Tabular" />
+        <Setter Property="TextOptions.TextFormattingMode" Value="Display" />
+    </Style>
+
+    <Style x:Key="Text.Muted" TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
+        <Setter Property="Foreground" Value="{DynamicResource Brush.TextMuted}" />
+    </Style>
+
+    <Style x:Key="Text.Small" TargetType="TextBlock" BasedOn="{StaticResource Text.Muted}">
+        <Setter Property="FontSize" Value="{DynamicResource Font.Small}" />
+    </Style>
+
+    <Style x:Key="Text.Icon" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource Font.Icon}" />
+        <Setter Property="FontSize" Value="{StaticResource Font.IconSize}" />
+        <Setter Property="HorizontalAlignment" Value="Center" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="TextOptions.TextFormattingMode" Value="Ideal" />
+    </Style>
+</ResourceDictionary>
