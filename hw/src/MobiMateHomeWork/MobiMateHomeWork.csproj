@@ -12,6 +12,9 @@
     <RootNamespace>MobiMateHomeWork</RootNamespace>
     <AssemblyName>MobiMateHomeWork</AssemblyName>
     <InvariantGlobalization>false</InvariantGlobalization>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- WFAC010: WinForms 분석기는 manifest의 DPI 설정을 경고하지만, 이 앱의 화면은 WPF라 manifest(PerMonitorV2)가 맞는 방법이다. -->
+    <NoWarn>$(NoWarn);WFAC010</NoWarn>
 
     <!-- 빌드 시각 기반 버전 <주>.<부>.MMdd.HHmm (웹앱과 같은 방식) -->
     <BuildStamp>$([System.DateTime]::Now.ToString("MMdd.HHmm"))</BuildStamp>

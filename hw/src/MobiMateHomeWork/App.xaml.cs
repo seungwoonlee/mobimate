@@ -19,10 +19,15 @@ public partial class App : Application
     private ILogger _log = null!;
     private FileLoggerProvider? _logProvider;
     private MainWindow? _window;
+    private TrayIcon? _tray;
+    private int _sessionEnding;
     private LegacyWebWatcher? _legacyWatcher;
     private static readonly TimeSpan StopTimeout = TimeSpan.FromSeconds(5);
     private int _quitting;
     private int _exitCode;
+
+    /// <summary>앱을 끝내는 중인가(트레이 "종료"·로그오프). 이때는 창 닫기를 트레이 숨김으로 바꾸지 않는다.</summary>
+    public bool IsQuitting => Volatile.Read(ref _quitting) == 1 || Volatile.Read(ref _sessionEnding) == 1;
 
     public IServiceProvider Services => _host?.Services ?? throw new InvalidOperationException("서비스가 아직 시작되지 않았습니다.");
 
@@ -30,6 +35,7 @@ public partial class App : Application
     {
         base.OnStartup(e);
         DispatcherUnhandledException += OnDispatcherUnhandled;
+        SessionEnding += (_, _) => Interlocked.Exchange(ref _sessionEnding, 1);
         AppDomain.CurrentDomain.UnhandledException += OnDomainUnhandled;
         TaskScheduler.UnobservedTaskException += OnUnobservedTask;
 
@@ -55,8 +61,19 @@ public partial class App : Application
         var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings { ContentRootPath = AppContext.BaseDirectory });
         builder.Configuration.AddCommandLine(args, new Dictionary<string, string>(AppOptions.SwitchMappings));
         var options = builder.Configuration.GetSection(AppOptions.Section).Get<AppOptions>() ?? new AppOptions();
+        var renderDir = string.IsNullOrWhiteSpace(options.RenderSnapshots) ? null : Path.GetFullPath(options.RenderSnapshots);
+        if (renderDir != null)
+        {
+            // 화면 확인 전용 실행: 실제 저장 폴더를 건드리지 않도록 저장 폴더를 반드시 따로 받고, 단일 인스턴스·옛 웹앱 확인은 끈다
+            if (string.IsNullOrWhiteSpace(options.StorageDir) || options.StorageDir == SnapshotManager.DefaultStorageDirectory)
+                throw new InvalidOperationException("--render-snapshots 는 --storage <임시 폴더>와 함께 써야 합니다(실제 저장 폴더는 사용하지 않습니다).");
+            options.SingleInstance = false;
+            options.LegacyWebCheck = false;
+            options.WpfStorageDir = null;   // 옛 WPF판 기록(실제 사용자 폴더)도 가져오지 않는다
+        }
         options.StorageDir = string.IsNullOrWhiteSpace(options.StorageDir) ? SnapshotManager.DefaultStorageDirectory : Path.GetFullPath(options.StorageDir);
         Directory.CreateDirectory(options.StorageDir);
+        if (renderDir != null) SnapshotRenderer.SeedDemo(options.StorageDir);
 
         // 로그: 웹앱과 같은 logs 폴더, 파일 이름은 homework-*.log
         _logProvider = new FileLoggerProvider(Path.Combine(options.StorageDir, "logs"), options.MinLogLevel);
@@ -109,9 +126,33 @@ public partial class App : Application
         // 호스트는 UI 스레드의 동기화 컨텍스트 밖에서 시작한다: 백그라운드 서비스의 await 이어가기가 UI 스레드에서 돌면 화면이 멈춘다
         await Task.Run(() => _host.StartAsync());
 
+        if (renderDir != null)
+        {
+            var files = await SnapshotRenderer.RenderAsync(_host.Services, renderDir, m => _log.LogInformation("{Message}", m));
+            _log.LogInformation("스냅숏 {Count}개를 저장했습니다: {Dir}", files.Count, renderDir);
+            Quit();
+            return;
+        }
+
         _window = new MainWindow(_host.Services);
         MainWindow = _window;
+        _tray = new TrayIcon(ShowMainWindow, () => _window.ViewModel.AlwaysOnTop, SetAlwaysOnTop, Quit);
+        _window.ViewModel.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(ViewModels.MainViewModel.AlwaysOnTop)) _tray?.SetAlwaysOnTop(_window.ViewModel.AlwaysOnTop);
+        };
         _window.Show();
+    }
+
+    private void SetAlwaysOnTop(bool value) => _window?.ViewModel.SetAlwaysOnTop(value);
+
+    /// <summary>창을 닫아 트레이로 숨겼다. 처음 한 번만 풍선으로 알린다.</summary>
+    public void NotifyHiddenToTray()
+    {
+        var vm = _window?.ViewModel;
+        if (vm == null || _tray == null || vm.TrayHintShown) return;
+        _tray.ShowHint("MobiMate 숙제", "트레이에서 계속 확인합니다");
+        vm.MarkTrayHintShown();
     }
 
     /// <summary>기존 창을 앞으로 가져온다(두 번째 실행의 신호, 트레이 "열기"). UI 스레드에서 부른다.</summary>
@@ -137,6 +178,7 @@ public partial class App : Application
         if (Interlocked.Exchange(ref _quitting, 1) == 1) return;
         Dispatcher.InvokeAsync(async () =>
         {
+            DisposeTray();   // 종료 중에도 트레이 아이콘이 남지 않게 가장 먼저 치운다
             try { await StopHostAsync(); }
             catch (Exception ex) { _log?.LogWarning(ex, "종료 중 오류"); }
             finally { Shutdown(_exitCode); }
@@ -144,6 +186,13 @@ public partial class App : Application
     }
 
     private int _stopped;
+
+    private void DisposeTray()
+    {
+        try { _tray?.Dispose(); }
+        catch (Exception ex) { _log?.LogDebug(ex, "트레이 아이콘 정리 오류"); }
+        _tray = null;
+    }
 
     private async Task StopHostAsync()
     {
@@ -166,6 +215,7 @@ public partial class App : Application
                 Task.Run(StopHostAsync).Wait(TimeSpan.FromSeconds(8));
         }
         catch { }
+        DisposeTray();
         _single?.Dispose();
         _single = null;
         base.OnExit(e);

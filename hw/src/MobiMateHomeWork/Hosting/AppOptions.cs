@@ -51,6 +51,9 @@ public sealed class AppOptions
     /// <summary>조회 캐시 유지 시간(초).</summary>
     public double QueryCacheTtlSeconds { get; set; } = 3;
 
+    /// <summary>숨은 옵션 <c>--render-snapshots &lt;폴더&gt;</c>: 창을 크기별로 그려 PNG로 저장하고 끝난다(화면 확인용). <c>--storage</c>를 반드시 함께 준다.</summary>
+    public string? RenderSnapshots { get; set; }
+
     public Microsoft.Extensions.Logging.LogLevel MinLogLevel =>
         Enum.TryParse<Microsoft.Extensions.Logging.LogLevel>(LogLevel, true, out var l) && l is >= Microsoft.Extensions.Logging.LogLevel.Trace and <= Microsoft.Extensions.Logging.LogLevel.Error
             ? l : Microsoft.Extensions.Logging.LogLevel.Information;
@@ -74,6 +77,7 @@ public sealed class AppOptions
         ["--status-interval"] = $"{Section}:{nameof(StatusIntervalSeconds)}",
         ["--record-interval"] = $"{Section}:{nameof(RecordIntervalSeconds)}",
         ["--watch-interval"] = $"{Section}:{nameof(WatchIntervalSeconds)}",
+        ["--render-snapshots"] = $"{Section}:{nameof(RenderSnapshots)}",
         ["--wpf-storage"] = $"{Section}:{nameof(WpfStorageDir)}",
     };
 }

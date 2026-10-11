@@ -1,7 +1,7 @@
 # MobiMateHomeWork — 숙제 전용 데스크톱 앱 계획서 (v2)
 
 > 브랜치 `MobiMateHomeWork` (webapp `e632bbb`에서 분기), 작업 폴더 `V:\workspace\MobiMate\MobiMateHomeWork`.
-> **진행: S0 완료(webapp e4963b5), H0·H1·H2a·H2b 완료 — 다음 H3.**
+> **진행: S0 완료(webapp e4963b5), H0·H1·H2a·H2b·H3 완료 — 다음 H4.**
 > 계획 = Opus, 구현·검증 = Sonnet. v1 2026-10-11, v2 2026-10-11 (承雲 답변 반영: 기록 공유, 캐릭터 정보 12항목, 창 크기 = 화면 4분할).
 
 ## 1. 목표와 범위
@@ -29,7 +29,7 @@ AI 엔진·Ollama·채팅·아무말 대잔치(페르소나), 랭킹·뱃지, �
 | 패턴 | MVVM — `CommunityToolkit.Mvvm` | |
 | 호스팅 | `Microsoft.Extensions.Hosting` (Generic Host) | 웹앱 `BackgroundService`를 거의 그대로 옮긴다 |
 | 테마 | 직접 만든 다크 테마 ResourceDictionary, 외부 UI 라이브러리 없음 | 의존성 0 |
-| 글꼴 | Pretendard(OFL) 내장, 없으면 맑은 고딕 | 작은 창에서도 숫자·한글 가독성 |
+| 글꼴 | `Segoe UI Variable Text, Malgun Gothic`(한글은 맑은 고딕으로 대체), 숫자는 tabular, 아이콘은 `Segoe Fluent Icons, Segoe MDL2 Assets`. Pretendard는 설치돼 있지 않아 쓰지 않는다(H3 결정) | 외부 글꼴 내려받기·내장 없이 작은 창에서도 숫자·한글 가독성 |
 | 창 | `WindowChrome` 직접 그린 제목 표시줄, **크기 조절 가능**(Snap 동작), 최소 760×380 DIP, 마지막 위치·크기 기억 | 4분할 Snap |
 | 크기 대응 | 폭 기준 3단계 배치(§6). `Viewbox` 확대·축소는 쓰지 않는다(글자 흐림·크기 들쭉날쭉) | |
 | 저장 폴더 | **`%APPDATA%\MobiMateWeb` 공유** (§3) | 웹앱 사용자는 옮길 것 없음 |
@@ -272,3 +272,10 @@ hw/
 
 - 계획·단계 경계 판단 = Opus
 - 구현·테스트·리뷰 = Sonnet. 단계마다 Sonnet 서브에이전트를 별도 작업 브랜치(별도 worktree)에서 돌리고, 결과를 코드로 확인한 뒤 병합한다
+
+## 11. H3 진행 기록 (테마·창)
+
+- 색 토큰은 `Themes/Colors.xaml`. 계획의 `더 흐린 글자 #6B7280`은 면 위 대비 3.6:1이라 AA 미달 → `#8590A0`으로 올렸다(`ThemeTests`가 글자색 대비 4.5:1을 검사).
+- 배치 단계 값(글자 12/13/14, 카드 232/270/320, 줄 높이·칸 크기 등)은 `Themes/Tier.*.xaml`에 두고 창 폭이 바뀌면 통째로 바꿔 끼운다. H4는 `Metrics.*` 키를 쓴다.
+- 창 위치·크기는 `homework_app.json`에 **물리 픽셀**로 저장한다(모니터별 배율이 달라도 복원이 맞도록 PerMonitorV2 manifest 사용). 새로 추가한 값: `TrayHintShown`(트레이 안내 풍선 한 번만).
+- 화면 확인용 숨은 옵션: `--render-snapshots <폴더> --storage <임시폴더> --cli <가짜CLI>`(저장 폴더를 안 주면 거부, 데모 데이터 자동 생성).
