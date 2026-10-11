@@ -1,7 +1,7 @@
 namespace MobiMate;
 
 /// <summary>
-/// 조회 결과의 최신값을 모아 두고 AI 컨텍스트·아무말 컨텍스트를 한곳에서 만든다 (상세설계 §2.7).
+/// 조회 결과의 최신값을 모아 둔다 (상세설계 §2.7).
 /// 스레드 안전: 갱신은 참조 교체만 한다.
 /// </summary>
 public sealed class GameStateCache
@@ -71,40 +71,5 @@ public sealed class GameStateCache
     {
         var ch = Environment?.ChannelName;
         return string.IsNullOrWhiteSpace(ch) ? "알 수 없음" : ch;
-    }
-
-    /// <summary>AI 시스템 컨텍스트 (WPF ProcessAiQueryAsync와 같은 내용).</summary>
-    public string BuildAiContext()
-    {
-        var ch = Character;
-        var realm = string.IsNullOrWhiteSpace(ch?.RealmName) ? "에린" : ch!.RealmName;
-        var job = string.IsNullOrWhiteSpace(ch?.JobName) ? "밀레시안" : ch!.JobName;
-        var level = ch?.Level ?? 1;
-        var combat = ch?.CombatScore?.Value ?? 0;
-
-        return "당신은 넥슨 '마비노기 모바일'의 든든한 플레이 동반자 AI 도우미(MobiMate)입니다.\n" +
-               "[현재 플레이어 실시간 게임 상태]\n" +
-               $"- 서버: {realm} / 직업: {job} (Lv.{level})\n" +
-               $"- 전투력: {combat:N0}점\n" +
-               $"- 현재 상태: {DescribeActivity(Activity)} / 위치: {LocationSummary()}\n" +
-               $"- 가방 무게 현황: {WeightSummary(ch?.Vitals)}\n\n" +
-               "플레이어의 질문에 대해 마비노기 모바일 게임 공략과 현재 캐릭터 상태에 맞추어 친절하고 간결하게 2~3문장 이내의 한국어로 답변해주세요.";
-    }
-
-    /// <summary>아무말 대잔치 컨텍스트 (WPF GetCurrentChatterContext와 같은 내용).</summary>
-    public ChatterContext BuildChatterContext()
-    {
-        var ch = Character;
-        var gold = Currencies?.FirstOrDefault(c => c.DisplayName == "골드")?.Amount;
-        return new ChatterContext(
-            Realm: string.IsNullOrWhiteSpace(ch?.RealmName) ? "에린" : ch!.RealmName,
-            Job: string.IsNullOrWhiteSpace(ch?.JobName) ? "밀레시안" : ch!.JobName,
-            Level: ch?.Level ?? 1,
-            CombatScore: ch?.CombatScore?.Value ?? 0,
-            Activity: DescribeActivity(Activity),
-            Location: LocationSummary(),
-            WeightSummary: WeightSummary(ch?.Vitals),
-            GoldSummary: gold.HasValue ? $"{gold.Value:N0} 골드" : "알 수 없음",
-            ErinnTime: Environment?.ErinnNow ?? "");
     }
 }

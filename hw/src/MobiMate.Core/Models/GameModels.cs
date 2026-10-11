@@ -122,21 +122,6 @@ public record GatherableResponse(
     [property: JsonPropertyName("items")] List<GatherableItem> Items
 );
 
-// 9. 주변 유저 (get_near_pcs)
-public record NearPcItem(
-    [property: JsonPropertyName("RealmName")] string RealmName,
-    [property: JsonPropertyName("Title")] string? Title,
-    [property: JsonPropertyName("Distance")] double Distance,
-    [property: JsonPropertyName("Level")] int Level,
-    [property: JsonPropertyName("EnabledCombatJobDisplayName")] string JobName,
-    [property: JsonPropertyName("CombatScore")] long CombatScore,
-    [property: JsonPropertyName("IsSameGuild")] bool IsSameGuild,
-    [property: JsonPropertyName("IsInParty")] bool IsInParty,
-    [property: JsonPropertyName("IsFriend")] bool IsFriend,
-    [property: JsonPropertyName("IsInCombat")] bool IsInCombat,
-    [property: JsonPropertyName("HasGuild")] bool HasGuild = false
-);
-
 // 9-1. 퀘스트 트래커 (get_quests). 제목·목표 문구에 유니티 리치텍스트 태그가 섞여 온다 (K-04).
 public record QuestObjective(
     [property: JsonPropertyName("Description")] string? Description,
@@ -151,34 +136,3 @@ public record QuestItem(
     [property: JsonPropertyName("SourceDisplayName")] string? SourceDisplayName,
     [property: JsonPropertyName("Objectives")] List<QuestObjective>? Objectives
 );
-
-// 10. 로그 및 메시지
-public record ChatLogEntry(string Timestamp, string Message, bool IsSuccess, string? ErrorDetail = null);
-public record AiMessageEntry(string Sender, string Text, bool IsUser);
-
-// 11. UI 바인딩용 뷰모델
-public class ItemViewItem
-{
-    public string Location { get; set; } = "";
-    public string DisplayName { get; set; } = "";
-    public string CategoryName { get; set; } = "";
-    public int Count { get; set; }
-    public bool IsLocked { get; set; }
-    public int InitialCount { get; set; }
-    public int DeltaCount => Math.Max(0, Count - InitialCount);
-    public bool HasDelta => DeltaCount > 0;
-    public string DeltaBadge => HasDelta ? $"(+{DeltaCount:N0}개 급증 ▲)" : "";
-}
-
-public class GatherableDisplayItem
-{
-    public string DisplayName { get; set; } = "";
-    public string Category { get; set; } = "채집";
-    public bool ToolOk { get; set; }
-    public int CurrentBagCount { get; set; }
-    public int TargetCount { get; set; }
-    public int NeededCount => Math.Max(0, TargetCount - CurrentBagCount);
-    public string ProgressText => $"보유 {CurrentBagCount} / 목표 {TargetCount} (부족 {NeededCount}개)";
-    public bool IsTargetReached => NeededCount == 0;
-}
-

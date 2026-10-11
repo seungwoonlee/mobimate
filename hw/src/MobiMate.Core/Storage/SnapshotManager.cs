@@ -104,7 +104,6 @@ public class SnapshotManager
     private readonly string _storageDir;
     private readonly string _storageFile;
     private readonly string _dbStorageFile;
-    private readonly string _customPersonasFile;
     private readonly string _legacyStorageFile;
     private readonly string _legacyDbStorageFile;
 
@@ -122,7 +121,6 @@ public class SnapshotManager
     public string StorageDirectory => _storageDir;
     public string SnapshotsFilePath => _storageFile;
     public string CharacterDbFilePath => _dbStorageFile;
-    public string CustomPersonasFilePath => _customPersonasFile;
 
     /// <summary>웹앱 전용 저장 폴더. WPF판(master)과 코드·데이터를 모두 분리한다.</summary>
     public static string DefaultStorageDirectory =>
@@ -140,7 +138,6 @@ public class SnapshotManager
 
         _storageFile = Path.Combine(_storageDir, "character_snapshots.json");
         _dbStorageFile = Path.Combine(_storageDir, "character_history_db.json");
-        _customPersonasFile = Path.Combine(_storageDir, "custom_personas.json");
         _legacyStorageFile = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "character_snapshots.json");
         _legacyDbStorageFile = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "character_history_db.json");
 
@@ -549,7 +546,7 @@ public class SnapshotManager
             return 0;
         }
 
-        var targets = new[] { _storageFile, _dbStorageFile, _customPersonasFile };
+        var targets = new[] { _storageFile, _dbStorageFile };
 
         lock (_lock)
         {
@@ -807,37 +804,4 @@ public class SnapshotManager
         var arrow = diff > 0 ? "▲" : "▼";
         return $"{sign}{diff:F1} {arrow}";
     }
-
-    // ================= 4. 커스텀 페르소나 영구 저장 (custom_personas.json) =================
-    public List<CustomPersona> LoadCustomPersonas()
-    {
-        return _store.Load<List<CustomPersona>>(_customPersonasFile) ?? new List<CustomPersona>();
-    }
-
-    public void SaveCustomPersona(CustomPersona persona)
-    {
-        if (persona == null || string.IsNullOrWhiteSpace(persona.Name)) return;
-
-        lock (_lock)
-        {
-            var list = LoadCustomPersonas();
-            var idx = list.FindIndex(p => p.Id == persona.Id);
-            if (idx >= 0) list[idx] = persona;
-            else list.Add(persona);
-            _store.Save(_customPersonasFile, list);
-        }
-    }
-
-    public bool DeleteCustomPersona(string personaId)
-    {
-        if (string.IsNullOrWhiteSpace(personaId)) return false;
-
-        lock (_lock)
-        {
-            var list = LoadCustomPersonas();
-            if (list.RemoveAll(p => p.Id == personaId) == 0) return false;
-            return _store.Save(_customPersonasFile, list);
-        }
-    }
 }
-
