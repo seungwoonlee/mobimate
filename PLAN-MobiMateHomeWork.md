@@ -296,3 +296,5 @@ hw/
 ## 14. H6 1차 피드백 반영
 
 - H6 1차 피드백 반영(브랜치 `hw/fix-h6-round1`): 가방 무게 비정상 읽기 가드(`WeightGuard`) · 숙제 관찰 분리(20초 주기 `HomeworkObserver`) + 맵 이동/로딩 복귀 직후 +2·+8초 예약 관찰 · 직업 전신 이미지(`class-images` 공유·`JobFigure`) · 배경 그림(공식 일러스트 6개 `backgrounds` 공유·설정 팝업·반투명 면). 코드로 그린 풍경 배경은 만들지 않았다(공식 일러스트로 대체). 설정 팝업 아이콘 경로 오류도 고쳤다.
+
+- CLI 호출 줄이기·표 막대 숫자(브랜치 `hw/fix-cli-load`): 숙제 관찰을 빠른(20초: 퀘스트·캐릭터·맵 3개)·전체(60초: 9개) 두 갈래로 나누고 맵 이동 +2·+8초 관찰은 전체로 유지, 읽지 않은 항목은 `HomeworkObservation` null로 넘김(Core 판정은 무변경) · 캐릭터·맵·활동 캐시 5초 재사용(감시 자신은 3초로 읽음) · 접속 1분 호출 약 57회 → 45회(FakeCli 측정) · 넓게 단계 줄의 막대를 `은 120 [막대] 공 9 [막대]`(숫자 포함, 툴팁에 상세)로. 옵션 `HomeworkFullObserveIntervalSeconds`(`--homework-full-interval`, 0이면 끔).
