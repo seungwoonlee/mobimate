@@ -6,7 +6,7 @@ namespace MobiMateHomeWork.Services;
 /// <summary>
 /// 조회 캐시 + 단일 비행 (NFR-07, 상세설계 §3.4).
 /// - 같은 키의 동시 요청은 CLI 호출 하나를 공유한다.
-/// - 성공 결과는 TTL(기본 3초) 동안 재사용한다. 실패 결과는 진행 중에만 공유하고 캐시하지 않는다.
+/// - 성공 결과는 TTL(기본 3초, 캐릭터·맵·활동은 읽는 쪽이 5초까지) 동안 재사용한다. 유지 시간은 읽는 쪽이 정한다. 실패 결과는 진행 중에만 공유하고 캐시하지 않는다.
 /// - 공유 작업에는 호출자 토큰을 넘기지 않는다(명령 타임아웃만 적용). 호출자는 WaitAsync(ct)로 기다린다.
 ///   그래서 한 기기가 요청을 취소해도 같은 결과를 기다리는 다른 기기의 요청은 끊기지 않는다.
 /// - 진행 중인 항목을 무효화하면 표에서 뺀다. 그 결과는 이미 기다리는 호출자에게만 가고 캐시되지 않으며,
@@ -78,11 +78,13 @@ public sealed class GameQueries(IGameCli cli, QueryCache cache, AppOptions optio
 
     public IGameCli Cli => cli;
 
-    public async Task<CliData<T>> Get<T>(string command, CancellationToken ct = default)
+    /// <param name="maxAge">이 값보다 오래된 캐시는 쓰지 않는다. 비우면 명령별 기본 유지 시간(<see cref="AppOptions.CacheTtlFor"/>).
+    /// 주기적으로 읽는 쪽(전환 감시)은 기본 유지 시간을 직접 주어, 재사용용으로 늘린 유지 시간에 가려 낡은 값을 읽지 않게 한다.</param>
+    public async Task<CliData<T>> Get<T>(string command, CancellationToken ct = default, TimeSpan? maxAge = null)
     {
         if (!cli.IsAvailable) return new CliData<T>(default, new CliFailure(CliFailureKind.Missing, $"게임 CLI를 찾을 수 없습니다: {cli.CliPath}"), DateTimeOffset.UtcNow);
 
-        var r = await cache.GetAsync(command, () => cli.RunAsync(new CliCommand(command)), options.QueryCacheTtl, ct);
+        var r = await cache.GetAsync(command, () => cli.RunAsync(new CliCommand(command)), maxAge ?? options.CacheTtlFor(command), ct);
         var at = DateTimeOffset.UtcNow;
         if (!r.Ok)
         {

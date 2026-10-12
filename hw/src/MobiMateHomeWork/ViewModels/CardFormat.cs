@@ -11,10 +11,11 @@ public enum MeterLevel { Normal, Warn, Danger }
 /// <summary>
 /// 막대 하나(은동전·마족 공물·가방 무게)의 표시 값. HasBar가 거짓이면 막대 없이 숫자만 보인다(무게의 최대를 모를 때, 기록이 없을 때).
 /// Estimated = 접속 안 한 캐릭터의 예상치(마지막 값 + 지난 시간만큼 충전).
+/// AmountText = 상한 없이 숫자만(표의 작은 막대용: "은 120 [막대]"). 카드와 같은 값(접속 중 = 보유, 아니면 예상 보유량)이다.
 /// </summary>
-public sealed record MeterModel(MeterKind Kind, string Label, string ValueText, double Fraction, MeterLevel Level, bool HasBar, bool Estimated, string Tooltip)
+public sealed record MeterModel(MeterKind Kind, string Label, string ValueText, double Fraction, MeterLevel Level, bool HasBar, bool Estimated, string Tooltip, string AmountText = "")
 {
-    public static MeterModel Empty(MeterKind kind, string label) => new(kind, label, "—", 0, MeterLevel.Normal, false, false, $"{label} 기록이 아직 없습니다.");
+    public static MeterModel Empty(MeterKind kind, string label) => new(kind, label, "—", 0, MeterLevel.Normal, false, false, $"{label} 기록이 아직 없습니다.", "—");
 }
 
 /// <summary>카드·표에 쓰는 값 서식 (천 단위 구분, 만 단위 줄임, 지난 시간, 막대 값).</summary>
@@ -65,11 +66,15 @@ public static class CardFormat
         var estimated = !live && s.Expected > s.Held;
         var level = s.Level switch { CoinLevel.Full => MeterLevel.Danger, CoinLevel.Near => MeterLevel.Warn, _ => MeterLevel.Normal };
         var text = $"{s.Expected}/{cap}" + (estimated ? " 예상" : "");
-        var lines = new List<string>();
-        if (live) lines.Add($"{label} {s.Expected} / 상한 {cap}");
-        else lines.Add($"마지막으로 본 값 {s.Held} → 지금 예상 {s.Expected} (상한 {cap})");
-        lines.Add(s.Expected >= cap ? "이미 가득 찼습니다 — 충전이 멈췄습니다" : $"가득까지 약 {Duration(s.MinutesToFull)}");
-        return new MeterModel(kind, label, text, s.Percent, level, true, estimated, string.Join('\n', lines));
+        var full = s.Expected >= cap;
+        // 첫 줄은 한눈에 보는 요약("은동전 120/100 (예상, 가득까지 3시간)"), 아래는 계산 근거
+        var lines = new List<string>
+        {
+            $"{label} {s.Expected}/{cap} ({(live ? "보유" : estimated ? "예상" : "마지막 기록")}, {(full ? "가득 참" : $"가득까지 {Duration(s.MinutesToFull)}")})",
+        };
+        if (!live) lines.Add($"마지막으로 본 값 {s.Held} → 지금 예상 {s.Expected} (상한 {cap})");
+        lines.Add(full ? "이미 가득 찼습니다 — 충전이 멈췄습니다" : $"가득까지 약 {Duration(s.MinutesToFull)}");
+        return new MeterModel(kind, label, text, s.Percent, level, true, estimated, string.Join('\n', lines), Thousands(s.Expected));
     }
 
     /// <summary>가방 무게 막대. 최대를 모르면 현재 무게만 숫자로 보인다. 95%↑ 주의, 100%↑ 위험. 기록이 없으면 빈 값.</summary>
@@ -78,10 +83,10 @@ public static class CardFormat
         if (w == null) return MeterModel.Empty(MeterKind.Weight, "가방");
         var cur = w.Current.ToString("#,0.#", Inv);
         if (w.Max is not { } max || w.Percent is not { } pct || w.Level is not { } lv)
-            return new MeterModel(MeterKind.Weight, "가방", $"{cur} kg", 0, MeterLevel.Normal, false, false, $"가방 {cur} kg\n최대 무게를 아직 읽지 못했습니다 — 접속하면 기록됩니다.");
+            return new MeterModel(MeterKind.Weight, "가방", $"{cur} kg", 0, MeterLevel.Normal, false, false, $"가방 {cur} kg\n최대 무게를 아직 읽지 못했습니다 — 접속하면 기록됩니다.", cur);
         var level = lv switch { WeightLevel.Danger => MeterLevel.Danger, WeightLevel.Warn => MeterLevel.Warn, _ => MeterLevel.Normal };
         var maxText = max.ToString("#,0.#", Inv);
         return new MeterModel(MeterKind.Weight, "가방", $"{cur}/{maxText} kg", Math.Clamp(pct / 100, 0, 1), level, true, false,
-            $"가방 {cur} / {maxText} kg ({pct:0.#}%)" + (level == MeterLevel.Danger ? "\n무게 한도를 넘었습니다" : level == MeterLevel.Warn ? "\n곧 가득 찹니다" : ""));
+            $"가방 {cur} / {maxText} kg ({pct:0.#}%)" + (level == MeterLevel.Danger ? "\n무게 한도를 넘었습니다" : level == MeterLevel.Warn ? "\n곧 가득 찹니다" : ""), cur);
     }
 }

@@ -26,8 +26,9 @@ public sealed class CharacterWatcher(GameQueries q, CharacterSession session, Ho
                 if (!connected) { wasConnected = false; maps.Reset(); continue; }
                 try
                 {
-                    var tEnv = q.Get<EnvironmentInfo>("get_current_environment", ct);
-                    var r = await q.Get<CharacterInfo>("get_my_info", ct);
+                    // 감시는 기본 유지 시간으로 읽는다: 관찰·기록이 재사용하는 5초 캐시에 가려 8초에 한 번만 읽는 일이 없게
+                    var tEnv = q.Get<EnvironmentInfo>("get_current_environment", ct, options.QueryCacheTtl);
+                    var r = await q.Get<CharacterInfo>("get_my_info", ct, options.QueryCacheTtl);
                     var env = await tEnv;
                     if (!r.Ok || r.Value == null) continue;
                     if (maps.Observe(SnapshotManager.IsRealCharacter(r.Value), env.Value?.GameSpaceDisplayName))

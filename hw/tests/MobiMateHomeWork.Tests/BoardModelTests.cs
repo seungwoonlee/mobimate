@@ -246,6 +246,32 @@ public class BoardModelTests
     }
 
     [Fact]
+    public void Coin_AmountText_IsTheSameNumberAsTheCard_AndTooltipHasTheSummaryLine()
+    {
+        // 표의 작은 막대("은 46 [막대]")가 쓰는 숫자: 카드의 값(예상 보유량)과 같고 상한은 붙지 않는다
+        var seen = Now.AddHours(-3);
+        var est = CardFormat.Coin(MeterKind.Silver, Coin(MeterKind.Silver, 40, seen), live: false, seen, Now);
+        Assert.Equal("46", est.AmountText);
+        Assert.StartsWith("은동전 46/100 (예상, 가득까지 1일 3시간)", est.Tooltip);
+
+        var live = CardFormat.Coin(MeterKind.Silver, Coin(MeterKind.Silver, 20, Now, live: true), live: true, Now, Now);
+        Assert.Equal("20", live.AmountText);
+        Assert.StartsWith("은동전 20/100 (보유, 가득까지", live.Tooltip);
+
+        var full = CardFormat.Coin(MeterKind.Silver, Coin(MeterKind.Silver, 100, seen), false, seen, Now);
+        Assert.Equal("100", full.AmountText);
+        Assert.Equal(MeterLevel.Danger, full.Level);                         // 숫자도 막대와 같은 단계로 색이 정해진다(XAML이 Level을 쓴다)
+        Assert.StartsWith("은동전 100/100 (마지막 기록, 가득 참)", full.Tooltip);
+    }
+
+    [Fact]
+    public void EmptyMeter_AmountText_IsADash_AndWeightKeepsItsOwnText()
+    {
+        Assert.Equal("—", MeterModel.Empty(MeterKind.Silver, "은동전").AmountText);
+        Assert.Equal("854.6", CardFormat.Weight(WeightView.Of(854.5651, 1030)).AmountText);
+    }
+
+    [Fact]
     public void Coin_FillingWithin24Hours_WarnsBeforeItIsFull_AndFullIsDanger()
     {
         var seen = Now.AddHours(-1);
