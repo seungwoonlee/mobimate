@@ -49,6 +49,10 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         var s = settings.Current;
         _alwaysOnTop = s.AlwaysOnTop;
         _closeToTray = s.CloseToTray;
+        _backgroundMode = s.BackgroundMode;
+        _backgroundId = s.BackgroundId;
+        _backgroundImagePath = s.BackgroundImagePath;
+        _backgroundOpacity = s.BackgroundOpacity;
         _connection = status.State;
         _countdown = ResetCountdown.Format(_clock());
         _isFirstReadPending = !firstRead.Done;
@@ -189,6 +193,34 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
     [ObservableProperty] private bool _alwaysOnTop;
     [ObservableProperty] private bool _closeToTray;
+
+    // ── 배경 그림 (공식 일러스트 / 내 그림 / 끄기, 투명도 5~50%) ──
+    [ObservableProperty] private string _backgroundMode = BackgroundSettings.Official;
+    [ObservableProperty] private string _backgroundId = Images.BackgroundCatalog.DefaultId;
+    [ObservableProperty] private string? _backgroundImagePath;
+    [ObservableProperty] private double _backgroundOpacity = BackgroundSettings.DefaultOpacity;
+
+    /// <summary>배경 그림을 고른다(저장 포함). 투명도는 그대로.</summary>
+    public void SetBackground(string mode, string? id = null, string? customPath = null)
+    {
+        BackgroundMode = mode;
+        if (id != null) BackgroundId = id;
+        if (customPath != null) BackgroundImagePath = customPath;
+        _settings.Update(d =>
+        {
+            d.BackgroundMode = mode;
+            if (id != null) d.BackgroundId = id;
+            if (customPath != null) d.BackgroundImagePath = customPath;
+        });
+    }
+
+    /// <summary>투명도(0.05~0.5로 보정). 슬라이더를 끄는 동안은 save=false로 화면에만 적용하고, 놓을 때 저장한다.</summary>
+    public void SetBackgroundOpacity(double value, bool save = true)
+    {
+        var v = BackgroundSettings.ClampOpacity(value);
+        BackgroundOpacity = v;
+        if (save) _settings.Update(d => d.BackgroundOpacity = v);
+    }
 
     /// <summary>실제로 쓰는 CLI 경로(저장 값이 없으면 자동 탐색 결과).</summary>
     public string EffectiveCliPath => _cli.CliPath;

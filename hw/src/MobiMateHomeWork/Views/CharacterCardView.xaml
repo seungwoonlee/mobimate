@@ -5,7 +5,7 @@
              xmlns:views="clr-namespace:MobiMateHomeWork.Views">
     <!-- 선택한 캐릭터 카드(정보 12항목). DataContext = HomeworkBoardViewModel. 값은 Board.Card가 갖는다.
          캐릭명(닉네임) · 클래스·레벨 · 칭호 · 현재 맵 · 전투력/마도 저항/생활력/매력(2×2) · 은동전 · 마족 공물 · 가방 무게 · 마지막 접속 -->
-    <Border Background="{DynamicResource Brush.Surface}" BorderBrush="{DynamicResource Brush.Line}" BorderThickness="1" CornerRadius="8">
+    <Border Background="{DynamicResource Brush.Panel}" BorderBrush="{DynamicResource Brush.Line}" BorderThickness="1" CornerRadius="8">
         <Grid>
             <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="10,10,10,8" Focusable="False"
                           Visibility="{Binding HasCard, Converter={StaticResource BoolToVis}}">

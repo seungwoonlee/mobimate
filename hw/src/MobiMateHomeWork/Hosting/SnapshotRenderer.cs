@@ -220,6 +220,19 @@ public static class SnapshotRenderer
             saved.Add(Capture(window, outDir, $"home-rename-{ExtrasSize.Width}x{ExtrasSize.Height}.png"));
             board.CancelRename();
 
+            // 설정 팝업(배경 그림 고르기 포함)
+            var settingsDialog = new SettingsWindow(window.ViewModel)
+            {
+                Owner = window, ShowActivated = false, ShowInTaskbar = false, WindowStartupLocation = WindowStartupLocation.Manual, Left = -20000, Top = -20000,
+            };
+            settingsDialog.Show();
+            try
+            {
+                await SettleAsync(settingsDialog);
+                saved.Add(Capture(settingsDialog, outDir, "home-settings.png"));
+            }
+            finally { settingsDialog.Close(); }
+
             // 두 번째 계정(8명)을 눌러 본다: 6줄이 넘으면 줄 영역만 세로 스크롤 (좁게·보통)
             if (board.Accounts.Count > 1)
             {
@@ -238,12 +251,15 @@ public static class SnapshotRenderer
     }
 
     /// <summary>창 안쪽을 1 DIP = 1 픽셀 PNG로 저장한다.</summary>
-    private static string Capture(MainWindow window, string outDir, string name)
+    private static string Capture(Window window, string outDir, string name)
     {
         var frame = (FrameworkElement)window.Content;
         var pxW = (int)Math.Round(frame.ActualWidth);
         var pxH = (int)Math.Round(frame.ActualHeight);
         var bmp = new RenderTargetBitmap(pxW, pxH, 96, 96, PixelFormats.Pbgra32);
+        var back = new DrawingVisual();   // 창 바탕을 먼저 깔아 글자가 투명 바탕 위에서 흐려 보이지 않게 한다
+        using (var dc = back.RenderOpen()) dc.DrawRectangle(window.Background, null, new Rect(0, 0, pxW, pxH));
+        bmp.Render(back);
         bmp.Render(frame);
         var file = Path.Combine(outDir, name);
         var encoder = new PngBitmapEncoder();

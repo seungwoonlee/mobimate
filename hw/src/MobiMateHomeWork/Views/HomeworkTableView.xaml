@@ -156,7 +156,8 @@
         </DataTemplate>
     </UserControl.Resources>
 
-    <Grid MaxWidth="{DynamicResource Metrics.TableMaxWidth}">
+    <Border Background="{DynamicResource Brush.PanelBg}" CornerRadius="8" MaxWidth="{DynamicResource Metrics.TableMaxWidth}">
+    <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
@@ -181,4 +182,5 @@
             <ItemsControl ItemsSource="{Binding Rows}" ItemTemplate="{StaticResource RowTemplate}" Focusable="False" AutomationProperties.Name="캐릭터 숙제 표" />
         </ScrollViewer>
     </Grid>
+    </Border>
 </UserControl>

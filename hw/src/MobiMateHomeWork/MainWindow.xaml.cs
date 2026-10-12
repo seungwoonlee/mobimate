@@ -4,9 +4,11 @@ using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Threading;
 using MobiMateHomeWork.Hosting;
+using MobiMateHomeWork.Images;
 using MobiMateHomeWork.Layout;
 using MobiMateHomeWork.Services;
 using MobiMateHomeWork.ViewModels;
+using MobiMateHomeWork.Views;
 
 namespace MobiMateHomeWork;
 
@@ -52,6 +54,8 @@ public partial class MainWindow : Window
         PreviewKeyDown += OnWindowKeyDown;
 
         _vm.PropertyChanged += OnViewModelChanged;
+        ImageFiles.Changed += OnImagesChanged;
+        Loaded += (_, _) => ApplyBackdrop();
         SizeChanged += OnSizeChanged;
         StateChanged += OnStateChanged;
         LocationChanged += (_, _) => ScheduleSave();
@@ -136,6 +140,21 @@ public partial class MainWindow : Window
     {
         if (e.PropertyName == nameof(MainViewModel.Tier)) TierResources.Apply(Application.Current, _vm.Tier, _vm.WindowWidth);
         else if (e.PropertyName == nameof(MainViewModel.WindowWidth)) TierResources.ApplyScale(Application.Current, _vm.Tier, _vm.WindowWidth);
+        else if (e.PropertyName is nameof(MainViewModel.BackgroundMode) or nameof(MainViewModel.BackgroundId) or nameof(MainViewModel.BackgroundImagePath)) ApplyBackdrop();
+        else if (e.PropertyName == nameof(MainViewModel.BackgroundOpacity)) BackdropRect.Opacity = _vm.BackgroundOpacity;
+    }
+
+    // ── 배경 그림 ─────────────────────────────────────────────
+
+    private void OnImagesChanged() => Dispatcher.BeginInvoke(new Action(ApplyBackdrop));   // 배경 그림을 막 내려받았을 때 바로 보이게
+
+    /// <summary>설정에 맞는 배경 그림(가공해 캐시한 비트맵)을 깔거나, 없으면(받는 중·끔) 감춘다.</summary>
+    private void ApplyBackdrop()
+    {
+        var brush = Backdrop.Create(_vm.BackgroundMode, _vm.BackgroundId, _vm.BackgroundImagePath);
+        BackdropRect.Fill = brush;
+        BackdropRect.Opacity = _vm.BackgroundOpacity;
+        BackdropRect.Visibility = brush == null ? Visibility.Collapsed : Visibility.Visible;
     }
 
     // ── 필드 보스 팝업 ────────────────────────────────────────
@@ -229,6 +248,7 @@ public partial class MainWindow : Window
     {
         _tick.Stop();
         _saveTimer.Stop();
+        ImageFiles.Changed -= OnImagesChanged;
         if (!_preview) SavePlacement();
         _vm.Dispose();
         if (!_preview) ((App)Application.Current).Quit();

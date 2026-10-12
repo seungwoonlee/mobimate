@@ -39,14 +39,19 @@ public partial class App : Application
         AppDomain.CurrentDomain.UnhandledException += OnDomainUnhandled;
         TaskScheduler.UnobservedTaskException += OnUnobservedTask;
 
+        var e_args = e.Args;
         try
         {
-            await StartCoreAsync(e.Args);
+            await StartCoreAsync(e_args);
         }
         catch (Exception ex)
         {
             // 콘솔이 없는 WinExe라 조용히 끝나지 않게 로그와 메시지 상자로 알린다
             _log?.LogCritical(ex, "숙제 앱을 시작하지 못했습니다.");
+            // 화면 확인(--render-snapshots)·자동 검증 실행에서는 모달 오류 창을 띄우지 않는다: 로그와 종료 코드(1)로만 알린다
+            var quiet = e_args.Any(x => x.StartsWith("--render-snapshots", StringComparison.OrdinalIgnoreCase))
+                || !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("MobiMate__RenderSnapshots"));
+            if (!quiet)
             try { MessageBox.Show($"MobiMate 숙제를 시작하지 못했습니다.\n\n{ex.Message}\n\n로그: {_logProvider?.LogDirectory}", "MobiMate 숙제", MessageBoxButton.OK, MessageBoxImage.Error); }
             catch { }
             _exitCode = 1;

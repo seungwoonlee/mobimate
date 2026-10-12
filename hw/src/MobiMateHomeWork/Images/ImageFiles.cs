@@ -30,6 +30,13 @@ public static class ImageFiles
         return root == null || ClassImageCatalog.Known.FirstOrDefault(c => c.Id == id) is not { } c ? "" : Path.Combine(root, ClassImageCatalog.FolderName, c.FileName);
     }
 
+    /// <summary>공식 배경 일러스트 id의 파일 경로(알려진 id만). 초기화 전이거나 모르는 id면 빈 문자열.</summary>
+    public static string BackgroundPath(string? id)
+    {
+        var root = Root;
+        return root == null || BackgroundCatalog.Find(id) is not { } b ? "" : Path.Combine(root, BackgroundCatalog.FolderName, b.Id + ".png");
+    }
+
     public static void Refresh() => Changed?.Invoke();
 
     /// <summary>파일을 디코드해 얼린 비트맵으로 돌려준다(없거나 못 읽으면 null). 0이면 그 방향은 원본 크기.</summary>

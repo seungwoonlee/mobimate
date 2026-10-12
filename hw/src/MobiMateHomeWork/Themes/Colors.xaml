@@ -8,6 +8,10 @@
     <Color x:Key="Color.Surface2">#1E222B</Color>
     <Color x:Key="Color.Line">#2A2F3A</Color>
 
+    <!-- 반투명 면(배경 그림이 은은히 비치게): 카드·제목줄은 Surface 88%, 표·계정 탭 줄은 Bg 88%. 글자 대비는 최악(밝은 그림 50%)에서도 AA — ThemeContrastTests -->
+    <Color x:Key="Color.Panel">#E0171A21</Color>
+    <Color x:Key="Color.PanelBg">#E00F1115</Color>
+
     <!-- 글자: 기본 / 흐림 / 더 흐림(보조 설명용. 계획의 #6B7280은 면 위 대비 3.6:1이라 AA 미달 → #8590A0으로 올렸다) -->
     <Color x:Key="Color.Text">#E6E8EC</Color>
     <Color x:Key="Color.TextMuted">#9AA1AD</Color>
@@ -40,6 +44,8 @@
     <SolidColorBrush x:Key="Brush.Bg" Color="{StaticResource Color.Bg}" />
     <SolidColorBrush x:Key="Brush.Surface" Color="{StaticResource Color.Surface}" />
     <SolidColorBrush x:Key="Brush.Surface2" Color="{StaticResource Color.Surface2}" />
+    <SolidColorBrush x:Key="Brush.Panel" Color="{StaticResource Color.Panel}" />
+    <SolidColorBrush x:Key="Brush.PanelBg" Color="{StaticResource Color.PanelBg}" />
     <SolidColorBrush x:Key="Brush.Line" Color="{StaticResource Color.Line}" />
     <SolidColorBrush x:Key="Brush.Text" Color="{StaticResource Color.Text}" />
     <SolidColorBrush x:Key="Brush.TextMuted" Color="{StaticResource Color.TextMuted}" />

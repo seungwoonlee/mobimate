@@ -3,8 +3,9 @@ using MobiMateHomeWork.Hosting;
 namespace MobiMateHomeWork.Images;
 
 /// <summary>
-/// 시작할 때 없는 이미지(직업 일러스트 27개)만 백그라운드로 내려받는다. 이미 다 있으면(웹앱이 받아 둠) 아무것도 하지 않는다.
-/// 받을 때마다 <see cref="ImageFiles.Refresh"/>로 화면에 알린다. 실패해도 앱 동작에는 영향이 없다(직업 색 원+첫 글자로 대신 보인다).
+/// 시작할 때 없는 이미지(직업 일러스트 27개, 공식 배경 일러스트 6개)만 백그라운드로 내려받는다. 이미 다 있으면 아무것도 하지 않는다.
+/// 공식 홈페이지 공개 이미지를 이 PC에만 캐시하는 것이고 배포 파일(exe·zip)에는 넣지 않는다(저작권, 웹앱 직업 이미지와 같은 방식).
+/// 받을 때마다 <see cref="ImageFiles.Refresh"/>로 화면에 알린다. 실패해도 앱 동작에는 영향이 없다(직업은 색 원+첫 글자로, 배경은 없음으로 대신 보인다).
 /// </summary>
 public sealed class ImageDownloadService : BackgroundService
 {
@@ -19,6 +20,7 @@ public sealed class ImageDownloadService : BackgroundService
         _downloaders =
         [
             new ImageDownloader(Path.Combine(options.StorageDir, ClassImageCatalog.FolderName), ClassImageCatalog.Known, http, log),
+            new ImageDownloader(Path.Combine(options.StorageDir, BackgroundCatalog.FolderName), BackgroundCatalog.Remotes, http, log),
         ];
     }
 
