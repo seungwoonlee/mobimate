@@ -485,7 +485,7 @@ public class HomeworkAutoCheckTests : IDisposable
         Assert.Equal(HomeworkCardStatus.Pending, Card(svc.GetBoard(Main), "weekly_vanguard_breach").Status);
 
         _now += TimeSpan.FromMinutes(10);
-        svc.Evaluate(Main, Quests(Other));
+        Vanished(svc, Main, Other);
         Assert.Equal(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main), "weekly_vanguard_breach").Status);
         Assert.Equal("done", Auto(svc, Main, "weekly_vanguard_breach").State);
     }
@@ -496,7 +496,7 @@ public class HomeworkAutoCheckTests : IDisposable
         var svc = NewService();
         svc.Evaluate(Main, Quests(Quest(Vanguard, false), Other));
         _now += TimeSpan.FromMinutes(10);
-        svc.Evaluate(Main, Quests(Other));
+        Vanished(svc, Main, Other);
         Assert.Equal(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main), "weekly_vanguard_breach").Status);
 
         _now += TimeSpan.FromMinutes(10);
@@ -505,7 +505,7 @@ public class HomeworkAutoCheckTests : IDisposable
         Assert.Equal("todo", Auto(svc, Main, "weekly_vanguard_breach").State);
 
         _now += TimeSpan.FromMinutes(10);
-        svc.Evaluate(Main, Quests(Other));
+        Vanished(svc, Main, Other);
         Assert.Equal(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main), "weekly_vanguard_breach").Status);
     }
 
@@ -541,7 +541,7 @@ public class HomeworkAutoCheckTests : IDisposable
         var svc = NewService();
         svc.Evaluate(Main, Quests(Counted(Vanguard, (2, 3))));
         _now += TimeSpan.FromMinutes(5);
-        svc.Evaluate(Main, Quests(Counted("뱅가드 브리치 클리어", (0, 1))));   // 마지막 판 직후: 판 퀘스트만 남아 있다
+        Vanished(svc, Main, Counted("뱅가드 브리치 클리어", (0, 1)));   // 마지막 판 직후: 판 퀘스트만 남아 있다
         Assert.Equal(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main), "weekly_vanguard_breach").Status);
     }
 
@@ -553,9 +553,9 @@ public class HomeworkAutoCheckTests : IDisposable
         _now += TimeSpan.FromMinutes(5);
         svc.Evaluate(Alt, Quests(Other));                 // 다른 캐릭터로 바꿈: 끊김
         _now += TimeSpan.FromMinutes(5);
-        svc.Evaluate(Main, Quests(Other));                // 돌아와 보니 퀘스트가 없다: 그 사이 무슨 일인지 모른다
+        Vanished(svc, Main, Other);                // 돌아와 보니 퀘스트가 없다: 그 사이 무슨 일인지 모른다
         _now += TimeSpan.FromMinutes(5);
-        svc.Evaluate(Main, Quests(Other));
+        Vanished(svc, Main, Other);
         Assert.Equal(HomeworkCardStatus.Pending, Card(svc.GetBoard(Main), "weekly_vanguard_breach").Status);
         Assert.Equal("unknown", Auto(svc, Main, "weekly_vanguard_breach").State);
     }
@@ -585,11 +585,11 @@ public class HomeworkAutoCheckTests : IDisposable
         _now += TimeSpan.FromMinutes(1);
         svc.Evaluate(Alt, Quests(Other));
         _now += TimeSpan.FromMinutes(1);
-        svc.Evaluate(Main, Quests(Other));                                   // 전환 직후 한 번은 건너뛴다
+        Vanished(svc, Main, Other);                                   // 전환 직후 한 번은 건너뛴다
         svc.Evaluate(Main, Quests(Counted(Vanguard, (1, 3))));              // 돌아와서 다시 보인다
         Assert.Equal(2, Auto(svc, Main, "weekly_vanguard_breach").Remaining);
         _now += TimeSpan.FromMinutes(5);
-        svc.Evaluate(Main, Quests(Other));                                   // 끊김 없이 사라짐
+        Vanished(svc, Main, Other);                                   // 끊김 없이 사라짐
         Assert.Equal(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main), "weekly_vanguard_breach").Status);
     }
 
@@ -600,9 +600,9 @@ public class HomeworkAutoCheckTests : IDisposable
         svc.Evaluate(Main, Quests(Quest(Gem, false)));
         svc.Evaluate(Alt, Quests(Other));
         _now += TimeSpan.FromMinutes(5);
-        svc.Evaluate(Main, Quests(Other));
+        Vanished(svc, Main, Other);
         _now += TimeSpan.FromMinutes(5);
-        svc.Evaluate(Main, Quests(Other));
+        Vanished(svc, Main, Other);
         Assert.Equal(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main), "daily_day_dungeon").Status);   // 요일 던전은 끊김 조건이 없다
     }
 
@@ -612,7 +612,7 @@ public class HomeworkAutoCheckTests : IDisposable
         var svc = NewService();
         svc.Evaluate(Main, Quests(Quest(Vanguard, false)));
         _now = Kst(2026, 10, 12, 6, 30);                  // 다음 주 월요일 새벽
-        svc.Evaluate(Main, Quests(Other));
+        Vanished(svc, Main, Other);
         Assert.Equal(HomeworkCardStatus.Pending, Card(svc.GetBoard(Main), "weekly_vanguard_breach").Status);
         Assert.Equal("unknown", Auto(svc, Main, "weekly_vanguard_breach").State);
     }
@@ -623,8 +623,50 @@ public class HomeworkAutoCheckTests : IDisposable
         NewService().Evaluate(Main, Quests(Quest(Vanguard, false)));
         _now += TimeSpan.FromMinutes(30);
         var restarted = NewService();
-        restarted.Evaluate(Main, Quests(Other));
+        Vanished(restarted, Main, Other);
         Assert.Equal(HomeworkCardStatus.AutoDone, Card(restarted.GetBoard(Main), "weekly_vanguard_breach").Status);
+    }
+
+
+    /// <summary>끊김 없는 관찰이 필요한 퀘스트의 "사라짐": 처음 안 보인 순간은 확인 대기이고, 확인 시간 뒤에도 없을 때 완료로 확정한다.</summary>
+    private void Vanished(HomeworkService svc, string key, params QuestItem[] q)
+    {
+        svc.Evaluate(key, Quests(q));
+        _now += HomeworkEvaluator.VanishConfirmWindow + TimeSpan.FromSeconds(1);
+        svc.Evaluate(key, Quests(q));
+    }
+
+    [Fact]
+    public void Vanguard_SingleAbsentObservation_IsNotCompletion_UntilItStaysGone()
+    {
+        var svc = NewService();
+        svc.Evaluate(Main, Quests(Counted(Vanguard, (0, 3))));
+        _now += TimeSpan.FromMinutes(1);
+        svc.Evaluate(Main, Quests(Other));                               // 로딩 중 일부만 온 목록: 안 보인다
+        Assert.Equal(HomeworkCardStatus.Pending, Card(svc.GetBoard(Main), "weekly_vanguard_breach").Status);
+        _now += TimeSpan.FromSeconds(5);
+        svc.Evaluate(Main, Quests(Counted(Vanguard, (0, 3))));          // 곧 다시 보인다
+        _now += TimeSpan.FromMinutes(5);
+        svc.Evaluate(Main, Quests(Other));                               // 새 확인 대기: 앞선 대기는 이어지지 않는다
+        Assert.Equal(HomeworkCardStatus.Pending, Card(svc.GetBoard(Main), "weekly_vanguard_breach").Status);
+        Assert.Equal("todo", Auto(svc, Main, "weekly_vanguard_breach").State);
+        _now += HomeworkEvaluator.VanishConfirmWindow + TimeSpan.FromSeconds(1);
+        svc.Evaluate(Main, Quests(Other));
+        Assert.Equal(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main), "weekly_vanguard_breach").Status);
+    }
+
+    [Fact]
+    public void Vanguard_AbsentWhileTheMapIsLoading_IsIgnored()
+    {
+        var svc = NewService();
+        svc.Evaluate(Main, Quests(Counted(Vanguard, (0, 3))));
+        _now += TimeSpan.FromMinutes(1);
+        var loading = new HomeworkObservation(Quests: new List<QuestItem> { Other }, Environment: new EnvironmentInfo(null, null, null, ""));
+        svc.Evaluate(Main, loading);
+        _now += HomeworkEvaluator.VanishConfirmWindow + TimeSpan.FromSeconds(1);
+        svc.Evaluate(Main, loading);
+        Assert.Equal(HomeworkCardStatus.Pending, Card(svc.GetBoard(Main), "weekly_vanguard_breach").Status);
+        Assert.Equal("todo", Auto(svc, Main, "weekly_vanguard_breach").State);
     }
 
     private static QuestItem Counted(string title, params (int Count, int Goal)[] objs) =>
@@ -671,7 +713,7 @@ public class HomeworkAutoCheckTests : IDisposable
             Assert.Equal(n, Auto(svc, Main, "weekly_vanguard_breach").Remaining);
             _now += TimeSpan.FromMinutes(20);
         }
-        svc.Evaluate(Main, Quests(Other));   // 3번째 클리어: 퀘스트가 사라진다
+        Vanished(svc, Main, Other);   // 3번째 클리어: 퀘스트가 사라진다
         Assert.Equal(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main), "weekly_vanguard_breach").Status);
         Assert.Equal("done", Auto(svc, Main, "weekly_vanguard_breach").State);
     }
@@ -697,7 +739,7 @@ public class HomeworkAutoCheckTests : IDisposable
         svc.Evaluate(Main, Quests(Counted(Vanguard, (1, 1), (1, 1), (0, 1))));
         Assert.Equal(1, Auto(svc, Main, "weekly_vanguard_breach").Remaining);
         _now += TimeSpan.FromMinutes(10);
-        svc.Evaluate(Main, Quests(Other));
+        Vanished(svc, Main, Other);
         var done = Auto(svc, Main, "weekly_vanguard_breach");
         Assert.Equal("done", done.State);
         Assert.Null(done.Remaining);

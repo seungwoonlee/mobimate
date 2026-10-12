@@ -39,7 +39,7 @@ public static partial class HomeworkEvaluator
         {
             var due = def.Period == HomeworkPeriod.Daily ? dailyDue : weeklyDue;
             if (due && ledger.Items.Remove(def.Id)) changed.Add(def.Id);
-            if (due) { ledger.QuestSightings?.Remove(def.Id); ledger.QuestContinuityBroken?.Remove(def.Id); ledger.RaidAreaSince?.Remove(ClearKey(def)); }
+            if (due) { ledger.QuestSightings?.Remove(def.Id); ledger.QuestContinuityBroken?.Remove(def.Id); ledger.QuestVanishPending?.Remove(def.Id); ledger.RaidAreaSince?.Remove(ClearKey(def)); }
         }
         if (dailyDue) ledger.LastDailyResetUtc = lastDaily;
         if (weeklyDue) ledger.LastWeeklyResetUtc = lastWeekly;
@@ -218,6 +218,12 @@ public static partial class HomeworkEvaluator
 
     public const string VanishEvidence = "퀘스트가 목록에서 사라짐";
 
+    /// <summary>
+    /// 끊김 없는 관찰이 필요한 퀘스트(뱅가드 브리치)가 "목록에 없음"으로 계속 보여야 완료로 확정하는 시간.
+    /// 로딩·맵 이동·캐릭터 정보가 비는 순간에는 퀘스트 목록이 일부만 와서 한 번의 관찰만으로는 완료로 오인한다 (2026-10-12 실측).
+    /// </summary>
+    public static readonly TimeSpan VanishConfirmWindow = TimeSpan.FromSeconds(30);
+
     private static readonly string[] DayKeys = { "sun", "mon", "tue", "wed", "thu", "fri", "sat" };
 
     /// <summary>오늘(게임 기준 06:00 경계) 트래커에 있어야 할 퀘스트 이름들 (정규화). 요일별 이름이 없으면 QuestTitles.</summary>
@@ -265,12 +271,15 @@ public static partial class HomeworkEvaluator
         {
             if (!sightings.TryGetValue(def.Id, out var at) || at < cycleStart) sightings[def.Id] = now;   // 주기당 한 번만 기록(저장 횟수를 줄인다)
             if (broken) character.QuestContinuityBroken!.Remove(def.Id);   // 다시 보인다: 여기서부터 끊김 없이 지켜본다
+            character.QuestVanishPending?.Remove(def.Id);                  // 잠깐 안 보였을 뿐: 사라짐 확인을 처음부터 다시 한다
             st.RemainingCount = def.ShowRemaining ? RemainingOf(visible) : null;
             st.Evidence = $"퀘스트 '{HomeworkText.StripTags(visible.QuestTitle)}'가 아직 목록에 있음: 이번 주기 미완료" + (st.RemainingCount is { } r ? $" (남은 {r}회)" : "");
             return;
         }
         if (obs.Quests!.Count == 0) return;
         if (!sightings.TryGetValue(def.Id, out var seen) || seen < cycleStart) return;
+        // 공간 이름이 비어 있으면 로딩·맵 이동 중이다: 이때의 퀘스트 목록은 믿지 않는다 (조회에 실패한 null과는 구분한다)
+        if (def.Continuous && obs.Environment is { } env && string.IsNullOrWhiteSpace(env.GameSpaceDisplayName)) return;
         if (def.Continuous && broken)
         {
             // 캐릭터를 바꾼 사이에 사라졌다: 그 사이 무슨 일인지 모른다. 완료로 보지 않고 확인했던 값도 거둔다(미확인으로 돌아간다)
@@ -279,6 +288,18 @@ public static partial class HomeworkEvaluator
             st.Evidence = null;
             st.RemainingCount = null;
             return;
+        }
+        if (def.Continuous)
+        {
+            // 처음 안 보인 순간은 완료가 아니라 "확인 대기"다. 같은 주기에 일정 시간 뒤에도 계속 없을 때만 완료로 확정한다.
+            var pending = character.QuestVanishPending ??= new Dictionary<string, DateTimeOffset>(StringComparer.OrdinalIgnoreCase);
+            if (!pending.TryGetValue(def.Id, out var since) || since < cycleStart || since < seen)
+            {
+                pending[def.Id] = now;
+                return;
+            }
+            if (now - since < VanishConfirmWindow) return;
+            pending.Remove(def.Id);
         }
         Complete(st, def.Goal, $"{VanishEvidence}: 이번 주기에 보였다가 사라져 완료로 판단", now);
     }
