@@ -90,6 +90,7 @@ public sealed class AppHarness : IAsyncDisposable
             CliPath = game.ExePath,
             SingleInstance = false,
             LegacyWebCheck = false,
+            DownloadImages = false,          // 실제 인터넷 접속 금지 (이미지 내려받기는 가짜 HttpClient로만 시험)
             StatusIntervalSeconds = 0,
             RecordIntervalSeconds = 0,
             WatchIntervalSeconds = 0,

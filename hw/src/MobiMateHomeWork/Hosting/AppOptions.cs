@@ -55,6 +55,12 @@ public sealed class AppOptions
     /// <summary>파일 로그 최소 수준. 기본 Information, 환경변수 MobiMate__LogLevel=Debug 로 Debug까지 쓴다.</summary>
     public string LogLevel { get; set; } = "Information";
 
+    /// <summary>없는 직업 이미지를 첫 실행 때 내려받는다(공유 저장 폴더 class-images). 테스트에서 끈다.</summary>
+    public bool DownloadImages { get; set; } = true;
+
+    /// <summary>스냅숏 전용: 이 폴더의 class-images 하위 폴더 파일을 (임시) 저장 폴더로 복사해 쓴다. 원본 폴더는 읽기만 한다.</summary>
+    public string? ClassImagesSource { get; set; }
+
     /// <summary>조회 캐시 유지 시간(초).</summary>
     public double QueryCacheTtlSeconds { get; set; } = 3;
 
@@ -88,6 +94,8 @@ public sealed class AppOptions
         ["--record-interval"] = $"{Section}:{nameof(RecordIntervalSeconds)}",
         ["--homework-interval"] = $"{Section}:{nameof(HomeworkObserveIntervalSeconds)}",
         ["--watch-interval"] = $"{Section}:{nameof(WatchIntervalSeconds)}",
+        ["--class-images-source"] = $"{Section}:{nameof(ClassImagesSource)}",
+        ["--download-images"] = $"{Section}:{nameof(DownloadImages)}",
         ["--render-snapshots"] = $"{Section}:{nameof(RenderSnapshots)}",
         ["--wpf-storage"] = $"{Section}:{nameof(WpfStorageDir)}",
     };

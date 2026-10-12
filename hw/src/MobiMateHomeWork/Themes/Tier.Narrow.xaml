@@ -15,6 +15,11 @@
     <Thickness x:Key="Metrics.GroupMargin">8,0,0,0</Thickness>
     <Thickness x:Key="Metrics.CellMargin">1,0,1,0</Thickness>
     <sys:Double x:Key="Metrics.BadgeSize">20</sys:Double>
+    <!-- 직업 전신 이미지: 표 줄 썸네일 / 캐릭터 카드 머리 -->
+    <sys:Double x:Key="Metrics.JobFigureWidth">28</sys:Double>
+    <sys:Double x:Key="Metrics.JobFigureHeight">40</sys:Double>
+    <sys:Double x:Key="Metrics.CardFigureWidth">38</sys:Double>
+    <sys:Double x:Key="Metrics.CardFigureHeight">52</sys:Double>
     <sys:Double x:Key="Metrics.CellGlyph">15</sys:Double>
     <sys:Double x:Key="Metrics.TableMaxWidth">4000</sys:Double>
     <!-- 단계별로 보이는 것: 칸 기호 / 칸 안 두 줄 이름 / 칸 남은 횟수 / 묶음 머리의 두 글자 약칭 / 줄의 마지막 접속 / 줄의 작은 막대 -->

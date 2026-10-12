@@ -1,7 +1,8 @@
 <UserControl x:Class="MobiMateHomeWork.Views.CharacterCardView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:vm="clr-namespace:MobiMateHomeWork.ViewModels">
+             xmlns:vm="clr-namespace:MobiMateHomeWork.ViewModels"
+             xmlns:views="clr-namespace:MobiMateHomeWork.Views">
     <!-- 선택한 캐릭터 카드(정보 12항목). DataContext = HomeworkBoardViewModel. 값은 Board.Card가 갖는다.
          캐릭명(닉네임) · 클래스·레벨 · 칭호 · 현재 맵 · 전투력/마도 저항/생활력/매력(2×2) · 은동전 · 마족 공물 · 가방 무게 · 마지막 접속 -->
     <Border Background="{DynamicResource Brush.Surface}" BorderBrush="{DynamicResource Brush.Line}" BorderThickness="1" CornerRadius="8">
@@ -15,10 +16,9 @@
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
-                        <Border Width="34" Height="34" CornerRadius="100" Background="{Binding JobColor}" VerticalAlignment="Center" Margin="0,0,8,0">
-                            <TextBlock Text="{Binding JobLetter}" Foreground="{DynamicResource Brush.OnAccent}" FontWeight="Bold" FontSize="{DynamicResource Font.Title}"
-                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
-                        </Border>
+                        <views:JobFigure Width="{DynamicResource Metrics.CardFigureWidth}" Height="{DynamicResource Metrics.CardFigureHeight}" FallbackSize="34" Large="True"
+                                         ImageId="{Binding JobImageId}" Letter="{Binding JobLetter}" JobColor="{Binding JobColor}"
+                                         VerticalAlignment="Center" Margin="0,0,8,0" ToolTip="{Binding ClassLevel}" />
                         <StackPanel Grid.Column="1" VerticalAlignment="Center">
                             <!-- 이름: 눌러서(또는 연필 단추로) 그 자리에서 바꾸기 (Enter 저장 · Esc 취소 · 20자) -->
                             <Grid>

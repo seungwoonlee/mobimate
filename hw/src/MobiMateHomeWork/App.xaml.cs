@@ -70,10 +70,16 @@ public partial class App : Application
             options.SingleInstance = false;
             options.LegacyWebCheck = false;
             options.WpfStorageDir = null;   // 옛 WPF판 기록(실제 사용자 폴더)도 가져오지 않는다
+            options.DownloadImages = false;  // 이미지는 아래에서 한 번만 직접 받는다(임시 저장 폴더에)
         }
         options.StorageDir = string.IsNullOrWhiteSpace(options.StorageDir) ? SnapshotManager.DefaultStorageDirectory : Path.GetFullPath(options.StorageDir);
         Directory.CreateDirectory(options.StorageDir);
-        if (renderDir != null) SnapshotRenderer.SeedDemo(options.StorageDir);
+        if (renderDir != null)
+        {
+            SnapshotRenderer.SeedDemo(options.StorageDir);
+            SnapshotRenderer.CopyClassImages(options.ClassImagesSource, options.StorageDir);   // 원본은 읽기만
+        }
+        Images.ImageFiles.Initialize(options.StorageDir);
 
         // 로그: 웹앱과 같은 logs 폴더, 파일 이름은 homework-*.log
         _logProvider = new FileLoggerProvider(Path.Combine(options.StorageDir, "logs"), options.MinLogLevel);
@@ -128,6 +134,7 @@ public partial class App : Application
 
         if (renderDir != null)
         {
+            await Task.Run(() => _host.Services.GetRequiredService<Images.ImageDownloadService>().RunOnceAsync(CancellationToken.None));   // 임시 폴더에 없는 이미지만
             var files = await SnapshotRenderer.RenderAsync(_host.Services, renderDir, m => _log.LogInformation("{Message}", m));
             _log.LogInformation("스냅숏 {Count}개를 저장했습니다: {Dir}", files.Count, renderDir);
             Quit();

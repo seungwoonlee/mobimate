@@ -60,6 +60,27 @@ public static class SnapshotRenderer
             settings.RememberCharacter(key, map, max);
     }
 
+    /// <summary>
+    /// 스냅숏용: 실제 class-images 폴더(<paramref name="sourceDir"/>가 그 폴더 자체)의 PNG를 임시 저장 폴더의 class-images로 복사한다.
+    /// 원본은 읽기만 하고, 없는 파일만 복사한다.
+    /// </summary>
+    public static int CopyClassImages(string? sourceDir, string storageDir)
+    {
+        if (string.IsNullOrWhiteSpace(sourceDir) || !Directory.Exists(sourceDir)) return 0;
+        var target = Path.Combine(storageDir, Images.ClassImageCatalog.FolderName);
+        Directory.CreateDirectory(target);
+        var n = 0;
+        foreach (var c in Images.ClassImageCatalog.Known)
+        {
+            var from = Path.Combine(sourceDir, c.FileName);
+            var to = Path.Combine(target, c.FileName);
+            if (!File.Exists(from) || File.Exists(to)) continue;
+            File.Copy(from, to);
+            n++;
+        }
+        return n;
+    }
+
     private static CharacterProfile Demo(string realm, string job, string nick, string title, int level, long combat, long deca, long mcash, DateTime lastSeen,
         long silver, long tribute, double weight) => new()
     {

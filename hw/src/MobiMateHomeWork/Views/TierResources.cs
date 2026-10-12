@@ -11,7 +11,7 @@ namespace MobiMateHomeWork;
 public static class TierResources
 {
     /// <summary>비율로 키우는 값(Wide 단계 파일의 키). 글자 크기는 키우지 않는다.</summary>
-    private static readonly string[] ScaledDoubles = ["Metrics.RowHeight", "Metrics.CellWidth", "Metrics.CellHeight", "Metrics.BadgeSize", "Metrics.CharInfoWidth", "Metrics.TableMaxWidth"];
+    private static readonly string[] ScaledDoubles = ["Metrics.RowHeight", "Metrics.CellWidth", "Metrics.CellHeight", "Metrics.BadgeSize", "Metrics.JobFigureWidth", "Metrics.JobFigureHeight", "Metrics.CardFigureWidth", "Metrics.CardFigureHeight", "Metrics.CharInfoWidth", "Metrics.TableMaxWidth"];
     private static (LayoutTier Tier, double Scale)? _applied;   // 마지막으로 적용한 (단계, 비율): 같으면 리소스를 다시 쓰지 않는다
     private const string CardWidthKey = "Metrics.CardWidth";
 
