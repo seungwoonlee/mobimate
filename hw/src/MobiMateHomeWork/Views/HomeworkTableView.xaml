@@ -99,7 +99,12 @@
         <!-- 캐릭터 줄 -->
         <DataTemplate x:Key="RowTemplate" DataType="{x:Type vm:CharacterRowViewModel}">
             <Border x:Name="RowBorder" Height="{DynamicResource Metrics.RowHeight}" BorderBrush="{DynamicResource Brush.Line}" BorderThickness="0,0,0,1"
-                    PreviewMouseLeftButtonDown="OnRowPressed" ToolTip="{Binding Tooltip}" AutomationProperties.Name="{Binding AutomationName}">
+                    PreviewMouseLeftButtonDown="OnRowPressed" ContextMenuOpening="OnRowMenuOpening" ToolTip="{Binding Tooltip}" AutomationProperties.Name="{Binding AutomationName}">
+                <Border.ContextMenu>
+                    <ContextMenu>
+                        <MenuItem Header="다른 캐릭터와 합치기…" Click="OnMergeClicked" AutomationProperties.Name="다른 캐릭터와 합치기" />
+                    </ContextMenu>
+                </Border.ContextMenu>
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="3" />
