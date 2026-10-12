@@ -1,11 +1,14 @@
+using System.Diagnostics;
 using MobiMateHomeWork.Hosting;
 
 namespace MobiMateHomeWork.Services;
 
 /// <summary>
-/// 숙제 관찰 서비스. (1) 접속 중 주기 관찰(기본 20초, 캐릭터 기록 60초와 별개) (2) 맵 이동·로딩 복귀 직후 +2초·+8초 예약 관찰.
+/// 숙제 관찰 서비스. (1) 접속 중 주기 관찰 — 두 갈래: 빠른 관찰(기본 20초, 퀘스트 + 캐릭터 + 현재 맵 3개)과 전체 관찰(기본 60초, 9개 전부).
+/// 전체 관찰 시점에는 전체가 빠른 관찰을 대신한다. 접속이 새로 시작되면 첫 관찰은 전체다(기준값을 잡는다).
+/// (2) 맵 이동·로딩 복귀 직후 +2초·+8초 예약 관찰은 항상 전체다(레이드·어비스 보상이 맵 이동 직후 들어오므로).
 /// 관찰은 한 번에 하나만 돈다: 주기 관찰은 이미 도는 중이면 건너뛰고, 예약 관찰은 끝나기를 기다렸다가 돈다(맵이 바뀐 뒤의 값을 보려고).
-/// 예약 관찰은 퀘스트·미션 등의 3초 캐시를 비우고 읽는다. 관찰 1회 = CLI 9회.
+/// 예약 관찰은 퀘스트·미션 등의 캐시를 비우고 읽는다. 전체 관찰 1회 = CLI 최대 9회(캐릭터·맵·활동은 감시가 방금 읽었으면 캐시 재사용), 빠른 관찰 1회 = 최대 3회(보통 퀘스트 1회).
 /// </summary>
 public sealed class HomeworkObserver : BackgroundService
 {
@@ -17,6 +20,9 @@ public sealed class HomeworkObserver : BackgroundService
     private readonly SemaphoreSlim _gate = new(1, 1);
     private readonly DelayedBurst _burst;
     private int _runs;
+    private int _fullRuns;
+    private readonly long _origin = Stopwatch.GetTimestamp();   // 전체 관찰 격자의 기준(서비스 시작). 기록 주기(60초)와 격자가 맞아 캐릭터 기록이 방금 읽은 활동·재화를 재사용한다
+    private TimeSpan? _lastFullAt;   // 마지막으로 전체 관찰을 마친 시각(기준으로부터). 없으면 다음 주기 관찰은 전체
 
     public HomeworkObserver(HomeworkWatcher homework, GameQueries q, StatusMonitor status, AppOptions options, ILogger<HomeworkObserver> log)
         : this(homework, q, status, options, log, null) { }
@@ -31,6 +37,9 @@ public sealed class HomeworkObserver : BackgroundService
     /// <summary>관찰을 실제로 돈 횟수(테스트용).</summary>
     public int Runs => Volatile.Read(ref _runs);
 
+    /// <summary>그중 전체(9개) 관찰 횟수(테스트용).</summary>
+    public int FullRuns => Volatile.Read(ref _fullRuns);
+
     /// <summary>합쳐진 것을 포함한 예약 요청 횟수(테스트용).</summary>
     public int BurstRequests => _burst.Requests;
 
@@ -41,16 +50,35 @@ public sealed class HomeworkObserver : BackgroundService
         _burst.Request();
     }
 
-    internal async Task<bool> RunAsync(bool triggered, CancellationToken ct)
+    /// <summary>
+    /// 이번 주기 관찰이 전체 관찰이어야 하는가. 빠른 관찰만 켜졌으면(전체 0) 항상 빠른 관찰, 전체만 켜졌으면(빠른 0) 항상 전체.
+    /// 둘 다 켜졌으면 아직 전체를 한 적이 없을 때(접속 직후)와, 마지막 전체 관찰 뒤 전체 주기의 격자(기준 시각의 배수, 타이머 흔들림은 빠른 주기의 절반까지 봐 줌)를 넘었을 때 전체.
+    /// </summary>
+    /// <param name="elapsed">기준 시각(서비스 시작)으로부터 지금까지</param>
+    /// <param name="lastFullAt">마지막 전체 관찰 시각(같은 기준). 없으면 null</param>
+    internal static bool NextIsFull(TimeSpan fast, TimeSpan full, TimeSpan elapsed, TimeSpan? lastFullAt)
     {
-        if (_status.State != GameConnection.Connected) return false;
+        if (full <= TimeSpan.Zero) return false;
+        if (fast <= TimeSpan.Zero || full <= fast || lastFullAt is null) return true;
+        var slack = fast / 2;
+        return Math.Floor((elapsed + slack) / full) > Math.Floor((lastFullAt.Value + slack) / full);
+    }
+
+    internal Task<bool> RunAsync(bool triggered, CancellationToken ct) => RunAsync(triggered, full: triggered || NextIsFull(
+        _options.HomeworkObserveInterval, _options.HomeworkFullObserveInterval, Stopwatch.GetElapsedTime(_origin), _lastFullAt), ct);
+
+    internal async Task<bool> RunAsync(bool triggered, bool full, CancellationToken ct)
+    {
+        if (_status.State != GameConnection.Connected) { _lastFullAt = null; return false; }
         if (triggered) await _gate.WaitAsync(ct);
         else if (!await _gate.WaitAsync(0, ct)) return false;
         try
         {
             if (triggered) _q.Invalidate("get_quests", "get_daily_missions", "get_weekly_missions", "get_current_environment", "get_activity");
             Interlocked.Increment(ref _runs);
-            await _homework.ObserveAsync(ct);
+            if (full) Interlocked.Increment(ref _fullRuns);
+            await _homework.ObserveAsync(ct, full);
+            if (full) _lastFullAt = Stopwatch.GetElapsedTime(_origin);
             return true;
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
@@ -66,8 +94,9 @@ public sealed class HomeworkObserver : BackgroundService
     {
         try
         {
-            if (_options.HomeworkObserveInterval <= TimeSpan.Zero) return;
-            using var timer = new PeriodicTimer(_options.HomeworkObserveInterval);
+            var period = _options.HomeworkObserveInterval > TimeSpan.Zero ? _options.HomeworkObserveInterval : _options.HomeworkFullObserveInterval;
+            if (period <= TimeSpan.Zero) return;   // 빠른 관찰·전체 관찰 모두 꺼짐
+            using var timer = new PeriodicTimer(period);
             while (await timer.WaitForNextTickAsync(ct))
                 await RunAsync(false, ct);
         }

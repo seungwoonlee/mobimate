@@ -30,8 +30,17 @@ public sealed class AppOptions
     /// <summary>전투력이 낮게 읽혔을 때 다시 읽기까지의 간격. 최대 두 번 다시 읽는다.</summary>
     public double CombatRecheckDelaySeconds { get; set; } = 5;
 
-    /// <summary>숙제 관찰(퀘스트·미션·증표 읽기, CLI 9회) 주기. 접속 중일 때만 돈다. 0이면 주기 관찰을 끈다(맵 이동 트리거는 따로).</summary>
+    /// <summary>
+    /// 빠른 숙제 관찰 주기(기본 20초): 퀘스트 + 캐릭터 확인 + 현재 맵만 읽는다(CLI 최대 3회, 캐릭터·맵은 감시가 방금 읽은 캐시를 재사용해 실제로는 보통 1회).
+    /// 접속 중일 때만 돈다. 0이면 빠른 관찰을 끈다(전체 관찰·맵 이동 트리거는 따로).
+    /// </summary>
     public double HomeworkObserveIntervalSeconds { get; set; } = 20;
+
+    /// <summary>
+    /// 전체 숙제 관찰 주기(기본 60초): 9개 전부(미션 일일·주간, 활동, 가공, 재화, 아이템 포함)를 읽는다. 빠른 관찰 주기와 겹치는 시점에는 전체 관찰이 빠른 관찰을 대신한다.
+    /// 0이면 주기 전체 관찰을 끈다. 빠른 관찰이 0이면 이 주기마다 전체 관찰만 돈다.
+    /// </summary>
+    public double HomeworkFullObserveIntervalSeconds { get; set; } = 60;
 
     /// <summary>맵 이동·로딩 복귀를 알아챈 뒤 숙제를 관찰하는 시점(초). 0이면 그 시점은 건너뛴다.</summary>
     public double HomeworkTriggerFirstDelaySeconds { get; set; } = 2;
@@ -61,8 +70,25 @@ public sealed class AppOptions
     /// <summary>스냅숏 전용: 이 폴더의 class-images 하위 폴더 파일을 (임시) 저장 폴더로 복사해 쓴다. 원본 폴더는 읽기만 한다.</summary>
     public string? ClassImagesSource { get; set; }
 
-    /// <summary>조회 캐시 유지 시간(초).</summary>
+    /// <summary>조회 캐시 유지 시간(초). 0이면 캐시를 끈다.</summary>
     public double QueryCacheTtlSeconds { get; set; } = 3;
+
+    /// <summary>
+    /// 재사용 명령(<see cref="ReuseCommands"/>)의 캐시 유지 시간(초). 4초 주기 전환 감시가 방금 읽은 캐릭터·맵을 관찰·기록이 다시 부르지 않게 감시 주기보다 조금 길게 둔다.
+    /// 감시 자신은 기본 유지 시간(<see cref="QueryCacheTtl"/>)으로 읽으므로 4초마다 새로 읽는다. 캐시를 끄면(<see cref="QueryCacheTtlSeconds"/> 0) 이 값도 쓰지 않는다.
+    /// </summary>
+    public double ReuseCacheTtlSeconds { get; set; } = 5;
+
+    /// <summary>다른 서비스가 재사용할 수 있게 유지 시간을 늘린 명령(감시·기록이 주기적으로 읽는 값).</summary>
+    public static readonly IReadOnlySet<string> ReuseCommands = new HashSet<string>(StringComparer.Ordinal) { "get_my_info", "get_current_environment", "get_activity" };
+
+    /// <summary>명령별 캐시 유지 시간: 재사용 명령은 <see cref="ReuseCacheTtlSeconds"/>(기본 유지 시간보다 짧아지지 않게), 나머지는 기본 유지 시간.</summary>
+    public TimeSpan CacheTtlFor(string command)
+    {
+        var basis = QueryCacheTtl;
+        if (basis <= TimeSpan.Zero) return TimeSpan.Zero;
+        return ReuseCommands.Contains(command) ? TimeSpan.FromTicks(Math.Max(basis.Ticks, Span(ReuseCacheTtlSeconds).Ticks)) : basis;
+    }
 
     /// <summary>숨은 옵션 <c>--render-snapshots &lt;폴더&gt;</c>: 창을 크기별로 그려 PNG로 저장하고 끝난다(화면 확인용). <c>--storage</c>를 반드시 함께 준다.</summary>
     public string? RenderSnapshots { get; set; }
@@ -74,6 +100,7 @@ public sealed class AppOptions
     public TimeSpan StatusInterval => Span(StatusIntervalSeconds);
     public TimeSpan CombatRecheckDelay => Span(CombatRecheckDelaySeconds);
     public TimeSpan HomeworkObserveInterval => Span(HomeworkObserveIntervalSeconds);
+    public TimeSpan HomeworkFullObserveInterval => Span(HomeworkFullObserveIntervalSeconds);
     public TimeSpan HomeworkTriggerFirstDelay => Span(HomeworkTriggerFirstDelaySeconds);
     public TimeSpan HomeworkTriggerSecondDelay => Span(HomeworkTriggerSecondDelaySeconds);
     public TimeSpan RecordInterval => Span(RecordIntervalSeconds);
@@ -93,6 +120,7 @@ public sealed class AppOptions
         ["--status-interval"] = $"{Section}:{nameof(StatusIntervalSeconds)}",
         ["--record-interval"] = $"{Section}:{nameof(RecordIntervalSeconds)}",
         ["--homework-interval"] = $"{Section}:{nameof(HomeworkObserveIntervalSeconds)}",
+        ["--homework-full-interval"] = $"{Section}:{nameof(HomeworkFullObserveIntervalSeconds)}",
         ["--watch-interval"] = $"{Section}:{nameof(WatchIntervalSeconds)}",
         ["--class-images-source"] = $"{Section}:{nameof(ClassImagesSource)}",
         ["--download-images"] = $"{Section}:{nameof(DownloadImages)}",
