@@ -16,7 +16,7 @@ public sealed class StartupTasks(IServiceProvider sp, AppOptions options, ILogge
             var hw = sp.GetRequiredService<HomeworkStore>().ImportFromWpfIfMissing(options.WpfStorageDir, sp.GetRequiredService<HomeworkCatalog>(), DateTimeOffset.UtcNow);
             if (copied > 0 || hw > 0) log.LogInformation("WPF판 기록 가져옴: 파일 {Files}개, 숙제 캐릭터 {Chars}개", copied, hw);
         }
-        log.LogInformation("숙제 앱 시작 {Version}: 저장 폴더 {Dir}", AppInfo.Version, options.StorageDir);
+        log.LogInformation("MobiMate Homework 시작 {Version}: 저장 폴더 {Dir}", AppInfo.Version, options.StorageDir);
         return Task.CompletedTask;
     }
 

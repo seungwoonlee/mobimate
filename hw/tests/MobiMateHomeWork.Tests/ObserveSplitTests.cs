@@ -93,7 +93,9 @@ public class ObserveSplitTests(ITestOutputHelper output)
         game.Edit("get_quests", n => { var a = n.AsArray(); for (var i = a.Count - 1; i >= 0; i--) if (a[i]!["QuestTitle"]!.GetValue<string>().Contains("브리치")) a.RemoveAt(i); });
         game.Edit("get_daily_missions", n => { foreach (var m in n.AsArray()) { m!["CurrentCount"] = m["GoalCount"]!.GetValue<int>(); m["IsCompleted"] = true; } });
         await h.Watcher.ObserveAsync(CancellationToken.None, full: false);
-        Assert.Equal(HomeworkCardStatus.AutoDone, Card(h, key, "weekly_vanguard_breach").Status);
+        // 뱅가드(끊김 없는 관찰 항목)는 사라짐을 확인 대기 시간(30초) 뒤에도 계속 없을 때 완료로 본다: 첫 관찰은 대기만 시작한다.
+        // 완료 확정은 Core 테스트(HomeworkAutoCheckTests)가 시계를 움직여 확인한다.
+        Assert.Equal(HomeworkCardStatus.Pending, Card(h, key, "weekly_vanguard_breach").Status);
         Assert.NotEqual(HomeworkCardStatus.AutoDone, Card(h, key, "daily_gather_3").Status);      // 미션은 전체 관찰에서
         Assert.NotEqual(HomeworkCardStatus.AutoDone, Card(h, key, "daily_missions_all").Status);
 

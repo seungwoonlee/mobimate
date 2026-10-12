@@ -10,6 +10,9 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>MobiMateHomeWork</RootNamespace>
+    <Product>MobiMate Homework</Product>
+    <AssemblyTitle>MobiMate Homework</AssemblyTitle>
+    <Description>MobiMate Homework — 마비노기 모바일 숙제 트래커</Description>
     <AssemblyName>MobiMateHomeWork</AssemblyName>
     <InvariantGlobalization>false</InvariantGlobalization>
     <ApplicationManifest>app.manifest</ApplicationManifest>

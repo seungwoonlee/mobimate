@@ -34,7 +34,7 @@ internal sealed class TrayIcon : IDisposable
         menu.Items.Add("종료", null, (_, _) => quit());
         menu.Opening += (_, _) => _topItem.Checked = getAlwaysOnTop();
 
-        _icon = new Forms.NotifyIcon { Icon = _image, Text = "MobiMate 숙제", ContextMenuStrip = menu, Visible = true };
+        _icon = new Forms.NotifyIcon { Icon = _image, Text = "MobiMate Homework", ContextMenuStrip = menu, Visible = true };
         _icon.DoubleClick += (_, _) => open();
     }
 

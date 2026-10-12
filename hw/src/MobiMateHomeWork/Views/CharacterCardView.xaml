@@ -104,7 +104,7 @@
                     <ContentControl Content="{Binding Tribute}" Margin="0,7,0,0" Focusable="False" />
                     <ContentControl Content="{Binding Weight}" Margin="0,7,0,0" Focusable="False" />
 
-                    <TextBlock Text="{Binding LastSeenText}" Style="{StaticResource Text.Small}" Margin="0,8,0,0" ToolTip="{Binding LastSeenTooltip}" />
+                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0" ToolTip="{Binding LastSeenTooltip}"><TextBlock Text="&#xE823;" FontFamily="{StaticResource Font.Icon}" FontSize="12" Foreground="{DynamicResource Brush.Accent}" Margin="0,0,5,0" VerticalAlignment="Center" /><TextBlock Text="{Binding LastSeenText}" Style="{StaticResource Text.Small}" VerticalAlignment="Center" /></StackPanel>
                 </StackPanel>
             </ScrollViewer>
             <TextBlock Text="캐릭터를 고르면 여기에 자세한 정보가 보입니다." Style="{StaticResource Text.Muted}" TextWrapping="Wrap" TextAlignment="Center"

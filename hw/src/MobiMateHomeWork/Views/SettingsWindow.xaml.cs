@@ -20,7 +20,7 @@ public partial class SettingsWindow : Window
         CliBox.Text = _applied;
         TopBox.IsChecked = vm.AlwaysOnTop;
         TrayBox.IsChecked = vm.CloseToTray;
-        VersionText.Text = $"MobiMate 숙제 {Hosting.AppInfo.Version}";
+        VersionText.Text = $"MobiMate Homework {Hosting.AppInfo.Version}";
         ShowCliState();
         BgOpacity.Value = Math.Round(vm.BackgroundOpacity * 100);
         BgOpacityText.Text = $"{BgOpacity.Value:0}%";

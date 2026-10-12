@@ -41,7 +41,7 @@ public partial class MainWindow : Window
     public MainWindow(IServiceProvider sp, bool preview = false)
     {
         InitializeComponent();
-        TitleBrand.ToolTip = $"MobiMate 숙제 {AppInfo.Version}";
+        TitleBrand.ToolTip = $"MobiMate Homework {AppInfo.Version}";
         _preview = preview;
         _log = sp.GetService<ILoggerFactory>()?.CreateLogger("MobiMateHomeWork.Window");
 

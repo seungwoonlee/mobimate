@@ -54,12 +54,12 @@ public partial class App : Application
         catch (Exception ex)
         {
             // 콘솔이 없는 WinExe라 조용히 끝나지 않게 로그와 메시지 상자로 알린다
-            _log?.LogCritical(ex, "숙제 앱을 시작하지 못했습니다.");
+            _log?.LogCritical(ex, "MobiMate Homework를 시작하지 못했습니다.");
             // 화면 확인(--render-snapshots)·자동 검증 실행에서는 모달 오류 창을 띄우지 않는다: 로그와 종료 코드(1)로만 알린다
             var quiet = e_args.Any(x => x.StartsWith("--render-snapshots", StringComparison.OrdinalIgnoreCase))
                 || !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("MobiMate__RenderSnapshots"));
             if (!quiet)
-            try { MessageBox.Show($"MobiMate 숙제를 시작하지 못했습니다.\n\n{ex.Message}\n\n로그: {_logProvider?.LogDirectory}", "MobiMate 숙제", MessageBoxButton.OK, MessageBoxImage.Error); }
+            try { MessageBox.Show($"MobiMate Homework를 시작하지 못했습니다.\n\n{ex.Message}\n\n로그: {_logProvider?.LogDirectory}", "MobiMate Homework", MessageBoxButton.OK, MessageBoxImage.Error); }
             catch { }
             _exitCode = 1;
             try { await StopHostAsync(); }
@@ -112,7 +112,7 @@ public partial class App : Application
             _single = new SingleInstance();
             if (!_single.IsFirst)
             {
-                _log.LogInformation("이미 실행 중인 숙제 앱이 있어 기존 창을 앞으로 가져오고 종료합니다.");
+                _log.LogInformation("이미 실행 중인 MobiMate Homework가 있어 기존 창을 앞으로 가져오고 종료합니다.");
                 SingleInstance.SignalExisting();
                 _single.Dispose();
                 _single = null;
@@ -175,7 +175,7 @@ public partial class App : Application
     {
         var vm = _window?.ViewModel;
         if (vm == null || _tray == null || vm.TrayHintShown) return;
-        _tray.ShowHint("MobiMate 숙제", "트레이에서 계속 확인합니다");
+        _tray.ShowHint("MobiMate Homework", "트레이에서 계속 확인합니다");
         vm.MarkTrayHintShown();
     }
 
@@ -224,7 +224,7 @@ public partial class App : Application
         _legacyWatcher?.Dispose();
         var host = _host;
         if (host == null) return;
-        _log?.LogInformation("숙제 앱을 종료합니다.");
+        _log?.LogInformation("MobiMate Homework를 종료합니다.");
         // 호스트 자체 제한(ShutdownTimeout)이 먼저 걸리고, 이 토큰은 그보다 조금 긴 안전망이다
         await HostShutdown.StopAsync(host, _log, StopTimeout + TimeSpan.FromSeconds(2));
     }

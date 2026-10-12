@@ -4,7 +4,7 @@
         xmlns:vm="clr-namespace:MobiMateHomeWork.ViewModels"
         xmlns:svc="clr-namespace:MobiMateHomeWork.Services"
         xmlns:views="clr-namespace:MobiMateHomeWork.Views"
-        Title="숙제" Icon="app.ico" Width="960" Height="520" MinWidth="760" MinHeight="380"
+        Title="MobiMate Homework" Icon="app.ico" Width="960" Height="520" MinWidth="760" MinHeight="380"
         WindowStyle="None" ResizeMode="CanResize" WindowStartupLocation="Manual"
         Background="{DynamicResource Brush.Bg}" Foreground="{DynamicResource Brush.Text}"
         FontFamily="{StaticResource Font.Text}" FontSize="{DynamicResource Font.Base}"
@@ -41,7 +41,7 @@
                 <StackPanel Orientation="Horizontal" Margin="12,0,0,0" VerticalAlignment="Center">
                     <StackPanel x:Name="TitleBrand" Orientation="Horizontal" Background="Transparent" WindowChrome.IsHitTestVisibleInChrome="True">
                         <Image Source="app.ico" Width="16" Height="16" RenderOptions.BitmapScalingMode="HighQuality" VerticalAlignment="Center" />
-                        <TextBlock Text="숙제" FontWeight="SemiBold" Margin="8,0,0,0" VerticalAlignment="Center" />
+                        <TextBlock Text="MobiMate Homework" FontWeight="SemiBold" Margin="8,0,0,0" VerticalAlignment="Center" />
                     </StackPanel>
                     <Border WindowChrome.IsHitTestVisibleInChrome="True" Background="Transparent" Margin="12,0,0,0" Padding="4" VerticalAlignment="Center"
                             ToolTip="{Binding ConnectionTooltip}" AutomationProperties.Name="{Binding ConnectionLabel}">
@@ -64,8 +64,11 @@
                 </StackPanel>
 
                 <!-- 리셋 카운트다운 (값은 H4가 더 다듬는다. 지금은 KST 06:00 기준 실제 값) -->
-                <TextBlock Grid.Column="2" Text="{Binding Countdown}" Style="{StaticResource Text.Muted}" Margin="0,0,12,0" VerticalAlignment="Center"
-                           ToolTip="일일 리셋(매일 06:00)과 주간 리셋(월요일 06:00)까지 남은 시간" />
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Margin="0,0,12,0" VerticalAlignment="Center"
+                            ToolTip="일일 리셋(매일 06:00)과 주간 리셋(월요일 06:00)까지 남은 시간">
+                    <TextBlock Text="&#xE916;" FontFamily="{StaticResource Font.Icon}" FontSize="13" Style="{StaticResource Text.Muted}" VerticalAlignment="Center" Margin="0,0,5,0" />
+                    <TextBlock Text="{Binding Countdown}" Style="{StaticResource Text.Muted}" VerticalAlignment="Center" />
+                </StackPanel>
                 <Button Grid.Column="3" x:Name="SettingsButton" Style="{StaticResource Button.Icon}" Content="&#xE713;" Click="OnSettings" Margin="0,0,4,0"
                         WindowChrome.IsHitTestVisibleInChrome="True" ToolTip="설정" AutomationProperties.Name="설정" />
                 <StackPanel Grid.Column="4" Orientation="Horizontal" WindowChrome.IsHitTestVisibleInChrome="True">
@@ -207,8 +210,10 @@
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
-                        <Button Content="닫기" HorizontalAlignment="Right" Margin="0,4,0,0"
-                                Command="{Binding DataContext.Board.CloseBossPickerCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
+                        <Button HorizontalAlignment="Right" Margin="0,4,0,0"
+                                Command="{Binding DataContext.Board.CloseBossPickerCommand, RelativeSource={RelativeSource AncestorType=Window}}">
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE711;" FontFamily="{StaticResource Font.Icon}" FontSize="11" Margin="0,0,6,0" VerticalAlignment="Center" /><TextBlock Text="닫기" /></StackPanel>
+                        </Button>
                     </StackPanel>
                 </Border>
             </Grid>
