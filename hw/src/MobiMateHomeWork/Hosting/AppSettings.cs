@@ -159,6 +159,18 @@ public sealed class AppSettingsStore
         });
     }
 
+    /// <summary>캐릭터 합치기: from의 부가 정보(마지막 맵·가방 최대 무게)를 into에 옮기고 from을 지운다. into에 이미 있으면 into 값을 둔다.</summary>
+    public bool MoveCharacter(string from, string into) => Update(d =>
+    {
+        if (!d.Characters.Remove(from, out var info)) return;
+        if (!d.Characters.TryGetValue(into, out var cur)) d.Characters[into] = info;
+        else
+        {
+            cur.LastMap ??= info.LastMap;
+            cur.WeightMax ??= info.WeightMax;
+        }
+    });
+
     /// <summary>
     /// CLI 경로를 정한다: 실행 인자·환경변수(options) → homework_app.json → web_settings.json(<b>읽기만</b>). 모두 없으면 null
     /// (GameCli가 환경변수 MABINOGI_MOBILE_CLI → 기본 경로 순으로 정한다).

@@ -51,6 +51,7 @@ public partial class MainWindow : Window
             sp.GetRequiredService<AppSettingsStore>(), firstRead, actions: sp.GetRequiredService<HomeworkCommands>(), post: a => Dispatcher.BeginInvoke(a));
         DataContext = _vm;
         _vm.Board.AccountPicked += () => Table.ScrollToTop();   // 다른 계정 탭을 누르면 표를 맨 위로
+        _vm.Board.MergeRequested += OnMergeRequested;
         PreviewKeyDown += OnWindowKeyDown;
 
         _vm.PropertyChanged += OnViewModelChanged;
@@ -265,6 +266,17 @@ public partial class MainWindow : Window
     }
 
     private void OnClose(object sender, RoutedEventArgs e) => SystemCommands.CloseWindow(this);
+
+    /// <summary>줄 우클릭 "다른 캐릭터와 합치기…": 대상 고르기 → 확인(되돌릴 수 없음, 합쳐질 기록 수) → 합치기.</summary>
+    private void OnMergeRequested(MergeRequest request)
+    {
+        var pick = new MergeCharacterWindow(request) { Owner = this };
+        if (pick.ShowDialog() != true || pick.SelectedKey is not { } intoKey) return;
+        var intoName = pick.SelectedName ?? intoKey;
+        var text = HomeworkBoardViewModel.ConfirmText(request.FromName, intoName, _vm.Board.PreviewMerge(request.FromKey, intoKey));
+        if (MessageBox.Show(this, text, "캐릭터 합치기", MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No) != MessageBoxResult.Yes) return;
+        _ = _vm.Board.MergeAsync(request.FromKey, intoKey);
+    }
 
     private void OnSettings(object sender, RoutedEventArgs e)
     {

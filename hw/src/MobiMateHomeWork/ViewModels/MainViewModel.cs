@@ -44,7 +44,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         _post = post ?? (a => a());
         _clock = clock ?? (() => DateTimeOffset.UtcNow);
         _refreshDelay = refreshDelay ?? TimeSpan.FromMilliseconds(200);
-        Board = new HomeworkBoardViewModel(actions ?? new ReadOnlyActions(), RefreshAsync, _post, _clock, noticeDuration);
+        Board = new HomeworkBoardViewModel(actions ?? new ReadOnlyActions(), RefreshAsync, _post, _clock, noticeDuration, merge: actions as IMergeActions);
 
         var s = settings.Current;
         _alwaysOnTop = s.AlwaysOnTop;

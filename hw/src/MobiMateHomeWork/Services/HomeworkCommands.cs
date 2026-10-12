@@ -34,11 +34,23 @@ public interface IHomeworkActions
     CommandResult RenameCharacter(string characterKey, string? nickname);
 }
 
-/// <summary>
-/// 화면이 부르는 쓰기 동작 (웹앱 PUT /homework/{id}, PUT /profile/nickname 처리).
-/// </summary>
-public sealed class HomeworkCommands(HomeworkWatcher homework, CharacterSession session, GameStateCache state, SnapshotManager snapshots, AppEvents events) : IHomeworkActions
+/// <summary>캐릭터 합치기 동작. 화면 모델 테스트에서 가짜로 바꿔 끼울 수 있게 따로 둔 인터페이스다.</summary>
+public interface IMergeActions
 {
+    MergePreview PreviewMerge(string fromKey, string intoKey);
+    MergeResult MergeCharacters(string fromKey, string intoKey);
+}
+
+/// <summary>
+/// 화면이 부르는 쓰기 동작 (웹앱 PUT /homework/{id}, PUT /profile/nickname 처리) + 캐릭터 합치기.
+/// </summary>
+public sealed class HomeworkCommands(HomeworkWatcher homework, CharacterSession session, GameStateCache state, SnapshotManager snapshots, AppEvents events) : IHomeworkActions, IMergeActions
+{
+    public MergePreview PreviewMerge(string fromKey, string intoKey) => session.PreviewMerge(fromKey, intoKey);
+
+    /// <summary>from 기록을 into로 합친다(되돌릴 수 없다: 호출 전에 사용자 확인을 받는다). 실패하면 아무것도 바뀌지 않는다.</summary>
+    public MergeResult MergeCharacters(string fromKey, string intoKey) => session.MergeCharacter(fromKey, intoKey);
+
     public const int MaxNicknameLength = 20;
 
     /// <summary>

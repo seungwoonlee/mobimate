@@ -40,6 +40,13 @@ public partial class App : Application
         TaskScheduler.UnobservedTaskException += OnUnobservedTask;
 
         var e_args = e.Args;
+        if (MergeCommand.IsRequested(e_args))
+        {
+            // 일회 실행 모드: 창·호스트·단일 인스턴스 없이 저장소만 열어 합치고 끝낸다 (결과는 로그와 종료 코드, 콘솔이 있으면 출력도)
+            AttachConsole(ParentProcess);
+            Shutdown(await Task.Run(() => MergeCommand.Run(e_args, Console.WriteLine)));
+            return;
+        }
         try
         {
             await StartCoreAsync(e_args);
@@ -60,6 +67,11 @@ public partial class App : Application
             finally { Shutdown(1); }   // 창 없는 프로세스와 단일 인스턴스 뮤텍스가 남지 않게 반드시 끝낸다
         }
     }
+
+    private const uint ParentProcess = 0xFFFFFFFF;
+
+    [System.Runtime.InteropServices.DllImport("kernel32.dll")]
+    private static extern bool AttachConsole(uint processId);
 
     private async Task StartCoreAsync(string[] args)
     {

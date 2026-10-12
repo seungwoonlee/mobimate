@@ -26,9 +26,12 @@ public sealed partial class HomeworkBoardViewModel : ObservableObject
     private DateTimeOffset _cycleDaily, _cycleWeekly;
     private int _noticeSeq;
     private readonly TimeSpan _settleTimeout;
+    private readonly IMergeActions? _merge;
 
-    public HomeworkBoardViewModel(IHomeworkActions actions, Func<Task>? refresh = null, Action<Action>? post = null, Func<DateTimeOffset>? clock = null, TimeSpan? noticeDuration = null, TimeSpan? settleTimeout = null)
+    public HomeworkBoardViewModel(IHomeworkActions actions, Func<Task>? refresh = null, Action<Action>? post = null, Func<DateTimeOffset>? clock = null, TimeSpan? noticeDuration = null, TimeSpan? settleTimeout = null,
+        IMergeActions? merge = null)
     {
+        _merge = merge;
         _settleTimeout = settleTimeout ?? TimeSpan.FromSeconds(2);
         _actions = actions;
         _refresh = refresh ?? (() => Task.CompletedTask);
@@ -330,4 +333,66 @@ public sealed partial class HomeworkBoardViewModel : ObservableObject
         try { await _refresh(); }
         catch (Exception) { }
     }
+
+    // ── 캐릭터 합치기 ─────────────────────────────────────────
+
+    /// <summary>합치기를 할 수 있는 화면인가 (읽기 전용 화면이면 메뉴를 숨긴다).</summary>
+    public bool CanMerge => _merge != null;
+
+    /// <summary>줄 우클릭 "다른 캐릭터와 합치기…": 같은 서버의 다른 캐릭터를 후보로 골라 달라고 화면에 요청한다 (같은 직업이 앞).</summary>
+    public event Action<MergeRequest>? MergeRequested;
+
+    public void BeginMerge(CharacterRowViewModel? row)
+    {
+        if (row == null || _merge == null || _last == null) return;
+        var all = _last.Accounts.SelectMany(a => a.Members).ToList();
+        var from = all.FirstOrDefault(m => m.Key == row.Key);
+        if (from == null) return;
+        var candidates = all.Where(m => m.Key != from.Key && m.Realm == from.Realm)
+            .OrderByDescending(m => m.Job == from.Job).ThenBy(m => m.Variant).ThenByDescending(m => m.Combat)
+            .Select(m => new MergeCandidate(m.Key, CharacterRowViewModel.NameOf(m), m.Job, $"{m.Job} Lv.{m.Level} · 전투력 {m.Combat:N0}" + (m.Variant > 1 ? $" · #{m.Variant}" : ""), m.Job == from.Job))
+            .ToList();
+        if (candidates.Count == 0)
+        {
+            ShowNotice("합칠 수 있는 같은 서버의 다른 캐릭터가 없습니다.");
+            return;
+        }
+        MergeRequested?.Invoke(new MergeRequest(from.Key, CharacterRowViewModel.NameOf(from), candidates));
+    }
+
+    /// <summary>확인 대화상자에 보일 합쳐질 기록의 양.</summary>
+    public MergePreview? PreviewMerge(string fromKey, string intoKey)
+    {
+        try { return _merge?.PreviewMerge(fromKey, intoKey); }
+        catch (Exception) { return null; }
+    }
+
+    /// <summary>확인 대화상자 문구 (되돌릴 수 없음 + 합쳐질 기록 수).</summary>
+    public static string ConfirmText(string fromName, string intoName, MergePreview? p)
+    {
+        var amount = p == null ? "" : $"\n\n합쳐질 기록: 변화 기록 {p.HistoryRecords:N0}건, 숙제 항목 {p.HomeworkItems:N0}개" + (p.HasAssignment ? ", 계정 지정" : "");
+        return $"'{fromName}'의 기록을 '{intoName}'(으)로 합칩니다.{amount}\n\n'{fromName}' 줄은 사라지고 닉네임·계정 지정은 '{intoName}' 것을 유지합니다. 이 작업은 되돌릴 수 없습니다.";
+    }
+
+    /// <summary>합치기를 실행한다 (백그라운드). 선택하던 줄이 from이면 into로 옮겨 선택이 끊기지 않게 한다. 끝나면 다시 읽는다.</summary>
+    public async Task MergeAsync(string fromKey, string intoKey)
+    {
+        if (_merge == null) return;
+        MergeResult result;
+        try { result = await Task.Run(() => _merge.MergeCharacters(fromKey, intoKey)); }
+        catch (Exception ex) { result = new MergeResult(false, ex.Message); }
+        _post(() =>
+        {
+            if (result.Ok && _pickedKey == fromKey) _pickedKey = intoKey;
+            ShowNotice(result.Ok ? result.Message : "합치지 못했습니다: " + result.Message);
+        });
+        try { await _refresh(); }
+        catch (Exception) { /* 다음 알림에 다시 */ }
+    }
 }
+
+/// <summary>합치기 후보 하나.</summary>
+public sealed record MergeCandidate(string Key, string Name, string Job, string Detail, bool SameJob);
+
+/// <summary>합치기 요청: 이 줄(From)의 기록을 후보 중 하나로 합친다.</summary>
+public sealed record MergeRequest(string FromKey, string FromName, IReadOnlyList<MergeCandidate> Candidates);

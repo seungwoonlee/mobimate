@@ -19,6 +19,20 @@ public partial class HomeworkTableView : UserControl
             board.SelectRow(row);
     }
 
+    /// <summary>합치기를 할 수 없는 화면(읽기 전용)이면 메뉴를 열지 않는다. 우클릭한 줄도 선택해 카드가 따라오게 한다.</summary>
+    private void OnRowMenuOpening(object sender, ContextMenuEventArgs e)
+    {
+        if (DataContext is not HomeworkBoardViewModel { CanMerge: true } board) { e.Handled = true; return; }
+        if (sender is FrameworkElement { DataContext: CharacterRowViewModel row }) board.SelectRow(row);
+    }
+
+    /// <summary>줄 우클릭 "다른 캐릭터와 합치기…": 이 줄의 기록을 어느 캐릭터로 합칠지 고르는 창을 요청한다.</summary>
+    private void OnMergeClicked(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: CharacterRowViewModel row } && DataContext is HomeworkBoardViewModel board)
+            board.BeginMerge(row);
+    }
+
     /// <summary>표를 맨 위로 되돌린다 (다른 계정으로 바꿨을 때).</summary>
     public void ScrollToTop() => RowScroll.ScrollToVerticalOffset(0);
 }

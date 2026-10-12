@@ -203,6 +203,41 @@ public sealed class CharacterSession(GameQueries q, GameStateCache state, Snapsh
     /// <summary>지금 접속 중인 캐릭터인가</summary>
     public bool IsCurrentCharacter(string key) => state.Character is { } c && SnapshotManager.IsRealCharacter(c) && (state.CurrentKey ?? CharacterKey(c)) == key;
 
+    /// <summary>합치기 미리보기: 합쳐질 기록의 양 (확인 대화상자용).</summary>
+    public MergePreview PreviewMerge(string fromKey, string intoKey) => new CharacterMerger(options.StorageDir, homework.Catalog).Preview(fromKey, intoKey);
+
+    /// <summary>
+    /// 같은 캐릭터가 둘로 갈라진 기록을 합친다 (<see cref="CharacterMerger"/>: 네 공유 파일을 한 공유 잠금 안에서).
+    /// 접속 중인 캐릭터가 from이면 합치기 전에 현재 키를 into로 바꿔 둔다 — 합친 뒤 곧바로 from 기록이 다시 생기지 않게. 실패하면 되돌린다.
+    /// 합친 뒤 메모리의 저장소를 바로 다시 읽고 화면에 알린다. 느린 파일 입출력이므로 UI 스레드가 아닌 곳에서 부른다.
+    /// </summary>
+    public MergeResult MergeCharacter(string fromKey, string intoKey)
+    {
+        var wasCurrent = IsCurrentCharacter(fromKey);
+        if (wasCurrent) { state.SetCurrentKey(intoKey); q.Invalidate("get_currencies"); }
+        MergeResult result;
+        try { result = new CharacterMerger(options.StorageDir, homework.Catalog).Merge(fromKey, intoKey); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { result = new MergeResult(false, ex.Message); }
+        if (!result.Ok)
+        {
+            if (wasCurrent && state.CurrentKey == intoKey) state.SetCurrentKey(fromKey);
+            log.LogWarning("캐릭터 합치기 실패 {From} → {Into}: {Message}", fromKey, intoKey, result.Message);
+            return result;
+        }
+        log.LogInformation("캐릭터 합치기: {Message}", result.Message);
+        if (!settings.MoveCharacter(fromKey, intoKey)) log.LogDebug("앱 설정의 캐릭터 부가 정보를 옮기지 못했습니다({From})", fromKey);
+        try
+        {
+            snapshots.RefreshExternal();
+            accounts.RefreshExternal();
+            homework.RefreshExternal();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { log.LogDebug(ex, "합친 뒤 다시 읽기 실패(감시가 이어서 읽음)"); }
+        events.RaiseCharactersChanged();
+        events.RaiseHomeworkChanged(new HomeworkChange(intoKey, [], HomeworkChangeReason.External));
+        return result;
+    }
+
     /// <summary>지금 접속 중인 캐릭터를 읽어 기록에 남긴다(헤더 + 재화). 캐릭터 선택창이면 아무것도 남기지 않는다.</summary>
     public async Task RecordNowAsync(CancellationToken ct)
     {
