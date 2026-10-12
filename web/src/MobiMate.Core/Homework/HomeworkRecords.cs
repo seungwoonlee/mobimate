@@ -50,6 +50,12 @@ public sealed class HomeworkLedger
     /// <summary>퀘스트를 트래커에서 본 시각(숙제 ID별). QuestVanish에서 "이번 주기에 보였다가 사라짐"을 알아내는 근거다. 리셋 때 지운다.</summary>
     public Dictionary<string, DateTimeOffset>? QuestSightings { get; set; }
 
+    /// <summary>
+    /// 끊김 없는 관찰이 필요한 항목(Continuous)에서 퀘스트가 목록에 없는 것을 처음 본 시각(숙제 ID별).
+    /// 로딩·맵 이동 중의 일시적인 빈자리를 완료로 오인하지 않도록, 일정 시간 뒤에도 계속 없을 때만 완료로 확정한다. 퀘스트가 보이면 지운다.
+    /// </summary>
+    public Dictionary<string, DateTimeOffset>? QuestVanishPending { get; set; }
+
     /// <summary>레이드 지역에 들어와 있는 동안 처음 본 시각(숙제 ID별). 지역을 벗어나면 지운다. 수동 미완료 뒤의 "새 진입"인지 가려내는 근거다.</summary>
     public Dictionary<string, DateTimeOffset>? RaidAreaSince { get; set; }
 
