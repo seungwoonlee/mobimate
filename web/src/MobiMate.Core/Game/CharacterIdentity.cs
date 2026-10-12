@@ -14,7 +14,9 @@ public sealed record Wallet(long Deca, long MCash, long Gold);
 /// 다른 계정의 같은 직업 캐릭터가 한 기록으로 합쳐지기 때문이다 (승운 확인 2026-10-02).
 ///
 /// 판정 순서:
-/// 1. 레벨·생활력은 줄어들 수 없다: 지금 값이 기록보다 낮으면 그 기록의 캐릭터가 아니다.
+/// 1. 레벨은 줄어들 수 없다: 지금 값이 기록보다 낮으면 그 기록의 캐릭터가 아니다.
+///    생활력·매력은 실제로 줄 수 있다(2026-10-12 아이라_전사 생활력 1.1% 감소): 절대 규칙이 아니다.
+///    생활력이 기록보다 크게(<see cref="LivingDropMaxRatio"/> 초과) 줄었을 때만 그 기록의 캐릭터가 아니라고 본다. 매력은 판정에 쓰지 않는다.
 /// 2. 데카·M캐시가 기록과 다르면 다른 계정(= 다른 캐릭터)으로 먼저 본다. 단, 같은 캐릭터가 데카를 썼을 수도 있으므로
 ///    레벨이 거의 그대로(+2 이내)이고 전투력도 비슷하면(85~120%) 같은 캐릭터로 본다.
 /// 3. 남은 후보 중 데카·M캐시가 같은 것 → 레벨이 가까운 것 → 전투력이 가까운 것 → 최근에 본 것 순으로 고른다.
@@ -23,6 +25,8 @@ public sealed record Wallet(long Deca, long MCash, long Gold);
 public static class CharacterIdentity
 {
     public const int SpendDriftLevels = 2;
+    /// <summary>생활력이 기록보다 이 비율을 넘어 줄면(10% 초과) 다른 캐릭터로 본다. 그 안쪽의 하락은 같은 캐릭터의 변동이다.</summary>
+    public const double LivingDropMaxRatio = 0.10;
     public const double SpendDriftMinRatio = 0.85, SpendDriftMaxRatio = 1.20;
 
     public static string BaseKey(string? realm, string? job) =>
@@ -48,7 +52,7 @@ public static class CharacterIdentity
         foreach (var c in mine)
         {
             if (r.Level < c.Level) continue;                                  // 레벨은 내려가지 않는다
-            if (r.Living > 0 && c.Living > 0 && r.Living < c.Living) continue;   // 생활력도 마찬가지
+            if (r.Living > 0 && c.Living > 0 && r.Living < c.Living * (1 - LivingDropMaxRatio)) continue;   // 생활력은 조금 줄 수 있다: 크게 준 것만 제외
             var candPair = AccountGrouper.IsDistinctive((c.Deca, c.MCash));
             var same = readingPair && candPair && r.Deca == c.Deca && r.MCash == c.MCash;
             if (readingPair && candPair && !same)                            // 데카·M캐시가 다르면 다른 계정으로 먼저 본다
