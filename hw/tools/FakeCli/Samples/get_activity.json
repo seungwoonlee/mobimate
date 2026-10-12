@@ -16,5 +16,13 @@
   "IsSitting": false,
   "IsOverweight": false,
   "CurrentAction": "Idle",
-  "CanStopCurrentAction": false
+  "CanStopCurrentAction": false,
+  "Dungeon": {
+    "State": "NotInDungeon",
+    "IsBossBattleInProgress": false
+  },
+  "Battlefield": {
+    "IsInBattleField": false
+  },
+  "IsAbyssResultSequencePlaying": false
 }
