@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MobiMateHomeWork.Hosting;
@@ -194,7 +194,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     [ObservableProperty] private bool _alwaysOnTop;
     [ObservableProperty] private bool _closeToTray;
 
-    // ── 배경 그림 (공식 일러스트 / 내 그림 / 끄기, 투명도 5~50%) ──
+    // ── 배경 그림 (공식 일러스트 / 내 그림 / 끄기, 투명도 5~40%) ──
     [ObservableProperty] private string _backgroundMode = BackgroundSettings.Official;
     [ObservableProperty] private string _backgroundId = Images.BackgroundCatalog.DefaultId;
     [ObservableProperty] private string? _backgroundImagePath;

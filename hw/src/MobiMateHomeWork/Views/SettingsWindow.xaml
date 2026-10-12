@@ -59,7 +59,7 @@
                         <ColumnDefinition Width="44" />
                     </Grid.ColumnDefinitions>
                     <TextBlock Text="투명도" VerticalAlignment="Center" Margin="0,0,10,0" />
-                    <Slider x:Name="BgOpacity" Grid.Column="1" Minimum="5" Maximum="50" SmallChange="1" LargeChange="5" TickFrequency="5" IsMoveToPointEnabled="True"
+                    <Slider x:Name="BgOpacity" Grid.Column="1" Minimum="5" Maximum="40" SmallChange="1" LargeChange="5" TickFrequency="5" IsMoveToPointEnabled="True"
                             VerticalAlignment="Center" ValueChanged="OnOpacityChanged" PreviewMouseLeftButtonUp="OnOpacityCommit" KeyUp="OnOpacityCommit" AutomationProperties.Name="배경 투명도" />
                     <TextBlock x:Name="BgOpacityText" Grid.Column="2" HorizontalAlignment="Right" VerticalAlignment="Center" />
                 </Grid>

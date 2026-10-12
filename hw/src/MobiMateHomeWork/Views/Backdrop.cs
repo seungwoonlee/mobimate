@@ -1,4 +1,4 @@
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Effects;
@@ -12,7 +12,7 @@ namespace MobiMateHomeWork.Views;
 /// <summary>
 /// 앱 배경 그림 만들기. 고른 그림(공식 일러스트 / 내 그림)을 한 번만 가공해 얼린 비트맵 하나로 캐시한다 — 창을 키우거나 값이 갱신돼도 다시 그리지 않고 GPU가 늘려 그린다.
 /// 가공: (공식 1280×720만) 살짝 블러(반경 5, 4K 4분할에서 늘어나도 흐릿함이 거슬리지 않게) + 본문 가독성을 위한 배경색 그라데이션(위·아래 진하게, 가운데 연하게).
-/// 표시는 MainWindow의 Rectangle(Stretch=UniformToFill, 가운데 정렬, 투명도 5~50%).
+/// 표시는 MainWindow의 Rectangle(Stretch=UniformToFill, 가운데 정렬, 투명도 5~40%).
 /// 그림이 없으면(받는 중·끔·읽기 실패) null — 배경 없음.
 /// </summary>
 public static class Backdrop

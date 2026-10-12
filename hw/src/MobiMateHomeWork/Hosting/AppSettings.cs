@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 
 namespace MobiMateHomeWork.Hosting;
 
@@ -23,7 +23,7 @@ public sealed class AppSettingsData
     /// <summary>"트레이에서 계속 확인합니다" 안내 풍선을 보여 줬는가(처음 숨길 때 한 번만).</summary>
     public bool TrayHintShown { get; set; }
 
-    // 앱 배경 그림: official(공식 일러스트 6개 중 BackgroundId) / custom(내 그림 BackgroundImagePath) / off. 투명도는 5~50%.
+    // 앱 배경 그림: official(공식 일러스트 6개 중 BackgroundId) / custom(내 그림 BackgroundImagePath) / off. 투명도는 5~40%.
     public string BackgroundMode { get; set; } = BackgroundSettings.Official;
     public string BackgroundId { get; set; } = Images.BackgroundCatalog.DefaultId;
     public string? BackgroundImagePath { get; set; }
@@ -37,7 +37,7 @@ public sealed class AppSettingsData
 public static class BackgroundSettings
 {
     public const string Official = "official", Custom = "custom", Off = "off";
-    public const double MinOpacity = 0.05, MaxOpacity = 0.50, DefaultOpacity = 0.20;
+    public const double MinOpacity = 0.05, MaxOpacity = 0.40, DefaultOpacity = 0.35;
 
     public static double ClampOpacity(double v) => double.IsNaN(v) || double.IsInfinity(v) ? DefaultOpacity : Math.Clamp(v, MinOpacity, MaxOpacity);
 }

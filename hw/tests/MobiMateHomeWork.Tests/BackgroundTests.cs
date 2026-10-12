@@ -1,4 +1,4 @@
-using MobiMateHomeWork.Images;
+﻿using MobiMateHomeWork.Images;
 using MobiMateHomeWork.Views;
 
 namespace MobiMateHomeWork.Tests;
@@ -6,6 +6,8 @@ namespace MobiMateHomeWork.Tests;
 /// <summary>배경 그림 (H6 1차 피드백 4): 공식 일러스트 목록·설정 보정·그림이 없을 때의 대체·반투명 면의 글자 대비.</summary>
 public class BackgroundTests
 {
+    private const double AppSettingsMax = MobiMateHomeWork.Hosting.BackgroundSettings.MaxOpacity;
+
     [Fact]
     public void Catalog_HasTheSixOfficialIllustrations_WithTheNightSkyAsDefault()
     {
@@ -48,18 +50,18 @@ public class BackgroundTests
             var s = new AppSettingsStore(dir);
             Assert.Equal("official", s.Current.BackgroundMode);
             Assert.Equal("night_wish", s.Current.BackgroundId);
-            Assert.Equal(0.20, s.Current.BackgroundOpacity);
+            Assert.Equal(0.35, s.Current.BackgroundOpacity);
 
             s.Update(d => { d.BackgroundMode = "custom"; d.BackgroundImagePath = @"C:\x\a.png"; d.BackgroundOpacity = 0.9; d.BackgroundId = "nope"; });
             var again = new AppSettingsStore(dir).Current;
             Assert.Equal("custom", again.BackgroundMode);
             Assert.Equal(@"C:\x\a.png", again.BackgroundImagePath);
-            Assert.Equal(0.50, again.BackgroundOpacity);        // 상한 보정
+            Assert.Equal(AppSettingsMax, again.BackgroundOpacity);        // 상한 보정
             Assert.Equal("night_wish", again.BackgroundId);      // 모르는 id는 기본값
             s.Update(d => { d.BackgroundOpacity = 0.01; d.BackgroundMode = "weird"; });
             Assert.Equal(0.05, s.Current.BackgroundOpacity);     // 하한 보정
             Assert.Equal("official", s.Current.BackgroundMode);
-            Assert.Equal(0.20, BackgroundSettings.ClampOpacity(double.NaN));
+            Assert.Equal(0.35, BackgroundSettings.ClampOpacity(double.NaN));
         }
         finally { Directory.Delete(dir, true); }
     }
@@ -111,8 +113,8 @@ public class BackgroundTests
         (top.R * a + under.R * (1 - a), top.G * a + under.G * (1 - a), top.B * a + under.B * (1 - a));
 
     [Theory]
-    [InlineData("Panel", 0.50)]
-    [InlineData("PanelBg", 0.50)]
+    [InlineData("Panel", AppSettingsMax)]
+    [InlineData("PanelBg", AppSettingsMax)]
     [InlineData("Panel", 0.25)]
     [InlineData("PanelBg", 0.25)]
     public void TextColors_MeetAA_OnTranslucentPanels_OverTheBrightestPicture(string panel, double opacity)
