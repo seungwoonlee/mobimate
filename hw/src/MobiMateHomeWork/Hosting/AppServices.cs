@@ -1,3 +1,4 @@
+using MobiMateHomeWork.Images;
 using MobiMateHomeWork.Services;
 
 namespace MobiMateHomeWork.Hosting;
@@ -25,6 +26,7 @@ public static class AppServices
         s.AddSingleton(_ => new HomeworkStore(options.StorageDir));
         s.AddSingleton(sp => new HomeworkService(sp.GetRequiredService<HomeworkCatalog>(), sp.GetRequiredService<HomeworkStore>()));
         s.AddSingleton<CombatScoreGuard>();
+        s.AddSingleton<WeightGuard>();
         s.AddSingleton<HomeworkWatcher>();
         s.AddSingleton<CharacterSession>();
         s.AddSingleton<HomeworkCommands>();
@@ -35,6 +37,10 @@ public static class AppServices
         s.AddHostedService(sp => sp.GetRequiredService<StatusMonitor>());
         s.AddHostedService<ExternalChangeMonitor>();
         s.AddHostedService<CharacterRecorder>();
+        s.AddSingleton<ImageDownloadService>();
+        s.AddHostedService(sp => sp.GetRequiredService<ImageDownloadService>());
+        s.AddSingleton<HomeworkObserver>();
+        s.AddHostedService(sp => sp.GetRequiredService<HomeworkObserver>());
         s.AddHostedService<CharacterWatcher>();
     }
 }

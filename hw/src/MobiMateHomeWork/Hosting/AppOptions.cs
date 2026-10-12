@@ -30,7 +30,14 @@ public sealed class AppOptions
     /// <summary>전투력이 낮게 읽혔을 때 다시 읽기까지의 간격. 최대 두 번 다시 읽는다.</summary>
     public double CombatRecheckDelaySeconds { get; set; } = 5;
 
-    /// <summary>접속 중인 캐릭터를 읽어 기록하고 숙제를 관찰하는 간격. 0이면 끈다.</summary>
+    /// <summary>숙제 관찰(퀘스트·미션·증표 읽기, CLI 9회) 주기. 접속 중일 때만 돈다. 0이면 주기 관찰을 끈다(맵 이동 트리거는 따로).</summary>
+    public double HomeworkObserveIntervalSeconds { get; set; } = 20;
+
+    /// <summary>맵 이동·로딩 복귀를 알아챈 뒤 숙제를 관찰하는 시점(초). 0이면 그 시점은 건너뛴다.</summary>
+    public double HomeworkTriggerFirstDelaySeconds { get; set; } = 2;
+    public double HomeworkTriggerSecondDelaySeconds { get; set; } = 8;
+
+    /// <summary>접속 중인 캐릭터를 읽어 기록하는 간격(숙제 관찰은 따로 돈다). 0이면 끈다.</summary>
     public double RecordIntervalSeconds { get; set; } = 60;
 
     /// <summary>캐릭터 전환 감시 간격. 0이면 끈다.</summary>
@@ -48,6 +55,12 @@ public sealed class AppOptions
     /// <summary>파일 로그 최소 수준. 기본 Information, 환경변수 MobiMate__LogLevel=Debug 로 Debug까지 쓴다.</summary>
     public string LogLevel { get; set; } = "Information";
 
+    /// <summary>없는 직업 이미지를 첫 실행 때 내려받는다(공유 저장 폴더 class-images). 테스트에서 끈다.</summary>
+    public bool DownloadImages { get; set; } = true;
+
+    /// <summary>스냅숏 전용: 이 폴더의 class-images 하위 폴더 파일을 (임시) 저장 폴더로 복사해 쓴다. 원본 폴더는 읽기만 한다.</summary>
+    public string? ClassImagesSource { get; set; }
+
     /// <summary>조회 캐시 유지 시간(초).</summary>
     public double QueryCacheTtlSeconds { get; set; } = 3;
 
@@ -60,6 +73,9 @@ public sealed class AppOptions
 
     public TimeSpan StatusInterval => Span(StatusIntervalSeconds);
     public TimeSpan CombatRecheckDelay => Span(CombatRecheckDelaySeconds);
+    public TimeSpan HomeworkObserveInterval => Span(HomeworkObserveIntervalSeconds);
+    public TimeSpan HomeworkTriggerFirstDelay => Span(HomeworkTriggerFirstDelaySeconds);
+    public TimeSpan HomeworkTriggerSecondDelay => Span(HomeworkTriggerSecondDelaySeconds);
     public TimeSpan RecordInterval => Span(RecordIntervalSeconds);
     public TimeSpan WatchInterval => Span(WatchIntervalSeconds);
     public TimeSpan ExternalWatchDebounce => Span(ExternalWatchDebounceSeconds);
@@ -76,7 +92,10 @@ public sealed class AppOptions
         ["--single-instance"] = $"{Section}:{nameof(SingleInstance)}",
         ["--status-interval"] = $"{Section}:{nameof(StatusIntervalSeconds)}",
         ["--record-interval"] = $"{Section}:{nameof(RecordIntervalSeconds)}",
+        ["--homework-interval"] = $"{Section}:{nameof(HomeworkObserveIntervalSeconds)}",
         ["--watch-interval"] = $"{Section}:{nameof(WatchIntervalSeconds)}",
+        ["--class-images-source"] = $"{Section}:{nameof(ClassImagesSource)}",
+        ["--download-images"] = $"{Section}:{nameof(DownloadImages)}",
         ["--render-snapshots"] = $"{Section}:{nameof(RenderSnapshots)}",
         ["--wpf-storage"] = $"{Section}:{nameof(WpfStorageDir)}",
     };

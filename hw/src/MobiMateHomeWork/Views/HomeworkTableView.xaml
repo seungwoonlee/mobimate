@@ -101,10 +101,9 @@
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
-                        <Border Width="{DynamicResource Metrics.BadgeSize}" Height="{DynamicResource Metrics.BadgeSize}" CornerRadius="100" Background="{Binding JobColor}"
-                                VerticalAlignment="Center" Margin="0,0,6,0" ToolTip="{Binding Job}">
-                            <TextBlock Text="{Binding JobLetter}" Foreground="{DynamicResource Brush.OnAccent}" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                        </Border>
+                        <views:JobFigure Width="{DynamicResource Metrics.JobFigureWidth}" Height="{DynamicResource Metrics.JobFigureHeight}" FallbackSize="{DynamicResource Metrics.BadgeSize}"
+                                         ImageId="{Binding JobImageId}" Letter="{Binding JobLetter}" JobColor="{Binding JobColor}"
+                                         VerticalAlignment="Center" Margin="0,0,6,0" ToolTip="{Binding Job}" />
                         <StackPanel Grid.Column="1" VerticalAlignment="Center">
                             <Grid>
                                 <Grid.ColumnDefinitions>
@@ -157,7 +156,8 @@
         </DataTemplate>
     </UserControl.Resources>
 
-    <Grid MaxWidth="{DynamicResource Metrics.TableMaxWidth}">
+    <Border Background="{DynamicResource Brush.PanelBg}" CornerRadius="8" MaxWidth="{DynamicResource Metrics.TableMaxWidth}">
+    <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
@@ -182,4 +182,5 @@
             <ItemsControl ItemsSource="{Binding Rows}" ItemTemplate="{StaticResource RowTemplate}" Focusable="False" AutomationProperties.Name="캐릭터 숙제 표" />
         </ScrollViewer>
     </Grid>
+    </Border>
 </UserControl>

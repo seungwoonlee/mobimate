@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
+using MobiMateHomeWork.Images;
 using MobiMateHomeWork.Services;
 
 namespace MobiMateHomeWork.ViewModels;
@@ -115,6 +116,7 @@ public sealed partial class CharacterRowViewModel : ObservableObject
     [ObservableProperty] private string _job = "";
     [ObservableProperty] private string _jobLetter = "?";
     [ObservableProperty] private string _jobColor = JobPalette.Fallback[0];
+    [ObservableProperty] private string? _jobImageId;
     [ObservableProperty] private int _level;
     [ObservableProperty] private long _combat;
     [ObservableProperty] private int _doneCount;
@@ -142,6 +144,7 @@ public sealed partial class CharacterRowViewModel : ObservableObject
         DisplayName = NameOf(c);
         Nickname = string.IsNullOrWhiteSpace(c.Nickname) ? null : c.Nickname;
         Job = c.Job;
+        JobImageId = ClassImageCatalog.IdOf(c.Job);
         JobLetter = JobPalette.LetterOf(c.Job);
         JobColor = JobPalette.ColorOf(c.Job);
         Level = c.Level;
@@ -172,6 +175,7 @@ public sealed partial class CharacterCardViewModel : ObservableObject
     [ObservableProperty] private string? _nickname;
     [ObservableProperty] private string _jobLetter = "?";
     [ObservableProperty] private string _jobColor = JobPalette.Fallback[0];
+    [ObservableProperty] private string? _jobImageId;
     [ObservableProperty] private string _classLevel = "";
     [ObservableProperty] private string _title = "";
     [ObservableProperty] private bool _hasTitle;
@@ -198,6 +202,7 @@ public sealed partial class CharacterCardViewModel : ObservableObject
         Key = c.Key;
         Name = CharacterRowViewModel.NameOf(c);
         Nickname = string.IsNullOrWhiteSpace(c.Nickname) ? null : c.Nickname;
+        JobImageId = ClassImageCatalog.IdOf(c.Job);
         JobLetter = JobPalette.LetterOf(c.Job);
         JobColor = JobPalette.ColorOf(c.Job);
         ClassLevel = $"{c.Job} Lv.{c.Level}";

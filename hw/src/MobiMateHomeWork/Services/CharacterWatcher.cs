@@ -5,9 +5,9 @@ namespace MobiMateHomeWork.Services;
 /// <summary>
 /// 캐릭터 전환 감시. "캐릭터가 바뀌었다"를 몇 초 안에 스스로 알아챈다.
 /// 접속 중에는 가벼운 get_my_info 한 번으로 서버·직업·레벨·칭호·전투력의 표식을 비교하고, 달라졌거나 연결이 막 돌아왔으면
-/// 곧바로 헤더를 새로 읽는다. 전환 직후에는 재화·칭호가 아직 이전 캐릭터 것일 수 있어 몇 초 뒤 두 번 더 읽는다.
+/// 곧바로 헤더를 새로 읽는다. 로딩 → 캐릭터 복귀와 맵 이름 변경도 같이 알아채 숙제 관찰을 예약한다(요일 던전 완료 반영을 빠르게). 전환 직후에는 재화·칭호가 아직 이전 캐릭터 것일 수 있어 몇 초 뒤 두 번 더 읽는다.
 /// </summary>
-public sealed class CharacterWatcher(GameQueries q, CharacterSession session, StatusMonitor status, AppOptions options, ILogger<CharacterWatcher> log) : BackgroundService
+public sealed class CharacterWatcher(GameQueries q, CharacterSession session, HomeworkObserver observer, StatusMonitor status, AppOptions options, ILogger<CharacterWatcher> log) : BackgroundService
 {
     private static readonly TimeSpan[] Settle = { TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(8) };
 
@@ -17,16 +17,21 @@ public sealed class CharacterWatcher(GameQueries q, CharacterSession session, St
         using var timer = new PeriodicTimer(options.WatchInterval);
         string? last = null;
         var wasConnected = false;
+        var maps = new MapChangeDetector();
         try
         {
             while (await timer.WaitForNextTickAsync(ct))
             {
                 var connected = status.State == GameConnection.Connected;
-                if (!connected) { wasConnected = false; continue; }
+                if (!connected) { wasConnected = false; maps.Reset(); continue; }
                 try
                 {
+                    var tEnv = q.Get<EnvironmentInfo>("get_current_environment", ct);
                     var r = await q.Get<CharacterInfo>("get_my_info", ct);
+                    var env = await tEnv;
                     if (!r.Ok || r.Value == null) continue;
+                    if (maps.Observe(SnapshotManager.IsRealCharacter(r.Value), env.Value?.GameSpaceDisplayName))
+                        observer.RequestAfterMapChange("맵 이동·로딩 복귀");
                     var sig = Signature(r.Value);
                     var first = last == null;
                     var why = first ? "감시 시작" : !wasConnected ? "연결 복구" : sig != last ? "캐릭터 변경" : null;
