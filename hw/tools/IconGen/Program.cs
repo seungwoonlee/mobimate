@@ -66,7 +66,7 @@ internal static class Program
 
     /// <summary>
     /// 마비노기 모바일 공식 앱 아이콘(주황 바탕 + 흰 매듭 문양)에서 문양만 마스크로 뽑아 변형한다:
-    /// 남색 타일 + 금빛 그라데이션 문양 + 테두리. 숙제 앱(hw)은 초록 테두리와 완료 배지(체크)를 더해 웹앱과 구분한다.
+    /// 남색 타일 + 금빛 그라데이션 문양 + 테두리. 숙제 앱(hw)은 같은 그림에 테두리 색만 초록으로 바꿔 웹앱과 구분한다.
     /// 원본 PNG 경로는 네 번째 인자다(저장소에는 넣지 않는다).
     /// </summary>
     private static void LoadKnot(string sourcePng)
@@ -128,26 +128,9 @@ internal static class Program
 
             // 문양: 타일 안에 크게. 숙제 앱은 배지 자리를 위해 살짝 왼쪽 위로 올린다.
             double size = (tiny ? 46 : 42) * u;
-            double off = _variant == "hw" ? -1.5 * u : 0;
+            double off = 0;
             double x0 = (64 * u - size) / 2 + off, y0 = (64 * u - size) / 2 + off;
             dc.DrawImage(_knot!, new Rect(x0, y0, size, size));
-
-            if (_variant == "hw")
-            {
-                double r = (tiny ? 10.5 : 9.5) * u;
-                var center = new Point(49 * u, 49 * u);
-                dc.DrawEllipse(new SolidColorBrush(Color.FromRgb(0x3F, 0xB9, 0x84)), new Pen(new SolidColorBrush(Color.FromRgb(0x10, 0x14, 0x2E)), 2.4 * u), center, r, r);
-                var cp = new Pen(new SolidColorBrush(Color.FromRgb(0x0F, 0x11, 0x15)), (tiny ? 4.6 : 3.8) * u) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round, LineJoin = PenLineJoin.Round };
-                var ck = new StreamGeometry();
-                using (var c = ck.Open())
-                {
-                    c.BeginFigure(new Point(44.4 * u, 49.2 * u), false, false);
-                    c.LineTo(new Point(47.6 * u, 52.4 * u), true, true);
-                    c.LineTo(new Point(54 * u, 45 * u), true, true);
-                }
-                ck.Freeze();
-                dc.DrawGeometry(null, cp, ck);
-            }
         }
         var bmp = new RenderTargetBitmap(px, px, 96, 96, PixelFormats.Pbgra32);
         bmp.Render(dv);
