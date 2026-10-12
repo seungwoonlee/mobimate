@@ -63,15 +63,35 @@ public static partial class HomeworkEvaluator
             var ledger = def.Share == HomeworkShare.Account ? account : character;
             var existing = ledger.Items.GetValueOrDefault(def.Id);
 
+            // 던전 클리어 상태(게임이 직접 알려 줌)가 같은 관찰의 현재 맵과 맞으면 확정 근거다 (요일 던전, 2026-10-12 실측).
+            // 캐릭터를 바꾼 직후 관찰은 쓰지 않는다. Cleared는 처치 순간부터 약 17초만 유지된다.
+            var clearedHere = !characterJustSwitched && def.ClearOnDungeonCleared && DungeonClearedHere(def, obs);
+
             // 퀘스트가 트래커에 다시 보이면 그 주기에 아직 끝내지 않은 것이 확실하다: 자동 완료는 물론 수동 완료도 취소한다
             // (확실한 증거는 수동 설정보다 우선한다. 사라져서 완료로 본 판정이 틀렸거나, 수동 체크가 잘못된 것이다)
+            // 단, 던전 클리어 상태로 방금 완료한 것은 제외한다: 클리어 직후에는 나갈 때까지 퀘스트가 아직 목록에 남아 있다.
             if (def.EffectiveMode == HomeworkMode.QuestVanish && questsUsable
                 && existing is { Completed: true }
+                && !clearedHere && !RecentlyClearedByGame(existing, nowUtc)
                 && QuestVisible(def, obs, now: nowUtc))
             {
                 ledger.Items.Remove(def.Id);
                 changed.Add(def.Id);
                 existing = null;
+            }
+
+            // 던전 클리어: 확정 근거라 수동 미완료도 이긴다 — 단, 수동 설정 뒤에 생긴 클리어일 때만.
+            // Cleared는 최대 약 17초 유지되므로 수동 설정이 ClearedStaleWindow 안이면 그 전부터 이어진 클리어일 수 있어 수동을 존중한다.
+            if (clearedHere && existing is not { Completed: true }
+                && !(existing is { ManualOverride: true, ManualAtUtc: { } manualAt } && nowUtc - manualAt < ClearedStaleWindow))
+            {
+                var cleared = existing ?? new HomeworkItemState();
+                cleared.ManualOverride = false;
+                cleared.ManualAtUtc = null;
+                Complete(cleared, def.Goal, DungeonClearedEvidence, nowUtc);
+                ledger.Items[def.Id] = cleared;
+                changed.Add(def.Id);
+                continue;
             }
 
             if (existing?.Completed != true && def.HasProgressSignal && IsProgressSignal(def, obs)) inProgress.Add(def.Id);
@@ -174,6 +194,27 @@ public static partial class HomeworkEvaluator
         if (q != null) Complete(st, def.Goal, $"퀘스트 '{HomeworkText.StripTags(q.QuestTitle)}' 목표 {q.Objectives!.Count}개 모두 완료", now);
     }
 
+
+    public const string DungeonClearedEvidence = "던전 클리어(게임 상태)";
+
+    /// <summary>Cleared 상태의 최대 유지 시간(약 17초)에 여유를 둔 값. 수동 설정이 이보다 최근이면 그 전의 클리어일 수 있다.</summary>
+    public static readonly TimeSpan ClearedStaleWindow = TimeSpan.FromSeconds(25);
+
+    /// <summary>클리어 상태로 완료한 직후, 나가기 전까지 퀘스트가 아직 보이는 동안은 완료를 취소하지 않는다. 이 시간이 지나도 보이면 취소(오탐 회복).</summary>
+    public static readonly TimeSpan ClearedQuestGrace = TimeSpan.FromMinutes(2);
+
+    private static bool RecentlyClearedByGame(HomeworkItemState st, DateTimeOffset now) =>
+        st.Evidence == DungeonClearedEvidence && st.CompletedAtUtc is { } at && now - at < ClearedQuestGrace;
+
+    /// <summary>같은 관찰에서 던전 상태가 Cleared이고 현재 맵이 이 항목의 지역(접두어·이름)이면 true. 활동·맵이 없으면 false.</summary>
+    private static bool DungeonClearedHere(HomeworkDefinition def, HomeworkObservation obs)
+    {
+        if (obs.Activity?.Dungeon is not { IsCleared: true }) return false;
+        var space = HomeworkText.Normalize(obs.Environment?.GameSpaceDisplayName);
+        if (space.Length == 0) return false;
+        return def.SpaceNamePrefixes.Any(p => space.StartsWith(HomeworkText.Normalize(p), StringComparison.Ordinal))
+            || def.SpaceNames.Any(n => space == HomeworkText.Normalize(n));
+    }
 
     public const string VanishEvidence = "퀘스트가 목록에서 사라짐";
 
