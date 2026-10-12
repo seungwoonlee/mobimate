@@ -147,3 +147,51 @@ public class HomeworkDungeonClearedTests : IDisposable
         Assert.Null(System.Text.Json.JsonSerializer.Deserialize<ActivityInfo>("""{"IsInCombat":false}""")!.Dungeon);
     }
 }
+
+public class DungeonClearDetectorTests
+{
+    private readonly HomeworkCatalog _catalog = HomeworkCatalog.LoadEmbedded();
+    private static ActivityInfo Act(string? state) =>
+        new(false, false, false, false, false, false, false, false, false, "Idle", false, Dungeon: state == null ? null : new DungeonState(state));
+
+    [Fact]
+    public void ShouldRead_OnlyInsideDungeon_OrInDayDungeonMap()
+    {
+        var d = new DungeonClearDetector();
+        Assert.False(d.ShouldRead("창백한 산", _catalog));   // 평상시·사냥터: 읽지 않는다
+        Assert.False(d.ShouldRead(null, _catalog));
+        Assert.True(d.ShouldRead("찬란한 유적 V", _catalog));
+        Assert.True(d.ShouldRead("빛나는 동굴 II", _catalog));
+
+        Assert.False(d.Observe(Act("InProgress")));
+        Assert.True(d.ShouldRead("페카 고분 심층 1층", _catalog));   // 던전 안이었다
+        d.Observe(Act("NotInDungeon"));
+        Assert.False(d.ShouldRead("페카 고분 심층 1층", _catalog));
+    }
+
+    [Fact]
+    public void Observe_FiresOnce_OnTransitionToCleared()
+    {
+        var d = new DungeonClearDetector();
+        Assert.False(d.Observe(Act("Entering")));
+        Assert.False(d.Observe(Act("InProgress")));
+        Assert.True(d.Observe(Act("Cleared")));
+        Assert.False(d.Observe(Act("Cleared")));   // 17초 동안 유지: 한 번만
+        Assert.True(d.ShouldRead("아무 곳", _catalog));   // 나갈 때까지 계속 던전 안으로 본다
+        Assert.False(d.Observe(null));              // 읽기 실패는 상태를 바꾸지 않는다
+        Assert.True(d.Inside);
+        Assert.False(d.Observe(Act("NotInDungeon")));
+        Assert.False(d.Inside);
+        Assert.True(d.Observe(Act("Cleared")));    // 다음 클리어는 다시 알림
+    }
+
+    [Fact]
+    public void Observe_FirstSeenAlreadyCleared_Fires_AndResetClears()
+    {
+        var d = new DungeonClearDetector();
+        Assert.True(d.Observe(Act("Cleared")));
+        d.Reset();
+        Assert.False(d.Inside);
+        Assert.False(d.Observe(Act(null)));
+    }
+}
