@@ -62,8 +62,26 @@ public record ActivityInfo(
     [property: JsonPropertyName("CurrentAction")] string? CurrentAction,
     [property: JsonPropertyName("CanStopCurrentAction")] bool CanStopCurrentAction,
     [property: JsonPropertyName("IsDead")] bool IsDead = false,
-    [property: JsonPropertyName("AutoPlayTargetDisplayName")] string? AutoPlayTargetDisplayName = null
+    [property: JsonPropertyName("AutoPlayTargetDisplayName")] string? AutoPlayTargetDisplayName = null,
+    [property: JsonPropertyName("Dungeon")] DungeonState? Dungeon = null
 );
+
+/// <summary>
+/// get_activity의 던전 상태 (실측 2026-10-12, 페카 고분 심층). State = NotInDungeon | Entering | InProgress | Cleared.
+/// Cleared는 보스를 처치한 순간부터 나갈 때까지 약 17초만 유지된다. 사냥터는 던전이 아니라 NotInDungeon으로 온다.
+/// </summary>
+public record DungeonState(
+    [property: JsonPropertyName("State")] string? State = null,
+    [property: JsonPropertyName("IsBossBattleInProgress")] bool IsBossBattleInProgress = false
+)
+{
+    public const string Cleared = "Cleared";
+
+    /// <summary>던전 안(입장 중·진행 중)인가</summary>
+    public bool IsInside => string.Equals(State, "Entering", StringComparison.OrdinalIgnoreCase) || string.Equals(State, "InProgress", StringComparison.OrdinalIgnoreCase);
+
+    public bool IsCleared => string.Equals(State, Cleared, StringComparison.OrdinalIgnoreCase);
+}
 
 // 3. 환경 (get_current_environment)
 public record EnvironmentInfo(
