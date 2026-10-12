@@ -79,6 +79,7 @@ AI 엔진·Ollama·채팅·아무말 대잔치(페르소나), 랭킹·뱃지, �
 
 - 공유 파일: `character_snapshots.json`, `character_history_db.json`, `homework_records.json`, `accounts.json`
 - **공유 파일의 형식을 바꿀 때는 두 브랜치에 같은 변경을 함께 넣는다.** 한쪽만 필드를 더하면 다른 쪽이 저장하면서 지운다
+- **`class-images/`·`backgrounds/`(공용 이미지 캐시)**: 직업 전신 일러스트 27개(웹앱이 받아 둠)와 공식 배경 일러스트 6개. 두 앱이 같은 폴더를 읽고, 없는 것만 각자 백그라운드로 받는다(고정 주소 목록, PNG 검사·4MB 제한, 고유 `.part` → 이동, 이미 있으면 건너뜀·이동 실패 무시). 배포 파일에는 넣지 않는다(저작권, 이 PC에만 캐시). 숙제 앱은 `backgrounds/`의 선택·투명도를 `homework_app.json`에 둔다.
 - 숙제 앱만 쓰는 값은 **별도 파일** `homework_app.json`에 둔다: 창 위치·크기, CLI 경로, 캐릭터별 마지막 맵·가방 최대 무게(§5)
 - 웹앱 전용 파일(`web_settings.json`, `devices.json`, `rankings.json`, `favorites.json`, `custom_personas.json`, `currency_changes.jsonl`)은 숙제 앱이 쓰지 않는다. CLI 경로는 `homework_app.json`에 없으면 `web_settings.json`에서 읽기만 한다
 
@@ -291,3 +292,7 @@ hw/
 ## 13. H5 진행 기록 (배포)
 
 - 아이콘 `hw/src/MobiMateHomeWork/app.ico`(16~256px 7종, 작은 크기는 BMP·256은 PNG)는 `hw/tools/IconGen`(WPF DrawingVisual)이 그린다. exe·창·제목줄·트레이가 같은 파일을 쓴다(트레이는 임베디드 리소스에서 DPI에 맞는 크기를 고름). `dotnet publish hw/src/MobiMateHomeWork -c Release -o hw/dist` 한 번으로 단일 exe + zip(exe만)을 만들고, 버전 `1.0.MMdd.HHmm`은 제목줄 아이콘 툴팁·설정 팝업·로그 시작 줄에 보인다. 실기 점검 항목은 `docs/H6-실기점검-체크리스트.md`.
+
+## 14. H6 1차 피드백 반영
+
+- H6 1차 피드백 반영(브랜치 `hw/fix-h6-round1`): 가방 무게 비정상 읽기 가드(`WeightGuard`) · 숙제 관찰 분리(20초 주기 `HomeworkObserver`) + 맵 이동/로딩 복귀 직후 +2·+8초 예약 관찰 · 직업 전신 이미지(`class-images` 공유·`JobFigure`) · 배경 그림(공식 일러스트 6개 `backgrounds` 공유·설정 팝업·반투명 면). 코드로 그린 풍경 배경은 만들지 않았다(공식 일러스트로 대체). 설정 팝업 아이콘 경로 오류도 고쳤다.
