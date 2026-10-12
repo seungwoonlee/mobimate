@@ -7,15 +7,28 @@
          DataContext = HomeworkBoardViewModel. 머리와 줄은 같은 틀(정보 열 *, 묶음 4개)이라 가로 위치가 맞는다.
          스크롤바 자리 10은 항상 비워 둔다(7명이 되어도 폭이 변하지 않게). -->
     <UserControl.Resources>
-        <!-- 줄의 작은 막대(넓게): 한 글자 이름 + 얇은 막대. 값은 툴팁으로 -->
+        <!-- 줄의 작은 막대(넓게): 한 글자 이름 - 숫자 - 얇은 막대 ("은 120 [막대]"). 숫자는 카드와 같은 값(접속 중 보유, 아니면 예상 보유량),
+             숫자 색은 막대와 같은 규칙(주의 노랑·가득 빨강). 공간이 모자라면 숫자는 그대로 두고 막대가 줄어든다. 상세는 툴팁으로 -->
         <DataTemplate x:Key="MeterMiniTemplate" DataType="{x:Type vm:MeterModel}">
             <Grid ToolTip="{Binding Tooltip}" Background="Transparent">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
-                <TextBlock Text="{Binding Label, Converter={StaticResource FirstLetter}}" Style="{StaticResource Text.Small}" Margin="0,0,4,0" VerticalAlignment="Center" />
-                <ProgressBar Grid.Column="1" Style="{StaticResource MeterBar}" Height="5" Value="{Binding Fraction, Mode=OneWay}" VerticalAlignment="Center"
+                <TextBlock Text="{Binding Label, Converter={StaticResource FirstLetter}}" Style="{StaticResource Text.Small}" Margin="0,0,3,0" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="1" Text="{Binding AmountText}" FontSize="{DynamicResource Font.Small}" Margin="0,0,4,0" VerticalAlignment="Center">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
+                            <Setter Property="Foreground" Value="{DynamicResource Brush.Text}" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding Level}" Value="Warn"><Setter Property="Foreground" Value="{DynamicResource Brush.Warn}" /></DataTrigger>
+                                <DataTrigger Binding="{Binding Level}" Value="Danger"><Setter Property="Foreground" Value="{DynamicResource Brush.Danger}" /></DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+                <ProgressBar Grid.Column="2" Style="{StaticResource MeterBar}" Height="5" Value="{Binding Fraction, Mode=OneWay}" VerticalAlignment="Center"
                              Visibility="{Binding HasBar, Converter={StaticResource BoolToVis}}" />
             </Grid>
         </DataTemplate>
