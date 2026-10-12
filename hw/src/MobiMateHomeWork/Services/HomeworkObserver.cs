@@ -8,6 +8,7 @@ namespace MobiMateHomeWork.Services;
 /// 전체 관찰 시점에는 전체가 빠른 관찰을 대신한다. 접속이 새로 시작되면 첫 관찰은 전체다(기준값을 잡는다).
 /// (2) 맵 이동·로딩 복귀 직후 +2초·+8초 예약 관찰은 항상 전체다(레이드·어비스 보상이 맵 이동 직후 들어오므로).
 /// 관찰은 한 번에 하나만 돈다: 주기 관찰은 이미 도는 중이면 건너뛰고, 예약 관찰은 끝나기를 기다렸다가 돈다(맵이 바뀐 뒤의 값을 보려고).
+/// (3) 요일 던전 클리어(Cleared)를 감시가 알아챈 순간 즉시(+0초)와 +3초에 전체 관찰한다(Cleared는 약 17초만 유지되고, 그 사이의 활동·맵으로 완료를 확정한다).
 /// 예약 관찰은 퀘스트·미션 등의 캐시를 비우고 읽는다. 전체 관찰 1회 = CLI 최대 9회(캐릭터·맵·활동은 감시가 방금 읽었으면 캐시 재사용), 빠른 관찰 1회 = 최대 3회(보통 퀘스트 1회).
 /// </summary>
 public sealed class HomeworkObserver : BackgroundService
@@ -19,6 +20,10 @@ public sealed class HomeworkObserver : BackgroundService
     private readonly ILogger<HomeworkObserver> _log;
     private readonly SemaphoreSlim _gate = new(1, 1);
     private readonly DelayedBurst _burst;
+    private readonly DelayedBurst _clearBurst;
+    private readonly CancellationTokenSource _stop = new();
+    /// <summary>던전 클리어를 알아챈 뒤 즉시 관찰에 더해 한 번 더 관찰하는 시점.</summary>
+    internal static readonly TimeSpan ClearedSecondDelay = TimeSpan.FromSeconds(3);
     private int _runs;
     private int _fullRuns;
     private readonly long _origin = Stopwatch.GetTimestamp();   // 전체 관찰 격자의 기준(서비스 시작). 기록 주기(60초)와 격자가 맞아 캐릭터 기록이 방금 읽은 활동·재화를 재사용한다
@@ -32,6 +37,25 @@ public sealed class HomeworkObserver : BackgroundService
     {
         (_homework, _q, _status, _options, _log) = (homework, q, status, options, log);
         _burst = new DelayedBurst([options.HomeworkTriggerFirstDelay, options.HomeworkTriggerSecondDelay], ct => RunAsync(true, ct), delay);
+        _clearBurst = new DelayedBurst([ClearedSecondDelay], ct => RunAsync(true, ct), delay);
+    }
+
+    /// <summary>던전 클리어 상태 전환 감지에 쓰는 숙제 카탈로그.</summary>
+    public HomeworkCatalog Catalog => _homework.Service.Catalog;
+
+    /// <summary>
+    /// 던전 클리어(Cleared)를 알렸다: 즉시(+0초) 전체 관찰하고 +3초에 한 번 더 한다. 관찰은 활동·맵 캐시를 비우고 읽는다.
+    /// 즉시 관찰은 감시 루프를 막지 않게 따로 돌리고, 이미 도는 관찰이 있으면 끝나기를 기다렸다가 돈다.
+    /// </summary>
+    public void RequestAfterDungeonCleared()
+    {
+        if (_stop.IsCancellationRequested) return;
+        _ = Task.Run(async () =>
+        {
+            try { await RunAsync(true, _stop.Token); }
+            catch (OperationCanceledException) { }
+        });
+        _clearBurst.Request();
     }
 
     /// <summary>관찰을 실제로 돈 횟수(테스트용).</summary>
@@ -105,7 +129,9 @@ public sealed class HomeworkObserver : BackgroundService
 
     public override void Dispose()
     {
+        _stop.Cancel();
         _burst.Dispose();
+        _clearBurst.Dispose();
         base.Dispose();
     }
 }
