@@ -36,6 +36,27 @@ public class CharacterIdentityTests
     public void SpendingDeca_OnTheSameCharacter_IsNotASplit() =>
         Assert.Equal(Base, CharacterIdentity.Resolve(Base, new[] { Cand(Base, 100, 5000, 90000, 10285, 5619) }, Read(100, 5000, 91000, 8000, 5619)));   // 데카를 썼다: 레벨·전투력은 그대로
 
+    // 2026-10-12 실제 사례: 아이라 서버 전사. 생활력이 1.1% 줄고 데카가 달라졌지만 같은 캐릭터였다
+    private const string Warrior = "아이라_전사";
+
+    [Fact]
+    public void RealCase_LivingDroppedSlightly_AndDecaDiffers_StillTheSameCharacter() =>
+        Assert.Equal(Warrior, CharacterIdentity.Resolve(Warrior, new[] { Cand(Warrior, 100, 18939, 105479, 13682, 910) },
+            Read(100, 18733, 102926, 13982, 910)));   // 전투력 97.6%, 생활력 98.9%
+
+    [Fact]
+    public void LivingDropWithinTenPercent_IsTolerated_ButBeyondIsAnotherCharacter()
+    {
+        var cands = new[] { Cand(Base, 100, 5000, 90000, 10285, 5619) };
+        Assert.Equal(Base, CharacterIdentity.Resolve(Base, cands, Read(100, 4500, 90000, 10285, 5619)));       // 정확히 10% 하락까지
+        Assert.Equal(Base + "#2", CharacterIdentity.Resolve(Base, cands, Read(100, 4499, 90000, 10285, 5619)));   // 10% 초과 하락
+    }
+
+    [Fact]
+    public void ReallyDifferentCharacter_SameJob_IsStillANewOne() =>
+        Assert.Equal(Warrior + "#2", CharacterIdentity.Resolve(Warrior, new[] { Cand(Warrior, 100, 18939, 105479, 13682, 910) },
+            Read(100, 9000, 60000, 777, 888)));   // 생활력·전투력이 크게 다르고 데카·M캐시도 다르다
+
     [Fact]
     public void WithTwoCharacters_EachReadingFollowsItsOwnRecord()
     {
