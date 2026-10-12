@@ -66,6 +66,12 @@ public sealed class HomeworkDefinition
     /// <summary>퀘스트가 보일 때 남은 횟수를 읽어 둔다 (목표의 Count/Goal, 없으면 이름의 N/M). 카드 칩에 이름(N)으로 보인다.</summary>
     public bool ShowRemaining { get; init; }
 
+    /// <summary>
+    /// 같은 관찰에서 던전 상태(get_activity Dungeon.State)가 Cleared이고 현재 맵이 SpaceNamePrefixes에 맞으면 즉시 완료로 본다
+    /// (요일 던전: 보스 처치 순간부터 약 17초만 Cleared가 유지된다, 2026-10-12 실측). 퀘스트 사라짐 판정은 예비로 남는다.
+    /// </summary>
+    public bool ClearOnDungeonCleared { get; init; }
+
     /// <summary>캐릭터 카드 칩에 쓰는 짧은 이름. 없으면 Title.</summary>
     public string? CardLabel { get; init; }
 
@@ -196,6 +202,7 @@ public sealed class HomeworkCatalog
             if (i.Mode == HomeworkMode.DirectMission && i.MissionTitles.Count == 0) errors.Add($"1:1 미션 제목 없음: {i.Id}");
             if (i.Mode is HomeworkMode.QuestAllObjectives or HomeworkMode.QuestSuffix && i.QuestTitles.Count == 0) errors.Add($"퀘스트 제목 없음: {i.Id}");
             if (i.Mode == HomeworkMode.QuestVanish && i.QuestTitles.Count == 0 && i.DayQuestTitles.Count == 0) errors.Add($"퀘스트 제목 없음: {i.Id}");
+            if (i.ClearOnDungeonCleared && i.SpaceNamePrefixes.Count == 0 && i.SpaceNames.Count == 0) errors.Add($"던전 클리어 판정에 지역 이름 없음: {i.Id}");
             if (i.TokenAuto && string.IsNullOrWhiteSpace(i.TokenCurrency)) errors.Add($"증표 재화 없는 TokenAuto: {i.Id}");
 
             // 매칭 키는 정규화 후 일반어 단독이면 안 된다

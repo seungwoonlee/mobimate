@@ -8,8 +8,8 @@
     { "id": "daily_black_hole", "category": "daily", "period": "daily", "share": "character", "mode": "manual",
       "title": "검은 구멍", "subtitle": "콘텐츠 가이드 일일 검은 구멍 차원 정화", "icon": "black-hole", "goal": 1,
       "needsMeasurement": "진행 신호용 공간명(GameSpaceDisplayName) 미확인" },
-    { "id": "daily_day_dungeon", "category": "daily", "period": "daily", "share": "character", "mode": "questVanish", "autoCheck": true, "cardLabel": "요일던전",
-      "title": "요일 던전", "subtitle": "콘텐츠 가이드 요일 던전 일일 클리어 (퀘스트가 목록에서 사라지면 완료)", "icon": "dungeon", "goal": 1,
+    { "id": "daily_day_dungeon", "category": "daily", "period": "daily", "share": "character", "mode": "questVanish", "autoCheck": true, "cardLabel": "요일던전", "clearOnDungeonCleared": true,
+      "title": "요일 던전", "subtitle": "콘텐츠 가이드 요일 던전 일일 클리어 (던전 클리어 상태가 되거나 퀘스트가 목록에서 사라지면 완료)", "icon": "dungeon", "goal": 1,
       "spaceNamePrefixes": ["찬란한 유적", "빛나는 동굴"],
       "dayQuestTitles": {
         "mon": ["빛나는 황금을 찾아서"], "thu": ["빛나는 황금을 찾아서"],
