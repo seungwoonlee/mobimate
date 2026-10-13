@@ -36,6 +36,27 @@ public class HomeworkDungeonClearedTests : IDisposable
         Assert.Equal(new[] { Id }, _catalog.Items.Where(d => d.ClearOnDungeonCleared).Select(d => d.Id));
     }
 
+    [Theory]
+    [InlineData("찬란한 유적 V")]    // 수·토 (촉매)
+    [InlineData("빛나는 동굴 V ")]   // 월·목 (황금): 실측 이름 끝에 공백이 붙는다
+    [InlineData("눈부신 저택 V")]    // 화·금 (보석): 2026-10-13 로그에서 클리어가 감지됐는데 지역 목록에 없어 놓쳤다
+    public void Cleared_InEachOfTheThreeDayDungeonMaps_Completes(string map)
+    {
+        var svc = NewService();
+        svc.Evaluate(Main, Obs("Cleared", map));
+        Assert.Equal(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main)).Status);
+    }
+
+    [Theory]
+    [InlineData("룬다 던전 1층 1구역")]
+    [InlineData("페카 고분 심층 1층 3구역")]
+    public void Cleared_InOtherDungeons_IsNotTheDayDungeon(string map)
+    {
+        var svc = NewService();
+        svc.Evaluate(Main, Obs("Cleared", map));
+        Assert.NotEqual(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main)).Status);
+    }
+
     [Fact]
     public void Cleared_InDayDungeonMap_CompletesImmediately_WithEvidence()
     {
