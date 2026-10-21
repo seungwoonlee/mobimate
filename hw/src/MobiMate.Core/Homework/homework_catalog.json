@@ -11,6 +11,12 @@
     { "id": "daily_day_dungeon", "category": "daily", "period": "daily", "share": "character", "mode": "questVanish", "autoCheck": true, "cardLabel": "요일던전", "clearOnDungeonCleared": true,
       "title": "요일 던전", "subtitle": "콘텐츠 가이드 요일 던전 일일 클리어 (던전 클리어 상태가 되거나 퀘스트가 목록에서 사라지면 완료)", "icon": "dungeon", "goal": 1,
       "spaceNamePrefixes": ["찬란한 유적", "빛나는 동굴", "눈부신 저택"],
+      "daySpaceNamePrefixes": {
+        "mon": ["빛나는 동굴"], "thu": ["빛나는 동굴"],
+        "tue": ["눈부신 저택"], "fri": ["눈부신 저택"],
+        "wed": ["찬란한 유적"], "sat": ["찬란한 유적"],
+        "sun": ["찬란한 유적", "빛나는 동굴", "눈부신 저택"]
+      },
       "dayQuestTitles": {
         "mon": ["빛나는 황금을 찾아서"], "thu": ["빛나는 황금을 찾아서"],
         "tue": ["눈부신 보석을 찾아서"], "fri": ["눈부신 보석을 찾아서"],

@@ -65,7 +65,7 @@ public static partial class HomeworkEvaluator
 
             // 던전 클리어 상태(게임이 직접 알려 줌)가 같은 관찰의 현재 맵과 맞으면 확정 근거다 (요일 던전, 2026-10-12 실측).
             // 캐릭터를 바꾼 직후 관찰은 쓰지 않는다. Cleared는 처치 순간부터 약 17초만 유지된다.
-            var clearedHere = !characterJustSwitched && def.ClearOnDungeonCleared && DungeonClearedHere(def, obs);
+            var clearedHere = !characterJustSwitched && def.ClearOnDungeonCleared && DungeonClearedHere(def, obs, nowUtc);
 
             // 퀘스트가 트래커에 다시 보이면 그 주기에 아직 끝내지 않은 것이 확실하다: 자동 완료는 물론 수동 완료도 취소한다
             // (확실한 증거는 수동 설정보다 우선한다. 사라져서 완료로 본 판정이 틀렸거나, 수동 체크가 잘못된 것이다)
@@ -207,12 +207,16 @@ public static partial class HomeworkEvaluator
         st.Evidence == DungeonClearedEvidence && st.CompletedAtUtc is { } at && now - at < ClearedQuestGrace;
 
     /// <summary>같은 관찰에서 던전 상태가 Cleared이고 현재 맵이 이 항목의 지역(접두어·이름)이면 true. 활동·맵이 없으면 false.</summary>
-    private static bool DungeonClearedHere(HomeworkDefinition def, HomeworkObservation obs)
+    private static bool DungeonClearedHere(HomeworkDefinition def, HomeworkObservation obs, DateTimeOffset nowUtc)
     {
         if (obs.Activity?.Dungeon is not { IsCleared: true }) return false;
         var space = HomeworkText.Normalize(obs.Environment?.GameSpaceDisplayName);
         if (space.Length == 0) return false;
-        return def.SpaceNamePrefixes.Any(p => space.StartsWith(HomeworkText.Normalize(p), StringComparison.Ordinal))
+        // 요일마다 입장할 수 있는 던전이 정해져 있다 (월·목 빛나는 동굴, 화·금 눈부신 저택, 수·토 찬란한 유적): 오늘 것이 아닌 던전의 클리어는 요일 던전이 아니다.
+        var prefixes = def.DaySpaceNamePrefixes.Count > 0
+            ? def.DaySpaceNamePrefixes.GetValueOrDefault(DayKeys[(int)KstClock.GameDayOfWeek(nowUtc)]) ?? new List<string>()
+            : def.SpaceNamePrefixes;
+        return prefixes.Any(p => space.StartsWith(HomeworkText.Normalize(p), StringComparison.Ordinal))
             || def.SpaceNames.Any(n => space == HomeworkText.Normalize(n));
     }
 
