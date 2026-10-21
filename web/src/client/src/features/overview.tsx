@@ -19,7 +19,7 @@ const WORK_KIND_ORDER = ['metal', 'wood', 'leather', 'cloth', 'medicine', 'food'
 
 /**
  * 캐릭(옛 개요, FR-OV-01~03): 폭이 일정한 작은 상자를 화면 폭에 맞춰 여러 열로 쌓는다(세로 스크롤만, 가로로 늘어지는 줄·가로 스크롤 없음, 2026-10-22).
- * 상자 순서: 점수 → 가방(늘어난 아이템) → 재화 → 일일·주간 숙제 체크 목록 → 서버 랭킹 → 가공 → 주변 → 콘텐츠 추천 → 퀵 액션.
+ * 상자 순서: 점수 → 가방(늘어난 아이템) → 재화 → 주간 숙제 체크 목록(일일 숙제 상자는 2026-10-22 뺐다) → 서버 랭킹 → 가공 → 주변 → 콘텐츠 추천 → 퀵 액션.
  */
 export function OverviewView() {
   const q = useOverview();
@@ -43,7 +43,6 @@ export function OverviewView() {
         <ScoresCard h={d.header} />
         <WeightCard h={d.header} />
         <CurrencyCard d={d} />
-        <HomeworkChecklist kind="daily" d={d} />
         <HomeworkChecklist kind="weekly" d={d} />
         <div className="ov-rank"><RankPanel /></div>
         <WorksCard life={d.life} at={q.dataUpdatedAt} />
@@ -231,7 +230,7 @@ function NearbyCard({ nearby }: { nearby: Nearby | null }) {
   );
 }
 
-/** 콘텐츠 추천 요약 (FR-CO-07, FR-OV-14): 콘텐츠마다 이름+상태, 아래 줄에 입장 가능·추천 난이도 */
+/** 콘텐츠 추천 요약 (FR-CO-07, FR-OV-14): 콘텐츠마다 이름+상태, 추천 난이도를 상태 색으로 크게, 그 아래에 입장 가능 난이도 */
 function CutoffSummary({ contents }: { contents: CutoffContent[] }) {
   return (
     <LinkCard to="stats" params={{ tab: 'cutoffs' }} className="cutsum">
@@ -240,10 +239,15 @@ function CutoffSummary({ contents }: { contents: CutoffContent[] }) {
         {contents.map(c => {
           const st = CUTOFF_STATUS[c.status];
           return (
-            <li key={c.id}>
+            <li key={c.id} className={`tone-${st.tone}`}>
               <span className="nm">{c.name}</span>
               <Pill tone={st.tone}>{st.label}</Pill>
-              <span className="tier small">{c.status === 'locked' ? '입장 불가' : <>입장 <b>{c.maxEntryTier}</b> · 추천 <b>{c.recommendedTier}</b></>}</span>
+              {c.status === 'locked'
+                ? <span className="rec locked"><Icon name="lock" size={13} />입장 불가</span>
+                : <>
+                    <span className="rec"><span className="rec-l">추천</span><b>{c.recommendedTier}</b></span>
+                    <span className="tier small">입장 가능: <b>{c.maxEntryTier}</b></span>
+                  </>}
             </li>
           );
         })}
