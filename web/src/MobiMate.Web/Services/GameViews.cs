@@ -9,7 +9,7 @@ namespace MobiMate.Web.Services;
 /// 헤더를 읽을 때마다 GameStateCache·SnapshotManager(세션 변화량)를 갱신하고 SSE "header"로 다른 기기에도 알린다.
 /// </summary>
 public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManager snapshots, SseHub hub, CutoffCatalog cutoffs,
-    FavoritesStore favorites, AccountStore accounts, HomeworkService homework, WorkCategoryCatalog workKinds, CombatScoreGuard guard, MobiMateOptions options, IHostApplicationLifetime life, ILogger<GameViews> log, RankingService rankings)
+    FavoritesStore favorites, AccountStore accounts, HomeworkService homework, WorkCategoryCatalog workKinds, CombatScoreGuard guard, MobiMateOptions options, IHostApplicationLifetime life, ILogger<GameViews> log, RankingService rankings, AutoWatch autoWatch)
 {
     private readonly ConcurrentDictionary<string, Dictionary<string, int>> _bagBaselines = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, byte> _unclassifiedWorks = new();   // 분류표에 없는 가공품은 한 번만 기록한다 (FR-DT-20)
@@ -339,12 +339,21 @@ public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManag
         if (!r.Ok) return new CliData<object>(null, r.Failure, r.FetchedAt);
         var my = state.Character?.CombatScore?.Value ?? 0;
         var ranked = NearbyRanker.Rank(r.Value, my);
+        var suspects = autoWatch.Suspects();
+        var idle = suspects.Where(x => x.Reason == AutoSuspicionReason.Idle).ToDictionary(x => x.Key);
         return new CliData<object>(new
         {
             count = ranked.Count,
             myCombatScore = my,
+            // 오토 의심 표식: 던전·레이드 안에서 혼자 오래 전투하지 않는 사람(idle) / 함께 보이다가 오래 안 보이는 사람(missing, 목록에 없어 따로 준다).
+            // seconds = 조건이 이어진 초 카운터, intensity = 짙기 0..1 (기준을 넘으면 켜지고 점점 짙어진다. 풀리면 목록에서 바로 빠진다)
+            missing = suspects.Where(x => x.Reason == AutoSuspicionReason.Missing).Select(x => new
+            {
+                job = x.Player.Job, level = x.Player.Level, combatScore = x.Player.CombatScore, title = x.Player.Title, seconds = (int)x.For.TotalSeconds, intensity = Math.Round(x.Intensity, 2),
+            }),
             players = ranked.Select(e => new
             {
+                autoSuspect = idle.TryGetValue(WatchedPlayer.KeyOf(e.Pc), out var sus) ? new { reason = "idle", seconds = (int)sus.For.TotalSeconds, intensity = Math.Round(sus.Intensity, 2) } : null,
                 title = e.Pc.Title, realm = e.Pc.RealmName, job = e.Pc.JobName, level = e.Pc.Level, combatScore = e.Pc.CombatScore,
                 distance = Math.Round(e.Pc.Distance, 1), inCombat = e.Pc.IsInCombat, relation = e.Relation, relationLabel = e.RelationLabel,
                 isStronger = e.IsStronger,

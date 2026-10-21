@@ -11,7 +11,7 @@ namespace MobiMate.Web.Services;
 /// 던전 안이었거나 요일 던전 지역일 때만 get_activity도 읽어 Cleared로 바뀐 순간 숙제를 곧바로 관찰한다(평상시 호출 수는 그대로).
 /// 곧바로 헤더를 새로 읽어 SSE로 밀어 준다. 전환 직후에는 재화·칭호가 아직 이전 캐릭터 것일 수 있어 몇 초 뒤 한 번 더 읽는다.
 /// </summary>
-public sealed class CharacterWatcher(GameQueries q, GameViews views, StatusMonitor status, MobiMateOptions options, GameStateCache state, HomeworkWatcher homework, ILogger<CharacterWatcher> log) : BackgroundService
+public sealed class CharacterWatcher(GameQueries q, GameViews views, StatusMonitor status, MobiMateOptions options, GameStateCache state, HomeworkWatcher homework, AutoWatch auto, ILogger<CharacterWatcher> log) : BackgroundService
 {
     private static readonly TimeSpan[] Settle = { TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(8) };
 
@@ -27,12 +27,13 @@ public sealed class CharacterWatcher(GameQueries q, GameViews views, StatusMonit
             while (await timer.WaitForNextTickAsync(ct))
             {
                 var connected = status.State == GameConnection.Connected;
-                if (!connected) { wasConnected = false; dungeon.Reset(); continue; }
+                if (!connected) { wasConnected = false; dungeon.Reset(); auto.Reset(); continue; }
                 try
                 {
                     var r = await q.Get<CharacterInfo>("get_my_info", ct);
                     if (!r.Ok || r.Value == null) continue;
                     await WatchDungeonAsync(dungeon, r.Value, ct);
+                    await WatchNearbyAsync(dungeon, ct);
                     var sig = Signature(r.Value);
                     var first = last == null;
                     var why = first ? "감시 시작" : !wasConnected ? "연결 복구" : sig != last ? "캐릭터 변경" : null;
@@ -79,6 +80,26 @@ public sealed class CharacterWatcher(GameQueries q, GameViews views, StatusMonit
     }
 
     internal static readonly TimeSpan ClearedSecondDelay = TimeSpan.FromSeconds(3);
+
+    private DateTimeOffset _lastNear = DateTimeOffset.MinValue;
+    internal static readonly TimeSpan NearInterval = TimeSpan.FromSeconds(8);
+
+    /// <summary>
+    /// 오토 의심용 주변 관찰: 던전·레이드 안(던전 상태가 안이거나, 어비스·레이드·요일 던전 지역)일 때만 8초마다 get_near_pcs를 읽는다.
+    /// 평상시에는 호출을 늘리지 않고, 밖으로 나오면 쌓은 것을 지운다.
+    /// </summary>
+    private async Task WatchNearbyAsync(DungeonClearDetector dungeon, CancellationToken ct)
+    {
+        var map = state.Environment?.GameSpaceDisplayName;
+        var inside = dungeon.Inside || state.Activity?.Dungeon is { IsInside: true } || homework.Service.Catalog.FindByArea(map) != null;
+        var now = DateTimeOffset.UtcNow;
+        if (!inside) { auto.Reset(); return; }
+        if (now - _lastNear < NearInterval) return;
+        _lastNear = now;
+        q.Invalidate("get_near_pcs");
+        var near = await q.Get<List<NearPcItem>>("get_near_pcs", ct);
+        if (near.Ok && near.Value != null) auto.Observe(now, true, near.Value);
+    }
 
     /// <summary>캐릭터 선택창의 빈 정보도 표식이 되므로 선택창 → 캐릭터 진입이 전환으로 잡힌다.</summary>
     internal static string Signature(CharacterInfo c) =>

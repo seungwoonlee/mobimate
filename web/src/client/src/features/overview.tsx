@@ -10,7 +10,7 @@ import { scoreClass } from '../lib/score';
 import { useDevice } from '../state/device';
 import { useRouter } from '../state/router';
 import { CUTOFF_STATUS } from './cutoffs';
-import { REL_TAG } from './players';
+import { AutoBadge, autoStyle, MissingLine, REL_TAG } from './players';
 import { RankPanel } from './rankings';
 import { RankBadge } from '../components/RankBadge';
 
@@ -218,11 +218,11 @@ function NearbyCard({ nearby }: { nearby: Nearby | null }) {
       {p.length === 0 && <p className="muted small m0">주변에 플레이어가 없습니다.</p>}
       <ul className="near-list">
         {shown.map((x, i) => (
-          <li key={`${x.job}|${x.level}|${x.combatScore}|${i}`} className={`pl ${x.relation}`}>
+          <li key={`${x.job}|${x.level}|${x.combatScore}|${i}`} className={`pl ${x.relation}${x.autoSuspect ? ' auto-suspect' : ''}`} style={x.autoSuspect ? autoStyle(x.autoSuspect.intensity) : undefined}>
             <JobIcon job={x.job} size={17} />
             <span className="who">
-              <span className="pl-job">{REL_TAG[x.relation] && <span className="pl-tag">{REL_TAG[x.relation]}</span>}{x.job}</span>
-              {(x.title || x.inCombat) && <span className="pl-sub small">{x.title}{x.inCombat && <span className="pl-combat"> · 전투 중</span>}</span>}
+              <span className="pl-job">{REL_TAG[x.relation] && <span className="pl-tag">{REL_TAG[x.relation]}</span>}{x.job}{x.autoSuspect && <AutoBadge reason={x.autoSuspect.reason} seconds={x.autoSuspect.seconds} intensity={x.autoSuspect.intensity} />}</span>
+              {(x.title || x.inCombat) && <span className="pl-sub small">{x.title}{x.inCombat && <span className="pl-combat">{x.title ? ' · ' : ''}전투 중</span>}</span>}
             </span>
             <span className="nums">
               <span className="num muted">Lv.{x.level}</span>
@@ -231,6 +231,11 @@ function NearbyCard({ nearby }: { nearby: Nearby | null }) {
           </li>
         ))}
       </ul>
+      {(nearby?.missing?.length ?? 0) > 0 && (
+        <ul className="near-list near-missing" aria-label="한동안 안 보이는 사람">
+          {nearby!.missing!.map((m, i) => <li key={`${m.job}|${m.level}|${m.combatScore}|${i}`} className="auto-suspect" style={autoStyle(m.intensity)}><MissingLine m={m} /></li>)}
+        </ul>
+      )}
       {p.length > shown.length && <div className="faint small mt-4">외 {p.length - shown.length}명</div>}
     </LinkCard>
   );
@@ -240,7 +245,7 @@ function NearbyCard({ nearby }: { nearby: Nearby | null }) {
 function CutoffSummary({ contents }: { contents: CutoffContent[] }) {
   return (
     <LinkCard to="stats" params={{ tab: 'cutoffs' }} className="cutsum">
-      <CardHead icon="trophy" title="콘텐츠 추천" />
+      <CardHead icon="trophy" title="어비스/레이드 추천" right={<span className="faint small">전투력·마도저항 기준</span>} />
       <ul className="cut-list">
         {contents.map(c => {
           const st = CUTOFF_STATUS[c.status];
@@ -252,13 +257,12 @@ function CutoffSummary({ contents }: { contents: CutoffContent[] }) {
                 ? <span className="rec locked"><Icon name="lock" size={13} />입장 불가</span>
                 : <>
                     <span className="rec"><span className="rec-l">추천</span><b>{c.recommendedTier}</b></span>
-                    <span className="tier small">입장 가능: <b>{c.maxEntryTier}</b></span>
+                    <span className="tier">입장 가능: <b>{c.maxEntryTier}</b></span>
                   </>}
             </li>
           );
         })}
       </ul>
-      <div className="faint small mt-4">전투력·마도저항 기준</div>
     </LinkCard>
   );
 }
