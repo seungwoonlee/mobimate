@@ -89,6 +89,9 @@ public sealed class GameQueries(IGameCli cli, QueryCache cache, MobiMateOptions 
             var kind = r.TimedOut ? CliFailureKind.Timeout : CliFailureKind.Failed;
             return new CliData<T>(default, new CliFailure(kind, r.Error ?? "게임 CLI 호출 실패"), at);
         }
+        // 오류 응답({"error":…}·{"pipe":"disconnected",…})을 값으로 읽지 않는다: 배열 명령은 PARSE_ERROR, 객체 명령은 "빈 값의 성공"이 되어 조용히 틀린다
+        if (CliEnvelope.TryReadError(r.Stdout, out var cliError))
+            return new CliData<T>(default, new CliFailure(CliFailureKind.Failed, cliError), at);
         try
         {
             return new CliData<T>(JsonSerializer.Deserialize<T>(r.Stdout, Read), null, at);
