@@ -632,57 +632,72 @@ button.hw-cell:focus-visible { outline: 2px solid var(--accent); outline-offset:
 .app[data-size="compact"] .hw-who { width: auto; }
 .app[data-size="compact"] .hw-cell { min-width: 68px; }
 
-/* 캐릭(개요) 화면 압축 (2026-10-11): 카드를 내용 높이로 두고 영역 배치로 빈 공간을 없앤다 */
+/* 캐릭(개요) 화면 (2026-10-22 재설계): 폭이 일정한 작은 상자를 화면 폭에 맞춰 여러 열로 쌓는다.
+   세로 스크롤만 쓴다. 상자는 열 폭(약 300~360px)을 넘게 늘어나지 않고, 줄 안에 좌우로 벌어지는 빈 공간을 두지 않는다. */
 .ov { display: grid; gap: 8px; }
 .ov-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 0; }
 .ov-top .alerts { flex: 1; min-width: 0; }
 .ov-top:not(:has(.alerts)) { justify-content: flex-end; }
-.ov-grid { display: grid; gap: 10px; align-items: start; grid-template-columns: minmax(0, 1fr);
-  grid-template-areas: "scores" "weight" "gold" "rank" "hw" "works" "near" "cut" "qa"; }
-.ov-grid > .scores { grid-area: scores; } .ov-grid > .weight { grid-area: weight; } .ov-grid > .gold { grid-area: gold; }
-.ov-grid > .ov-rank { grid-area: rank; } .ov-grid > .hwsum { grid-area: hw; } .ov-grid > .works { grid-area: works; }
-.ov-grid > .near { grid-area: near; } .ov-grid > .cutsum { grid-area: cut; } .ov-grid > .qa { grid-area: qa; }
-@container main (min-width: 560px) {
-  .ov-grid { grid-template-columns: repeat(2, minmax(0, 1fr));
-    grid-template-areas: "scores weight" "gold gold" "rank rank" "hw works" "near near" "cut cut" "qa qa"; }
-}
-@container main (min-width: 900px) {
-  .ov-grid { grid-template-columns: 1fr 1fr 1.15fr;
-    grid-template-areas: "scores weight gold" "rank rank hw" "works near near" "cut cut cut" "qa qa qa"; }
-}
+.ov-grid { column-width: 280px; column-gap: 10px; }
+.ov-grid > * { break-inside: avoid; margin: 0 0 10px; }
 .ov .card { padding: 10px 14px; }
 .ov .card-h { margin-bottom: 6px; }
 .ov .score-main { gap: 10px; }
 .ov .score-main .big { font-size: calc(32px * var(--scale)); }
 .ov .big { font-size: calc(28px * var(--scale)); }
 .ov .gauge { margin: 6px 0 4px; height: 10px; }
-.ov .kv { padding: 1px 0; }
-.ov .gold .gold-body, .ov .gold .gold-body > div + div { margin-top: 0; }
-.ov .gold .mt-6, .ov .gold .mt-10 { margin-top: 4px; }
+.ov .kv { padding: 2px 0; }
+.ov .gold .big { line-height: 1.1; }
+
+.ov .spread .num { min-width: 0; overflow-wrap: anywhere; }
+
+/* 가방: 최근 늘어난 아이템 */
+.ov .grown { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--line); }
+.ov .grown-h { margin-bottom: 4px; }
+.ov .grown-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 1px; }
+.ov .grown-list li { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 8px; align-items: baseline; font-size: 13px; padding: 1px 0; }
+.ov .grown-list .nm { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ov .grown-list .up { color: var(--warn); font-weight: 600; }
+
+/* 숙제: 체크 목록 */
+.ov .hwlist.all-done { background: var(--ok-soft); border-color: transparent; }
+.ov .hw-reset { white-space: nowrap; }
+.ov .hw-ck { list-style: none; margin: 0; padding: 0; display: grid; gap: 1px; }
+.ov .hw-ck li { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; gap: 8px; align-items: center; font-size: 13.5px; padding: 2px 0; }
+.ov .hw-ck .ck { width: 16px; height: 16px; border-radius: 5px; border: 1.5px solid var(--line-strong); display: inline-flex; align-items: center; justify-content: center; }
+.ov .hw-ck .ck .ic { width: 12px; height: 12px; stroke-width: 3; }
+.ov .hw-ck li.done .ck { background: var(--ok); border-color: var(--ok); color: var(--bg-1); }
+.ov .hw-ck li.done .t { color: var(--text-3); text-decoration: line-through; }
+.ov .hw-ck li.doing .ck { border-color: var(--accent); }
+.ov .hw-ck .t { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ov .hw-ck .r { font-size: 12px; white-space: nowrap; }
+
+/* 서버 랭킹: 한 줄에 순위, 아래 줄에 점수·시각 (가로로 흩어지지 않게) */
 .ov .rank-panel { gap: 4px; }
-@container main (min-width: 700px) {
-  .ov .rank-list { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 24px; }
-}
-.ov .rank-row { padding: 2px 2px; }
-.hwsum-rings { display: flex; gap: 10px; flex-wrap: wrap; }
-.hwbtn { display: flex; align-items: center; gap: 10px; flex: 1 1 140px; min-width: 0; padding: 4px 8px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg-1); text-align: left; color: inherit; font: inherit; cursor: pointer; }
-.hwbtn:hover { border-color: var(--line-strong); }
-.hwbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.hwbtn-t { display: grid; gap: 0; min-width: 0; line-height: 1.35; }
+.ov .rank-row { grid-template-columns: 3.6em auto minmax(0, 1fr); gap: 0 8px; padding: 3px 2px; }
+.ov .rank-row .rk-v { grid-column: 2 / -1; }
+.ov .rank-row .rk-s { grid-column: 2; grid-row: 2; text-align: left; font-size: 12px; }
+.ov .rank-row .rk-t { grid-column: 3; grid-row: 2; text-align: left; font-size: 12px; }
+.ov .rank-panel .card-h .btn { padding: 4px 10px; min-height: 0; }
+
+/* 가공 대기열 */
 .ov .work { padding: 2px 0; }
-.ov .pl-list { gap: 0; }
-.ov .cut-mini { gap: 3px; }
-.ov .qa { gap: 8px; }
+
+/* 주변 */
+.ov .near-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.ov .near-list li { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 0 10px; align-items: center; font-size: 13.5px; }
+.ov .near-list .pl-job { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ov .near-list .pl-sub { grid-column: 1 / -1; color: var(--text-2); padding-left: 2px; }
+.ov .near-list .pl-tag { min-width: 0; margin-right: 4px; }
+.ov .near-list .pl.other .pl-tag { display: none; }
+
+/* 콘텐츠 추천: 이름+상태 한 줄, 난이도는 아래 줄 */
+.ov .cut-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 7px; }
+.ov .cut-list li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 1px 8px; align-items: center; }
+.ov .cut-list .nm { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ov .cut-list .tier { grid-column: 1 / -1; color: var(--text-2); }
+
+/* 퀵 액션: 한 상자 안에 세로로 */
+.ov .qa { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
 .ov .qa button { min-height: 44px; padding: 8px 12px; }
-/* 캐릭 화면: 재화 카드는 가로로 눕히고, 넓은 3열에서만 세로로 둔다 */
-.ov .gold .gold-body { display: flex; align-items: center; gap: 4px 28px; flex-wrap: wrap; }
-.ov .gold .gold-body > div:first-child { display: flex; align-items: center; gap: 8px; }
-.ov .gold .gold-body > div + div { display: flex; gap: 4px 22px; flex-wrap: wrap; }
-.ov .gold .kv { gap: 8px; }
-@container main (min-width: 900px) {
-  .ov-grid { grid-template-columns: 1fr 1fr 1.3fr; }
-  .ov .gold .gold-body { display: block; }
-  .ov .gold .gold-body > div + div { display: block; }
-  .ov .gold .gold-body > div:first-child { flex-wrap: wrap; }
-}
-.hwbtn-t > * { white-space: nowrap; }
+

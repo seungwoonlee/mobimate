@@ -188,6 +188,12 @@ public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManag
         return new { kind, title = def.Title };
     }
 
+    /// <summary>
+    /// 게임이 로딩·전환 중에 가방 무게를 터무니없이 주는 때가 있다(최대치 3.4e38, 현재 0): 그 값은 "정보 없음"으로 보고 그대로 보여 주지 않는다.
+    /// 실제 최대 무게는 수백~수천이다.
+    /// </summary>
+    internal static bool SaneWeight(VitalsInfo? v) => v is { WeightMax: > 0 and < 1_000_000 } && double.IsFinite(v.WeightCurrent);
+
     private object BuildHeader(CharacterInfo ch, string key, ActivityInfo? act, EnvironmentInfo? env, SessionDelta delta, bool selecting = false)
     {
         var v = ch.Vitals;
@@ -218,9 +224,9 @@ public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManag
                 channel = env?.ChannelName, space = env?.GameSpaceDisplayName, weather = env?.Weather,
                 erinn = DisplayFormat.ErinnTime(env?.ErinnNow),
             },
-            weight = v == null ? null : new
+            weight = !SaneWeight(v) ? null : new
             {
-                current = Math.Round(v.WeightCurrent, 1), max = v.WeightMax, pct = Math.Round(pct, 1),
+                current = Math.Round(v!.WeightCurrent, 1), max = v.WeightMax, pct = Math.Round(pct, 1),
                 level = WeightLevel(pct), delta = Math.Round(delta.WeightDiff, 1),
             },
             session = new { gold = delta.GoldDiff, wings = delta.WingsDiff, nyang = delta.NyangDiff, dailyMissions = delta.MissionDiff },
@@ -253,7 +259,7 @@ public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManag
         var pct = v is { WeightMax: > 0 } ? v.WeightCurrent / v.WeightMax * 100 : 0;
         return new CliData<object>(new
         {
-            weight = v == null ? null : new { current = Math.Round(v.WeightCurrent, 1), max = v.WeightMax, pct = Math.Round(pct, 1), level = WeightLevel(pct) },
+            weight = !SaneWeight(v) ? null : new { current = Math.Round(v!.WeightCurrent, 1), max = v.WeightMax, pct = Math.Round(pct, 1), level = WeightLevel(pct) },
             items = items.Select(i => new
             {
                 location = NormalizeLocation(i.Location), name = i.DisplayName, category = i.CategoryName, count = i.Count, locked = i.IsLocked,

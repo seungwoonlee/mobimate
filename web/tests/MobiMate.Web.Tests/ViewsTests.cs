@@ -10,6 +10,17 @@ public class ViewsTests
     internal static List<System.Text.Json.JsonElement> Cards(System.Text.Json.JsonElement data) =>
         data.GetProperty("accounts").EnumerateArray().SelectMany(a => a.GetProperty("members").EnumerateArray()).ToList();
 
+    [Theory]
+    [InlineData(700.0, 1080.0, true)]
+    [InlineData(0.0, 3.40282347E+38, false)]   // 로딩·전환 중 게임이 주는 터무니없는 최대치 (2026-10-12 로그)
+    [InlineData(10.0, 0.0, false)]
+    [InlineData(double.NaN, 1080.0, false)]
+    public void SaneWeight_RejectsAbsurdReadings(double current, double max, bool expected)
+        => Assert.Equal(expected, MobiMate.Web.Services.GameViews.SaneWeight(new VitalsInfo(100, 100, current, max, 0, 0, 0)));
+
+    [Fact]
+    public void SaneWeight_NullIsNotSane() => Assert.False(MobiMate.Web.Services.GameViews.SaneWeight(null));
+
     [Fact]
     public async Task Favorites_AreSavedAndShownOnInventoryAndGatherables()
     {
