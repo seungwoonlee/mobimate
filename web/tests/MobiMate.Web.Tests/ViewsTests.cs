@@ -21,6 +21,14 @@ public class ViewsTests
     [Fact]
     public void SaneWeight_NullIsNotSane() => Assert.False(MobiMate.Web.Services.GameViews.SaneWeight(null));
 
+    [Theory]
+    [InlineData(true, true, false, false)]     // 평소: 1초 읽기는 하지 않는다(기존 읽기 주기가 맡는다)
+    [InlineData(true, true, true, true)]       // 의심 조건이 시작되면 1초마다
+    [InlineData(true, false, true, false)]     // 던전·레이드 밖이면 하지 않는다
+    [InlineData(false, true, true, false)]     // 게임에 연결돼 있지 않으면 하지 않는다
+    public void AutoWatcher_ReadsEverySecondOnlyWhileSuspicionIsCounting(bool connected, bool inInstance, bool needsFast, bool expected)
+        => Assert.Equal(expected, Services.AutoWatcher.ShouldRead(connected, inInstance, needsFast));
+
     [Fact]
     public async Task Nearby_HasAutoSuspectFields_AndNobodyIsSuspectedOutsideAnInstance()
     {

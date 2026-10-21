@@ -220,7 +220,7 @@ function NearbyCard({ nearby }: { nearby: Nearby | null }) {
         {shown.map((x, i) => (
           <li key={`${x.job}|${x.level}|${x.combatScore}|${i}`} className={`pl ${x.relation}${x.autoSuspect ? ' auto-suspect' : ''}`} style={x.autoSuspect ? autoStyle(x.autoSuspect.intensity) : undefined}>
             <JobIcon job={x.job} size={17} />
-            <span className="who">
+            <span className="pl-who">
               <span className="pl-job">{REL_TAG[x.relation] && <span className="pl-tag">{REL_TAG[x.relation]}</span>}{x.job}{x.autoSuspect && <AutoBadge reason={x.autoSuspect.reason} seconds={x.autoSuspect.seconds} intensity={x.autoSuspect.intensity} />}</span>
               {(x.title || x.inCombat) && <span className="pl-sub small">{x.title}{x.inCombat && <span className="pl-combat">{x.title ? ' · ' : ''}전투 중</span>}</span>}
             </span>

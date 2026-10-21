@@ -36,7 +36,7 @@ export function MissingLine({ m }: { m: MissingPlayer }) {
   return (
     <span className="pl pl-missing">
       <JobIcon job={m.job} size={17} />
-      <span className="who">
+      <span className="pl-who">
         <span className="pl-job">{m.job}<AutoBadge reason="missing" seconds={m.seconds} intensity={m.intensity} /></span>
         <span className="pl-sub small"><span className="num">Lv.{m.level}</span> · <span className="num">{fmt(m.combatScore)}</span><span className="pl-combat"> · 안 보임</span></span>
       </span>

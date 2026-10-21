@@ -158,8 +158,12 @@ public record NearPcItem(
     [property: JsonPropertyName("IsInParty")] bool IsInParty,
     [property: JsonPropertyName("IsFriend")] bool IsFriend,
     [property: JsonPropertyName("IsInCombat")] bool IsInCombat,
-    [property: JsonPropertyName("HasGuild")] bool HasGuild = false
+    [property: JsonPropertyName("HasGuild")] bool HasGuild = false,
+    [property: JsonPropertyName("Performance")] PerformanceInfo? Performance = null
 );
+
+/// <summary>get_near_pcs의 Performance: 악기를 연주 중인지(IsPlaying). 나머지 값(곡 이름·시간)은 쓰지 않는다.</summary>
+public record PerformanceInfo([property: JsonPropertyName("IsPlaying")] bool IsPlaying = false);
 
 // 9-1. 퀘스트 트래커 (get_quests). 제목·목표 문구에 유니티 리치텍스트 태그가 섞여 온다 (K-04).
 public record QuestObjective(
