@@ -56,7 +56,7 @@ public sealed class HomeworkWatcher(HomeworkService homework, GameQueries q, App
         // 퀘스트는 판정기가 이번 관찰을 건너뛰고, 다음 조회는 새로 받게 한다.
         if (homework.LastObservedCharacter is { } last && !last.Equals(key, StringComparison.OrdinalIgnoreCase))
         {
-            q.Invalidate("get_currencies", "get_items", "get_quests");
+            q.Invalidate("get_currencies", "get_items", "get_quests", "get_weekly_missions", "get_daily_missions");   // 미션도 캐릭터마다 다르다(2026-10-22 실측)
             if (full)
             {
                 var tC2 = q.Get<List<CurrencyItem>>("get_currencies", ct);

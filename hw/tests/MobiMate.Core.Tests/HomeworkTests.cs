@@ -261,15 +261,16 @@ public class HomeworkTests : IDisposable
     }
 
     [Fact]
+    // 계정 공통 항목 예: 일일 미션 완수(daily_missions_all). 주간 미션 완수는 2026-10-22 실측으로 캐릭터별이 되었다.
     public void H8_AccountItems_AreSharedAcrossCharacters_CharacterItemsAreNot()
     {
         var svc = NewService();
-        svc.Set(Main, "weekly_missions_all", completed: true);
+        svc.Set(Main, "daily_missions_all", completed: true);
         svc.Set(Main, "abyss_madness_cave", completed: true);
         svc.Evaluate(Main, new HomeworkObservation(DailyMissions: new[] { M("에린에 돌아왔습니다", 1, 1) }));
 
         var alt = svc.GetBoard(Alt);
-        Assert.Equal(HomeworkCardStatus.ManualDone, Card(alt, "weekly_missions_all").Status);
+        Assert.Equal(HomeworkCardStatus.ManualDone, Card(alt, "daily_missions_all").Status);
         Assert.Equal(HomeworkCardStatus.AutoDone, Card(alt, "daily_connect").Status);   // 계정 미션 근거 → 계정 공통
         Assert.Equal(HomeworkCardStatus.Pending, Card(alt, "abyss_madness_cave").Status);
     }
@@ -357,15 +358,15 @@ public class HomeworkTests : IDisposable
     {
         var svc = NewService();
         svc.Set(Main, "raid_cavrak", completed: true);
-        svc.Set(Main, "weekly_missions_all", completed: true);
+        svc.Set(Main, "daily_missions_all", completed: true);
 
         svc.ResetAll(Main, includeAccount: false);
         var b = svc.GetBoard(Main);
         Assert.Equal(HomeworkCardStatus.Pending, Card(b, "raid_cavrak").Status);
-        Assert.Equal(HomeworkCardStatus.ManualDone, Card(b, "weekly_missions_all").Status);
+        Assert.Equal(HomeworkCardStatus.ManualDone, Card(b, "daily_missions_all").Status);
 
         svc.ResetAll(Main, includeAccount: true);
-        Assert.Equal(HomeworkCardStatus.Pending, Card(svc.GetBoard(Main), "weekly_missions_all").Status);
+        Assert.Equal(HomeworkCardStatus.Pending, Card(svc.GetBoard(Main), "daily_missions_all").Status);
     }
 
     [Fact]
@@ -381,7 +382,7 @@ public class HomeworkTests : IDisposable
                 ["raid_cavrak"] = new { IsCompleted = true, CurrentCount = 1, CompletedAt = nowLocal, IsAutoDetected = false },
                 ["abyss_madness_cave"] = new { IsCompleted = true, CurrentCount = 1, CompletedAt = nowLocal, IsAutoDetected = true },           // 자동 → 버림
                 ["daily_tower"] = new { IsCompleted = true, CurrentCount = 1, CompletedAt = nowLocal.AddDays(-2), IsAutoDetected = false }, // 지난 주기 → 버림
-                ["weekly_missions_all"] = new { IsCompleted = true, CurrentCount = 1, CompletedAt = nowLocal, IsAutoDetected = false }, // 계정 공통
+                ["daily_missions_all"] = new { IsCompleted = true, CurrentCount = 1, CompletedAt = nowLocal, IsAutoDetected = false }, // 계정 공통
             } },
             ["Default_Player"] = new { Items = new Dictionary<string, object>
             {
@@ -400,7 +401,7 @@ public class HomeworkTests : IDisposable
         Assert.Equal(HomeworkCardStatus.ManualDone, Card(b, "raid_cavrak").Status);
         Assert.Equal(HomeworkCardStatus.Pending, Card(b, "abyss_madness_cave").Status);
         Assert.Equal(HomeworkCardStatus.Pending, Card(b, "daily_tower").Status);
-        Assert.Equal(HomeworkCardStatus.ManualDone, Card(svc.GetBoard(Alt), "weekly_missions_all").Status);
+        Assert.Equal(HomeworkCardStatus.ManualDone, Card(svc.GetBoard(Alt), "daily_missions_all").Status);
         Assert.DoesNotContain("Default_Player", store.Load().Characters.Keys);
         Assert.Equal(before, File.ReadAllText(Path.Combine(wpfDir, HomeworkStore.FileName)));   // 원본 불변
     }

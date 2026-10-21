@@ -69,6 +69,13 @@ public sealed class HomeworkDefinition
     /// </summary>
     public bool Continuous { get; init; }
 
+    /// <summary>
+    /// 이 숙제의 진행을 직접 알려 주는 **캐릭터별 주간 미션**의 제목(공백·태그 정규화 후 정확히 일치). 예: 뱅가드 브리치 → "우리 집에 왜 왔니?"(뱅가드 브리치 3회 토벌).
+    /// 2026-10-22 실측: 주간 미션은 캐릭터마다 값이 다르다(궁수 3/3 → 화염술사 0/3). 그 캐릭터의 카운터가 진실이라
+    /// 미션이 보이면 퀘스트 목록의 변화(사라짐)보다 우선하고, 안 보이면 기존 판정(QuestVanish)이 예비로 남는다.
+    /// </summary>
+    public List<string> CounterMissionTitles { get; init; } = new();
+
     /// <summary>퀘스트가 보일 때 남은 횟수를 읽어 둔다 (목표의 Count/Goal, 없으면 이름의 N/M). 카드 칩에 이름(N)으로 보인다.</summary>
     public bool ShowRemaining { get; init; }
 
@@ -231,7 +238,7 @@ public sealed class HomeworkCatalog
             if (i.TokenAuto && string.IsNullOrWhiteSpace(i.TokenCurrency)) errors.Add($"증표 재화 없는 TokenAuto: {i.Id}");
 
             // 매칭 키는 정규화 후 일반어 단독이면 안 된다
-            foreach (var key in i.MissionTitles.Concat(i.QuestTitles).Concat(i.DaySpaceNamePrefixes.Values.SelectMany(v => v)).Concat(i.DayQuestTitles.Values.SelectMany(v => v)).Concat(i.BossNames).Concat(i.SpaceNames).Concat(i.SpaceNamePrefixes).Concat(i.ClearQuestTitles))
+            foreach (var key in i.MissionTitles.Concat(i.CounterMissionTitles).Concat(i.QuestTitles).Concat(i.DaySpaceNamePrefixes.Values.SelectMany(v => v)).Concat(i.DayQuestTitles.Values.SelectMany(v => v)).Concat(i.BossNames).Concat(i.SpaceNames).Concat(i.SpaceNamePrefixes).Concat(i.ClearQuestTitles))
             {
                 var n = HomeworkText.Normalize(key);
                 if (n.Length < 2 || GenericWords.Contains(n)) errors.Add($"일반어 단독 매칭 키: {i.Id} → \"{key}\"");
