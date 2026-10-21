@@ -37,13 +37,43 @@ public class HomeworkDungeonClearedTests : IDisposable
     }
 
     [Theory]
-    [InlineData("찬란한 유적 V")]    // 수·토 (촉매)
-    [InlineData("빛나는 동굴 V ")]   // 월·목 (황금): 실측 이름 끝에 공백이 붙는다
-    [InlineData("눈부신 저택 V")]    // 화·금 (보석): 2026-10-13 로그에서 클리어가 감지됐는데 지역 목록에 없어 놓쳤다
-    public void Cleared_InEachOfTheThreeDayDungeonMaps_Completes(string map)
+    [InlineData(5, "빛나는 동굴 V ")]    // 월 (황금): 실측 이름 끝에 공백이 붙는다
+    [InlineData(6, "눈부신 저택 V")]     // 화 (보석): 2026-10-13 로그에서 클리어가 감지됐는데 지역 목록에 없어 놓쳤다
+    [InlineData(7, "찬란한 유적 V")]     // 수 (촉매)
+    [InlineData(8, "빛나는 동굴 V ")]    // 목
+    [InlineData(9, "눈부신 저택 V")]     // 금
+    [InlineData(10, "찬란한 유적 V")]    // 토
+    [InlineData(11, "찬란한 유적 V")]    // 일: 세 지역 모두 인정
+    [InlineData(11, "빛나는 동굴 V ")]
+    [InlineData(11, "눈부신 저택 V")]
+    public void Cleared_InTodaysDayDungeonMap_Completes(int day, string map)
     {
+        _now = new DateTimeOffset(2026, 10, day, 12, 0, 0, TimeSpan.FromHours(9)).ToUniversalTime();
         var svc = NewService();
         svc.Evaluate(Main, Obs("Cleared", map));
+        Assert.Equal(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main)).Status);
+    }
+
+    [Theory]
+    [InlineData(5, "눈부신 저택 V")]     // 월에 화·금 던전
+    [InlineData(6, "찬란한 유적 V")]     // 화에 수·토 던전
+    [InlineData(6, "빛나는 동굴 V ")]    // 화에 월·목 던전
+    [InlineData(7, "눈부신 저택 V")]
+    [InlineData(10, "빛나는 동굴 V ")]
+    public void Cleared_InAnotherWeekdaysDungeon_IsNotTheDayDungeon(int day, string map)
+    {
+        _now = new DateTimeOffset(2026, 10, day, 12, 0, 0, TimeSpan.FromHours(9)).ToUniversalTime();
+        var svc = NewService();
+        svc.Evaluate(Main, Obs("Cleared", map));
+        Assert.NotEqual(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main)).Status);
+    }
+
+    [Fact]
+    public void Cleared_JustBeforeSixAm_StillCountsAsYesterdaysDungeon()
+    {
+        _now = new DateTimeOffset(2026, 10, 7, 5, 30, 0, TimeSpan.FromHours(9)).ToUniversalTime();   // 수요일 05:30 = 게임상 아직 화요일
+        var svc = NewService();
+        svc.Evaluate(Main, Obs("Cleared", "눈부신 저택 V"));
         Assert.Equal(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main)).Status);
     }
 
@@ -61,10 +91,10 @@ public class HomeworkDungeonClearedTests : IDisposable
     public void Cleared_InDayDungeonMap_CompletesImmediately_WithEvidence()
     {
         var svc = NewService();
-        svc.Evaluate(Main, Obs("InProgress", "찬란한 유적 V"));
+        svc.Evaluate(Main, Obs("InProgress", "눈부신 저택 V"));
         Assert.NotEqual(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main)).Status);
 
-        var change = svc.Evaluate(Main, Obs("Cleared", "찬란한 유적 V"));   // 퀘스트는 아직 목록에 있다
+        var change = svc.Evaluate(Main, Obs("Cleared", "눈부신 저택 V"));   // 퀘스트는 아직 목록에 있다
         Assert.NotNull(change);
         var card = Card(svc.GetBoard(Main));
         Assert.Equal(HomeworkCardStatus.AutoDone, card.Status);
@@ -75,9 +105,9 @@ public class HomeworkDungeonClearedTests : IDisposable
     public void Cleared_StaysDone_WhileQuestStillListedAfterExit_ButQuestStillVisibleLongAfter_CancelsIt()
     {
         var svc = NewService();
-        svc.Evaluate(Main, Obs("Cleared", "빛나는 동굴 III"));
+        svc.Evaluate(Main, Obs("Cleared", "눈부신 저택 III"));
         _now += TimeSpan.FromSeconds(20);
-        svc.Evaluate(Main, Obs("NotInDungeon", "빛나는 동굴 III"));   // 나갔지만 퀘스트가 아직 보인다
+        svc.Evaluate(Main, Obs("NotInDungeon", "눈부신 저택 III"));   // 나갔지만 퀘스트가 아직 보인다
         Assert.Equal(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main)).Status);
 
         _now += TimeSpan.FromMinutes(3);
@@ -101,7 +131,7 @@ public class HomeworkDungeonClearedTests : IDisposable
     public void NotCleared_IsIgnored(string? state)
     {
         var svc = NewService();
-        svc.Evaluate(Main, Obs(state, "찬란한 유적 V"));
+        svc.Evaluate(Main, Obs(state, "눈부신 저택 V"));
         Assert.NotEqual(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main)).Status);
     }
 
@@ -109,7 +139,7 @@ public class HomeworkDungeonClearedTests : IDisposable
     public void Cleared_WithoutActivityOrMap_IsIgnored()
     {
         var svc = NewService();
-        svc.Evaluate(Main, Obs("Cleared", "찬란한 유적 V", activity: false));
+        svc.Evaluate(Main, Obs("Cleared", "눈부신 저택 V", activity: false));
         svc.Evaluate(Main, Obs("Cleared", null));
         svc.Evaluate(Main, Obs("Cleared", ""));
         Assert.NotEqual(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main)).Status);
@@ -119,12 +149,12 @@ public class HomeworkDungeonClearedTests : IDisposable
     public void Cleared_RightAfterCharacterSwitch_IsIgnored()
     {
         var svc = NewService();
-        svc.Evaluate("에린_검술사", Obs("InProgress", "찬란한 유적 V"));
-        svc.Evaluate(Main, Obs("Cleared", "찬란한 유적 V"));   // 직전 관찰과 캐릭터가 다르다: 이전 캐릭터의 활동일 수 있다
+        svc.Evaluate("에린_검술사", Obs("InProgress", "눈부신 저택 V"));
+        svc.Evaluate(Main, Obs("Cleared", "눈부신 저택 V"));   // 직전 관찰과 캐릭터가 다르다: 이전 캐릭터의 활동일 수 있다
         Assert.NotEqual(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main)).Status);
 
         _now += TimeSpan.FromSeconds(3);
-        svc.Evaluate(Main, Obs("Cleared", "찬란한 유적 V"));   // 같은 캐릭터로 다시 관찰하면 인정
+        svc.Evaluate(Main, Obs("Cleared", "눈부신 저택 V"));   // 같은 캐릭터로 다시 관찰하면 인정
         Assert.Equal(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main)).Status);
     }
 
@@ -134,7 +164,7 @@ public class HomeworkDungeonClearedTests : IDisposable
         var svc = NewService();
         svc.Set(Main, Id, completed: false);   // 수동 미완료
         _now += TimeSpan.FromMinutes(5);
-        svc.Evaluate(Main, Obs("Cleared", "찬란한 유적 V"));
+        svc.Evaluate(Main, Obs("Cleared", "눈부신 저택 V"));
         var card = Card(svc.GetBoard(Main));
         Assert.Equal(HomeworkCardStatus.AutoDone, card.Status);
     }
@@ -145,7 +175,7 @@ public class HomeworkDungeonClearedTests : IDisposable
         var svc = NewService();
         svc.Set(Main, Id, completed: false);
         _now += TimeSpan.FromSeconds(5);
-        svc.Evaluate(Main, Obs("Cleared", "찬란한 유적 V"));
+        svc.Evaluate(Main, Obs("Cleared", "눈부신 저택 V"));
         Assert.NotEqual(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main)).Status);
     }
 
@@ -153,9 +183,9 @@ public class HomeworkDungeonClearedTests : IDisposable
     public void AlreadyDone_StaysUnchanged()
     {
         var svc = NewService();
-        svc.Evaluate(Main, Obs("Cleared", "찬란한 유적 V"));
+        svc.Evaluate(Main, Obs("Cleared", "눈부신 저택 V"));
         _now += TimeSpan.FromSeconds(3);
-        Assert.Null(svc.Evaluate(Main, Obs("Cleared", "찬란한 유적 V")));
+        Assert.Null(svc.Evaluate(Main, Obs("Cleared", "눈부신 저택 V")));
     }
 
     [Fact]
@@ -181,7 +211,7 @@ public class DungeonClearDetectorTests
         var d = new DungeonClearDetector();
         Assert.False(d.ShouldRead("창백한 산", _catalog));   // 평상시·사냥터: 읽지 않는다
         Assert.False(d.ShouldRead(null, _catalog));
-        Assert.True(d.ShouldRead("찬란한 유적 V", _catalog));
+        Assert.True(d.ShouldRead("눈부신 저택 V", _catalog));
         Assert.True(d.ShouldRead("빛나는 동굴 II", _catalog));
 
         Assert.False(d.Observe(Act("InProgress")));

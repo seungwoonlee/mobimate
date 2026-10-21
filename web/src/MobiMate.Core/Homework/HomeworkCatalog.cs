@@ -42,6 +42,12 @@ public sealed class HomeworkDefinition
     /// <summary>지역 이름이 이 말로 시작하면 이 콘텐츠의 지역으로 본다 (예: "찬란한 유적 V"의 로마 숫자는 단계라서 바뀐다). 정규화 후 비교.</summary>
     public List<string> SpaceNamePrefixes { get; init; } = new();
 
+    /// <summary>
+    /// 요일별 지역 이름 접두어 (키: mon~sun, 게임의 하루는 06:00에 바뀐다). ClearOnDungeonCleared에서 "오늘 입장할 수 있는" 지역만 인정한다.
+    /// 비어 있으면 SpaceNamePrefixes 전체를 쓴다. 키가 없는 요일은 인정하는 지역이 없다.
+    /// </summary>
+    public Dictionary<string, List<string>> DaySpaceNamePrefixes { get; init; } = new();
+
     /// <summary>요일별 퀘스트 이름 (키: mon~sun, 게임의 하루는 06:00에 바뀐다). QuestVanish에서 오늘 보고 있어야 할 퀘스트를 정한다.</summary>
     public Dictionary<string, List<string>> DayQuestTitles { get; init; } = new();
 
@@ -147,6 +153,8 @@ public sealed class HomeworkCatalog
                 || d.SpaceNames.Any(a => HomeworkText.Normalize(a) == n)));
     }
 
+    private static readonly HashSet<string> ValidDays = new() { "mon", "tue", "wed", "thu", "fri", "sat", "sun" };
+
     public Dictionary<string, HomeworkPoolDefinition> SharedPools { get; init; } = new();
     public List<HomeworkDefinition> Items { get; init; } = new();
 
@@ -213,10 +221,17 @@ public sealed class HomeworkCatalog
             if (i.Mode is HomeworkMode.QuestAllObjectives or HomeworkMode.QuestSuffix && i.QuestTitles.Count == 0) errors.Add($"퀘스트 제목 없음: {i.Id}");
             if (i.Mode == HomeworkMode.QuestVanish && i.QuestTitles.Count == 0 && i.DayQuestTitles.Count == 0) errors.Add($"퀘스트 제목 없음: {i.Id}");
             if (i.ClearOnDungeonCleared && i.SpaceNamePrefixes.Count == 0 && i.SpaceNames.Count == 0) errors.Add($"던전 클리어 판정에 지역 이름 없음: {i.Id}");
+            foreach (var (day, list) in i.DaySpaceNamePrefixes)
+            {
+                if (!ValidDays.Contains(day)) errors.Add($"알 수 없는 요일 키: {i.Id} → {day}");
+                if (list.Count == 0) errors.Add($"요일 지역 목록이 비어 있음: {i.Id} → {day}");
+                foreach (var p in list)
+                    if (!i.SpaceNamePrefixes.Contains(p)) errors.Add($"요일 지역이 SpaceNamePrefixes에 없음: {i.Id} → {day}/{p}");
+            }
             if (i.TokenAuto && string.IsNullOrWhiteSpace(i.TokenCurrency)) errors.Add($"증표 재화 없는 TokenAuto: {i.Id}");
 
             // 매칭 키는 정규화 후 일반어 단독이면 안 된다
-            foreach (var key in i.MissionTitles.Concat(i.QuestTitles).Concat(i.DayQuestTitles.Values.SelectMany(v => v)).Concat(i.BossNames).Concat(i.SpaceNames).Concat(i.SpaceNamePrefixes).Concat(i.ClearQuestTitles))
+            foreach (var key in i.MissionTitles.Concat(i.QuestTitles).Concat(i.DaySpaceNamePrefixes.Values.SelectMany(v => v)).Concat(i.DayQuestTitles.Values.SelectMany(v => v)).Concat(i.BossNames).Concat(i.SpaceNames).Concat(i.SpaceNamePrefixes).Concat(i.ClearQuestTitles))
             {
                 var n = HomeworkText.Normalize(key);
                 if (n.Length < 2 || GenericWords.Contains(n)) errors.Add($"일반어 단독 매칭 키: {i.Id} → \"{key}\"");
