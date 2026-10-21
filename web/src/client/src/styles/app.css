@@ -683,30 +683,26 @@ button.hw-cell:focus-visible { outline: 2px solid var(--accent); outline-offset:
 /* 가공 대기열 */
 .ov .work { padding: 2px 0; }
 
-/* 주변 */
-.ov .near-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
-.ov .near-list li { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 0 10px; align-items: center; font-size: 13.5px; }
+/* 주변: 아이콘 | 직업·칭호(세로) | Lv·전투력(세로). 칭호가 다음 줄로 넘어가 높이가 늘지 않게 직업 바로 아래에 둔다 */
+.ov .near-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.ov .near-list li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 0 8px; align-items: center; font-size: 13.5px; }
+.ov .near-list .who { display: grid; min-width: 0; line-height: 1.3; }
 .ov .near-list .pl-job { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ov .near-list .pl-sub { grid-column: 1 / -1; color: var(--text-2); padding-left: 2px; }
+.ov .near-list .pl-sub { color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ov .near-list .nums { display: grid; justify-items: end; line-height: 1.3; }
 .ov .near-list .pl-tag { min-width: 0; margin-right: 4px; }
 .ov .near-list .pl.other .pl-tag { display: none; }
 
-/* 콘텐츠 추천: 이름+상태 / 추천 난이도(상태 색, 크게) / 입장 가능 난이도(작게) */
-.ov .cut-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
-.ov .cut-list li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 3px 8px; align-items: center; --tone: var(--text-1); --tone-soft: var(--bg-3); }
-.ov .cut-list li.tone-violet { --tone: var(--violet); --tone-soft: var(--violet-soft); }
-.ov .cut-list li.tone-gold { --tone: var(--gold); --tone-soft: var(--gold-soft); }
-.ov .cut-list li.tone-warn { --tone: var(--warn); --tone-soft: var(--warn-soft); }
-.ov .cut-list li.tone-danger { --tone: var(--danger); --tone-soft: var(--danger-soft); }
-.ov .cut-list .nm { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ov .cut-list .rec { grid-column: 1 / -1; display: inline-flex; align-items: baseline; gap: 8px; justify-self: start; max-width: 100%; padding: 3px 10px; border-radius: 9px; background: var(--tone-soft); color: var(--tone); }
-.ov .cut-list .rec b { font-size: calc(17px * var(--scale)); font-weight: 700; line-height: 1.25; }
-.ov .cut-list .rec-l { font-size: 12px; font-weight: 600; }
-.ov .cut-list .rec.locked { align-items: center; font-weight: 700; }
-.ov .cut-list .tier { grid-column: 1 / -1; color: var(--text-2); padding-left: 2px; }
-.ov .cut-list .tier b { color: var(--text-1); }
-
-/* 퀵 액션: 한 상자 안에 세로로 */
-.ov .qa { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
-.ov .qa button { min-height: 44px; padding: 8px 12px; }
+/* 일반 던전 추천(영혼석): 가장 적은 던전이 "추천"으로 맨 위, 눈에 띄게 */
+.ov .dg-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.ov .dg-list li { display: grid; grid-template-columns: 3.2em minmax(0, 1fr) auto; gap: 0 8px; align-items: baseline; padding: 4px 8px; border-radius: 9px; }
+.ov .dg-list .no { font-size: 12px; font-weight: 600; color: var(--text-2); }
+.ov .dg-list .nm { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ov .dg-list .cnt { font-weight: 600; }
+.ov .dg-list .sub { grid-column: 2 / -1; color: var(--text-2); }
+.ov .dg-list li.pick { background: var(--accent-soft); color: var(--accent); }
+.ov .dg-list li.pick .no { color: var(--accent); font-weight: 700; }
+.ov .dg-list li.pick .nm { font-size: calc(17px * var(--scale)); font-weight: 700; }
+.ov .dg-list li.pick .cnt { font-size: calc(15px * var(--scale)); font-weight: 700; }
+.ov .dg-list li.pick .sub { color: var(--text-1); }
 
