@@ -339,13 +339,14 @@ public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManag
         if (!r.Ok) return new CliData<object>(null, r.Failure, r.FetchedAt);
         var my = state.Character?.CombatScore?.Value ?? 0;
         var ranked = NearbyRanker.Rank(r.Value, my);
+        if (autoWatch.InInstance()) autoWatch.Observe(DateTimeOffset.UtcNow, true, r.Value);   // 화면이 읽은 값도 평소 주기에 보탠다(추가 호출 없음)
         var suspects = autoWatch.Suspects();
-        var idle = suspects.Where(x => x.Reason == AutoSuspicionReason.Idle).ToDictionary(x => x.Key);
+        var present = suspects.Where(x => x.Reason != AutoSuspicionReason.Missing).ToDictionary(x => x.Key);
         return new CliData<object>(new
         {
             count = ranked.Count,
             myCombatScore = my,
-            // 오토 의심 표식: 던전·레이드 안에서 혼자 오래 전투하지 않는 사람(idle) / 함께 보이다가 오래 안 보이는 사람(missing, 목록에 없어 따로 준다).
+            // 오토 의심 표식: 상황 파악을 못 하는 듯한 사람 — 누워 있음(lying)·혼자 전투 안 함(idle)·혼자 연주(playing)·혼자 멀리(far) / 함께 보이다가 사라진 사람(missing, 목록에 없어 따로 준다).
             // seconds = 조건이 이어진 초 카운터, intensity = 짙기 0..1 (기준을 넘으면 켜지고 점점 짙어진다. 풀리면 목록에서 바로 빠진다)
             missing = suspects.Where(x => x.Reason == AutoSuspicionReason.Missing).Select(x => new
             {
@@ -353,7 +354,7 @@ public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManag
             }),
             players = ranked.Select(e => new
             {
-                autoSuspect = idle.TryGetValue(WatchedPlayer.KeyOf(e.Pc), out var sus) ? new { reason = "idle", seconds = (int)sus.For.TotalSeconds, intensity = Math.Round(sus.Intensity, 2) } : null,
+                autoSuspect = present.TryGetValue(WatchedPlayer.KeyOf(e.Pc), out var sus) ? new { reason = sus.Reason.ToString().ToLowerInvariant(), seconds = (int)sus.For.TotalSeconds, intensity = Math.Round(sus.Intensity, 2) } : null,
                 title = e.Pc.Title, realm = e.Pc.RealmName, job = e.Pc.JobName, level = e.Pc.Level, combatScore = e.Pc.CombatScore,
                 distance = Math.Round(e.Pc.Distance, 1), inCombat = e.Pc.IsInCombat, relation = e.Relation, relationLabel = e.RelationLabel,
                 isStronger = e.IsStronger,

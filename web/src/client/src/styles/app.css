@@ -686,7 +686,7 @@ button.hw-cell:focus-visible { outline: 2px solid var(--accent); outline-offset:
 /* 주변: 아이콘 | 직업·칭호(세로) | Lv·전투력(세로). 칭호가 다음 줄로 넘어가 높이가 늘지 않게 직업 바로 아래에 둔다 */
 .ov .near-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
 .ov .near-list li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 0 8px; align-items: center; font-size: 13.5px; }
-.ov .near-list .who { display: grid; align-content: center; min-width: 0; line-height: 1.25; }   /* 아이콘 높이에 맞춰 두 줄이 벌어지지 않게 가운데로 붙인다 */
+.ov .near-list .pl-who { display: grid; align-content: center; min-width: 0; line-height: 1.25; }   /* 아이콘 높이에 맞춰 두 줄이 벌어지지 않게 가운데로 붙인다 */
 .ov .near-list .pl-job { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ov .near-list .pl-sub { color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ov .near-list .nums { display: grid; align-content: center; justify-items: end; line-height: 1.25; }
@@ -736,7 +736,7 @@ button.hw-cell:focus-visible { outline: 2px solid var(--accent); outline-offset:
 .auto-dots { letter-spacing: -1px; font-size: 9px; vertical-align: 1px; }
 .auto-badge { display: inline-block; margin-left: 6px; padding: 0 6px; border-radius: 6px; background: var(--danger-soft); color: color-mix(in srgb, var(--danger) 72%, var(--text-1)); font-size: 11px; font-weight: 700; line-height: 1.5; white-space: nowrap; vertical-align: 1px; }
 .pl-missing { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 0 8px; }
-.pl-missing .who { display: grid; align-content: center; min-width: 0; line-height: 1.25; }
+.pl-missing .pl-who { display: grid; align-content: center; min-width: 0; line-height: 1.25; }
 .pl-missing .pl-sub { color: var(--text-2); }
 .ov .near-missing { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 6px; font-size: 13px; }
 .ov .near-missing li { padding: 3px 8px; }

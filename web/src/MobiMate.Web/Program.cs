@@ -106,6 +106,7 @@ builder.Services.AddHostedService<StartupTasks>();
 builder.Services.AddHostedService<ExternalChangeMonitor>();
 builder.Services.AddHostedService<CharacterRecorder>();
 builder.Services.AddHostedService<CharacterWatcher>();
+builder.Services.AddHostedService<AutoWatcher>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<LanService>());
 builder.Services.AddHostedService<InstancePipeListener>();
 builder.Services.AddHostedService<TrayHost>();
