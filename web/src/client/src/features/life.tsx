@@ -70,7 +70,7 @@ export function gatherCategory(name: string): string {
 export function LifeView() {
   const q = useLife();
   if (q.isPending) return <Skeleton lines={6} />;
-  if (q.isError) return <ErrorCard error={q.error} onRetry={() => q.refetch()} />;
+  if (q.isError && !q.data) return <ErrorCard error={q.error} onRetry={() => q.refetch()} />;
   const { works, gatherables } = q.data.data;
   return (
     <>

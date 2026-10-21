@@ -28,7 +28,7 @@ export function StatsView() {
           <Tile label="매력" value={h.scores.attract} kind="attract" />
           <Tile label="데코 점수" value={c?.DecorScore?.Value} />
         </div>
-      ) : header.isError ? <ErrorCard error={header.error} onRetry={() => header.refetch()} /> : <Skeleton lines={2} />}
+      ) : header.isError && !header.data ? <ErrorCard error={header.error} onRetry={() => header.refetch()} /> : <Skeleton lines={2} />}
 
       <RankPanel />
 
@@ -37,7 +37,7 @@ export function StatsView() {
           <h2 id="cut-h">콘텐츠 추천</h2>
           {cut.data && <span className="sub">{cut.data.data.stale ? '마지막으로 받은 값 기준 · ' : ''}<Fresh at={cut.dataUpdatedAt} /></span>}
         </div>
-        {cut.isPending ? <Skeleton /> : cut.isError ? <ErrorCard error={cut.error} onRetry={() => cut.refetch()} /> : (
+        {cut.isPending ? <Skeleton /> : cut.isError && !cut.data ? <ErrorCard error={cut.error} onRetry={() => cut.refetch()} /> : (
           <div className="two">{cut.data.data.contents.map(x => <CutoffCard key={x.id} c={x} />)}</div>
         )}
       </section>
