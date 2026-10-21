@@ -212,6 +212,7 @@ public static class GameCliExtensions
     {
         var r = await cli.RunAsync(new CliCommand(command, Body: body, Timeout: timeout), ct);
         if (!r.Ok) return (false, default, r.Error);
+        if (CliEnvelope.TryReadError(r.Stdout, out var cliError)) return (false, default, cliError);
         try
         {
             return (true, GameCli.ParseJson<T>(r.Stdout), null);

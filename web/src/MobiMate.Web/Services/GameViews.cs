@@ -218,7 +218,7 @@ public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManag
                 living = ScoreReading.OrLast(ch.LivingScore?.Value, lastRec?.LivingScore), attract = ScoreReading.OrLast(ch.AttractivenessScore?.Value, lastRec?.AttractivenessScore),
             },
             inProgress = InProgressOf(homework.Catalog, env),
-            activity = new { text = GameStateCache.DescribeActivity(act), inCombat = act?.IsInCombat ?? false, canStop = act?.CanStopCurrentAction ?? false },
+            activity = new { text = GameStateCache.DescribeActivity(act), inCombat = act?.IsInCombat ?? false, canStop = act?.CanStop() ?? false },
             location = new
             {
                 channel = env?.ChannelName, space = env?.GameSpaceDisplayName, weather = env?.Weather,

@@ -69,8 +69,47 @@ public record ActivityInfo(
     [property: JsonPropertyName("CanStopCurrentAction")] bool CanStopCurrentAction,
     [property: JsonPropertyName("IsDead")] bool IsDead = false,
     [property: JsonPropertyName("AutoPlayTargetDisplayName")] string? AutoPlayTargetDisplayName = null,
-    [property: JsonPropertyName("Dungeon")] DungeonState? Dungeon = null
-);
+    [property: JsonPropertyName("Dungeon")] DungeonState? Dungeon = null,
+    [property: JsonPropertyName("IsReviving")] bool IsReviving = false,
+    [property: JsonPropertyName("Mode")] ActivityMode? Mode = null,
+    [property: JsonPropertyName("Performance")] ActivityPerformance? Performance = null,
+    [property: JsonPropertyName("Interaction")] ActivityInteraction? Interaction = null
+)
+{
+    // 2026-10-22 점검: 게임 업데이트(10-15) 뒤 get_activity에서 IsGathering·IsAltering·IsCrafting·IsPlayingInstrument·IsSitting·IsOverweight·
+    // CurrentAction·CanStopCurrentAction이 없어지고 Mode·Performance·Interaction 묶음이 생겼다. 옛 필드는 항상 기본값이 되므로 새 필드로도 읽는다.
+
+    /// <summary>지금 정지 버튼이 보이는가(stop_action이 받아들여지는 상태): 연주·의자 앉기·자동 사냥·운반·채집.</summary>
+    public bool CanStop() => CanStopCurrentAction || string.Equals(Mode?.MainButtonState, "Stop", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>악기를 연주 중인가.</summary>
+    public bool IsPlayingMusic() => IsPlayingInstrument || Performance?.IsPlaying == true;
+
+    /// <summary>의자에 앉아 있는가. /앉기로 앉은 것은 게임이 알려 주지 않는다(stand_up 설명).</summary>
+    public bool IsSittingOnChair() => IsSitting || string.Equals(Mode?.SitState, "Sitting", StringComparison.OrdinalIgnoreCase);
+}
+
+/// <summary>get_activity.Mode: 메인 버튼 상태(Hide·Stop·Combat·Interaction·Compass·…)·탈것·앉기·미니게임·하우징 편집.</summary>
+public record ActivityMode(
+    [property: JsonPropertyName("MainButtonState")] string? MainButtonState = null,
+    [property: JsonPropertyName("MountPartState")] string? MountPartState = null,
+    [property: JsonPropertyName("SitState")] string? SitState = null,
+    [property: JsonPropertyName("IsPlayingMiniGame")] bool IsPlayingMiniGame = false,
+    [property: JsonPropertyName("IsHousingEditMode")] bool IsHousingEditMode = false);
+
+/// <summary>get_activity.Performance: 내 악기 연주 상태.</summary>
+public record ActivityPerformance(
+    [property: JsonPropertyName("IsPlaying")] bool IsPlaying = false,
+    [property: JsonPropertyName("InstrumentName")] string? InstrumentName = null,
+    [property: JsonPropertyName("MusicTitle")] string? MusicTitle = null);
+
+/// <summary>get_activity.Interaction: 지금 상호작용할 수 있는 것(채집·대화·던전 입구 …).</summary>
+public record ActivityInteraction(
+    [property: JsonPropertyName("HasTarget")] bool HasTarget = false,
+    [property: JsonPropertyName("IsTargetAttackable")] bool IsTargetAttackable = false,
+    [property: JsonPropertyName("AvailableInteractionType")] string? AvailableInteractionType = null,
+    [property: JsonPropertyName("LastRunningInteractionType")] string? LastRunningInteractionType = null,
+    [property: JsonPropertyName("TargetKind")] string? TargetKind = null);
 
 /// <summary>
 /// get_activity의 던전 상태 (실측 2026-10-12, 페카 고분 심층). State = NotInDungeon | Entering | InProgress | Cleared.
