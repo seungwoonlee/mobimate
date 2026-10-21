@@ -36,7 +36,7 @@
       "questTitles": ["[주간 목표] 모험가 길드의 정기 의뢰"] },
     { "id": "weekly_vanguard_breach", "category": "weekly", "period": "weekly", "share": "character", "mode": "questVanish", "autoCheck": true, "cardLabel": "뱅가드",
       "title": "뱅가드 브리치", "subtitle": "콘텐츠 가이드 주간 뱅가드 브리치 (주 3회, 퀘스트가 사라지면 완료)", "icon": "breach", "goal": 1,
-      "questTitles": ["[긴급 의뢰] 뱅가드 브리치"], "continuous": true, "showRemaining": true },
+      "questTitles": ["[긴급 의뢰] 뱅가드 브리치"], "counterMissionTitles": ["우리 집에 왜 왔니?"], "continuous": true, "showRemaining": true },
 
     { "id": "fieldboss_peri", "category": "fieldBoss", "period": "weekly", "share": "character", "mode": "manual", "pool": "field_boss_weekly",
       "title": "페리", "subtitle": "창백한 산 필드 보스 (주간 1회 택1)", "icon": "field-boss", "goal": 1, "bossNames": ["페리"] },
@@ -91,7 +91,7 @@
     { "id": "daily_missions_all", "category": "account", "period": "daily", "share": "account", "mode": "missionTotal",
       "title": "일일 미션 완수", "subtitle": "오늘의 일일 미션 전부 달성", "icon": "missions", "goal": 11,
       "note": "get_daily_missions 전체 완료 개수로 판정 (API_SPEC_SAMPLES.md §4 실측 11개)" },
-    { "id": "weekly_missions_all", "category": "account", "period": "weekly", "share": "account", "mode": "missionTotal",
+    { "id": "weekly_missions_all", "category": "account", "period": "weekly", "share": "character", "mode": "missionTotal",
       "title": "주간 미션 완수", "subtitle": "주간 미션 전부 달성", "icon": "missions", "goal": 15,
       "note": "미션 제목과 무관하게 get_weekly_missions 전체 완료 개수로 판정한다. 목록 존재(15개)는 API_SPEC_SAMPLES.md §4 실측. 카드 목표 수는 실제 목록 크기를 쓴다" },
 

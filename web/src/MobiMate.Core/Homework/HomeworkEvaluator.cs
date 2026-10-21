@@ -63,6 +63,9 @@ public static partial class HomeworkEvaluator
             var ledger = def.Share == HomeworkShare.Account ? account : character;
             var existing = ledger.Items.GetValueOrDefault(def.Id);
 
+            // 이 캐릭터의 주간 미션 카운터(뱅가드 등): 보이면 퀘스트 목록보다 확실한 근거다. 캐릭터를 바꾼 직후 목록은 이전 캐릭터 것일 수 있어 쓰지 않는다.
+            var counterMission = !characterJustSwitched && def.CounterMissionTitles.Count > 0 ? FindCounterMission(def, obs) : null;
+
             // 던전 클리어 상태(게임이 직접 알려 줌)가 같은 관찰의 현재 맵과 맞으면 확정 근거다 (요일 던전, 2026-10-12 실측).
             // 캐릭터를 바꾼 직후 관찰은 쓰지 않는다. Cleared는 처치 순간부터 약 17초만 유지된다.
             var clearedHere = !characterJustSwitched && def.ClearOnDungeonCleared && DungeonClearedHere(def, obs, nowUtc);
@@ -70,7 +73,7 @@ public static partial class HomeworkEvaluator
             // 퀘스트가 트래커에 다시 보이면 그 주기에 아직 끝내지 않은 것이 확실하다: 자동 완료는 물론 수동 완료도 취소한다
             // (확실한 증거는 수동 설정보다 우선한다. 사라져서 완료로 본 판정이 틀렸거나, 수동 체크가 잘못된 것이다)
             // 단, 던전 클리어 상태로 방금 완료한 것은 제외한다: 클리어 직후에는 나갈 때까지 퀘스트가 아직 목록에 남아 있다.
-            if (def.EffectiveMode == HomeworkMode.QuestVanish && questsUsable
+            if (def.EffectiveMode == HomeworkMode.QuestVanish && questsUsable && counterMission == null
                 && existing is { Completed: true }
                 && !clearedHere && !RecentlyClearedByGame(existing, nowUtc)
                 && QuestVisible(def, obs, now: nowUtc))
@@ -78,6 +81,27 @@ public static partial class HomeworkEvaluator
                 ledger.Items.Remove(def.Id);
                 changed.Add(def.Id);
                 existing = null;
+            }
+
+            if (counterMission != null)
+            {
+                var done = IsMissionDone(counterMission);
+                // 카운터가 미완료면 자동으로 완료했던 것(퀘스트 사라짐 등 약한 근거)은 취소한다. 수동 완료는 존중한다.
+                if (!done && existing is { Completed: true, ManualOverride: false })
+                {
+                    ledger.Items.Remove(def.Id);
+                    changed.Add(def.Id);
+                    existing = null;
+                }
+                // 카운터가 완료면 수동 미완료도 이긴다(확실한 근거)
+                else if (done && existing is { ManualOverride: true, Completed: false } manualCounter)
+                {
+                    manualCounter.ManualOverride = false;
+                    manualCounter.ManualAtUtc = null;
+                    EvaluateMissionCounter(def, manualCounter, character, counterMission, nowUtc);
+                    changed.Add(def.Id);
+                    continue;
+                }
             }
 
             // 던전 클리어: 확정 근거라 수동 미완료도 이긴다 — 단, 수동 설정 뒤에 생긴 클리어일 때만.
@@ -134,6 +158,9 @@ public static partial class HomeworkEvaluator
                 case HomeworkMode.AlteringCollected when alteringCollected != null:
                     Complete(st, def.Goal, alteringCollected, nowUtc);
                     break;
+                case HomeworkMode.QuestVanish when counterMission != null:
+                    EvaluateMissionCounter(def, st, character, counterMission, nowUtc);
+                    break;
                 case HomeworkMode.QuestVanish when questsUsable:
                     EvaluateQuestVanish(def, st, character, obs, nowUtc);
                     break;
@@ -172,6 +199,38 @@ public static partial class HomeworkEvaluator
         st.Count = Math.Clamp(m.CurrentCount, 0, goal);
         var done = m.IsCompleted || (m.GoalCount > 0 && m.CurrentCount >= m.GoalCount);
         if (done) Complete(st, goal, $"{PeriodName(def)} 미션 '{m.Title}' {Math.Min(Math.Max(m.CurrentCount, m.IsCompleted ? goal : 0), goal)}/{goal}", now);
+    }
+
+    private static MissionItem? FindCounterMission(HomeworkDefinition def, HomeworkObservation obs)
+    {
+        var titles = def.CounterMissionTitles.Select(HomeworkText.Normalize).ToHashSet();
+        return MissionsFor(def, obs)?.FirstOrDefault(x => titles.Contains(HomeworkText.Normalize(x.Title)));
+    }
+
+    private static bool IsMissionDone(MissionItem m) => m.IsCompleted || (m.GoalCount > 0 && m.CurrentCount >= m.GoalCount);
+
+    /// <summary>
+    /// 캐릭터별 주간 미션 카운터로 판정한다(뱅가드 브리치 3회 토벌 N/3): 카운터가 목표에 닿으면 완료, 아니면 남은 횟수(목표 − 카운터)를 알려 준다.
+    /// 미완료여도 이번 주기에 직접 확인했으므로 "확인된 미완료"로 보이게 목격 기록을 남긴다.
+    /// </summary>
+    private static void EvaluateMissionCounter(HomeworkDefinition def, HomeworkItemState st, HomeworkLedger character, MissionItem m, DateTimeOffset now)
+    {
+        var goal = m.GoalCount > 0 ? m.GoalCount : Math.Max(def.Goal, 1);
+        var count = Math.Clamp(m.CurrentCount, 0, goal);
+        var sightings = character.QuestSightings ??= new Dictionary<string, DateTimeOffset>(StringComparer.OrdinalIgnoreCase);
+        if (!sightings.TryGetValue(def.Id, out var at) || at < KstClock.LastReset(def.Period, now)) sightings[def.Id] = now;
+        character.QuestVanishPending?.Remove(def.Id);
+        character.QuestContinuityBroken?.Remove(def.Id);
+        st.Goal = goal;
+        st.Count = count;
+        if (IsMissionDone(m))
+        {
+            st.RemainingCount = null;
+            Complete(st, goal, $"{PeriodName(def)} 미션 '{HomeworkText.StripTags(m.Title)}' {goal}/{goal} ({HomeworkText.StripTags(m.Description)})", now);
+            return;
+        }
+        st.RemainingCount = goal - count;
+        st.Evidence = $"{PeriodName(def)} 미션 '{HomeworkText.StripTags(m.Title)}' {count}/{goal}: 남은 {goal - count}회";
     }
 
     private static void EvaluateMissionTotal(HomeworkDefinition def, HomeworkItemState st, HomeworkObservation obs, DateTimeOffset now)
