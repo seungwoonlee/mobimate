@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, type ReactNode } from 'react';
+import { ApiError } from '../api/http';
 import { ICONS } from './icons';
 import { fmt } from '../lib/format';
 import { useOffline, useUi } from '../state/ui';
@@ -107,7 +108,21 @@ export function Skeleton({ lines = 3 }: { lines?: number }) {
   );
 }
 
+/**
+ * 게임 CLI의 일시적인 실패(연결 끊김·시작·캐릭터 선택·로딩 중 응답 지연 등)인가. 이런 실패는 화면에 오류로 보여 줄 필요가 없다(2026-10-22 승운 요청):
+ * 곧 저절로 풀리고 사용자가 할 수 있는 일도 없다. CLI를 찾지 못함(CLI_MISSING)처럼 사용자가 고쳐야 하는 오류는 그대로 보인다.
+ */
+export const isTransientCliError = (e: unknown): boolean => e instanceof ApiError && (e.code === 'CLI_TIMEOUT' || e.code === 'CLI_FAILED' || e.code === 'PARSE_ERROR');
+
 export function ErrorCard({ error, onRetry }: { error: unknown; onRetry?: () => void }) {
+  const quiet = isTransientCliError(error);
+  // 일시적인 CLI 실패: 빨간 오류 대신 불러오는 모양을 두고 몇 초 뒤 알아서 다시 시도한다
+  useEffect(() => {
+    if (!quiet || !onRetry) return;
+    const t = window.setTimeout(onRetry, 3000);
+    return () => window.clearTimeout(t);
+  }, [quiet, onRetry, error]);
+  if (quiet) return <Skeleton />;
   const msg = error instanceof Error ? error.message : '데이터를 불러오지 못했습니다.';
   return (
     <div className="card err" role="alert">

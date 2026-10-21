@@ -42,9 +42,11 @@ public static class CliLanes
     public static TimeSpan DefaultTimeout(string command) => command switch
     {
         "execute_gathering" => TimeSpan.FromMinutes(10),   // 게임이 9분에 스스로 멈추고 응답한다
-        "get_items" => TimeSpan.FromSeconds(5),
-        "complete_altering_work" => TimeSpan.FromSeconds(6),
-        _ => TimeSpan.FromSeconds(4)
+        // 게임과 연결이 끊겨 있으면(시작·캐릭터 선택·로딩·재시작) CLI가 5초를 기다린 뒤 {"pipe":"disconnected"}로 응답한다(2026-10-22 실측 5.03초).
+        // 그보다 짧게 두면 그 순간마다 타임아웃으로 죽여 "CLI 응답 시간 초과"가 되고 실제 이유(연결 끊김)를 읽지 못한다.
+        "get_items" => TimeSpan.FromSeconds(10),
+        "complete_altering_work" => TimeSpan.FromSeconds(12),
+        _ => TimeSpan.FromSeconds(8)
     };
 }
 

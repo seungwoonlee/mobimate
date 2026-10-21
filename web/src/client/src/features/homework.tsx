@@ -62,7 +62,7 @@ export function HomeworkView() {
           <span><Icon name="clock" size={13} /> 주간 리셋 {until(hw.data.data.nextWeeklyResetUtc, now)}</span>
         </p>
       )}
-      {q.isPending ? <Skeleton lines={6} /> : q.isError ? <ErrorCard error={q.error} onRetry={() => q.refetch()} /> : total === 0 ? (
+      {q.isPending ? <Skeleton lines={6} /> : q.isError && !q.data ? <ErrorCard error={q.error} onRetry={() => q.refetch()} /> : total === 0 ? (
         <div className="card muted">아직 확인한 캐릭터가 없습니다. 게임에 접속하면 여기에 모입니다.</div>
       ) : (
         <>

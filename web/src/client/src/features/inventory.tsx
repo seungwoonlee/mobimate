@@ -38,7 +38,7 @@ export function InventoryView() {
   }, [q.data, loc, search]);
 
   if (q.isPending) return <Skeleton lines={6} />;
-  if (q.isError) return <ErrorCard error={q.error} onRetry={() => q.refetch()} />;
+  if (q.isError && !q.data) return <ErrorCard error={q.error} onRetry={() => q.refetch()} />;
   const w = q.data.data.weight;
 
   return (
@@ -110,7 +110,7 @@ const GROUP_ORDER = ['활동력', '토큰', '성장·갱신', '기타'];
 export function CurrenciesView() {
   const q = useCurrencies();
   if (q.isPending) return <Skeleton lines={4} />;
-  if (q.isError) return <ErrorCard error={q.error} onRetry={() => q.refetch()} />;
+  if (q.isError && !q.data) return <ErrorCard error={q.error} onRetry={() => q.refetch()} />;
   const { items, session } = q.data.data;
   const deltaOf: Record<string, number> = { '골드': session.gold, '정령의 날개': session.wings, '냥 토큰': session.nyang };
   const top = CURRENCY_PRIORITY.map(n => items.find(c => c.DisplayName === n || (n === 'M캐시' && c.DisplayName === 'M캐쉬'))).filter((c): c is Currency => !!c);
@@ -164,7 +164,7 @@ export function NearbyView() {
   const q = useNearby();
   const [guildOnly, setGuildOnly] = useState(false);
   if (q.isPending) return <Skeleton lines={5} />;
-  if (q.isError) return <ErrorCard error={q.error} onRetry={() => q.refetch()} />;
+  if (q.isError && !q.data) return <ErrorCard error={q.error} onRetry={() => q.refetch()} />;
   const d = q.data.data;
   const rows = d.players.filter(p => !guildOnly || p.relation === 'guild');
   return (

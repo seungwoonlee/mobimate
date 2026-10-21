@@ -27,6 +27,23 @@ public class CliEnvelopeTests
     [InlineData("{ 깨진")]
     public void NormalValues_AreNotErrors(string stdout) => Assert.False(CliEnvelope.TryReadError(stdout, out _));
 
+    [Theory]
+    [InlineData("""{"pipe":"connected"}""", true)]
+    [InlineData("""{"pipe":"disconnected","reason":"game_off","message":"m"}""", false)]
+    [InlineData("""{"Title":"x"}""", null)]
+    [InlineData("[]", null)]
+    [InlineData("", null)]
+    [InlineData("not json", null)]
+    public void PipeConnected_ReadsTheStatusBody(string stdout, bool? expected) => Assert.Equal(expected, CliEnvelope.PipeConnected(stdout));
+
+    [Fact]
+    public void QueryTimeouts_AreLongerThanTheFiveSecondsTheCliWaitsWhenTheGameIsDisconnected()
+    {
+        // 2026-10-22 실측: 게임과 연결이 끊긴 CLI는 5.03초 뒤에 응답한다. 조회 타임아웃이 이보다 짧으면 그때마다 "응답 시간 초과"가 된다.
+        foreach (var cmd in new[] { "get_my_info", "get_activity", "get_near_pcs", "get_quests", "get_currencies", "get_daily_missions", "get_items", "status" })
+            Assert.True(CliLanes.DefaultTimeout(cmd) > TimeSpan.FromSeconds(6), cmd);
+    }
+
     [Fact]
     public async Task RunJson_TurnsAnErrorBodyIntoAFailure_InsteadOfEmptyData()
     {

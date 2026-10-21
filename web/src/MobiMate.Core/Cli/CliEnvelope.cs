@@ -10,6 +10,22 @@ namespace MobiMate;
 /// </summary>
 public static class CliEnvelope
 {
+    /// <summary>
+    /// 응답이 파이프(게임과의 연결) 상태를 말하는가: `{"pipe":"connected"}` → true, `{"pipe":"disconnected",…}` → false, 그 밖(값·JSON 아님) → null.
+    /// `status`는 연결이 끊겨도 프로세스는 정상 종료하므로 "응답이 왔다"만으로 연결됨으로 보면 안 된다.
+    /// </summary>
+    public static bool? PipeConnected(string? stdout)
+    {
+        if (string.IsNullOrWhiteSpace(stdout) || stdout.AsSpan().TrimStart() is not [{ } c, ..] || c != '{') return null;
+        try
+        {
+            using var doc = JsonDocument.Parse(stdout);
+            if (doc.RootElement.ValueKind != JsonValueKind.Object || !doc.RootElement.TryGetProperty("pipe", out var p) || p.ValueKind != JsonValueKind.String) return null;
+            return string.Equals(p.GetString(), "connected", StringComparison.OrdinalIgnoreCase);
+        }
+        catch (JsonException) { return null; }
+    }
+
     /// <summary>오류 응답이면 사람이 읽을 메시지를 돌려준다. 정상 값이거나 JSON이 아니면 false.</summary>
     public static bool TryReadError(string? stdout, out string message)
     {

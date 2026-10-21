@@ -30,7 +30,7 @@ export function OverviewView() {
   const [glanceOff, setGlanceOff] = useState(false);
 
   if (q.isPending) return <><Skeleton /><Skeleton /></>;
-  if (q.isError) return <ErrorCard error={q.error} onRetry={() => q.refetch()} />;
+  if (q.isError && !q.data) return <ErrorCard error={q.error} onRetry={() => q.refetch()} />;
   const d = q.data.data;
 
   if ((layout.narrow && glancePref && !glanceOff) || layout.posture === 'tabletop') {

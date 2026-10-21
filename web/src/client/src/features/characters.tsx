@@ -86,7 +86,7 @@ export function CharactersView() {
   const [editing, setEditing] = useState(false);
   const toast = useUi(s => s.toast);
   if (q.isPending) return <><Skeleton /><Skeleton /></>;
-  if (q.isError) return <ErrorCard error={q.error} onRetry={() => q.refetch()} />;
+  if (q.isError && !q.data) return <ErrorCard error={q.error} onRetry={() => q.refetch()} />;
   const data = q.data.data;
   const total = data.accounts.reduce((n, a) => n + a.members.length, 0);
   const ordered = sortAccounts(data.accounts, sort);
