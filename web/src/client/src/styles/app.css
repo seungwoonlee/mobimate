@@ -686,37 +686,57 @@ button.hw-cell:focus-visible { outline: 2px solid var(--accent); outline-offset:
 /* 주변: 아이콘 | 직업·칭호(세로) | Lv·전투력(세로). 칭호가 다음 줄로 넘어가 높이가 늘지 않게 직업 바로 아래에 둔다 */
 .ov .near-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
 .ov .near-list li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 0 8px; align-items: center; font-size: 13.5px; }
-.ov .near-list .who { display: grid; min-width: 0; line-height: 1.3; }
+.ov .near-list .who { display: grid; align-content: center; min-width: 0; line-height: 1.25; }   /* 아이콘 높이에 맞춰 두 줄이 벌어지지 않게 가운데로 붙인다 */
 .ov .near-list .pl-job { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ov .near-list .pl-sub { color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ov .near-list .nums { display: grid; justify-items: end; line-height: 1.3; }
+.ov .near-list .nums { display: grid; align-content: center; justify-items: end; line-height: 1.25; }
 .ov .near-list .pl-tag { min-width: 0; margin-right: 4px; }
 .ov .near-list .pl.other .pl-tag { display: none; }
 
 /* 콘텐츠 추천: 이름+상태 / 추천 난이도(상태 색, 크게) / 입장 가능 난이도(작게) */
 .ov .cut-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
-.ov .cut-list li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 3px 8px; align-items: center; --tone: var(--text-1); --tone-soft: var(--bg-3); }
+.ov .cut-list li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 3px 6px; align-items: center; --tone: var(--text-1); --tone-soft: var(--bg-3); }
 .ov .cut-list li.tone-violet { --tone: var(--violet); --tone-soft: var(--violet-soft); }
 .ov .cut-list li.tone-gold { --tone: var(--gold); --tone-soft: var(--gold-soft); }
 .ov .cut-list li.tone-warn { --tone: var(--warn); --tone-soft: var(--warn-soft); }
 .ov .cut-list li.tone-danger { --tone: var(--danger); --tone-soft: var(--danger-soft); }
 .ov .cut-list .nm { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ov .cut-list .rec { grid-column: 1 / -1; display: inline-flex; align-items: baseline; gap: 8px; justify-self: start; max-width: 100%; padding: 3px 10px; border-radius: 9px; background: var(--tone-soft); color: var(--tone); }
-.ov .cut-list .rec b { font-size: calc(17px * var(--scale)); font-weight: 700; line-height: 1.25; }
+.ov .cut-list .rec { grid-column: 1; display: inline-flex; align-items: baseline; gap: 6px; justify-self: start; min-width: 0; max-width: 100%; padding: 3px 9px; border-radius: 9px; background: var(--tone-soft); color: var(--tone); white-space: nowrap; }
+.ov .cut-list .rec b { font-size: calc(15.5px * var(--scale)); font-weight: 700; line-height: 1.25; overflow: hidden; text-overflow: ellipsis; }
 .ov .cut-list .rec-l { font-size: 12px; font-weight: 600; }
-.ov .cut-list .rec.locked { align-items: center; font-weight: 700; }
-.ov .cut-list .tier { grid-column: 1 / -1; color: var(--text-2); padding-left: 2px; }
+.ov .cut-list .rec.locked { grid-column: 1 / -1; align-items: center; font-weight: 700; }
+.ov .cut-list .tier { grid-column: 2; justify-self: end; color: var(--text-2); font-size: 12px; white-space: nowrap; }
 .ov .cut-list .tier b { color: var(--text-1); }
 
 /* 일반 던전 추천(영혼석): 한 줄 "던전  영혼석 N개". 가장 적은 던전이 "추천"으로 맨 위, 눈에 띄게 */
 .ov .dg-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
-.ov .dg-list li { display: grid; grid-template-columns: 3em auto minmax(0, 1fr); gap: 0 8px; align-items: baseline; padding: 4px 8px; border-radius: 9px; }
+.ov .dg-list li { display: grid; grid-template-columns: 2.2em auto minmax(0, 1fr); gap: 0 6px; align-items: baseline; padding: 4px 6px; border-radius: 9px; }
 .ov .dg-list .no { font-size: 12px; font-weight: 600; color: var(--text-2); }
-.ov .dg-list .nm { font-weight: 600; white-space: nowrap; }
-.ov .dg-list .st { text-align: right; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ov .dg-list .nm { font-weight: 600; white-space: nowrap; font-size: 13.5px; }
+.ov .dg-list .st { text-align: right; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 12px; }
 .ov .dg-list .st b { color: var(--text-1); font-weight: 700; }
 .ov .dg-list li.pick { background: var(--accent-soft); color: var(--accent); }
 .ov .dg-list li.pick .no { color: var(--accent); font-weight: 700; }
-.ov .dg-list li.pick .nm { font-size: calc(16px * var(--scale)); font-weight: 700; }
+.ov .dg-list li.pick .nm { font-size: calc(15px * var(--scale)); font-weight: 700; }
 .ov .dg-list li.pick .st, .ov .dg-list li.pick .st b { color: var(--text-1); }
 
+
+
+/* 오토 의심(2026-10-22): 던전·레이드 안에서 혼자 오래 전투하지 않거나 오래 안 보이는 사람 — 테두리를 두르고 깜빡인다.
+   움직임을 줄이는 설정이면 깜빡이지 않고 테두리만 둔다(base.css가 animation을 끈다). 색만으로 알리지 않게 "오토 의심" 글자 배지도 단다. */
+@keyframes auto-blink {
+  0%, 100% { box-shadow: 0 0 0 calc(1.5px + 1.5px * var(--auto-i, 1)) color-mix(in srgb, var(--danger) var(--auto-mix, 100%), transparent); }
+  50% { box-shadow: 0 0 0 calc(1.5px + 1.5px * var(--auto-i, 1)) transparent; }
+}
+/* 짙기(--auto-i 0..1): 처음엔 옅은 가는 테두리가 느리게, 카운터가 쌓일수록 진하고 굵은 테두리가 빠르게 깜빡인다 */
+.auto-suspect { border-radius: 10px; box-shadow: 0 0 0 2px var(--danger); box-shadow: 0 0 0 calc(1.5px + 1.5px * var(--auto-i, 1)) color-mix(in srgb, var(--danger) var(--auto-mix, 100%), transparent);
+  animation: auto-blink calc(1.8s - 1.0s * var(--auto-i, 1)) ease-in-out infinite; }
+.ov .near-list li.auto-suspect { padding: 2px 6px; margin: 2px 0; }
+.pl-row.auto-suspect { padding-left: 8px; padding-right: 8px; margin: 2px 0; }
+.auto-dots { letter-spacing: -1px; font-size: 9px; vertical-align: 1px; }
+.auto-badge { display: inline-block; margin-left: 6px; padding: 0 6px; border-radius: 6px; background: var(--danger-soft); color: color-mix(in srgb, var(--danger) 72%, var(--text-1)); font-size: 11px; font-weight: 700; line-height: 1.5; white-space: nowrap; vertical-align: 1px; }
+.pl-missing { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 0 8px; }
+.pl-missing .who { display: grid; align-content: center; min-width: 0; line-height: 1.25; }
+.pl-missing .pl-sub { color: var(--text-2); }
+.ov .near-missing { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 6px; font-size: 13px; }
+.ov .near-missing li { padding: 3px 8px; }

@@ -22,6 +22,18 @@ public class ViewsTests
     public void SaneWeight_NullIsNotSane() => Assert.False(MobiMate.Web.Services.GameViews.SaneWeight(null));
 
     [Fact]
+    public async Task Nearby_HasAutoSuspectFields_AndNobodyIsSuspectedOutsideAnInstance()
+    {
+        using var host = new TestHost();
+        var c = await host.LocalAsync();
+        var near = await TestHost.Data(await c.GetAsync("/api/nearby"));
+        Assert.Equal(System.Text.Json.JsonValueKind.Array, near.GetProperty("missing").ValueKind);
+        Assert.Equal(0, near.GetProperty("missing").GetArrayLength());
+        Assert.NotEmpty(near.GetProperty("players").EnumerateArray());
+        Assert.All(near.GetProperty("players").EnumerateArray(), p => Assert.Equal(System.Text.Json.JsonValueKind.Null, p.GetProperty("autoSuspect").ValueKind));
+    }
+
+    [Fact]
     public async Task Favorites_AreSavedAndShownOnInventoryAndGatherables()
     {
         using var host = new TestHost();

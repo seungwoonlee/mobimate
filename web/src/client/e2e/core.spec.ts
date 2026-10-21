@@ -18,11 +18,11 @@ test.beforeEach(async ({ page }) => {
   await expect(page.getByText(/88,737|89K/).filter({ visible: true }).first()).toBeVisible();   // 가짜 CLI 전투력 (좁은 화면은 축약)
 });
 
-test('개요: 4대 점수·가방·숙제·콘텐츠 추천·일반 던전 추천이 보이고 카드로 이동한다 (FR-OV-01·02·23)', async ({ page }) => {
+test('개요: 4대 점수·가방·숙제·어비스/레이드 추천·일반 던전 추천이 보이고 카드로 이동한다 (FR-OV-01·02·23)', async ({ page }) => {
   await expect(page.getByText('마도저항').filter({ visible: true }).first()).toBeVisible();
   await expect(page.getByText(/83\.0/).filter({ visible: true }).first()).toBeVisible();
   if (!(await page.locator('.glance').count())) {
-    await expect(page.locator('.main').getByText('콘텐츠 추천')).toBeVisible();
+    await expect(page.locator('.main').getByText('어비스/레이드 추천')).toBeVisible();
     await expect(page.locator('.main').getByText('일반 던전 추천')).toBeVisible();
     await expect(page.locator('.main .dg-list li')).toHaveCount(4);   // 영혼석 4종
     await page.getByRole('link', { name: /가방 무게/ }).click();

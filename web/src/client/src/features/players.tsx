@@ -1,4 +1,5 @@
-import type { NearPlayer } from '../api/types';
+import type React from 'react';
+import type { MissingPlayer, NearPlayer } from '../api/types';
 import { JobIcon } from '../components/ui';
 import { fmt } from '../lib/format';
 
@@ -11,6 +12,38 @@ export const REL_TAG: Record<NearPlayer['relation'], string> = { friend: '(친�
  * 친구·길드원은 색과 굵은 글씨로 구분하고(스크린 리더에는 관계를 글자로 읽어 준다),
  * 나보다 전투력이 높으면 전투력 숫자의 색으로만 알린다.
  */
+/** 오토 의심 짙기를 CSS 변수로: 테두리·깜빡임 속도가 짙기에 따라 달라진다 (--auto-mix = 테두리 색 비율 %, --auto-i = 0..1). */
+export function autoStyle(intensity: number): React.CSSProperties {
+  const i = Math.min(1, Math.max(0, intensity));
+  return { '--auto-i': i, '--auto-mix': `${Math.round(30 + 70 * i)}%` } as React.CSSProperties;
+}
+
+/** 짙기 단계 이름 (색만으로 알리지 않는다): 의심 → 유력 → 매우 유력 */
+export function autoLevel(intensity: number): { label: string; dots: string } {
+  return intensity >= 0.67 ? { label: '매우 유력', dots: '●●●' } : intensity >= 0.34 ? { label: '유력', dots: '●●○' } : { label: '의심', dots: '●○○' };
+}
+
+/** 오토 의심 배지(2026-10-22): 글자와 단계 점으로 알리고, 이유·시간은 설명으로 둔다. 짙을수록 점이 채워진다. */
+export function AutoBadge({ reason, seconds, intensity }: { reason: 'idle' | 'missing'; seconds: number; intensity: number }) {
+  const t = seconds >= 60 ? `${Math.floor(seconds / 60)}분째` : `${seconds}초째`;
+  const why = reason === 'idle' ? `던전·레이드 안에서 다른 사람은 모두 전투 중인데 ${t} 혼자 전투하지 않아요` : `함께 보이다가 던전·레이드 안에서 ${t} 주변에 보이지 않아요`;
+  const lv = autoLevel(intensity);
+  return <span className="auto-badge" title={`${why} (${lv.label})`} aria-label={`오토 의심 ${lv.label}: ${why}`}>오토 의심 <span className="auto-dots" aria-hidden="true">{lv.dots}</span></span>;
+}
+
+/** 한동안 함께 보이다가 사라진 사람 한 줄 (목록에 없어 직업·레벨·전투력만 안다) */
+export function MissingLine({ m }: { m: MissingPlayer }) {
+  return (
+    <span className="pl pl-missing">
+      <JobIcon job={m.job} size={17} />
+      <span className="who">
+        <span className="pl-job">{m.job}<AutoBadge reason="missing" seconds={m.seconds} intensity={m.intensity} /></span>
+        <span className="pl-sub small"><span className="num">Lv.{m.level}</span> · <span className="num">{fmt(m.combatScore)}</span><span className="pl-combat"> · 안 보임</span></span>
+      </span>
+    </span>
+  );
+}
+
 export function PlayerLine({ p }: { p: NearPlayer }) {
   return (
     <span className={`pl ${p.relation}`}>
@@ -25,6 +58,7 @@ export function PlayerLine({ p }: { p: NearPlayer }) {
       </span>
       {p.title && <><span className="pl-sep">-</span><span className="pl-title">{p.title}</span></>}
       {p.inCombat && <span className="pl-combat"> · 전투 중</span>}
+      {p.autoSuspect && <AutoBadge reason={p.autoSuspect.reason} seconds={p.autoSuspect.seconds} intensity={p.autoSuspect.intensity} />}
     </span>
   );
 }

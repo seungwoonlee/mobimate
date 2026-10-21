@@ -91,6 +91,7 @@ builder.Services.AddSingleton(sp =>
     return new CurrencyDeltaLog(Path.Combine(Dir(sp), "currency_changes.jsonl"), onError: (msg, ex) => log.LogWarning(ex, "{Message}", msg));
 });
 builder.Services.AddSingleton<HomeworkWatcher>();
+builder.Services.AddSingleton<AutoWatch>();
 builder.Services.AddSingleton<SseHub>();
 builder.Services.AddSingleton<CombatScoreGuard>();
 builder.Services.AddSingleton<GameViews>();
