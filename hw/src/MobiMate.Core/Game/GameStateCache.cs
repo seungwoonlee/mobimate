@@ -49,14 +49,18 @@ public sealed class GameStateCache
     {
         if (a == null) return "알 수 없음";
         if (a.IsDead) return "쓰러짐";
+        if (a.IsReviving) return "부활 중";
         if (a.IsInCombat) return a.IsAutoPlaying ? "자동 사냥 · 전투 중" : "전투 중";
+        // 게임 업데이트(2026-10-15) 뒤 채집·가공·제작 중 플래그가 없어졌다: 정지 버튼이 보이는 상태는 새 신호(Mode.MainButtonState)로 알린다
         if (a.IsGathering) return "채집 중";
         if (a.IsAltering) return "가공 중";
         if (a.IsCrafting) return "제작 중";
-        if (a.IsPlayingInstrument) return "연주 중";
+        if (a.IsPlayingMusic()) return "연주 중";
         if (a.IsAutoTraveling) return "자동 이동 중";
         if (a.IsAutoPlaying) return "자동 사냥 중";
-        if (a.IsSitting) return "휴식 중";
+        if (a.IsSittingOnChair()) return "휴식 중";
+        if (a.Interaction is { LastRunningInteractionType: "Gathering" }) return "채집 중";
+        if (a.CanStop()) return "작업 중";
         return "대기 중";
     }
 

@@ -72,8 +72,12 @@ public sealed class QueryCache
 }
 
 /// <summary>게임 CLI 조회를 캐시를 거쳐 형식화된 값으로 돌려준다.</summary>
-public sealed class GameQueries(IGameCli cli, QueryCache cache, AppOptions options)
+public sealed class GameQueries(IGameCli cli, QueryCache cache, AppOptions options, ILogger<GameQueries>? log = null)
 {
+    /// <summary>게임과 연결이 끊겼다고 응답받으면 이 시간 동안은 CLI를 부르지 않고 바로 실패시킨다(끊긴 CLI는 호출마다 5초 기다려 쌓이기 때문).</summary>
+    public static readonly TimeSpan DownFor = TimeSpan.FromSeconds(3);
+    private long _downUntilTicks;
+    private readonly Dictionary<string, DateTimeOffset> _lastLogged = new();
     private static readonly JsonSerializerOptions Read = new() { PropertyNameCaseInsensitive = true };
 
     public IGameCli Cli => cli;
@@ -84,12 +88,23 @@ public sealed class GameQueries(IGameCli cli, QueryCache cache, AppOptions optio
     {
         if (!cli.IsAvailable) return new CliData<T>(default, new CliFailure(CliFailureKind.Missing, $"게임 CLI를 찾을 수 없습니다: {cli.CliPath}"), DateTimeOffset.UtcNow);
 
+        if (DateTimeOffset.UtcNow.UtcTicks < Interlocked.Read(ref _downUntilTicks))
+            return new CliData<T>(default, new CliFailure(CliFailureKind.Failed, "게임과 연결되어 있지 않습니다."), DateTimeOffset.UtcNow);
+
         var r = await cache.GetAsync(command, () => cli.RunAsync(new CliCommand(command)), maxAge ?? options.CacheTtlFor(command), ct);
         var at = DateTimeOffset.UtcNow;
         if (!r.Ok)
         {
             var kind = r.TimedOut ? CliFailureKind.Timeout : CliFailureKind.Failed;
+            Note(command, kind, r.Error ?? "게임 CLI 호출 실패", r);
             return new CliData<T>(default, new CliFailure(kind, r.Error ?? "게임 CLI 호출 실패"), at);
+        }
+        // 오류 응답({"error":…}·{"pipe":"disconnected",…})을 값으로 읽지 않는다: 배열 명령은 PARSE_ERROR, 객체 명령은 "빈 값의 성공"이 되어 조용히 틀린다
+        if (CliEnvelope.TryReadError(r.Stdout, out var cliError))
+        {
+            if (CliEnvelope.PipeConnected(r.Stdout) == false) Interlocked.Exchange(ref _downUntilTicks, (at + DownFor).UtcTicks);   // 끊김: 잠시 CLI를 부르지 않는다
+            Note(command, CliFailureKind.Failed, cliError, r);
+            return new CliData<T>(default, new CliFailure(CliFailureKind.Failed, cliError), at);
         }
         try
         {
@@ -99,6 +114,21 @@ public sealed class GameQueries(IGameCli cli, QueryCache cache, AppOptions optio
         {
             return new CliData<T>(default, new CliFailure(CliFailureKind.Parse, $"응답을 해석하지 못했습니다: {ex.Message}"), at);
         }
+    }
+
+    /// <summary>CLI 실패를 로그에 남긴다(같은 명령·같은 사유는 60초에 한 번만). 화면에는 보이지 않는 일시적인 실패가 대부분이라 정보 수준.</summary>
+    private void Note(string command, CliFailureKind kind, string message, CliResult r)
+    {
+        if (log == null) return;
+        var key = $"{command}|{kind}|{message}";
+        var now = DateTimeOffset.UtcNow;
+        lock (_lastLogged)
+        {
+            if (_lastLogged.TryGetValue(key, out var last) && now - last < TimeSpan.FromSeconds(60)) return;
+            _lastLogged[key] = now;
+            if (_lastLogged.Count > 200) _lastLogged.Clear();
+        }
+        log.LogInformation("CLI 실패: {Command} / {Kind} / {Message} (대기 {Queue}ms, 실행 {Exec}ms)", command, kind, message, (int)r.QueueWait.TotalMilliseconds, (int)r.Exec.TotalMilliseconds);
     }
 
     public void Invalidate(params string[] commands) => cache.Invalidate(commands);
