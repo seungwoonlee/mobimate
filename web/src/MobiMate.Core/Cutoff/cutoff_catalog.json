@@ -1,15 +1,17 @@
 {
   "version": 1,
-  "measuredAt": "2026-09-25",
-  "note": "承雲 인게임 실측 (WPF판 v1.2.0 DungeonCutoffModels.cs). 난이도는 쉬운 것부터. 마도저항 0 = 조건 없음.",
+  "measuredAt": "2026-10-22",
+  "note": "承雲 인게임 실측 (WPF판 v1.2.0 DungeonCutoffModels.cs). 난이도는 쉬운 것부터. 마도저항 0 = 조건 없음. 2026-10-22: 어비스에 매우 어려움 2·지옥 4 추가(지옥 3 값 재확인).",
   "contents": [
     { "id": "abyss", "name": "어비스", "icon": "abyss", "tiers": [
       { "name": "입문",        "minCombat": 50000,  "recCombat": 56000,  "overCombat": 64500,  "minMdef": 0,    "overMdef": 1000 },
       { "name": "어려움",      "minCombat": 63000,  "recCombat": 66000,  "overCombat": 75000,  "minMdef": 1000, "overMdef": 1600 },
       { "name": "매우 어려움", "minCombat": 76000,  "recCombat": 80000,  "overCombat": 92000,  "minMdef": 2200, "overMdef": 2700 },
+      { "name": "매우 어려움 2", "minCombat": 82500, "recCombat": 87000,  "overCombat": 100000, "minMdef": 2500, "overMdef": 3000 },
       { "name": "지옥 1",      "minCombat": 87500,  "recCombat": 92000,  "overCombat": 105000, "minMdef": 3500, "overMdef": 4400 },
       { "name": "지옥 2",      "minCombat": 95000,  "recCombat": 100000, "overCombat": 115000, "minMdef": 6000, "overMdef": 6600 },
-      { "name": "지옥 3",      "minCombat": 102500, "recCombat": 108000, "overCombat": 124000, "minMdef": 7200, "overMdef": 7800 }
+      { "name": "지옥 3",      "minCombat": 102500, "recCombat": 108000, "overCombat": 124000, "minMdef": 7200, "overMdef": 7800 },
+      { "name": "지옥 4",      "minCombat": 110000, "recCombat": 116000, "overCombat": 133500, "minMdef": 8500, "overMdef": 9000 }
     ]},
     { "id": "white_succubus", "name": "화이트 서큐버스", "icon": "succubus", "tiers": [
       { "name": "어려움",      "minCombat": 0,      "recCombat": 27000,  "overCombat": 31100,  "minMdef": 0, "overMdef": 0 },

@@ -14,8 +14,10 @@ public class CutoffTests
         Assert.Empty(Catalog.Warnings);
         Assert.Equal(new[] { "abyss", "white_succubus", "airel", "cavrak" }, Catalog.Contents.Select(c => c.Id));
         var abyss = Catalog.Contents[0];
-        Assert.Equal(6, abyss.Tiers.Count);
-        Assert.Equal(new CutoffTier("지옥 3", 102500, 108000, 124000, 7200, 7800), abyss.Tiers[5]);
+        Assert.Equal(8, abyss.Tiers.Count);
+        Assert.Equal(new CutoffTier("매우 어려움 2", 82500, 87000, 100000, 2500, 3000), abyss.Tiers[3]);
+        Assert.Equal(new CutoffTier("지옥 3", 102500, 108000, 124000, 7200, 7800), abyss.Tiers[6]);
+        Assert.Equal(new CutoffTier("지옥 4", 110000, 116000, 133500, 8500, 9000), abyss.Tiers[7]);
         Assert.Equal(2, Catalog.Contents[1].Tiers.Count);
         Assert.Equal(0, Catalog.Contents[1].Tiers[0].MinCombat);
         Assert.Equal(3000, Catalog.Contents[2].Tiers[1].MinMdef);
@@ -84,9 +86,11 @@ public class CutoffTests
     [Fact]
     public void MdefOneShort_DemotesRecommendation()
     {
-        // 지옥 1 압도 마도저항 4,400 → 4,399면 지옥 1 추천 불가, 매우 어려움으로 강등
+        // 지옥 1 압도 마도저항 4,400 → 4,399면 지옥 1 추천 불가, 매우 어려움 2로 강등
         Assert.Equal("지옥 1", Eval("abyss", 102832, 4400).RecommendedTier);
-        Assert.Equal("매우 어려움", Eval("abyss", 102832, 4399).RecommendedTier);
+        Assert.Equal("매우 어려움 2", Eval("abyss", 102832, 4399).RecommendedTier);
+        // 매우 어려움 2 압도 마도저항 3,000 → 2,999면 매우 어려움으로 한 단계 더 강등
+        Assert.Equal("매우 어려움", Eval("abyss", 102832, 2999).RecommendedTier);
     }
 
     [Fact]
@@ -94,7 +98,7 @@ public class CutoffTests
     {
         // 지옥 1 압도 105,000의 90% = 94,500 (권장 92,000보다 큼)
         Assert.Equal("지옥 1", Eval("abyss", 94500, 4400).RecommendedTier);
-        Assert.Equal("매우 어려움", Eval("abyss", 94499, 4400).RecommendedTier);
+        Assert.Equal("매우 어려움 2", Eval("abyss", 94499, 4400).RecommendedTier);
     }
 
     [Fact]
@@ -183,7 +187,7 @@ public class CutoffTests
             Assert.Single(cat.Contents.Single(c => c.Id == "cavrak").Tiers);
             Assert.DoesNotContain(cat.Contents, c => c.Id == "broken");
             Assert.Contains(cat.Warnings, w => w.Contains("broken"));
-            Assert.Equal(6, cat.Contents.Single(c => c.Id == "abyss").Tiers.Count);   // 나머지는 내장 그대로
+            Assert.Equal(8, cat.Contents.Single(c => c.Id == "abyss").Tiers.Count);   // 나머지는 내장 그대로
 
             File.WriteAllText(Path.Combine(dir, CutoffCatalog.OverrideFileName), "{ 깨진 json");
             var fallback = CutoffCatalog.Load(dir);
@@ -195,4 +199,17 @@ public class CutoffTests
             Directory.Delete(dir, true);
         }
     }
+
+    [Theory]
+    [InlineData(82500, 2500, "매우 어려움 2", "어려움")]    // 매우 어려움 2 입장선: 마도저항이 압도 기준(3,000·2,700)에 못 미쳐 추천은 어려움
+    [InlineData(110000, 8500, "지옥 4", "지옥 2")]          // 지옥 4 입장선: 지옥 3 압도 90%(111,600) 미달이라 추천은 지옥 2
+    [InlineData(133500, 9000, "지옥 4", "지옥 4")]          // 지옥 4 압도
+    [InlineData(110000, 8499, "지옥 3", "지옥 2")]          // 마도저항 1 부족: 지옥 4 입장 불가
+    public void NewAbyssTiers_AreJudgedByTheirOwnThresholds(long combat, long mdef, string maxEntry, string recommended)
+    {
+        var r = Eval("abyss", combat, mdef);
+        Assert.Equal(maxEntry, r.MaxEntryTier);
+        Assert.Equal(recommended, r.RecommendedTier);
+    }
 }
+

@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { useHomework, useOverview } from '../api/queries';
-import type { CutoffContent, Header, HomeworkCard, Life, Nearby, Overview as OverviewData } from '../api/types';
-import { CardHead, Delta, Dialog, ErrorCard, Fresh, Gauge, Icon, LevelState, LinkCard, Pill, Ring, Skeleton } from '../components/ui';
+import { useHomework, useInventory, useOverview } from '../api/queries';
+import type { CutoffContent, Header, HomeworkCard, InvItem, Life, Nearby, Overview as OverviewData } from '../api/types';
+import { CardHead, Delta, Dialog, ErrorCard, Fresh, Gauge, Icon, JobIcon, LevelState, LinkCard, Pill, Ring, Skeleton } from '../components/ui';
 import { useLayout, useNow } from '../hooks/layout';
 import { collectAll, stopAction } from '../lib/actions';
 import { useBusy } from '../lib/busy';
@@ -10,14 +10,17 @@ import { scoreClass } from '../lib/score';
 import { useDevice } from '../state/device';
 import { useRouter } from '../state/router';
 import { CUTOFF_STATUS } from './cutoffs';
-import { PlayerLine } from './players';
+import { REL_TAG } from './players';
 import { RankPanel } from './rankings';
 import { RankBadge } from '../components/RankBadge';
 
 /** 가공 종류 순서 (서버 WorkKinds.Order와 같다) */
 const WORK_KIND_ORDER = ['metal', 'wood', 'leather', 'cloth', 'medicine', 'food', 'other'];
 
-/** 캐릭(옛 개요, FR-OV-01~03): 경고 스트립 → 핵심 수치 → 랭킹·숙제 → 가공·주변 → 콘텐츠 추천 → 퀵 액션. 빈 공간 없이 촘촘하게 둔다(2026-10-11). */
+/**
+ * 캐릭(옛 개요, FR-OV-01~03): 폭이 일정한 작은 상자를 화면 폭에 맞춰 여러 열로 쌓는다(세로 스크롤만, 가로로 늘어지는 줄·가로 스크롤 없음, 2026-10-22).
+ * 상자 순서: 점수 → 가방(늘어난 아이템) → 재화 → 일일·주간 숙제 체크 목록 → 서버 랭킹 → 가공 → 주변 → 콘텐츠 추천 → 퀵 액션.
+ */
 export function OverviewView() {
   const q = useOverview();
   const layout = useLayout();
@@ -40,14 +43,14 @@ export function OverviewView() {
         <ScoresCard h={d.header} />
         <WeightCard h={d.header} />
         <CurrencyCard d={d} />
+        <HomeworkChecklist kind="daily" d={d} />
+        <HomeworkChecklist kind="weekly" d={d} />
         <div className="ov-rank"><RankPanel /></div>
-        <HomeworkSummary d={d} onOpen={setPeek} />
         <WorksCard life={d.life} at={q.dataUpdatedAt} />
         <NearbyCard nearby={d.nearby} />
         {d.cutoffs && <CutoffSummary contents={d.cutoffs.contents} />}
         <QuickActions life={d.life} />
       </div>
-      {peek && <HomeworkPeek kind={peek} onClose={() => setPeek(null)} />}
     </div>
   );
 }
@@ -91,8 +94,14 @@ function ScoresCard({ h }: { h: Header }) {
   );
 }
 
+/** 가방 무게 + 이번 접속에 가방에서 가장 많이 늘어난 아이템 (다이어트 대상 후보) */
 function WeightCard({ h }: { h: Header }) {
   const w = h.weight;
+  const inv = useInventory();
+  const grown = merged(inv.data?.data.items ?? [])
+    .filter(x => x.location === 'bag' && !x.locked && x.sessionDelta > 0)
+    .sort((a, b) => b.sessionDelta - a.sessionDelta || b.count - a.count)
+    .slice(0, 5);
   return (
     <LinkCard to="inventory" className="weight">
       <CardHead icon="bag" title="가방 무게" right={w && <Delta value={w.delta} inverse />} />
@@ -103,8 +112,27 @@ function WeightCard({ h }: { h: Header }) {
           <div className="spread"><LevelState level={w.level} /><span className="faint num">{w.current.toFixed(1)} / {fmt(w.max)}</span></div>
         </>
       ) : <p className="muted">무게 정보가 없습니다.</p>}
+      <div className="grown">
+        <div className="grown-h faint small">최근 늘어난 아이템 <span className="weak">· 이번 접속</span></div>
+        {grown.length === 0
+          ? <p className="faint small m0">{inv.isPending ? '불러오는 중…' : '늘어난 아이템이 없어요.'}</p>
+          : <ul className="grown-list">{grown.map(x => (
+              <li key={x.name}><span className="nm">{x.name}</span><span className="num up">+{fmt(x.sessionDelta)}</span><span className="num faint">{fmt(x.count)}개</span></li>
+            ))}</ul>}
+      </div>
     </LinkCard>
   );
+}
+
+/** 같은 이름이 여러 칸에 나뉘어 있으면 합친다 (인벤토리 화면과 같은 규칙: 개수는 합, 변화량은 가장 큰 값) */
+function merged(items: InvItem[]): InvItem[] {
+  const m = new Map<string, InvItem>();
+  for (const i of items) {
+    const k = `${i.location}|${i.name}`;
+    const e = m.get(k);
+    m.set(k, e ? { ...e, count: e.count + i.count, locked: e.locked || i.locked, sessionDelta: Math.max(e.sessionDelta, i.sessionDelta) } : i);
+  }
+  return [...m.values()];
 }
 
 function CurrencyCard({ d }: { d: OverviewData }) {
@@ -114,49 +142,42 @@ function CurrencyCard({ d }: { d: OverviewData }) {
   return (
     <LinkCard to="currencies" className="gold">
       <CardHead icon="coins" title={<>보유 재화 <span className="faint weak">· 이번 접속</span></>} />
-      <div className="gold-body">
-        <div>
-          <div className="big num gold-text">{fmt(amount('골드'))}<span className="unit"> G</span></div>
-          <div className="mt-6"><Delta value={s.gold} unit=" G" /></div>
-        </div>
-        <div className="mt-10">
-          <div className="kv"><span className="muted">데카</span><span className="v num">{fmt(amount('데카'))}</span></div>
-          <div className="kv"><span className="muted">M캐시</span><span className="v num">{fmt(amount('M캐시', 'M캐쉬'))}</span></div>
-          <div className="kv"><span className="muted">정령의 날개</span><span className="v num">{fmt(amount('정령의 날개'))} <Delta value={s.wings} hideZero /></span></div>
-        </div>
+      <div className="big num gold-text">{fmt(amount('골드'))}<span className="unit"> G</span></div>
+      <div className="mt-4"><Delta value={s.gold} unit=" G" /></div>
+      <div className="mt-8">
+        <div className="kv"><span className="muted">데카</span><span className="v num">{fmt(amount('데카'))}</span></div>
+        <div className="kv"><span className="muted">M캐시</span><span className="v num">{fmt(amount('M캐시', 'M캐쉬'))}</span></div>
+        <div className="kv"><span className="muted">정령의 날개</span><span className="v num">{fmt(amount('정령의 날개'))} <Delta value={s.wings} hideZero /></span></div>
       </div>
     </LinkCard>
   );
 }
 
-/** 숙제 진행 (FR-OV-01·02): 일일·주간 링을 한 카드에 나란히. 누르면 개요를 벗어나지 않고 남은 숙제를 띄운다. */
-function HomeworkSummary({ d, onOpen }: { d: OverviewData; onOpen: (k: 'daily' | 'weekly') => void }) {
-  return (
-    <section className="card hwsum" aria-label="숙제 진행">
-      <CardHead title="숙제" right={<span className="faint small">누르면 남은 숙제</span>} />
-      <div className="hwsum-rings">
-        <HomeworkRing kind="daily" d={d} onOpen={() => onOpen('daily')} />
-        <HomeworkRing kind="weekly" d={d} onOpen={() => onOpen('weekly')} />
-      </div>
-    </section>
-  );
-}
-
-function HomeworkRing({ kind, d, onOpen }: { kind: 'daily' | 'weekly'; d: OverviewData; onOpen: () => void }) {
+/** 숙제 체크 목록 (FR-OV-01·02): 일일·주간 상자를 따로 두고 숙제마다 ✓ 표시로 끝낸 것을 보여 준다. 누르면 숙제 화면으로 간다. */
+function HomeworkChecklist({ kind, d }: { kind: 'daily' | 'weekly'; d: OverviewData }) {
+  const q = useHomework();
   const now = useNow(30_000);
   const p = d.homework[kind];
   const left = p.total - p.done;
   const reset = kind === 'daily' ? d.homework.nextDailyReset : d.homework.nextWeeklyReset;
   const title = kind === 'daily' ? '일일 숙제' : '주간 숙제';
+  const cards = q.data?.data.cards.filter(c => c.period === kind) ?? [];
   return (
-    <button type="button" className="hwbtn" onClick={onOpen} aria-haspopup="dialog">
-      <Ring done={p.done} total={p.total} size={56} label={title} />
-      <span className="hwbtn-t">
-        <b>{kind === 'daily' ? '일일' : '주간'}</b>
-        <span className="muted small">{left ? `${left}개 남음` : '모두 완료'}</span>
-        <span className="faint small"><Icon name="clock" size={12} /> {until(reset, now)}</span>
-      </span>
-    </button>
+    <LinkCard to="homework" className={`hwlist ${left === 0 ? 'all-done' : ''}`} label={`${title} ${p.done}/${p.total} 완료`}>
+      <CardHead icon="list" title={<>{title} <span className="num faint weak">{p.done}/{p.total}</span></>}
+        right={<span className="faint small hw-reset"><Icon name="clock" size={12} /> {until(reset, now)}</span>} />
+      {q.isPending ? <p className="faint small m0">불러오는 중…</p> : cards.length === 0 ? <p className="faint small m0">표시할 숙제가 없어요.</p> : (
+        <ul className="hw-ck">
+          {cards.map(c => (
+            <li key={c.id} className={c.isDone ? 'done' : c.status === 'inProgress' ? 'doing' : ''}>
+              <span className="ck" aria-hidden="true">{c.isDone && <Icon name="check" size={12} />}</span>
+              <span className="t">{c.title}{c.isDone && <span className="sr-only"> 완료</span>}</span>
+              <span className="r num faint">{c.isDone ? '' : c.remaining != null ? `남은 ${c.remaining}회` : c.goal > 1 ? `${c.count}/${c.goal}` : c.status === 'inProgress' ? '진행 중' : ''}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </LinkCard>
   );
 }
 
@@ -190,36 +211,44 @@ function WorksCard({ life, at }: { life: Life | null; at: number }) {
 
 function NearbyCard({ nearby }: { nearby: Nearby | null }) {
   const p = nearby?.players ?? [];
-  const shown = p.slice(0, 5);
+  const shown = p.slice(0, 6);
   return (
     <LinkCard to="nearby" className="near">
       <CardHead icon="users" title="주변" right={<span className="num muted">{nearby?.count ?? 0}명</span>} />
-      {p.length === 0 && <p className="muted small">주변에 플레이어가 없습니다.</p>}
-      <div className="pl-list">
-        {shown.map((x, i) => <PlayerLine key={`${x.job}|${x.level}|${x.combatScore}|${i}`} p={x} />)}
-      </div>
+      {p.length === 0 && <p className="muted small m0">주변에 플레이어가 없습니다.</p>}
+      <ul className="near-list">
+        {shown.map((x, i) => (
+          <li key={`${x.job}|${x.level}|${x.combatScore}|${i}`} className={`pl ${x.relation}`}>
+            <span className="pl-job">{REL_TAG[x.relation] && <span className="pl-tag">{REL_TAG[x.relation]}</span>}<JobIcon job={x.job} size={17} />{x.job}</span>
+            <span className="num muted">Lv.{x.level}</span>
+            <span className={`pl-cs num ${x.isStronger ? 'stronger' : ''}`}>{fmt(x.combatScore)}{x.isStronger && <span className="sr-only"> (나보다 강함)</span>}</span>
+            {(x.title || x.inCombat) && <span className="pl-sub small">{x.title}{x.inCombat && <span className="pl-combat"> · 전투 중</span>}</span>}
+          </li>
+        ))}
+      </ul>
       {p.length > shown.length && <div className="faint small mt-4">외 {p.length - shown.length}명</div>}
     </LinkCard>
   );
 }
 
-/** 콘텐츠 추천 요약 (FR-CO-07, FR-OV-14): 콘텐츠당 한 줄, `입장 가능: 지옥1 · 추천: 매우 어려움` */
+/** 콘텐츠 추천 요약 (FR-CO-07, FR-OV-14): 콘텐츠마다 이름+상태, 아래 줄에 입장 가능·추천 난이도 */
 function CutoffSummary({ contents }: { contents: CutoffContent[] }) {
   return (
     <LinkCard to="stats" params={{ tab: 'cutoffs' }} className="cutsum">
-      <CardHead icon="trophy" title="콘텐츠 추천" right={<span className="faint small">전투력·마도저항 기준</span>} />
-      <div className="cut-mini">
+      <CardHead icon="trophy" title="콘텐츠 추천" />
+      <ul className="cut-list">
         {contents.map(c => {
           const st = CUTOFF_STATUS[c.status];
           return (
-            <div key={c.id} className="cut-mini-row">
+            <li key={c.id}>
               <span className="nm">{c.name}</span>
-              <span className="tier">{c.status === 'locked' ? '입장 불가' : <>입장 가능: <b>{c.maxEntryTier}</b> · 추천: <b>{c.recommendedTier}</b></>}</span>
               <Pill tone={st.tone}>{st.label}</Pill>
-            </div>
+              <span className="tier small">{c.status === 'locked' ? '입장 불가' : <>입장 <b>{c.maxEntryTier}</b> · 추천 <b>{c.recommendedTier}</b></>}</span>
+            </li>
           );
         })}
-      </div>
+      </ul>
+      <div className="faint small mt-4">전투력·마도저항 기준</div>
     </LinkCard>
   );
 }
