@@ -192,7 +192,7 @@ public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManag
     /// 게임이 로딩·전환 중에 가방 무게를 터무니없이 주는 때가 있다(최대치 3.4e38, 현재 0): 그 값은 "정보 없음"으로 보고 그대로 보여 주지 않는다.
     /// 실제 최대 무게는 수백~수천이다.
     /// </summary>
-    internal static bool SaneWeight(VitalsInfo? v) => v is { WeightMax: > 0 and < 1_000_000 } && double.IsFinite(v.WeightCurrent);
+    internal static bool SaneWeight(VitalsInfo? v) => v != null && v.IsWeightSane();
 
     private object BuildHeader(CharacterInfo ch, string key, ActivityInfo? act, EnvironmentInfo? env, SessionDelta delta, bool selecting = false)
     {

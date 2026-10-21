@@ -161,4 +161,33 @@ public class RealCharacterTests : IDisposable
         m.UpdateSnapshot(Info("에린", "검술사", 100), Wallet(1, 1, 500), null, "에린_검술사");
         Assert.False(m.WalletBelongsToOther("에린_댄서", 500));
     }
+
+    private static CharacterInfo WithWeight(double current, double max) =>
+        new(null, "아이라", 100, "사제", new ScoreVal("전투력", 1000), null, null, null, null, null, null, null, null, null, null, null, null, null,
+            new VitalsInfo(100, 100, current, max, 0, 0, 0));
+
+    [Theory]
+    [InlineData(869.4, 1080.0, true)]
+    [InlineData(0.0, 3.40282347E+38, false)]   // 로딩·전환 중 게임이 주는 터무니없는 최대치
+    [InlineData(10.0, 0.0, false)]
+    [InlineData(-1.0, 1080.0, false)]
+    [InlineData(double.NaN, 1080.0, false)]
+    public void IsWeightSane(double current, double max, bool expected) =>
+        Assert.Equal(expected, new VitalsInfo(100, 100, current, max, 0, 0, 0).IsWeightSane());
+
+    [Fact]
+    public void WeightSummary_HidesAbsurdReadings() =>
+        Assert.Equal("알 수 없음", GameStateCache.WeightSummary(new VitalsInfo(100, 100, 0, 3.40282347E+38, 0, 0, 0)));
+
+    [Fact]
+    public void AbsurdWeightReading_DoesNotCorruptTheBaselineOrDelta()
+    {
+        var m = new SnapshotManager(_dir);
+        m.UpdateSnapshot(WithWeight(0, 3.40282347E+38), null, null);                  // 첫 읽기가 비정상: 기준값 0으로 굳으면 안 된다
+        var d = m.UpdateSnapshot(WithWeight(869.4, 1080), null, null);                // 정상 값이 들어와도 변화량이 +869로 튀지 않는다
+        Assert.True(Math.Abs(d.WeightDiff) < 1, $"변화량이 튐: {d.WeightDiff}");
+        var d2 = m.UpdateSnapshot(WithWeight(0, 3.40282347E+38), null, null);         // 중간의 비정상 읽기는 값을 0으로 덮지 않는다
+        Assert.True(Math.Abs(d2.WeightDiff) < 1, $"변화량이 튐: {d2.WeightDiff}");
+        Assert.Equal(869.4, d2.Current.WeightCurrent, 1);
+    }
 }

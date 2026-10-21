@@ -32,14 +32,14 @@ public class ApiTests
         Assert.Equal(23011, scores.GetProperty("living").GetInt64());
         Assert.Equal(19745, scores.GetProperty("attract").GetInt64());
 
-        // 전투력 88,737 / 마도저항 4,316: 어비스 지옥 1 입장 가능, 지옥 1 압도 저항(4,400) 미달 → 매우 어려움 추천(압도 근접)
+        // 전투력 88,737 / 마도저항 4,316: 어비스 지옥 1 입장 가능. 매우 어려움 2는 압도 90%(90,000) 미달, 매우 어려움은 충족 → 매우 어려움 추천(압도 근접), 다음 단계는 매우 어려움 2
         var cut = await TestHost.Data(await c.GetAsync("/api/cutoffs"));
         var abyss = cut.GetProperty("contents").EnumerateArray().Single(x => x.GetProperty("id").GetString() == "abyss");
         Assert.Equal("지옥 1", abyss.GetProperty("maxEntryTier").GetString());
         Assert.Equal("매우 어려움", abyss.GetProperty("recommendedTier").GetString());
         Assert.Equal("near", abyss.GetProperty("status").GetString());
-        Assert.Equal("지옥 1", abyss.GetProperty("next").GetProperty("tier").GetString());
-        Assert.Equal(84, abyss.GetProperty("next").GetProperty("mdefShort").GetInt64());
+        Assert.Equal("매우 어려움 2", abyss.GetProperty("next").GetProperty("tier").GetString());
+        Assert.Equal(0, abyss.GetProperty("next").GetProperty("mdefShort").GetInt64());   // 저항은 충분하고 전투력만 모자란다
         Assert.False(cut.GetProperty("stale").GetBoolean());
         var succubus = cut.GetProperty("contents").EnumerateArray().Single(x => x.GetProperty("id").GetString() == "white_succubus");
         Assert.Equal(System.Text.Json.JsonValueKind.Null, succubus.GetProperty("next").ValueKind);   // 최고 난이도

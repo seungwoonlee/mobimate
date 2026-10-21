@@ -46,7 +46,13 @@ public record VitalsInfo(
     [property: JsonPropertyName("SatietyValue")] double SatietyValue,
     [property: JsonPropertyName("SatietyMax")] double SatietyMax,
     [property: JsonPropertyName("ActiveBuffCount")] int ActiveBuffCount
-);
+)
+{
+    /// <summary>
+    /// 게임이 로딩·전환 중에 가방 무게를 터무니없이 주는 때가 있다(최대치 3.4e38, 현재 0). 실제 최대 무게는 수백~수천이라 그 값은 "읽지 못함"으로 본다.
+    /// </summary>
+    public bool IsWeightSane() => WeightMax is > 0 and < 1_000_000 && double.IsFinite(WeightCurrent) && WeightCurrent >= 0;
+}
 
 // 2. 활동 상태 (get_activity)
 public record ActivityInfo(
