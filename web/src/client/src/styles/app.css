@@ -312,7 +312,7 @@ button.toast { border: 0; text-align: left; cursor: pointer; }
 .scene-wx .wx{width:56px;height:56px}
 .scene-place{font-size:15px}
 .scene-place .ic{width:16px;height:16px}
-.top-actions .icon-btn,.top-actions .refresh{height:44px;min-width:44px}
+.top-actions .icon-btn,.top-actions .refresh,.top-actions .top-refresh{height:44px;min-width:44px}
 .top .stop-btn{height:44px;font-size:15px;padding-inline:18px}
 .app[data-size="medium"] .top{padding:16px 18px}
 .app[data-size="compact"] .top{padding:10px 12px}
@@ -740,3 +740,11 @@ button.hw-cell:focus-visible { outline: 2px solid var(--accent); outline-offset:
 .pl-missing .pl-sub { color: var(--text-2); }
 .ov .near-missing { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 6px; font-size: 13px; }
 .ov .near-missing li { padding: 3px 8px; }
+
+
+/* 새로고침(2026-10-22): 상단 날씨 옆의 초록 아이콘 버튼. 긴급 정지 버튼과 같은 모양(채운 둥근 사각형)이고 색만 초록이다. 남은 시간은 설명(툴팁)으로 알린다. */
+.top-refresh{display:inline-flex;align-items:center;justify-content:center;height:44px;min-width:44px;padding:0 12px;border-radius:12px;border:1px solid transparent;background:var(--ok);color:var(--on-ok);cursor:pointer}
+.top-refresh .ic{width:20px;height:20px}
+.top-refresh:hover{filter:brightness(1.08)}
+.top-refresh:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.top-refresh:disabled{opacity:.55;cursor:not-allowed}

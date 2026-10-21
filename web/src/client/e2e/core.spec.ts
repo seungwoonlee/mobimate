@@ -333,14 +333,15 @@ test('직업 이미지: 내려받아 둔 직업은 전신 이미지로, 없는 �
   await expect(warrior.locator('.jobimg')).toHaveCount(0);
 });
 
-test('상단 버튼은 좌측 바 아이콘으로 옮겨 가고 긴급 정지가 가장 아래에 있다 (폰 제외)', async ({ page }) => {
+test('빠른 실행·폰 연결은 좌측 바 아이콘이고 긴급 정지가 가장 아래, 새로고침은 상단 초록 버튼이다 (폰 제외)', async ({ page }) => {
   const w = page.viewportSize()!.width;
   test.skip(w < 600, '폰은 좌측 바가 없어 상단에 둔다');
   const rail = page.locator('nav.rail');
-  await expect(rail.getByRole('button', { name: /지금 새로고침/ })).toBeVisible();
+  await expect(rail.getByRole('button', { name: /지금 새로고침/ })).toHaveCount(0);                 // 좌측 바에서는 뺐다
+  await expect(page.locator('header.top .top-actions').getByRole('button', { name: /지금 새로고침/ })).toBeVisible();   // 상단 날씨 옆 초록 아이콘 버튼
   await expect(rail.getByRole('button', { name: '빠른 실행' })).toBeVisible();
   await expect(rail.getByRole('button', { name: '폰·태블릿으로 보기' })).toBeVisible();
-  await expect(page.locator('header.top .top-actions')).toHaveCount(0);     // 상단 우측에는 더 이상 없다
+  await expect(page.locator('header.top .top-actions').getByRole('button')).toHaveCount(1);   // 상단에는 새로고침 하나뿐(나머지는 좌측 바)
   const labels = await rail.locator('button').evaluateAll(bs => bs.map(b => b.getAttribute('aria-label') ?? b.textContent?.trim() ?? ''));
   expect(labels.at(-1)).toBe('긴급 정지');                                    // 가장 아래
   const ys = await rail.locator('button').evaluateAll(bs => bs.map(b => Math.round(b.getBoundingClientRect().bottom)));
@@ -439,9 +440,7 @@ test('전체 탭: 서버가 여러 곳인 계정은 헤더에 서버를 함께 �
 });
 
 test('새로고침은 누른 뒤 3초 동안 눌리지 않는다', async ({ page }) => {
-  const w = page.viewportSize()!.width;
-  test.skip(w < 600, '폰은 상단 버튼이라 아래 시험이 다루지 않는다');
-  const btn = page.locator('nav.rail').getByRole('button', { name: /지금 새로고침/ });
+  const btn = page.locator('header.top').getByRole('button', { name: /지금 새로고침/ });
   await btn.click();
   await expect(btn).toBeDisabled();
   await expect(btn).toBeEnabled({ timeout: 5000 });

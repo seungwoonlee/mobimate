@@ -38,7 +38,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const route = useRouter(s => s.loc.name);
   const main = useRef<HTMLElement>(null);
 
-  // 상단 버튼(새로고침·빠른 실행·폰으로 보기·긴급 정지)은 좌측 바가 보이는 화면에서는 그 아래쪽에 아이콘으로 둔다 (v1.5).
+  // 빠른 실행·폰으로 보기·긴급 정지는 좌측 바가 보이는 화면에서는 그 아래쪽에 아이콘으로 둔다 (v1.5). 새로고침은 어느 화면에서나 상단 날씨 옆의 초록 아이콘 버튼이다(2026-10-22).
   // 좌측 바가 없는 폰(Compact)·테이블톱 자세에서는 상단에 둔다.
   const settings = useQuery({ queryKey: keys.settings, queryFn: () => api.get<{ maxRefreshSec: number }>('/api/settings'), staleTime: 60_000 });
   const refresh = useAdaptiveRefresh(settings.data?.data.maxRefreshSec ?? 30);   // 자동 갱신 최대 주기는 PC 서버 설정을 따른다 (FR-RF-01)
@@ -221,26 +221,28 @@ function TopBar({ compact, actions, showActions }: { compact: boolean; actions: 
         </div>
       )}
       {h && !compact && <LocationScene place={h.location.space ?? h.location.channel} weather={h.location.weather} erinn={h.location.erinn} />}
-      {showActions && (
-        <div className="top-actions">
-          <button type="button" className="refresh" disabled={actions.refreshCooling} onClick={actions.manualRefresh} data-tip={TIP_REFRESH(actions.refresh.period)} aria-label={`지금 새로고침 (다음 자동 갱신 ${actions.refresh.left}초 후)`}>
-            <Icon name="refresh" /><span className="refresh-txt num">{actions.refresh.left}초</span>
-          </button>
-          <button type="button" className="icon-btn" onClick={actions.openPalette} aria-label="빠른 실행" data-tip={TIP_PALETTE}>
-            <Icon name="search" />
-          </button>
-          {actions.local && (
-            <button type="button" className="icon-btn" onClick={actions.openPair} aria-label="폰·태블릿으로 보기" data-tip={TIP_PAIR}>
-              <Icon name="phone" />
+      <div className="top-actions">
+        <button type="button" className="top-refresh" disabled={actions.refreshCooling} onClick={actions.manualRefresh} data-tip={TIP_REFRESH(actions.refresh.period)} aria-label={`지금 새로고침 (다음 자동 갱신 ${actions.refresh.left}초 후)`}>
+          <Icon name="refresh" />
+        </button>
+        {showActions && (
+          <>
+            <button type="button" className="icon-btn" onClick={actions.openPalette} aria-label="빠른 실행" data-tip={TIP_PALETTE}>
+              <Icon name="search" />
             </button>
-          )}
-          {!compact && (
-            <button type="button" className="stop-btn" onClick={stopAction}>
-              <Icon name="stop" />긴급 정지 <kbd>Esc</kbd>
-            </button>
-          )}
-        </div>
-      )}
+            {actions.local && (
+              <button type="button" className="icon-btn" onClick={actions.openPair} aria-label="폰·태블릿으로 보기" data-tip={TIP_PAIR}>
+                <Icon name="phone" />
+              </button>
+            )}
+            {!compact && (
+              <button type="button" className="stop-btn" onClick={stopAction}>
+                <Icon name="stop" />긴급 정지 <kbd>Esc</kbd>
+              </button>
+            )}
+          </>
+        )}
+      </div>
     </header>
   );
 }
@@ -258,9 +260,6 @@ function NavRail({ onChat, chatOpen, canToggle, actions, showActions }: { onChat
       <span className="sp" />
       {showActions && (
         <>
-          <button type="button" className="rail-act" disabled={actions.refreshCooling} onClick={actions.manualRefresh} data-tip={TIP_REFRESH(actions.refresh.period)} aria-label={`지금 새로고침 (다음 자동 갱신 ${actions.refresh.left}초 후)`}>
-            <Icon name="refresh" /><span className="num">{actions.refresh.left}초</span>
-          </button>
           <button type="button" className="rail-act" onClick={actions.openPalette} aria-label="빠른 실행" data-tip={TIP_PALETTE}>
             <Icon name="search" />실행
           </button>
