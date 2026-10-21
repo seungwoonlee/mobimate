@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useHomework, useInventory, useOverview } from '../api/queries';
-import type { CutoffContent, Header, HomeworkCard, InvItem, Life, Nearby, Overview as OverviewData } from '../api/types';
+import type { Header, HomeworkCard, InvItem, Life, Nearby, Overview as OverviewData } from '../api/types';
 import { CardHead, Delta, Dialog, ErrorCard, Fresh, Gauge, Icon, JobIcon, LevelState, LinkCard, Pill, Ring, Skeleton } from '../components/ui';
 import { useLayout, useNow } from '../hooks/layout';
 import { collectAll, stopAction } from '../lib/actions';
@@ -9,7 +9,6 @@ import { fmt, remaining, short, until } from '../lib/format';
 import { scoreClass } from '../lib/score';
 import { useDevice } from '../state/device';
 import { useRouter } from '../state/router';
-import { CUTOFF_STATUS } from './cutoffs';
 import { REL_TAG } from './players';
 import { RankPanel } from './rankings';
 import { RankBadge } from '../components/RankBadge';
@@ -19,7 +18,8 @@ const WORK_KIND_ORDER = ['metal', 'wood', 'leather', 'cloth', 'medicine', 'food'
 
 /**
  * 캐릭(옛 개요, FR-OV-01~03): 폭이 일정한 작은 상자를 화면 폭에 맞춰 여러 열로 쌓는다(세로 스크롤만, 가로로 늘어지는 줄·가로 스크롤 없음, 2026-10-22).
- * 상자 순서: 점수 → 가방(늘어난 아이템) → 재화 → 주간 숙제 체크 목록(일일 숙제 상자는 2026-10-22 뺐다) → 서버 랭킹 → 가공 → 주변 → 콘텐츠 추천 → 퀵 액션.
+ * 상자 순서: 점수 → 가방(늘어난 아이템) → 재화 → 주간 숙제 체크 목록(일일 숙제 상자는 2026-10-22 뺐다) → 서버 랭킹 → 가공 → 주변 → 일반 던전 추천(영혼석).
+ * 퀵 액션 버튼 4개는 2026-10-22 뺐다(같은 기능은 알림 칩·각 화면에 있다).
  */
 export function OverviewView() {
   const q = useOverview();
@@ -47,8 +47,7 @@ export function OverviewView() {
         <div className="ov-rank"><RankPanel /></div>
         <WorksCard life={d.life} at={q.dataUpdatedAt} />
         <NearbyCard nearby={d.nearby} />
-        {d.cutoffs && <CutoffSummary contents={d.cutoffs.contents} />}
-        <QuickActions life={d.life} />
+        <DungeonPick />
       </div>
     </div>
   );
@@ -218,10 +217,15 @@ function NearbyCard({ nearby }: { nearby: Nearby | null }) {
       <ul className="near-list">
         {shown.map((x, i) => (
           <li key={`${x.job}|${x.level}|${x.combatScore}|${i}`} className={`pl ${x.relation}`}>
-            <span className="pl-job">{REL_TAG[x.relation] && <span className="pl-tag">{REL_TAG[x.relation]}</span>}<JobIcon job={x.job} size={17} />{x.job}</span>
-            <span className="num muted">Lv.{x.level}</span>
-            <span className={`pl-cs num ${x.isStronger ? 'stronger' : ''}`}>{fmt(x.combatScore)}{x.isStronger && <span className="sr-only"> (나보다 강함)</span>}</span>
-            {(x.title || x.inCombat) && <span className="pl-sub small">{x.title}{x.inCombat && <span className="pl-combat"> · 전투 중</span>}</span>}
+            <JobIcon job={x.job} size={17} />
+            <span className="who">
+              <span className="pl-job">{REL_TAG[x.relation] && <span className="pl-tag">{REL_TAG[x.relation]}</span>}{x.job}</span>
+              {(x.title || x.inCombat) && <span className="pl-sub small">{x.title}{x.inCombat && <span className="pl-combat"> · 전투 중</span>}</span>}
+            </span>
+            <span className="nums">
+              <span className="num muted">Lv.{x.level}</span>
+              <span className={`pl-cs num ${x.isStronger ? 'stronger' : ''}`}>{fmt(x.combatScore)}{x.isStronger && <span className="sr-only"> (나보다 강함)</span>}</span>
+            </span>
           </li>
         ))}
       </ul>
@@ -230,44 +234,42 @@ function NearbyCard({ nearby }: { nearby: Nearby | null }) {
   );
 }
 
-/** 콘텐츠 추천 요약 (FR-CO-07, FR-OV-14): 콘텐츠마다 이름+상태, 추천 난이도를 상태 색으로 크게, 그 아래에 입장 가능 난이도 */
-function CutoffSummary({ contents }: { contents: CutoffContent[] }) {
-  return (
-    <LinkCard to="stats" params={{ tab: 'cutoffs' }} className="cutsum">
-      <CardHead icon="trophy" title="콘텐츠 추천" />
-      <ul className="cut-list">
-        {contents.map(c => {
-          const st = CUTOFF_STATUS[c.status];
-          return (
-            <li key={c.id} className={`tone-${st.tone}`}>
-              <span className="nm">{c.name}</span>
-              <Pill tone={st.tone}>{st.label}</Pill>
-              {c.status === 'locked'
-                ? <span className="rec locked"><Icon name="lock" size={13} />입장 불가</span>
-                : <>
-                    <span className="rec"><span className="rec-l">추천</span><b>{c.recommendedTier}</b></span>
-                    <span className="tier small">입장 가능: <b>{c.maxEntryTier}</b></span>
-                  </>}
-            </li>
-          );
-        })}
-      </ul>
-      <div className="faint small mt-4">전투력·마도저항 기준</div>
-    </LinkCard>
-  );
-}
+/** 일반 던전별 영혼석: 이 영혼석이 나오는 던전. 순서는 같은 개수일 때의 우선순위이기도 하다. */
+const SOULS = [
+  { stone: '야생의 영혼석', dungeon: '피오드 1층' },
+  { stone: '삼림의 영혼석', dungeon: '피오드 2층' },
+  { stone: '공명의 영혼석', dungeon: '룬다 1층' },
+  { stone: '파동의 영혼석', dungeon: '룬다 2층' },
+];
 
-function QuickActions({ life }: { life: Life | null }) {
-  const collecting = useBusy('collect');
-  const go = useRouter(s => s.go);
-  const ready = life?.works?.filter(w => w.done).map(w => w.name) ?? [];
+/**
+ * 일반 던전 추천(2026-10-22): 영혼석 4종의 보유 수(가방 + 캐릭터 창고 + 공용 창고 합산)가 가장 적은 던전부터 추천한다.
+ * 모든 영혼석을 골고루 얻을 확률을 높이려는 목적이다. 같은 수면 위 목록 순서(피오드 1층 → 룬다 2층).
+ */
+function DungeonPick() {
+  const inv = useInventory();
+  const items = inv.data?.data.items ?? [];
+  const rows = SOULS.map((x, order) => {
+    const mine = items.filter(i => i.name === x.stone);
+    const at = (loc: string) => mine.filter(i => i.location === loc).reduce((n, i) => n + i.count, 0);
+    return { ...x, order, bag: at('bag'), char: at('character'), acct: at('account'), total: mine.reduce((n, i) => n + i.count, 0) };
+  }).sort((a, b) => a.total - b.total || a.order - b.order);
   return (
-    <section className="qa" aria-label="퀵 액션">
-      <button type="button" onClick={() => go('homework')}><Icon name="list" /><span><b>일일 숙제 점검</b><span>오늘 못 한 숙제 확인</span></span></button>
-      <button type="button" onClick={() => go('inventory', { loc: 'diet' })}><Icon name="scale" /><span><b>가방 다이어트</b><span>이번 접속에 늘어난 잡템 순</span></span></button>
-      <button type="button" disabled={collecting} onClick={() => collectAll(ready)} data-needs-conn><Icon name="inbox" /><span><b>작업대 수거</b><span>{ready.length ? `완료된 가공물 ${ready.length}건` : '완료된 가공물 없음'}</span></span></button>
-      <button type="button" className="danger" onClick={stopAction}><Icon name="stop" /><span><b>행동 정지</b><span>채집·이동·자동사냥 중단</span></span></button>
-    </section>
+    <LinkCard to="inventory" params={{ q: '영혼석' }} className="dgpick">
+      <CardHead icon="dungeon" title="일반 던전 추천" right={<span className="faint small">영혼석 적은 순</span>} />
+      {inv.isPending ? <p className="faint small m0">불러오는 중…</p> : (
+        <ol className="dg-list">
+          {rows.map((r, i) => (
+            <li key={r.stone} className={i === 0 ? 'pick' : ''}>
+              <span className="no">{i === 0 ? '추천' : i + 1}</span>
+              <span className="nm">{r.dungeon}</span>
+              <span className="cnt num">{fmt(r.total)}개</span>
+              <span className="sub small">{r.stone} · 가방 {fmt(r.bag)} · 캐릭터 {fmt(r.char)} · 공용 {fmt(r.acct)}</span>
+            </li>
+          ))}
+        </ol>
+      )}
+    </LinkCard>
   );
 }
 
