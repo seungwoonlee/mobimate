@@ -26,6 +26,13 @@ public static class GameEndpoints
 
         api.MapGet("/status", (StatusMonitor s) => ApiResults.Ok(new { state = StatusMonitor.Wire(s.State), since = s.Since }));
 
+        // 게임 CLI 업데이트 점검 결과(2026-10-22): 마지막 점검 시각·명령 수·마지막으로 바뀐 내용. 점검 전이면 값이 비어 있다.
+        api.MapGet("/cli/changes", (CliChangeWatcher w) => ApiResults.Ok(new
+        {
+            checkedAt = w.Last?.CheckedAt, commands = w.Last?.Commands, firstBaseline = w.Last?.FirstBaseline,
+            changedAt = w.Last?.ChangedAt, summary = w.Last?.Summary,
+        }));
+
         api.MapGet("/header", (GameViews v, CancellationToken ct) => Respond(v.HeaderAsync(ct)));
         api.MapGet("/character", (GameViews v, CancellationToken ct) => Respond(v.CharacterAsync(ct)));
         api.MapGet("/inventory", (GameViews v, CancellationToken ct) => Respond(v.InventoryAsync(ct)));
