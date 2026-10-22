@@ -168,17 +168,47 @@ function HomeworkChecklist({ kind, d }: { kind: 'daily' | 'weekly'; d: OverviewD
         right={<span className="faint small hw-reset"><Icon name="clock" size={12} /> {until(reset, now)}</span>} />
       {q.isPending ? <p className="faint small m0">불러오는 중…</p> : cards.length === 0 ? <p className="faint small m0">표시할 숙제가 없어요.</p> : (
         <ul className="hw-ck">
-          {cards.map(c => (
-            <li key={c.id} className={c.isDone ? 'done' : c.suggestion?.code === 'missionCleared' ? 'guess' : c.status === 'inProgress' ? 'doing' : ''}>
-              <span className="ck" aria-hidden="true">{c.isDone && <Icon name="check" size={12} />}</span>
-              <span className="t">{c.title}{c.isDone && <span className="sr-only"> 완료</span>}</span>
-              <span className="r num faint">{c.isDone ? '' : c.suggestion?.code === 'missionCleared' ? '클리어 추정' : c.remaining != null ? `남은 ${c.remaining}회` : c.goal > 1 ? `${c.count}/${c.goal}` : c.status === 'inProgress' ? '진행 중' : ''}</span>
+          {checklistRows(cards).map(r => (
+            <li key={r.key} className={r.cls}>
+              <span className="ck" aria-hidden="true">{r.done && <Icon name="check" size={12} />}</span>
+              <span className="t">{r.title}{r.done && <span className="sr-only"> 완료</span>}</span>
+              <span className="r num faint">{r.right}</span>
             </li>
           ))}
         </ul>
       )}
     </LinkCard>
   );
+}
+
+export interface CheckRow { key: string; title: string; done: boolean; cls: string; right: string }
+
+/**
+ * 체크 목록의 줄. 택1 풀(필드 보스 여섯)은 한 줄로 묶는다(2026-10-22): 하나만 넘기면 되므로 보스마다 줄을 두면 여섯 줄이 한꺼번에 체크된다.
+ * 완료면 넘긴 보스 이름을 오른쪽에 쓰고, 미션 카운터로만 확인돼 이름을 모르면 비워 둔다.
+ */
+export function checklistRows(cards: HomeworkCard[]): CheckRow[] {
+  const rows: CheckRow[] = [];
+  const seenPools = new Set<string>();
+  for (const c of cards) {
+    if (c.pool) {
+      if (seenPools.has(c.pool)) continue;
+      seenPools.add(c.pool);
+      const group = cards.filter(x => x.pool === c.pool);
+      const done = group.some(x => x.isDone);
+      const picked = group.find(x => x.status === 'autoDone' || x.status === 'manualDone');
+      const doing = !done && group.some(x => x.status === 'inProgress');
+      rows.push({ key: `pool:${c.pool}`, title: `${c.categoryTitle} (택1)`, done, cls: done ? 'done' : doing ? 'doing' : '', right: done ? picked?.title ?? '' : doing ? '진행 중' : '' });
+      continue;
+    }
+    const guess = c.suggestion?.code === 'missionCleared';
+    rows.push({
+      key: c.id, title: c.title, done: c.isDone,
+      cls: c.isDone ? 'done' : guess ? 'guess' : c.status === 'inProgress' ? 'doing' : '',
+      right: c.isDone ? '' : guess ? '클리어 추정' : c.remaining != null ? `남은 ${c.remaining}회` : c.goal > 1 ? `${c.count}/${c.goal}` : c.status === 'inProgress' ? '진행 중' : '',
+    });
+  }
+  return rows;
 }
 
 /** 가공 대기열 (FR-OV-12): 가공 종류별로 묶어 건수·수거 가능·가장 먼저 끝나는 시간만 보여 준다. */

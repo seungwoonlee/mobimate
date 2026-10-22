@@ -169,12 +169,22 @@ function CoinChip({ label, c }: { label: string; c: CoinView }) {
   );
 }
 
-/** 칩 순서: 첫 줄은 요일던전·길드의뢰·뱅가드, 둘째 줄은 레이드(카브락·에이렐·화이트서큐), 셋째 줄은 어비스·필드 보스(허상·광기·물길·앙그르바한)(허상·광기·물길). 목록에 없는 것은 뒤에 붙는다 */
-const HW_ORDER = ['daily_day_dungeon', 'weekly_guild_regular', 'weekly_vanguard_breach', 'raid_cavrak', 'raid_airel', 'raid_white_succubus', 'abyss_illusory_anchorage', 'abyss_madness_cave', 'abyss_scattered_waterway', 'fieldboss_angrbahan'];
+/** 칩 순서: 첫 줄은 요일던전·길드의뢰·뱅가드, 둘째 줄은 레이드(카브락·에이렐·화이트서큐), 셋째 줄은 어비스·필드 보스(허상·광기·물길·필드보스). 목록에 없는 것은 뒤에 붙는다 */
+const HW_ORDER = ['daily_day_dungeon', 'weekly_guild_regular', 'weekly_vanguard_breach', 'raid_cavrak', 'raid_airel', 'raid_white_succubus', 'abyss_illusory_anchorage', 'abyss_madness_cave', 'abyss_scattered_waterway', 'field_boss'];
 const hwRank = (id: string) => { const i = HW_ORDER.indexOf(id); return i < 0 ? HW_ORDER.length : i; };
 export function splitHwRows(list: HomeworkAuto[]): [HomeworkAuto[], HomeworkAuto[], HomeworkAuto[]] {
   const sorted = [...list].sort((a, b) => hwRank(a.id) - hwRank(b.id));
   return [sorted.filter(h => h.category !== 'raid' && h.category !== 'abyss' && h.category !== 'fieldBoss'), sorted.filter(h => h.category === 'raid'), sorted.filter(h => h.category === 'abyss' || h.category === 'fieldBoss')];
+}
+/**
+ * 필드 보스는 주 1회 택1이라 보스마다 칩을 두지 않고 "필드보스" 칩 하나로 보인다(2026-10-22). 완료면 넘긴 보스 이름을 툴팁에 쓴다.
+ * 개별 보스 칩(앙그르바한 등)은 뺀다.
+ */
+export const FIELD_BOSS_CHIP = 'field_boss';
+export function withFieldBossChip(list: HomeworkAuto[], boss: CharacterCard['fieldBoss']): HomeworkAuto[] {
+  const evidence = boss.state === 'done' ? (boss.item ? `${boss.item} 처치` : '주간 미션 "필드 보스 토벌" 카운터로 확인 (보스 이름 모름)') : null;
+  return [...list.filter(h => h.category !== 'fieldBoss'),
+    { id: FIELD_BOSS_CHIP, title: '필드보스', period: 'weekly', state: boss.state, evidence, remaining: null, category: 'fieldBoss' }];
 }
 function HwRows({ list }: { list: HomeworkAuto[] }) {
   const [top, raids, abyss] = splitHwRows(list);
@@ -237,7 +247,7 @@ function CharacterCardView({ c, now }: { c: CharacterCard; now: number }) {
         <span className="muted">데카 <b className="num">{fmt(c.deca)}</b></span>
         <span className="muted">M캐시 <b className="num">{fmt(c.mcash)}</b></span>
       </div>
-      {c.homework.length > 0 && <HwRows list={c.homework} />}
+      {c.homework.length > 0 && <HwRows list={withFieldBossChip(c.homework, c.fieldBoss)} />}
       {notes.length > 0 && <ul className="cc-notes small">{notes.map(n => <li key={n}>{n}</li>)}</ul>}
       {asking && (
         <Dialog title="캐릭터 삭제" onClose={() => setAsking(false)}
