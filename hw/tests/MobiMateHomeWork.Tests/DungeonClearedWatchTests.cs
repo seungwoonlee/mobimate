@@ -39,7 +39,8 @@ public class DungeonClearedWatchTests
     public async Task InDayDungeonMap_ClearedIsCaught_CompletesHomeworkRightAway_AndLogs()
     {
         using var game = new FakeGame();
-        game.SetMap("찬란한 유적 V");
+        var map = TodaysDayDungeonMap();   // 요일마다 들어갈 수 있는 던전이 다르다(FR-HW-35): 실제 시계 기준 오늘 것
+        game.SetMap(map);
         SetDungeon(game, "InProgress");
         await using var h = await Start(game);
         await h.Status.CheckNowAsync();
@@ -52,7 +53,7 @@ public class DungeonClearedWatchTests
         SetDungeon(game, "Cleared");   // 보스 처치
         await Wait.UntilAsync(() => h.Homework.GetBoard(FakeGame.SampleKey).Cards.Single(c => c.Id == "daily_day_dungeon").Status == HomeworkCardStatus.AutoDone, "클리어 즉시 완료");
         Assert.Equal("던전 클리어(게임 상태)", h.Homework.GetBoard(FakeGame.SampleKey).Cards.Single(c => c.Id == "daily_day_dungeon").Evidence);
-        Assert.Contains(h.Logs.Entries, e => e.Level == LogLevel.Information && e.Message.Contains("던전 클리어 감지") && e.Message.Contains("찬란한 유적 V"));
+        Assert.Contains(h.Logs.Entries, e => e.Level == LogLevel.Information && e.Message.Contains("던전 클리어 감지") && e.Message.Contains(map));
         await Wait.UntilAsync(() => observer.FullRuns >= 2, "+0초 · +3초 관찰", TimeSpan.FromSeconds(10));
     }
 
@@ -71,5 +72,13 @@ public class DungeonClearedWatchTests
         SetDungeon(game, "Cleared");
         await Task.Delay(1500);
         Assert.NotEqual(HomeworkCardStatus.AutoDone, h.Homework.GetBoard(FakeGame.SampleKey).Cards.Single(c => c.Id == "daily_day_dungeon").Status);
+    }
+
+    /// <summary>실제 시계(게임의 하루는 06:00에 바뀐다) 기준 오늘의 요일 던전 지역 이름. 카탈로그의 요일별 지역 목록에서 고른다.</summary>
+    private static string TodaysDayDungeonMap()
+    {
+        var keys = new[] { "sun", "mon", "tue", "wed", "thu", "fri", "sat" };
+        var def = HomeworkCatalog.LoadEmbedded().Find("daily_day_dungeon")!;
+        return def.DaySpaceNamePrefixes[keys[(int)KstClock.GameDayOfWeek(DateTimeOffset.UtcNow)]][0] + " V";
     }
 }

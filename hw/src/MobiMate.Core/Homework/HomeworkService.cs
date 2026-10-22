@@ -21,7 +21,8 @@ public sealed record HomeworkCard(
 public sealed record HomeworkAutoStatus(string Id, string Title, string Period, string State, string? Evidence, int? Remaining = null, string Category = "", HomeworkSuggestion? Suggestion = null);
 
 /// <summary>공유 풀(필드 보스 택1)의 캐릭터별 현황. State: done / todo / unknown, Item = 넘긴 보스 이름(완료일 때).</summary>
-public sealed record HomeworkPoolStatus(string State, string? Item);
+/// <param name="Guess">"클리어 추정": 필드 보스 미션 카운터는 올랐는데 어느 보스인지 못 가렸다(눌러서 확인).</param>
+public sealed record HomeworkPoolStatus(string State, string? Item, bool Guess = false);
 
 public sealed record HomeworkProgress(int Done, int Total);
 
@@ -291,7 +292,8 @@ public sealed class HomeworkService
                 file.Characters.TryGetValue(key, out var ledger);
                 var fresh = ledger != null && ledger.LastWeeklyResetUtc >= lastWeekly;
                 var cleared = fresh ? defs.FirstOrDefault(d => ledger!.Items.GetValueOrDefault(d.Id)?.Completed == true) : null;
-                result[key] = cleared != null ? new HomeworkPoolStatus("done", cleared.Title) : new HomeworkPoolStatus(fresh ? "todo" : "unknown", null);
+                var guess = cleared == null && fresh && defs.Any(d => ledger!.Items.GetValueOrDefault(d.Id)?.Suggestion is { Code: "missionCleared" });
+                result[key] = cleared != null ? new HomeworkPoolStatus("done", cleared.Title) : new HomeworkPoolStatus(fresh ? "todo" : "unknown", null, guess);
             }
             return result;
         }

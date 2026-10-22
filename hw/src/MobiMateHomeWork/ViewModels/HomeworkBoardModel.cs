@@ -75,7 +75,8 @@ public static class HomeworkBoardLayout
                 var pool = c.FieldBoss;
                 var state = StateOf(pool.State);
                 var progress = c.InProgressIds.Any(bossIds.Contains) || c.InProgressIds.Contains(FieldBossCellId);
-                list.Add(new CellData(def, state, null, null, state == CellState.Done ? pool.Item : null, null, progress));
+                var guess = pool.Guess && state != CellState.Done ? new HomeworkSuggestion("missionCleared", "필드 보스 토벌", 0, 1) : null;   // 미션은 올랐는데 어느 보스인지 모름
+                list.Add(new CellData(def, state, null, null, state == CellState.Done ? pool.Item : null, guess, progress));
                 continue;
             }
             byId.TryGetValue(def.Id, out var h);
@@ -137,6 +138,7 @@ public static class HomeworkBoardLayout
         "raidTokenIncreased" => $"{s.Item}이(가) {s.From:N0}에서 {s.To:N0}(으)로 늘었습니다",
         "raidMapEntered" => $"레이드 지역({s.Item})에 들어왔습니다",
         "bossCleared" => $"보스 처치를 확인했습니다 ({s.Item})",
+        "missionCleared" => $"주간 미션 '{s.Item}'이 올랐습니다 — 어느 것을 깼는지 눌러서 확인하세요(클리어 추정)",
         _ => string.IsNullOrWhiteSpace(s.Item) ? s.Code : s.Item,
     };
 
