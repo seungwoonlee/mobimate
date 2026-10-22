@@ -112,6 +112,35 @@ public sealed class AutoSuspicionTracker
     /// <summary>지금 의심 중인 사람들(카운터가 표시 기준을 넘은 사람).</summary>
     public IReadOnlyList<AutoSuspect> Suspects { get; private set; } = Array.Empty<AutoSuspect>();
 
+    /// <summary>같은 사람으로 보는 전투력 차이: 던전 안에서는 버프·음식으로 다른 사람의 전투력이 수시로 조금씩 바뀐다(실측 50,403 → 50,571 → 50,604).</summary>
+    public const double ScoreDriftRatio = 0.03;
+    public const long ScoreDriftMin = 1000;
+
+    /// <summary>
+    /// 표식(Key)에 전투력이 들어 있어, 전투력이 조금만 바뀌어도 "사라진 사람 + 새 사람"으로 둘이 된다(2026-10-22 승운: 같은 사람이 2명으로 보임).
+    /// 이번 관찰에 처음 보이는 표식이 있고, 지금 안 보이는 기존 추적 중에 서버·직업·레벨·칭호가 같고 전투력 차이가 작은 사람이 있으면
+    /// 같은 사람으로 보고 그 추적(카운터 포함)을 새 표식으로 옮긴다. 가장 가까운 전투력 하나만, 한 번에 한 사람씩 짝짓는다.
+    /// </summary>
+    private void Rekey(List<WatchedPlayer> list)
+    {
+        var present = list.Select(p => p.Key).ToHashSet();
+        foreach (var p in list.Where(p => !_tracks.ContainsKey(p.Key)))
+        {
+            var match = _tracks
+                .Where(kv => !present.Contains(kv.Key) && kv.Value.Last is { } w
+                    && w.Realm == p.Realm && w.Job == p.Job && w.Level == p.Level && w.Title == p.Title
+                    && Math.Abs(w.CombatScore - p.CombatScore) <= Math.Max(ScoreDriftMin, w.CombatScore * ScoreDriftRatio))
+                .OrderBy(kv => Math.Abs(kv.Value.Last!.CombatScore - p.CombatScore))
+                .Select(kv => kv.Key)
+                .FirstOrDefault();
+            if (match == null) continue;
+            var t = _tracks[match];
+            _tracks.Remove(match);
+            _tracks[p.Key] = t;
+            present.Add(match);   // 같은 옛 추적을 두 번 쓰지 않게
+        }
+    }
+
     public void Reset()
     {
         _tracks.Clear();
@@ -134,6 +163,7 @@ public sealed class AutoSuspicionTracker
         var list = players.Where(p => !dup.Contains(p.Key)).ToList();
         foreach (var k in dup) _tracks.Remove(k);
         _visible = list.Count;
+        Rekey(list);
 
         // 1) 거리 변화(움직임)부터 갱신한다: 정지 판정은 "다른 사람은 움직이는데 이 사람만 그대로"라서 모두의 변화가 필요하다
         foreach (var p in list)
