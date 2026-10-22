@@ -282,4 +282,28 @@ public class HomeworkClearMissionTests : IDisposable
         Assert.NotEqual(HomeworkCardStatus.AutoDone, Card(svc, Main, "raid_cavrak").Status);
         Assert.Equal(HomeworkCardStatus.InProgress, Card(svc, Main, "raid_cavrak").Status);   // 들어간 것은 진행 중
     }
+
+    // ── 레이드 클리어 퀘스트 (2026-10-22 에이렐 매우 어려움 실측: 레이드 안에서 "[에이렐] 클리어"가 처치 순간 "[에이렐] 토벌 완료"로 바뀐다) ──
+
+    private static HomeworkObservation RaidQuest(string space, string quest) => new(
+        Quests: new List<QuestItem> { new(quest, "main", "메인", new List<QuestObjective> { new("포탈을 사용하여 출항선으로 이동", false) }) },
+        Environment: new EnvironmentInfo("채널 1", null, null, space));
+
+    [Theory]
+    [InlineData("<color=orange>에이렐</color> 토벌 완료", "raid_airel")]
+    [InlineData("<color=orange>카브락</color> 토벌 완료", "raid_cavrak")]
+    [InlineData("<color=orange>화이트 서큐버스</color> 토벌 완료", "raid_white_succubus")]
+    public void TheGamesKillCompleteQuest_CompletesThatRaid(string quest, string id)
+    {
+        var svc = NewService();
+        svc.Evaluate(Main, RaidQuest("먼 바다의 춤추는 바람", "<color=orange>에이렐</color> 클리어"));   // 진행 중 퀘스트: 아직 아니다
+        Assert.NotEqual(HomeworkCardStatus.AutoDone, Card(svc, Main, "raid_airel").Status);
+        _now += TimeSpan.FromMinutes(3);
+        svc.Evaluate(Main, RaidQuest("먼 바다의 춤추는 바람", quest));
+        var card = Card(svc, Main, id);
+        Assert.Equal(HomeworkCardStatus.AutoDone, card.Status);
+        Assert.Contains("토벌 완료", card.Evidence);
+        Assert.All(new[] { "raid_cavrak", "raid_airel", "raid_white_succubus" }.Where(x => x != id),
+            x => Assert.NotEqual(HomeworkCardStatus.AutoDone, Card(svc, Main, x).Status));
+    }
 }
