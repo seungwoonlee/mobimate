@@ -186,11 +186,14 @@ public sealed class RankingService
         return new RankView(key, name, sid is { } s ? RankingServers.NameOf(s) : null, name != null, sid != null, changed, entries);
     }
 
-    /// <summary>전투력 서버 순위 뱃지. 순위가 없거나 별칭이 바뀌었거나 10000위 밖이면 null.</summary>
-    public RankBadge? BadgeOf(string key)
+    /// <summary>
+    /// 서버 순위 뱃지. 종류는 combat·living·attract·total(승운 2026-10-23: 딱지 등급 규칙은 전투력뿐 아니라 생활력·매력·종합에도 같다).
+    /// 순위가 없거나 별칭이 바뀌었거나 10000위 밖이면 null.
+    /// </summary>
+    public RankBadge? BadgeOf(string key, string kind = "combat")
     {
         var v = ViewOf(key);
-        if (!v.Entries.TryGetValue("combat", out var e) || e.Rank is not { } rank || RankTiers.Of(rank) == RankTier.None) return null;
+        if (!v.Entries.TryGetValue(kind, out var e) || e.Rank is not { } rank || RankTiers.Of(rank) == RankTier.None) return null;
         return new RankBadge(rank, RankTiers.Name(RankTiers.Of(rank)), e.Stale, e.At);
     }
 

@@ -491,6 +491,9 @@ test('스탯 탭: 계정의 캐릭터 표에 점수·서버 순위·추천이 �
   await expect(row).toContainText('8,800위');    // 매력
   await expect(row).toContainText('612위');      // 종합
   await expect(row).toContainText('어비스');     // 어비스·레이드 추천
+  await expect(row.locator('.rank-badge')).toHaveCount(4);   // 전투력·생활력·매력·종합 모두 같은 등급 규칙의 딱지(523 핑크·2,400 보라·8,800 보라·612 핑크)
+  await expect(row.locator('.rank-badge.pink')).toHaveCount(2);
+  await expect(row.locator('.rank-badge.purple')).toHaveCount(2);
   await expect(table).toContainText('종합 = 전투력 + 생활력 + 매력');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1)).toBe(true);   // 옆 스크롤 없음
 });

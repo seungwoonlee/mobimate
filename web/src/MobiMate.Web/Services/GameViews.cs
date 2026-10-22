@@ -216,6 +216,7 @@ public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManag
                 combat = ch.CombatScore?.Value ?? 0, combatDelta = delta.CombatScoreDiff, combatRank = rankings.BadgeOf(key),
                 mdef = ch.ArcaneResistance?.Value ?? 0, mdefDelta = delta.ArcaneResistanceDiff,
                 living = ScoreReading.OrLast(ch.LivingScore?.Value, lastRec?.LivingScore), attract = ScoreReading.OrLast(ch.AttractivenessScore?.Value, lastRec?.AttractivenessScore),
+                livingRank = rankings.BadgeOf(key, "living"), attractRank = rankings.BadgeOf(key, "attract"),   // 생활력·매력도 같은 등급 규칙의 딱지
             },
             inProgress = InProgressOf(homework.Catalog, env),
             activity = new { text = GameStateCache.DescribeActivity(act), inCombat = act?.IsInCombat ?? false, canStop = act?.CanStop() ?? false },
@@ -458,6 +459,7 @@ public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManag
                     // 필드 보스 택1: 이번 주기에 넘긴 보스 (done이면 item에 보스 이름)
                     fieldBoss = bossStatus.GetValueOrDefault(c.Key) ?? new HomeworkPoolStatus("unknown", null),
                     combatRank = rankings.BadgeOf(c.Key),   // 전투력 서버 순위 뱃지 (순위를 모르면 null)
+                    livingRank = rankings.BadgeOf(c.Key, "living"), attractRank = rankings.BadgeOf(c.Key, "attract"), totalRank = rankings.BadgeOf(c.Key, "total"),
                     // 어비스·레이드 추천(스탯 탭의 계정 표): 이 캐릭터의 전투력·마도저항 기준. 입장 불가면 tier가 null
                     recommend = CutoffEvaluator.EvaluateAll(cutoffs, c.Combat, c.Mdef).Select(r => new
                     {

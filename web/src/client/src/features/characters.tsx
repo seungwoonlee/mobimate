@@ -239,8 +239,8 @@ function CharacterCardView({ c, now }: { c: CharacterCard; now: number }) {
         <div><span className="lbl">마도저항</span><b className={`v num ${scoreClass('mdef', c.mdef)}`}>{fmt(c.mdef)}</b></div>
       </div>
       <div className="cc-sub">
-        <span><Icon name="hammer" size={14} />생활력 <b className="num">{fmt(c.living)}</b></span>
-        <span><Icon name="heart" size={14} />매력 <b className={`num ${scoreClass('attract', c.attract)}`}>{fmt(c.attract)}</b></span>
+        <span><Icon name="hammer" size={14} />생활력 <b className="num">{fmt(c.living)}</b><RankBadge badge={c.livingRank} /></span>
+        <span><Icon name="heart" size={14} />매력 <b className={`num ${scoreClass('attract', c.attract)}`}>{fmt(c.attract)}</b><RankBadge badge={c.attractRank} /></span>
       </div>
       <div className="cc-wallet">
         <span><Icon name="coins" size={14} /><b className="num gold-text">{fmt(c.gold)}</b> G</span>

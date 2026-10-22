@@ -114,6 +114,23 @@ public sealed class RankingServiceTests : IDisposable
     }
 
     [Fact]
+    public void LivingAttractAndTotal_GetTheSameBadgeRule_AsCombat()
+    {
+        var s = Service();
+        s.Import(new[]
+        {
+            new RankImportItem(Key, "헤니컵A", 3, Item(9, "헤니컵A", "격투가", "생활력", "45,237")),                              // 10위 이내: 골드
+            new RankImportItem(Key, "헤니컵A", 2, Item(66, "헤니컵A", "격투가", "매력", "58,836")),                               // 100위 이내: 주황
+            new RankImportItem(Key, "헤니컵A", 4, Item(523, "헤니컵A", "격투가", "종합 점수", "245,172", "141,099", "45,237", "58,836")),   // 1000위 이내: 핑크
+        });
+        Assert.Equal("gold", s.BadgeOf(Key, "living")!.Tier);
+        Assert.Equal("orange", s.BadgeOf(Key, "attract")!.Tier);
+        Assert.Equal("pink", s.BadgeOf(Key, "total")!.Tier);
+        Assert.Null(s.BadgeOf(Key));                                      // 전투력은 아직 없다
+        Assert.Null(s.BadgeOf(Key, "combat"));
+    }
+
+    [Fact]
     public void BeyondTenThousand_OrNotFound_HasNoBadge_ButIsKept()
     {
         var s = Service();
