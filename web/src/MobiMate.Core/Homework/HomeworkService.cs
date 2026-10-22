@@ -18,10 +18,11 @@ public sealed record HomeworkCard(
 }
 
 /// <summary>캐릭터 카드에 보여 줄 자동 판정 숙제 한 줄. State: done / todo / unknown.</summary>
-public sealed record HomeworkAutoStatus(string Id, string Title, string Period, string State, string? Evidence, int? Remaining = null, string Category = "");
+/// <param name="Guess">"클리어 추정": 주간 미션 카운터는 올랐는데 어느 항목인지 못 가렸다(눌러서 확인). 완료가 아닐 때만 true.</param>
+public sealed record HomeworkAutoStatus(string Id, string Title, string Period, string State, string? Evidence, int? Remaining = null, string Category = "", bool Guess = false);
 
 /// <summary>공유 풀(필드 보스 택1)의 캐릭터별 현황. State: done / todo / unknown, Item = 넘긴 보스 이름(완료일 때).</summary>
-public sealed record HomeworkPoolStatus(string State, string? Item);
+public sealed record HomeworkPoolStatus(string State, string? Item, bool Guess = false);
 
 public sealed record HomeworkProgress(int Done, int Total);
 
@@ -265,7 +266,8 @@ public sealed class HomeworkService
                     else if (def.EffectiveMode == HomeworkMode.QuestSuffix) state = st?.Evidence != null ? "todo" : "unknown";
                     else if (!string.IsNullOrWhiteSpace(def.TokenCurrency)) state = fresh && ledger!.RaidTokensObservedUtc >= cycleStart ? "todo" : "unknown";
                     else state = "unknown";
-                    list.Add(new HomeworkAutoStatus(def.Id, def.CardLabel ?? def.Title, def.Period == HomeworkPeriod.Daily ? "daily" : "weekly", state, st?.Evidence, state == "todo" ? st?.RemainingCount : null, def.Category));
+                    var guess = state != "done" && st?.Suggestion is { Code: "missionCleared" };
+                    list.Add(new HomeworkAutoStatus(def.Id, def.CardLabel ?? def.Title, def.Period == HomeworkPeriod.Daily ? "daily" : "weekly", state, st?.Evidence, state == "todo" ? st?.RemainingCount : null, def.Category, guess));
                 }
                 result[key] = list;
             }
@@ -290,7 +292,8 @@ public sealed class HomeworkService
                 file.Characters.TryGetValue(key, out var ledger);
                 var fresh = ledger != null && ledger.LastWeeklyResetUtc >= lastWeekly;
                 var cleared = fresh ? defs.FirstOrDefault(d => ledger!.Items.GetValueOrDefault(d.Id)?.Completed == true) : null;
-                result[key] = cleared != null ? new HomeworkPoolStatus("done", cleared.Title) : new HomeworkPoolStatus(fresh ? "todo" : "unknown", null);
+                var guess = cleared == null && fresh && defs.Any(d => ledger!.Items.GetValueOrDefault(d.Id)?.Suggestion is { Code: "missionCleared" });
+                result[key] = cleared != null ? new HomeworkPoolStatus("done", cleared.Title) : new HomeworkPoolStatus(fresh ? "todo" : "unknown", null, guess);
             }
             return result;
         }

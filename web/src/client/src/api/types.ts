@@ -110,11 +110,11 @@ export interface CharacterCard {
   /** 자동 판정되는 숙제 현황 (요일 던전·카브락·정기 의뢰·가공 수거): done 완료 / todo 이번 주기에 확인한 미완료 / unknown 아직 확인 못 함 */
   homework: HomeworkAuto[];
   /** 필드 보스 택1: 이번 주기에 넘긴 보스 (done이면 item에 보스 이름) */
-  fieldBoss: { state: 'done' | 'todo' | 'unknown'; item: string | null };
+  fieldBoss: { state: 'done' | 'todo' | 'unknown'; item: string | null; /** 클리어 추정(미션 카운터는 올랐는데 어느 보스인지 모름) */ guess?: boolean };
   /** 전투력 서버 순위 뱃지 (10000위 이내만, 모르면 null) */
   combatRank: RankBadgeData | null;
 }
-export interface HomeworkAuto { id: string; title: string; period: 'daily' | 'weekly'; state: 'done' | 'todo' | 'unknown'; evidence: string | null; /** 남은 횟수 (뱅가드 등, 알 때만) */ remaining: number | null; category?: string }
+export interface HomeworkAuto { id: string; title: string; period: 'daily' | 'weekly'; state: 'done' | 'todo' | 'unknown'; evidence: string | null; /** 남은 횟수 (뱅가드 등, 알 때만) */ remaining: number | null; category?: string; /** 클리어 추정: 주간 미션 카운터는 올랐는데 어느 항목인지 못 가렸다 */ guess?: boolean }
 export interface AccountGroup {
   id: string; name: string; solo: boolean; deca: number; mcash: number;
   membership: { expiresAt: string | null; active: boolean }; caps: { silver: number; tribute: number };

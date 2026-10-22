@@ -748,3 +748,9 @@ button.hw-cell:focus-visible { outline: 2px solid var(--accent); outline-offset:
 .top-refresh:hover{filter:brightness(1.08)}
 .top-refresh:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .top-refresh:disabled{opacity:.55;cursor:not-allowed}
+
+
+/* 클리어 추정(2026-10-22): 주간 미션 카운터는 올랐는데 어느 레이드·어비스·보스인지 못 가렸다. 눌러서 확인하게 강조한다. */
+.hw-cell.guess { border-color: var(--accent); background: var(--accent-soft); }
+.hw-cell.guess .hw-cell-state { color: var(--accent); font-weight: 700; }
+.ov .hw-ck li.guess .r { color: var(--accent); font-weight: 700; }

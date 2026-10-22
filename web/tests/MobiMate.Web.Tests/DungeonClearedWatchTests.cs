@@ -9,6 +9,14 @@ namespace MobiMate.Web.Tests;
 /// </summary>
 public class DungeonClearedWatchTests
 {
+    /// <summary>실제 시계(게임의 하루는 06:00에 바뀐다) 기준 오늘의 요일 던전 지역 이름. 카탈로그의 요일별 지역 목록에서 고른다.</summary>
+    private static string TodaysDayDungeonMap()
+    {
+        var keys = new[] { "sun", "mon", "tue", "wed", "thu", "fri", "sat" };
+        var def = HomeworkCatalog.LoadEmbedded().Find("daily_day_dungeon")!;
+        return def.DaySpaceNamePrefixes[keys[(int)KstClock.GameDayOfWeek(DateTimeOffset.UtcNow)]][0] + " V";
+    }
+
     private static string SamplesDir()
     {
         var d = new DirectoryInfo(AppContext.BaseDirectory);
@@ -82,7 +90,7 @@ public class DungeonClearedWatchTests
     [Fact]
     public async Task InDayDungeonMap_ClearedIsCaught_AndCompletesHomeworkRightAway()
     {
-        var dir = MakeSamples("찬란한 유적 V", "InProgress");
+        var dir = MakeSamples(TodaysDayDungeonMap(), "InProgress");   // 요일마다 들어갈 수 있는 던전이 다르다(FR-HW-35): 실제 시계 기준 오늘 것
         await WithSamples(dir, async () =>
         {
             using var host = new TestHost { WatchInterval = "00:00:00.200" };

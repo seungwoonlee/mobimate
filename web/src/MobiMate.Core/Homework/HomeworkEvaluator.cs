@@ -41,6 +41,7 @@ public static partial class HomeworkEvaluator
             if (due && ledger.Items.Remove(def.Id)) changed.Add(def.Id);
             if (due) { ledger.QuestSightings?.Remove(def.Id); ledger.QuestContinuityBroken?.Remove(def.Id); ledger.QuestVanishPending?.Remove(def.Id); ledger.RaidAreaSince?.Remove(ClearKey(def)); }
         }
+        if (weeklyDue) { ledger.ClearMissionCounts = null; ledger.ProgressSeen = null; }   // 이번 주기에 본 클리어 미션 카운터·진행 신호는 지난 주 것이다
         if (dailyDue) ledger.LastDailyResetUtc = lastDaily;
         if (weeklyDue) ledger.LastWeeklyResetUtc = lastWeekly;
         return changed;
@@ -56,6 +57,11 @@ public static partial class HomeworkEvaluator
         var alteringCollected = ObserveAltering(character, obs, nowUtc, characterJustSwitched);
         var questsUsable = !characterJustSwitched && obs.Quests != null;   // 캐릭터를 바꾼 직후의 퀘스트 목록은 이전 캐릭터 것일 수 있다
         var raidSuggestions = ObserveRaidTokens(character, catalog, obs, nowUtc, questsUsable);
+        // 클리어 미션 카운터(레이드·어비스·필드 보스): 카운터가 오른 순간은 더 확실한 근거라, 같은 항목의 약한 근거(지역 진입 등)를 덮는다.
+        // 애매해서 항목을 못 가린 "클리어 추정"은 이미 있는 근거를 약하게 만들지 않도록 비어 있는 항목에만 담는다.
+        if (!characterJustSwitched)
+            foreach (var (id, sug) in ObserveClearMissions(character, catalog, obs, nowUtc))
+                if (sug.Code == "missionClearedHere" || !raidSuggestions.ContainsKey(id)) raidSuggestions[id] = sug;
 
 
         foreach (var def in catalog.Items.Where(d => d.Active))
@@ -124,7 +130,7 @@ public static partial class HomeworkEvaluator
             if (existing is { ManualOverride: true, Completed: false } manual && raidSuggestions.TryGetValue(def.Id, out var manualSuggestion))
             {
                 // 확실한 증거(증표 증가, 수동 설정 뒤의 새 레이드 지역 진입)는 수동 미완료보다 우선한다
-                if ((def.TokenAuto || IsPresenceCode(manualSuggestion.Code)) && IsDefinitiveOverManual(def, manual, manualSuggestion, character))
+                if (AutoCompletes(def, manualSuggestion) && IsDefinitiveOverManual(def, manual, manualSuggestion, character))
                 {
                     var evidence = EvidenceOf(manualSuggestion);
                     manual.ManualOverride = false;
@@ -138,6 +144,12 @@ public static partial class HomeworkEvaluator
                     changed.Add(def.Id);
                 }
                 continue;
+            }
+            // 이번 관찰에서 더는 필요 없는 "클리어 추정"(다른 항목을 확인했거나 미션이 리셋됨)은 치운다
+            if (existing?.Suggestion is { Code: "missionCleared" } && !raidSuggestions.ContainsKey(def.Id))
+            {
+                existing.Suggestion = null;
+                changed.Add(def.Id);
             }
             if (existing is { ManualOverride: true } or { Completed: true }) continue;
 
@@ -170,7 +182,7 @@ public static partial class HomeworkEvaluator
             }
             if (!st.Completed && raidSuggestions.TryGetValue(def.Id, out var suggestion))
             {
-                if (def.TokenAuto || IsPresenceCode(suggestion.Code)) Complete(st, def.Goal, EvidenceOf(suggestion), nowUtc);
+                if (AutoCompletes(def, suggestion)) Complete(st, def.Goal, EvidenceOf(suggestion), nowUtc);
                 else st.Suggestion = suggestion;
             }
             if ((st.Completed, st.Count, st.Goal, st.Suggestion, st.Evidence, st.RemainingCount) != before)
@@ -542,6 +554,69 @@ public static partial class HomeworkEvaluator
         return result;
     }
 
+    /// <summary>카운터가 오른 순간에 그 항목의 지역에 있거나 최근에 보스와 싸웠으면 그 항목이라고 보는 시간.</summary>
+    private static readonly TimeSpan ClearSignalRecent = TimeSpan.FromMinutes(20);
+
+    private static bool AreaNow(HomeworkDefinition d, string normalizedSpace) =>
+        normalizedSpace.Length > 0 && d.EntrySpaceNames.Concat(d.SpaceNames).Any(n => HomeworkText.Normalize(n) == normalizedSpace);
+
+    /// <summary>
+    /// 클리어 미션 카운터(레이드·어비스·필드 보스, 2026-10-22 승운 승인): 주간 미션은 캐릭터별이라 그 캐릭터의 "레이드 1회 토벌 N/1" 같은 카운터가
+    /// 오른 순간이 그 캐릭터의 클리어다. 미션은 어느 항목인지 알려 주지 않으므로 다음 순서로 가린다.
+    /// ① 오른 순간 그 항목의 전용 지역에 있다 ② 최근 20분 안에 그 항목의 보스와 싸웠거나 지역에 있었다 ③ 남은 후보가 하나뿐이다.
+    /// 가려지면 "missionClearedHere"(자동 완료), 못 가리면 아직 끝나지 않은 항목 모두에 "missionCleared"(클리어 추정, 눌러서 확인)를 남긴다.
+    /// - 이 묶음의 항목이 이미 하나라도 끝났으면 카운터는 그것으로 설명되므로 아무것도 하지 않는다(레이드·어비스는 미션 목표가 1이라 첫 클리어만 센다. 필드 보스는 택1).
+    /// - 지역·보스로 가리는 것은 카운터가 **막 오른** 관찰에서만 한다. 그 뒤 다른 레이드 지역에 들어갔다고 그 레이드를 완료로 보면 안 된다.
+    /// - 처음 보는 값(이번 주기의 기준)이 이미 1 이상이면 언제 어디서 깼는지 모르므로 후보가 하나뿐일 때만 가리고 아니면 추정으로 둔다.
+    /// - 미션 목록이 없거나 해당 미션이 없으면 아무것도 건드리지 않는다(기준값도 그대로).
+    /// </summary>
+    private static Dictionary<string, HomeworkSuggestion> ObserveClearMissions(HomeworkLedger character, HomeworkCatalog catalog, HomeworkObservation obs, DateTimeOffset now)
+    {
+        var result = new Dictionary<string, HomeworkSuggestion>(StringComparer.OrdinalIgnoreCase);
+        if (obs.WeeklyMissions is not { Count: > 0 } missions || catalog.ClearMissions.Count == 0) return result;
+
+        var space = HomeworkText.Normalize(obs.Environment?.GameSpaceDisplayName);
+        var seen = character.ProgressSeen ??= new Dictionary<string, DateTimeOffset>(StringComparer.OrdinalIgnoreCase);
+        var counts = character.ClearMissionCounts ??= new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var (group, descriptions) in catalog.ClearMissions)
+        {
+            var items = catalog.Items.Where(d => d.Active && string.Equals(d.ClearGroup, group, StringComparison.OrdinalIgnoreCase)).ToList();
+            foreach (var d in items)
+                if (AreaNow(d, space) || IsProgressSignal(d, obs)) seen[d.Id] = now;   // 지금 지역 안이거나 보스와 싸우는 중
+
+            var wanted = descriptions.Select(HomeworkText.Normalize).ToHashSet();
+            var matched = missions.Where(m => wanted.Contains(HomeworkText.Normalize(m.Description))).ToList();
+            if (matched.Count == 0) continue;
+
+            var current = matched.Max(m => Math.Clamp(m.CurrentCount, 0, m.GoalCount > 0 ? m.GoalCount : Math.Max(m.CurrentCount, 0)));
+            int? before = counts.TryGetValue(group, out var p) ? p : null;
+            counts[group] = current;
+            if (current <= 0) continue;
+            if (items.Any(d => character.Items.TryGetValue(d.Id, out var st) && st.Completed)) continue;   // 이미 이 묶음의 항목이 끝났다
+            if (items.Count == 0) continue;
+
+            var description = HomeworkText.StripTags(matched[0].Description);
+            var justRose = before is { } b && current > b;
+            HomeworkDefinition? pick = null;
+            if (justRose)
+            {
+                var inArea = items.Where(d => AreaNow(d, space)).ToList();
+                if (inArea.Count == 1) pick = inArea[0];
+                else if (inArea.Count == 0)
+                {
+                    var recent = items.Where(d => seen.TryGetValue(d.Id, out var t) && now - t <= ClearSignalRecent).ToList();
+                    if (recent.Count == 1) pick = recent[0];
+                }
+            }
+            if (pick == null && items.Count == 1) pick = items[0];
+
+            if (pick != null) result[pick.Id] = new HomeworkSuggestion("missionClearedHere", description, before ?? 0, current);
+            else foreach (var d in items) result[d.Id] = new HomeworkSuggestion("missionCleared", description, before ?? 0, current);
+        }
+        return result;
+    }
+
     /// <summary>수동 미완료를 이길 확실한 증거인가: 증표 증가는 항상, 지역 진입은 수동 설정 뒤에 새로 들어온 경우만(옛 기록은 시각이 없어 인정).</summary>
     private static bool IsDefinitiveOverManual(HomeworkDefinition def, HomeworkItemState manual, HomeworkSuggestion s, HomeworkLedger character)
     {
@@ -556,8 +631,17 @@ public static partial class HomeworkEvaluator
 
     private static string ClearKey(HomeworkDefinition d) => "clear:" + d.Id;
 
+    /// <summary>제안이 곧바로 자동 완료가 되는가: 미션 카운터로 항목이 가려졌으면 예, 못 가려 "추정"만 있으면 아니오(수동 확인), 그 밖은 증표·존재 근거 규칙.</summary>
+    private static bool AutoCompletes(HomeworkDefinition def, HomeworkSuggestion s) => s.Code switch
+    {
+        "missionClearedHere" => true,
+        "missionCleared" => false,
+        _ => def.TokenAuto || IsPresenceCode(s.Code),
+    };
+
     private static string EvidenceOf(HomeworkSuggestion s) => s.Code switch
     {
+        "missionClearedHere" => $"주간 미션 '{s.Item}' {s.From}→{s.To} 증가: 이 캐릭터가 클리어",
         "raidMapEntered" => $"전용 지역 '{s.Item}' 진입",
         "bossCleared" => $"퀘스트 '{s.Item}' 등장: 보스 처치",
         _ => $"{s.Item} {s.From} → {s.To} 증가 관찰",
