@@ -128,4 +128,14 @@ public class HomeworkVanguardRunTests : IDisposable
         Assert.Equal("unknown", Auto(svc).State);
         Assert.Null(Auto(svc).Remaining);
     }
+
+    [Theory]
+    [InlineData("먼 바다의 춤추는 바람", true)]      // 레이드
+    [InlineData("광기의 동굴", true)]                // 어비스
+    [InlineData("빛나는 동굴 V ", false)]            // 요일 던전
+    [InlineData("북쪽 폐허 심층 던전 2층 1구역", false)]
+    [InlineData(Area, false)]                        // 뱅가드
+    [InlineData("콜헨", false)]
+    public void AutoSuspicion_IsWatchedOnlyInRaidAndAbyssAreas(string space, bool expected) =>
+        Assert.Equal(expected, _catalog.IsAutoWatchArea(space));   // 2026-10-22 승운: 일반 던전에서는 의미가 없다
 }
