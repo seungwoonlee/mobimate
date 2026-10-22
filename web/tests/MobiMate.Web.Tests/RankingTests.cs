@@ -136,17 +136,6 @@ public sealed class RankingServiceTests : IDisposable
     }
 
     [Fact]
-    public void Manual_NullRank_RecordsThatThereIsNoRank()
-    {
-        var s = Service();
-        Assert.True(s.SetManual(Key, 1, null, null).Ok);
-        var e = s.ViewOf(Key).Entries["combat"];
-        Assert.Null(e.Rank);
-        Assert.Equal("none", e.Tier);
-        Assert.Null(s.BadgeOf(Key));
-    }
-
-    [Fact]
     public void ChangingTheNickname_MakesOldRanksUnusable()
     {
         var s = Service();
@@ -175,28 +164,6 @@ public sealed class RankingServiceTests : IDisposable
         Assert.True(s.ViewOf(Key).Entries["combat"].Stale);
         Assert.True(s.BadgeOf(Key)!.Stale);   // 오래돼도 뱃지는 남기고 "오래됨"으로 표시한다
     }
-
-    [Fact]
-    public void Manual_SetAndClear()
-    {
-        var s = Service();
-        Assert.True(s.SetManual(Key, 1, 523, 91000).Ok);
-        var e = s.ViewOf(Key).Entries["combat"];
-        Assert.Equal(523, e.Rank);
-        Assert.Equal("manual", e.Source);
-        Assert.Equal("pink", s.BadgeOf(Key)!.Tier);
-
-        Assert.True(s.Clear(Key, 1));
-        Assert.Empty(s.ViewOf(Key).Entries);
-    }
-
-    [Theory]
-    [InlineData("아이라_격투가", 1, 0)]     // 순위는 1 이상
-    [InlineData("아이라_격투가", 1, -3)]
-    [InlineData("아이라_격투가", 7, 5)]     // 알 수 없는 종류
-    [InlineData("아이라_궁수", 1, 5)]       // 별칭이 없는 캐릭터
-    [InlineData("없는_캐릭터", 1, 5)]
-    public void Manual_RejectsBadInput(string key, int kind, int rank) => Assert.False(Service().SetManual(key, kind, rank, null).Ok);
 
     [Fact]
     public void Ranks_AndTheTokenSurviveARestart()
@@ -326,19 +293,4 @@ public class RankingApiTests
         Assert.Empty(all.GetProperty("characters").GetProperty("아이라_격투가").GetProperty("entries").EnumerateObject());
     }
 
-    [Fact]
-    public async Task Manual_PutAndDelete()
-    {
-        var (host, c, _) = await Ready();
-        using var _h = host;
-        var put = await c.PutAsJsonAsync("/api/rankings/manual", new { key = "아이라_격투가", kind = 1, rank = 523, score = 91000 });
-        Assert.Equal(HttpStatusCode.OK, put.StatusCode);
-        Assert.Equal("pink", (await TestHost.Data(put)).GetProperty("entries").GetProperty("combat").GetProperty("tier").GetString());
-
-        Assert.Equal(HttpStatusCode.BadRequest, (await c.PutAsJsonAsync("/api/rankings/manual", new { key = "아이라_격투가", kind = 1, rank = 0 })).StatusCode);
-
-        var del = await c.DeleteAsync("/api/rankings/manual?key=" + Uri.EscapeDataString("아이라_격투가") + "&kind=1");
-        Assert.Equal(HttpStatusCode.OK, del.StatusCode);
-        Assert.Empty((await TestHost.Data(del)).GetProperty("entries").EnumerateObject());
-    }
 }

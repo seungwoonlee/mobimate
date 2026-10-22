@@ -59,7 +59,7 @@ export function RankPanel() {
             <p className="faint small m0">{view.serverName} 서버 · 이름 “{view.name}” 기준 · 종합 = 전투력 + 생활력 + 매력</p>
           </>
         )}
-      {open && key && view && <RankUpdateDialog charKey={key} view={view} onClose={() => setOpen(false)} />}
+      {open && <RankUpdateDialog onClose={() => setOpen(false)} />}
     </section>
   );
 }
@@ -72,19 +72,17 @@ function RankRow({ label, e, now }: { label: string; e: RankEntryView | undefine
         : e.rank == null ? <span className="rk-v faint">순위 정보 없음</span>
         : <span className="rk-v num">서버 {fmt(e.rank)}위 <RankBadge tier={e.tier} rank={e.rank} stale={e.stale} /></span>}
       <span className="rk-s num faint">{e?.score != null ? fmt(e.score) : ''}</span>
-      <span className={`rk-t small ${e?.stale ? 'warn-text' : 'faint'}`}>{e ? `${agoText(e.at, now)}${e.stale ? ' · 오래됨' : ''}${e.source === 'manual' ? ' · 직접 입력' : e.source === 'mabimobi' ? ' · 모비라이프' : ''}` : ''}</span>
+      <span className={`rk-t small ${e?.stale ? 'warn-text' : 'faint'}`}>{e ? `${agoText(e.at, now)}${e.stale ? ' · 오래됨' : ''}${e.source === 'mabimobi' ? ' · 모비라이프' : ''}` : ''}</span>
     </li>
   );
 }
 
 /** 랭킹 갱신 창: 북마크릿(넥슨 랭킹 페이지에서 직접 누름) 안내와 수동 입력 */
-function RankUpdateDialog({ charKey, view, onClose }: { charKey: string; view: RankView; onClose: () => void }) {
+function RankUpdateDialog({ onClose }: { onClose: () => void }) {
   const toast = useUi(s => s.toast);
   const local = useSession().data?.kind === 'local';
   const setup = useRankingSetup(local);
   const link = useRef<HTMLAnchorElement>(null);
-  const [vals, setVals] = useState<Record<string, string>>(() => Object.fromEntries(KINDS.map(k => [k.key, view.entries[k.key]?.rank != null ? String(view.entries[k.key]!.rank) : ''])));
-  const [busy, setBusy] = useState(false);
   const [mobiBusy, setMobiBusy] = useState(false);
   const [mobiResult, setMobiResult] = useState<MobiRefreshResult | null>(null);
   const rankings = useRankings().data?.data;
@@ -112,34 +110,9 @@ function RankUpdateDialog({ charKey, view, onClose }: { charKey: string; view: R
     } finally { setMobiBusy(false); }
   };
 
-  const save = async () => {
-    setBusy(true);
-    try {
-      let saved = 0;
-      for (const k of KINDS) {
-        const raw = vals[k.key].trim();
-        const had = view.entries[k.key]?.rank != null;
-        if (raw === '') {
-          if (had && view.entries[k.key]?.source === 'manual') { await api.del(`/api/rankings/manual?key=${encodeURIComponent(charKey)}&kind=${k.kind}`); saved++; }
-          continue;
-        }
-        const n = Number(raw.replace(/,/g, ''));
-        if (!Number.isInteger(n) || n < 1) { toast(`${k.label} 순위는 1 이상의 숫자로 적어 주세요`, 'warn'); setBusy(false); return; }
-        if (had && view.entries[k.key]?.rank === n) continue;
-        await api.put('/api/rankings/manual', { key: charKey, kind: k.kind, rank: n });
-        saved++;
-      }
-      await Promise.all([queryClient.invalidateQueries({ queryKey: keys.rankings }), queryClient.invalidateQueries({ queryKey: keys.header }), queryClient.invalidateQueries({ queryKey: keys.characters })]);
-      toast(saved > 0 ? '순위를 저장했어요' : '바뀐 순위가 없어요', 'ok');
-      if (saved > 0) onClose();
-    } catch (err) {
-      toast(err instanceof ApiError ? err.message : '저장하지 못했어요', 'warn');
-    } finally { setBusy(false); }
-  };
-
   return (
     <Dialog title="서버 랭킹 갱신" onClose={onClose}
-      actions={<><button type="button" className="btn" onClick={onClose}>닫기</button><button type="button" className="btn primary" disabled={busy} onClick={() => void save()}>입력한 순위 저장</button></>}>
+      actions={<button type="button" className="btn" onClick={onClose}>닫기</button>}>
       <div className="rank-dialog">
         <h4>0. 모비라이프에서 한 번에 가져오기 (추천)</h4>
         <p className="small m0">정보 사이트 <a href={rankings?.mobi.url ?? 'https://mabimobi.life/ranking'} target="_blank" rel="noopener noreferrer">모비라이프</a>에 <b>이름이 있는 캐릭터 {rankings?.targets.length ?? 0}명의 이름</b>을 한 명당 한 번씩 보내 서버 순위를 받아와요. <b>버튼을 누를 때만</b> 조회하고, 자동으로는 하지 않아요. 한 번 누르면 {rankings?.mobi.cooldownMinutes ?? 10}분 동안은 다시 못 눌러요.</p>
@@ -165,17 +138,7 @@ function RankUpdateDialog({ charKey, view, onClose }: { charKey: string; view: R
           </ol>
           <p><a ref={link} className="btn primary bookmarklet" draggable="true" onClick={e => e.preventDefault()} aria-label="MobiMate 순위 북마크릿. 즐겨찾기 막대로 끌어 놓으세요">MobiMate 순위</a></p>
           </>
-        ) : <p className="small m0"><b>북마크릿</b>은 게임을 켠 PC의 브라우저에서만 쓸 수 있어요. 이 기기에서는 아래에 직접 입력해 주세요.</p>}
-        <h4>2. 직접 입력 (폰·태블릿 등)</h4>
-        <p className="small faint m0">이름 “{view.name}” · {view.serverName} 서버. 비워 두면 입력하지 않은 것으로 봐요.</p>
-        <div className="rank-form">
-          {KINDS.map(k => (
-            <label key={k.key}>
-              <span>{k.label}</span>
-              <input inputMode="numeric" value={vals[k.key]} placeholder="순위" onChange={e => setVals(v => ({ ...v, [k.key]: e.target.value.replace(/[^\d,]/g, '') }))} />
-            </label>
-          ))}
-        </div>
+        ) : <p className="small m0"><b>북마크릿</b>은 게임을 켠 PC의 브라우저에서만 쓸 수 있어요.</p>}
         <p className="small faint m0">뱃지: {TIER_RULE} (전투력 순위 기준)</p>
       </div>
     </Dialog>

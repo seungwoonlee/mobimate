@@ -479,23 +479,17 @@ test('서버 랭킹: 전투력 옆에 등급 뱃지가 붙고, 개요·스탯 �
   }
 });
 
-test('서버 랭킹: 랭킹 갱신 창에서 북마크릿 안내를 보고 순위를 직접 고쳐 저장한다 (v0.3)', async ({ page, request }) => {
+test('서버 랭킹: 랭킹 갱신 창에 모비라이프 한 번 조회와 북마크릿 안내가 있고, 직접 입력은 없다', async ({ page, request }) => {
   await seedRanking(request);
   await page.goto('/stats');
   await page.getByRole('button', { name: '랭킹 갱신' }).click();
   const dlg = page.getByRole('dialog', { name: '서버 랭킹 갱신' });
   await expect(dlg).toContainText('버튼을 누를 때만');
+  await expect(dlg.getByRole('button', { name: '모비라이프에서 가져오기' })).toBeEnabled();   // 외부 사이트라 시험에서는 누르지 않는다
   await expect(dlg.getByRole('link', { name: 'MobiMate 순위 북마크릿. 즐겨찾기 막대로 끌어 놓으세요' })).toHaveAttribute('href', /^javascript:/);
   await expect(dlg.getByRole('link', { name: '넥슨 랭킹 페이지 열기' })).toHaveAttribute('href', /mabinogimobile\.nexon\.com\/Ranking/);
-  await dlg.getByLabel('전투력').fill('7');   // 10위 이내 = 골드
-  await dlg.getByRole('button', { name: '입력한 순위 저장' }).click();
-  await expect(page.locator('.rank-panel').getByText('서버 7위')).toBeVisible();
-  await expect(page.locator('.rank-panel .rank-badge.gold')).toBeVisible();
-  // 되돌려 다른 시험에 영향이 없게 한다
-  await page.getByRole('button', { name: '랭킹 갱신' }).click();
-  await page.getByRole('dialog', { name: '서버 랭킹 갱신' }).getByLabel('전투력').fill('523');
-  await page.getByRole('dialog', { name: '서버 랭킹 갱신' }).getByRole('button', { name: '입력한 순위 저장' }).click();
-  await expect(page.locator('.rank-panel').getByText('서버 523위')).toBeVisible();
+  await expect(dlg.getByRole('button', { name: '입력한 순위 저장' })).toHaveCount(0);   // 직접 입력 삭제
+  await expect(dlg.getByLabel('전투력')).toHaveCount(0);
 });
 
 test.afterEach(async ({ request }, info) => { if (info.title.startsWith('서버 랭킹:')) await clearRanking(request); });

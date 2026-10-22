@@ -6,10 +6,9 @@ using MobiMate.Web.Services;
 
 namespace MobiMate.Web.Endpoints;
 
-public sealed record RankManualRequest(string? Key, int Kind, int? Rank, long? Score);
 public sealed record RankTokenRequest(string? Token);
 
-/// <summary>서버 랭킹 API (v0.3). 앱은 넥슨 랭킹 페이지를 스스로 부르지 않는다: 값은 북마크릿(사용자가 직접 누름)이나 수동 입력으로만 들어온다.</summary>
+/// <summary>서버 랭킹 API (v0.3). 앱은 넥슨 랭킹 페이지를 스스로 부르지 않는다: 값은 북마크릿(사용자가 직접 누름)이나 모비라이프 버튼으로만 들어온다.</summary>
 public static class RankingEndpoints
 {
     /// <summary>북마크릿이 돌아가는 페이지. 이 주소에서 온 요청만 CORS로 받는다.</summary>
@@ -72,23 +71,6 @@ public static class RankingEndpoints
             if (!result.Started) return ApiResults.Error(StatusCodes.Status409Conflict, "BUSY", result.Stopped ?? "이미 조회 중입니다.");
             if (result.Updated > 0) hub.Broadcast("state.changed", new { keys = new[] { "rankings", "characters", "header" } });
             return ApiResults.Ok(result);
-        });
-
-        // 수동 입력 (같은 앱 화면에서)
-        api.MapPut("/manual", (RankManualRequest req, RankingService r, SseHub hub) =>
-        {
-            if (string.IsNullOrWhiteSpace(req.Key)) return ApiResults.Error(StatusCodes.Status400BadRequest, "VALIDATION", "캐릭터가 필요합니다.");
-            var (ok, error) = r.SetManual(req.Key, req.Kind, req.Rank, req.Score);
-            if (!ok) return ApiResults.Error(StatusCodes.Status400BadRequest, "VALIDATION", error!);
-            hub.Broadcast("state.changed", new { keys = new[] { "rankings", "characters", "header" } });
-            return ApiResults.Ok(r.ViewOf(req.Key));
-        });
-
-        api.MapDelete("/manual", (string key, int kind, RankingService r, SseHub hub) =>
-        {
-            if (!r.Clear(key, kind)) return ApiResults.Error(StatusCodes.Status503ServiceUnavailable, "STORAGE_UNAVAILABLE", "저장하지 못했습니다.");
-            hub.Broadcast("state.changed", new { keys = new[] { "rankings", "characters", "header" } });
-            return ApiResults.Ok(r.ViewOf(key));
         });
     }
 
