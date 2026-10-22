@@ -65,6 +65,9 @@ public sealed class HomeworkLedger
     /// </summary>
     public Dictionary<string, int>? ClearMissionCounts { get; set; }
 
+    /// <summary>여러 번 깨는 콘텐츠(RunGoal, 뱅가드)의 이번 주 클리어 횟수. 주간 리셋 때 지운다.</summary>
+    public Dictionary<string, int>? RunCounts { get; set; }
+
     /// <summary>
     /// 묶음별로 ClearMissionCounts를 마지막으로 읽은 시각. 주간 미션은 계정 공유라, 이 캐릭터로 계속 지켜보던 중(직전 읽기가 최근)에 오른 것만
     /// 이 캐릭터의 클리어다. 캐릭터를 바꾸면 비운다(그 사이 같은 계정의 다른 캐릭터가 올렸을 수 있다).

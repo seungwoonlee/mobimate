@@ -74,7 +74,7 @@ public class BoardIntegrationTests
 
         await vm.Board.ToggleCellAsync(done);                       // 해제: 넘긴 보스만 풀린다
         await Wait.UntilAsync(() => !CellOf(vm, "바람_도적", "field_boss").IsDone, "필드 보스 칸이 미완료로 보임");
-        Assert.Equal("todo", h.Homework.GetFieldBossStatuses(["바람_도적"])["바람_도적"].State);
+        Assert.Equal("unknown", h.Homework.GetFieldBossStatuses(["바람_도적"])["바람_도적"].State);   // 안 깼다는 것은 CLI로 확인할 수 없다(2026-10-22)
     }
 
     [Fact]
