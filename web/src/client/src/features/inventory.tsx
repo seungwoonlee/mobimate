@@ -178,7 +178,7 @@ export function NearbyView() {
           <div className="pl-list big" role="list">
             {rows.map((p, i) => (
               <div className={`pl-row${p.autoSuspect ? ' auto-suspect' : ''}`} style={p.autoSuspect ? autoStyle(p.autoSuspect.intensity) : undefined} role="listitem" key={`${p.job}|${p.level}|${p.combatScore}|${i}`}>
-                <PlayerLine p={p} />
+                <PlayerLine p={p} myRealm={d.myRealm} />
                 <span className="num faint small">{p.distance.toFixed(1)}m</span>
               </div>
             ))}
@@ -190,7 +190,7 @@ export function NearbyView() {
           <h3 className="m0">한동안 안 보이는 사람</h3>
           <div className="pl-list big" role="list">
             {d.missing!.map((m, i) => (
-              <div className="pl-row auto-suspect" style={autoStyle(m.intensity)} role="listitem" key={`${m.job}|${m.level}|${m.combatScore}|${i}`}><MissingLine m={m} /></div>
+              <div className="pl-row auto-suspect" style={autoStyle(m.intensity)} role="listitem" key={`${m.job}|${m.level}|${m.combatScore}|${i}`}><MissingLine m={m} myRealm={d.myRealm} /></div>
             ))}
           </div>
         </div>

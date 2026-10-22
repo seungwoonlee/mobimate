@@ -10,7 +10,7 @@ import { scoreClass } from '../lib/score';
 import { useDevice } from '../state/device';
 import { useRouter } from '../state/router';
 import { CUTOFF_STATUS } from './cutoffs';
-import { AutoBadge, autoStyle, MissingLine, REL_TAG } from './players';
+import { AutoBadge, autoStyle, jobLabel, MissingLine, REL_TAG } from './players';
 import { RankPanel } from './rankings';
 import { RankBadge } from '../components/RankBadge';
 
@@ -251,7 +251,7 @@ function NearbyCard({ nearby }: { nearby: Nearby | null }) {
           <li key={`${x.job}|${x.level}|${x.combatScore}|${i}`} className={`pl ${x.relation}${x.autoSuspect ? ' auto-suspect' : ''}`} style={x.autoSuspect ? autoStyle(x.autoSuspect.intensity) : undefined}>
             <JobIcon job={x.job} size={17} />
             <span className="pl-who">
-              <span className="pl-job">{REL_TAG[x.relation] && <span className="pl-tag">{REL_TAG[x.relation]}</span>}{x.job}{x.autoSuspect && <AutoBadge reason={x.autoSuspect.reason} seconds={x.autoSuspect.seconds} intensity={x.autoSuspect.intensity} />}</span>
+              <span className="pl-job">{REL_TAG[x.relation] && <span className="pl-tag">{REL_TAG[x.relation]}</span>}{jobLabel(x.job, x.realm, nearby?.myRealm)}{x.autoSuspect && <AutoBadge reason={x.autoSuspect.reason} seconds={x.autoSuspect.seconds} intensity={x.autoSuspect.intensity} />}</span>
               {(x.title || x.inCombat) && <span className="pl-sub small">{x.title}{x.inCombat && <span className="pl-combat">{x.title ? ' · ' : ''}전투 중</span>}</span>}
             </span>
             <span className="nums">
@@ -263,7 +263,7 @@ function NearbyCard({ nearby }: { nearby: Nearby | null }) {
       </ul>
       {(nearby?.missing?.length ?? 0) > 0 && (
         <ul className="near-list near-missing" aria-label="한동안 안 보이는 사람">
-          {nearby!.missing!.map((m, i) => <li key={`${m.job}|${m.level}|${m.combatScore}|${i}`} className="auto-suspect" style={autoStyle(m.intensity)}><MissingLine m={m} /></li>)}
+          {nearby!.missing!.map((m, i) => <li key={`${m.job}|${m.level}|${m.combatScore}|${i}`} className="auto-suspect" style={autoStyle(m.intensity)}><MissingLine m={m} myRealm={nearby?.myRealm} /></li>)}
         </ul>
       )}
       {p.length > shown.length && <div className="faint small mt-4">외 {p.length - shown.length}명</div>}

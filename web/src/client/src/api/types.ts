@@ -69,8 +69,8 @@ export interface NearPlayer {
   /** 오토 의심 표식: 던전·레이드 안에서 다른 사람은 모두 전투 중인데 혼자 오래 전투하지 않는 사람 */ autoSuspect?: { reason: 'idle'; seconds: number; intensity: number } | null;
 }
 /** 함께 보이다가 던전·레이드 안인데 주변에서 오래 보이지 않는 사람(목록에 없어 따로 온다) */
-export interface MissingPlayer { job: string; level: number; combatScore: number; title: string | null; seconds: number; intensity: number }
-export interface Nearby { count: number; myCombatScore: number; players: NearPlayer[]; missing?: MissingPlayer[] }
+export interface MissingPlayer { job: string; realm?: string; level: number; combatScore: number; title: string | null; seconds: number; intensity: number }
+export interface Nearby { count: number; myCombatScore: number; /** 내 서버. 서버가 다른 사람만 "직업 (서버)"로 보인다 */ myRealm?: string | null; players: NearPlayer[]; missing?: MissingPlayer[] }
 
 export type CutoffStatus = 'locked' | 'marginal' | 'near' | 'overwhelm';
 export interface CutoffContent {
