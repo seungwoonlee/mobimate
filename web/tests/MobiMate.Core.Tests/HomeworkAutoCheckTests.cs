@@ -322,20 +322,53 @@ public class HomeworkAutoCheckTests : IDisposable
         Assert.NotEqual(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main), "fieldboss_angrbahan").Status);   // 다른 캐릭터에는 번지지 않는다
     }
 
+    private static MissionItem RaidMission(int c) => new("선장님, 출정합니다!", "레이드 1회 토벌", c, 1, c >= 1, c >= 1);
+
+    private static HomeworkObservation RaidObs(string space, int mission) =>
+        new(WeeklyMissions: new List<MissionItem> { RaidMission(mission) }, Environment: new EnvironmentInfo("1채널", null, null, space));
+
     [Theory]
     [InlineData("먼 바다의 바위 협곡", "raid_cavrak")]
     [InlineData("먼 바다의 춤추는 바람", "raid_airel")]
     [InlineData("먼 바다의 빛바랜 환영", "raid_white_succubus")]
-    public void Raid_EnteringTheRaidArea_IsAutoDone_WithoutAnyRewardChange(string space, string id)
+    public void Raid_EnteringTheRaidArea_IsOnlyInProgress_AndTheMissionRisingCompletesIt(string space, string id)
     {
         var svc = NewService();
-        var obs = new HomeworkObservation(Environment: new EnvironmentInfo("1채널", null, null, space));
-        svc.Evaluate(Main, obs);
+        svc.Evaluate(Main, RaidObs("콜헨", 0));
+        _now += TimeSpan.FromMinutes(1);
+        svc.Evaluate(Main, RaidObs(space, 0));   // 들어온 것만으로는 완료가 아니다 (2026-10-22 결정)
         var card = Card(svc.GetBoard(Main), id);
+        Assert.Equal(HomeworkCardStatus.InProgress, card.Status);
+        Assert.Null(card.Suggestion);
+
+        _now += TimeSpan.FromMinutes(2);
+        svc.Evaluate(Main, RaidObs(space, 1));   // 처치 순간 "레이드 1회 토벌" 0→1
+        card = Card(svc.GetBoard(Main), id);
         Assert.Equal(HomeworkCardStatus.AutoDone, card.Status);
-        Assert.Contains(space, card.Evidence);
+        Assert.Contains("레이드 1회 토벌", card.Evidence);
         foreach (var other in new[] { "raid_cavrak", "raid_airel", "raid_white_succubus" }.Where(x => x != id))
             Assert.NotEqual(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main), other).Status);
+    }
+
+    [Fact]
+    public void Raid_EnteringAndLeavingWithoutAClear_StaysOpen()
+    {
+        var svc = NewService();
+        svc.Evaluate(Main, RaidObs("콜헨", 0));
+        _now += TimeSpan.FromMinutes(1);
+        svc.Evaluate(Main, RaidObs("먼 바다의 바위 협곡", 0));
+        _now += TimeSpan.FromMinutes(5);
+        svc.Evaluate(Main, RaidObs("콜헨", 0));   // 실패하고 나왔다: 미션이 그대로다
+        Assert.NotEqual(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main), "raid_cavrak").Status);
+        Assert.NotEqual("done", Auto(svc, Main, "raid_cavrak").State);
+    }
+
+    [Fact]
+    public void Raid_EntryWithoutMissionData_DoesNotComplete()
+    {
+        var svc = NewService();
+        svc.Evaluate(Main, new HomeworkObservation(Environment: new EnvironmentInfo("1채널", null, null, "먼 바다의 바위 협곡")));
+        Assert.NotEqual(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main), "raid_cavrak").Status);
     }
 
     private static HomeworkObservation Abyss(string space, long stamps) =>
@@ -386,34 +419,18 @@ public class HomeworkAutoCheckTests : IDisposable
     }
 
     [Fact]
-    public void Raid_ManuallyReopened_ThenLeavingAndEnteringAgain_IsAutoDone()
+    public void Raid_ManuallyReopened_TheMissionRisingInsideTheArea_StillCompletes()
     {
         var svc = NewService();
-        EnvironmentInfo Env(string s) => new("1채널", null, null, s);
-        svc.Evaluate(Main, new HomeworkObservation(Environment: Env("먼 바다의 바위 협곡")));
-        _now += TimeSpan.FromMinutes(5);
-        svc.Set(Main, "raid_cavrak", completed: false);                                    // 실패해서 끈다
+        svc.Evaluate(Main, RaidObs("먼 바다의 바위 협곡", 0));
         _now += TimeSpan.FromMinutes(1);
-        svc.Evaluate(Main, new HomeworkObservation(Environment: Env("먼 바다의 바위 협곡")));   // 아직 안에 있다: 되살아나지 않는다
+        svc.Set(Main, "raid_cavrak", completed: false);
+        _now += TimeSpan.FromMinutes(1);
+        svc.Evaluate(Main, RaidObs("먼 바다의 바위 협곡", 0));
         Assert.NotEqual(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main), "raid_cavrak").Status);
         _now += TimeSpan.FromMinutes(1);
-        svc.Evaluate(Main, new HomeworkObservation(Environment: Env("콜헨")));
-        _now += TimeSpan.FromMinutes(1);
-        svc.Evaluate(Main, new HomeworkObservation(Environment: Env("먼 바다의 바위 협곡")));   // 다시 들어왔다: 새 진입
+        svc.Evaluate(Main, RaidObs("먼 바다의 바위 협곡", 1));   // 카운터가 오른 순간은 수동 미완료보다 확실하다
         Assert.Equal(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main), "raid_cavrak").Status);
-    }
-
-    [Fact]
-    public void Raid_ManuallyReopened_StaysOpen_ButSuggestsWhileStillInside()
-    {
-        var svc = NewService();
-        var obs = new HomeworkObservation(Environment: new EnvironmentInfo("1채널", null, null, "먼 바다의 바위 협곡"));
-        svc.Evaluate(Main, obs);
-        svc.Set(Main, "raid_cavrak", completed: false);   // 실패해서 수동으로 끈다
-        svc.Evaluate(Main, obs);
-        var card = Card(svc.GetBoard(Main), "raid_cavrak");
-        Assert.NotEqual(HomeworkCardStatus.AutoDone, card.Status);
-        Assert.Equal("raidMapEntered", card.Suggestion?.Code);
     }
 
     [Fact]
