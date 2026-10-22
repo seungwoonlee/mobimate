@@ -50,7 +50,7 @@ public class HomeworkAccountMissionTests : IDisposable
     }
 
     [Fact]
-    public void WithoutTheMissionInTheList_TheOldQuestRuleStillWorks()
+    public void TheVanguardQuestDisappearing_IsNotACompletion()
     {
         var svc = NewService();
         svc.Evaluate(Main, new HomeworkObservation(WeeklyMissions: new List<MissionItem> { OtherMission }, Quests: new List<QuestItem> { Quest(QuestTitle) }));
@@ -60,6 +60,6 @@ public class HomeworkAccountMissionTests : IDisposable
         svc.Evaluate(Main, gone);
         _now += HomeworkEvaluator.VanishConfirmWindow + TimeSpan.FromSeconds(1);
         svc.Evaluate(Main, gone);
-        Assert.Equal(HomeworkCardStatus.AutoDone, Card(svc, Main).Status);                           // 예비 규칙(사라짐 확인 대기 뒤 완료)
+        Assert.NotEqual(HomeworkCardStatus.AutoDone, Card(svc, Main).Status);                        // 사라진 것은 근거가 아니다(HomeworkVanguardRunTests)
     }
 }
