@@ -32,23 +32,28 @@ export function AutoBadge({ reason, seconds, intensity }: { reason: 'idle' | 'mi
 }
 
 /** 한동안 함께 보이다가 사라진 사람 한 줄 (목록에 없어 직업·레벨·전투력만 안다) */
-export function MissingLine({ m }: { m: MissingPlayer }) {
+/** 직업 이름. 내 서버와 다른 사람이면 "직업 (서버)" (2026-10-22 승운: 다른 서버 파티원 구분) */
+export function jobLabel(job: string, realm: string | null | undefined, myRealm: string | null | undefined): string {
+  return realm && myRealm && realm !== myRealm ? `${job} (${realm})` : job;
+}
+
+export function MissingLine({ m, myRealm }: { m: MissingPlayer; myRealm?: string | null }) {
   return (
     <span className="pl pl-missing">
       <JobIcon job={m.job} size={17} />
       <span className="pl-who">
-        <span className="pl-job">{m.job}<AutoBadge reason="missing" seconds={m.seconds} intensity={m.intensity} /></span>
+        <span className="pl-job">{jobLabel(m.job, m.realm, myRealm)}<AutoBadge reason="missing" seconds={m.seconds} intensity={m.intensity} /></span>
         <span className="pl-sub small"><span className="num">Lv.{m.level}</span> · <span className="num">{fmt(m.combatScore)}</span><span className="pl-combat"> · 안 보임</span></span>
       </span>
     </span>
   );
 }
 
-export function PlayerLine({ p }: { p: NearPlayer }) {
+export function PlayerLine({ p, myRealm }: { p: NearPlayer; myRealm?: string | null }) {
   return (
     <span className={`pl ${p.relation}`}>
       <span className="pl-tag" aria-label={REL_TEXT[p.relation] || undefined}>{REL_TAG[p.relation]}</span>
-      <span className="pl-job"><JobIcon job={p.job} size={17} />{p.job}</span>
+      <span className="pl-job"><JobIcon job={p.job} size={17} />{jobLabel(p.job, p.realm, myRealm)}</span>
       <span className="pl-sep">-</span>
       <span className="pl-lv num">Lv.{p.level}</span>
       <span className="pl-sep">-</span>
