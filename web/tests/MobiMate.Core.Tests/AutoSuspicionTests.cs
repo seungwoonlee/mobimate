@@ -258,4 +258,27 @@ public class AutoSuspicionTests
         var s0 = Of(t, "마법사")!;
         Assert.InRange(s0.For.TotalSeconds, 39, 40);           // 40초 흘렀으면 40초, 중복·역순이 더해지지 않는다
     }
+
+    [Fact]
+    public void CombatScoreDrift_IsTheSamePerson_NotOneMissingAndOneNew()
+    {
+        // 던전 안에서 버프로 전투력이 조금 바뀌어도 같은 사람이다(2026-10-22: 같은 사람이 2명으로 보였다)
+        var t = new AutoSuspicionTracker();
+        var now = Run(t, T0, 60, s => Fighters(s).Append(P("마법사", false, 9 + (s % 4) * 0.7, score: 50403)).ToList());
+        var idleBefore = Of(t, "마법사")!.For;
+        now = Run(t, now.AddSeconds(1), 30, s => Fighters(s).Append(P("마법사", false, 9 + (s % 4) * 0.7, score: 50571)).ToList());
+        Assert.DoesNotContain(t.Suspects, x => x.Reason == AutoSuspicionReason.Missing);   // 옛 표식이 "사라짐"으로 남지 않는다
+        Assert.Single(t.Suspects, x => x.Player.Job == "마법사");
+        Assert.True(Of(t, "마법사")!.For > idleBefore);                                  // 카운터가 이어진다
+    }
+
+    [Fact]
+    public void ABigScoreDifference_IsADifferentPerson()
+    {
+        var t = new AutoSuspicionTracker();
+        var now = Run(t, T0, 30, s => Fighters(s).Append(P("마법사", true, 9 + (s % 4) * 0.7, score: 50000)).ToList());
+        now = Run(t, now.AddSeconds(1), 5, s => Fighters(s).Append(P("마법사", true, 9 + (s % 4) * 0.7, score: 90000)).ToList());
+        // 전투력이 크게 다르면 다른 사람: 옛 사람은 사라진 것으로 추적된다(표시 기준 전이라 아직 의심 표시는 없다)
+        Assert.DoesNotContain(t.Suspects, x => x.Player.CombatScore == 90000 && x.Reason == AutoSuspicionReason.Missing);
+    }
 }
