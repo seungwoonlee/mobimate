@@ -3,6 +3,11 @@ const nf = new Intl.NumberFormat('ko-KR');
 export const fmt = (n: number | null | undefined) => (n == null ? '—' : nf.format(n));
 
 /** 좁은 화면(글랜스 모드)용 축약 (FR-MB-06): 124,017 → 124K, 11,144,590 → 11.1M. */
+/** 게임 이름에 섞여 오는 유니티 리치텍스트 태그(<color=#FFC448>★10</color> 등)를 화면용으로 지운다. 서버로 보내는 키(즐겨찾기·명령)는 원래 이름을 그대로 쓴다. */
+export function plain(name: string | null | undefined): string {
+  return (name ?? '').replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+}
+
 export function short(n: number): string {
   const a = Math.abs(n);
   if (a >= 1_000_000) return `${(n / 1_000_000).toFixed(a >= 100_000_000 ? 0 : 1)}M`;

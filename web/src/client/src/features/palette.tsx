@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useLife, usePersonas } from '../api/queries';
 import { Dialog, Icon } from '../components/ui';
 import { collectAll, stopAction } from '../lib/actions';
+import { plain } from '../lib/format';
 import { ROUTES, useRouter, type RouteName } from '../state/router';
 import { useUi } from '../state/ui';
 import { BUILTIN_PERSONAS, setPersona } from './dock/GameChat';
@@ -39,7 +40,7 @@ function PaletteDialog({ onClose }: { onClose: () => void }) {
     for (const r of ROUTES) list.push({ id: `go:${r.name}`, label: `${r.label === '전체' ? '전체 현황' : r.label} 화면`, kind: '이동', icon: r.icon, run: () => go(r.name as RouteName) });
     const gather = [...(life.data?.data.gatherables ?? [])].sort((a, b) => Number(b.favorite) - Number(a.favorite));
     for (const g of gather) {
-      list.push({ id: `gather:${g.name}`, label: `채집: ${g.name} (보유 ${g.inBag})`, kind: g.favorite ? '채집 ★' : '채집', icon: 'leaf', run: () => go('life', { gather: g.name }) });
+      list.push({ id: `gather:${g.name}`, label: `채집: ${plain(g.name)} (보유 ${g.inBag})`, kind: g.favorite ? '채집 ★' : '채집', icon: 'leaf', run: () => go('life', { gather: g.name }) });
     }
     for (const [value, label] of BUILTIN_PERSONAS) list.push({ id: `persona:${value}`, label: `페르소나: ${label.replace(/^\S+\s/u, '')}`, kind: '페르소나', icon: 'wand', run: () => void setPersona(value) });
     for (const p of personas.data?.data ?? []) list.push({ id: `persona:custom:${p.id}`, label: `페르소나: ${p.name}`, kind: '페르소나', icon: 'wand', run: () => void setPersona(`custom:${p.id}`) });

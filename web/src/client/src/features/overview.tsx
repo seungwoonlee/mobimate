@@ -5,7 +5,7 @@ import { CardHead, Delta, Dialog, ErrorCard, Fresh, Gauge, Icon, JobIcon, LevelS
 import { useLayout, useNow } from '../hooks/layout';
 import { collectAll, stopAction } from '../lib/actions';
 import { useBusy } from '../lib/busy';
-import { fmt, remaining, short, until } from '../lib/format';
+import { fmt, plain, remaining, short, until } from '../lib/format';
 import { scoreClass } from '../lib/score';
 import { useDevice } from '../state/device';
 import { useRouter } from '../state/router';
@@ -117,7 +117,7 @@ function WeightCard({ h }: { h: Header }) {
         {grown.length === 0
           ? <p className="faint small m0">{inv.isPending ? '불러오는 중…' : '늘어난 아이템이 없어요.'}</p>
           : <ul className="grown-list">{grown.map(x => (
-              <li key={x.name}><span className="nm">{x.name}</span><span className="num up">+{fmt(x.sessionDelta)}</span><span className="num faint">{fmt(x.count)}개</span></li>
+              <li key={x.name}><span className="nm">{plain(x.name)}</span><span className="num up">+{fmt(x.sessionDelta)}</span><span className="num faint">{fmt(x.count)}개</span></li>
             ))}</ul>}
       </div>
     </LinkCard>
