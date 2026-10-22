@@ -121,7 +121,7 @@ public sealed class RankingMobiTests : IDisposable
         _reply = _ => new HttpResponseMessage(HttpStatusCode.TooManyRequests);
         var res = await Refresher(Ranking()).RunAsync(CancellationToken.None);
         Assert.Single(_calls);
-        Assert.Contains("막았", res.Stopped);
+        Assert.Contains("거절", res.Stopped);
         Assert.Equal(0, res.Updated);
     }
 
