@@ -75,6 +75,17 @@ function RankRow({ label, e, now }: { label: string; e: RankEntryView | undefine
   );
 }
 
+/** 랭킹 갱신 버튼과 창(북마크릿 안내). 스탯 탭 머리글에서 쓴다. */
+export function RankRefreshButton() {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button type="button" className="btn" onClick={() => setOpen(true)}>랭킹 갱신</button>
+      {open && <RankUpdateDialog onClose={() => setOpen(false)} />}
+    </>
+  );
+}
+
 /** 랭킹 갱신 창: 북마크릿(넥슨 랭킹 페이지에서 직접 누름) 안내와 수동 입력 */
 function RankUpdateDialog({ onClose }: { onClose: () => void }) {
   const toast = useUi(s => s.toast);

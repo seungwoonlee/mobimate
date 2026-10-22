@@ -754,3 +754,37 @@ button.hw-cell:focus-visible { outline: 2px solid var(--accent); outline-offset:
 .hw-cell.guess { border-color: var(--accent); background: var(--accent-soft); }
 .hw-cell.guess .hw-cell-state { color: var(--accent); font-weight: 700; }
 .ov .hw-ck li.guess .r { color: var(--accent); font-weight: 700; }
+
+/* 스탯 탭(2026-10-23): 같은 계정 캐릭터 전부를 한 표로. 컨테이너 너비로 접어서(채팅을 열어 좁아져도) 옆 스크롤이 없다. */
+.st-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0;max-width:100%}
+.st-accts{display:flex;flex-wrap:wrap;max-width:100%;margin:0 0 8px;overflow:visible}
+.st-accts button{padding:5px 10px;font-size:12.5px}
+.st-table{container-type:inline-size;padding:8px 10px;min-width:0}
+.st-body{list-style:none;margin:0;padding:0}
+.st-row{display:grid;grid-template-columns:minmax(150px,1.4fr) repeat(5,minmax(72px,0.9fr)) minmax(170px,2fr);column-gap:8px;align-items:center;padding:6px 6px}
+.st-head{font-size:12px;color:var(--text-3);padding-bottom:4px;border-bottom:1px solid var(--line)}
+.st-body .st-row{border-bottom:1px solid var(--line)}
+.st-body .st-row:last-child{border-bottom:0}
+.st-row.current{background:var(--accent-soft);border-radius:10px;border-bottom-color:transparent}
+.st-row.current .faint,.st-row.current .muted{color:var(--text-2)}   /* 강조 바탕 위에서도 글자 대비를 지킨다 */
+.st-who{display:flex;align-items:center;gap:8px;min-width:0}
+.st-name{display:flex;flex-direction:column;min-width:0;line-height:1.25}
+.st-name .small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.st-n{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:flex;align-items:center;gap:6px}
+.st-s{display:flex;flex-direction:column;line-height:1.2;min-width:0}
+.st-s b{font-size:calc(15px * var(--scale));font-weight:700;display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+.st-rk{white-space:nowrap}
+.st-rec{display:flex;flex-direction:column;gap:1px;font-size:13px;min-width:0}
+.st-rec-i{overflow-wrap:anywhere}
+.st-note{padding:6px 6px 2px}
+.st-now{margin-top:12px;padding-bottom:10px}
+.st-now-g{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px 18px;align-items:end}
+.st-cut{margin-top:12px}
+@container (max-width: 760px){
+  .st-head{display:none}
+  .st-row{grid-template-columns:repeat(3,minmax(0,1fr));row-gap:6px;padding:10px 6px}
+  .st-who{grid-column:1 / -1}
+  .st-s::before,.st-rec::before{content:attr(data-label);font-size:11px;color:var(--text-3)}
+  .st-rec{grid-column:1 / -1;flex-direction:row;flex-wrap:wrap;gap:4px 14px;align-items:baseline}
+  .st-rec::before{margin-right:2px}
+}

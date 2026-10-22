@@ -458,6 +458,13 @@ public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManag
                     // 필드 보스 택1: 이번 주기에 넘긴 보스 (done이면 item에 보스 이름)
                     fieldBoss = bossStatus.GetValueOrDefault(c.Key) ?? new HomeworkPoolStatus("unknown", null),
                     combatRank = rankings.BadgeOf(c.Key),   // 전투력 서버 순위 뱃지 (순위를 모르면 null)
+                    // 어비스·레이드 추천(스탯 탭의 계정 표): 이 캐릭터의 전투력·마도저항 기준. 입장 불가면 tier가 null
+                    recommend = CutoffEvaluator.EvaluateAll(cutoffs, c.Combat, c.Mdef).Select(r => new
+                    {
+                        r.Id, r.Name,
+                        status = r.Status switch { CutoffStatus.Overwhelm => "overwhelm", CutoffStatus.Near => "near", CutoffStatus.Marginal => "marginal", _ => "locked" },
+                        tier = r.RecommendedTier, maxEntry = r.MaxEntryTier,
+                    }),
                 };
             }).ToList();
             return new
