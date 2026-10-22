@@ -292,8 +292,11 @@ public sealed class HomeworkService
                 file.Characters.TryGetValue(key, out var ledger);
                 var fresh = ledger != null && ledger.LastWeeklyResetUtc >= lastWeekly;
                 var cleared = fresh ? defs.FirstOrDefault(d => ledger!.Items.GetValueOrDefault(d.Id)?.Completed == true) : null;
-                var guess = cleared == null && fresh && defs.Any(d => ledger!.Items.GetValueOrDefault(d.Id)?.Suggestion is { Code: "missionCleared" });
-                result[key] = cleared != null ? new HomeworkPoolStatus("done", cleared.Title) : new HomeworkPoolStatus(fresh ? "todo" : "unknown", null, guess);
+                // 택1이라 주간 미션 카운터가 오른 것만으로 이번 주는 끝났다: 어느 보스인지 몰라도 완료(보스 이름 없음)
+                var counted = cleared == null && fresh && defs.Any(d => ledger!.Items.GetValueOrDefault(d.Id)?.Suggestion is { Code: "missionCleared" });
+                result[key] = cleared != null ? new HomeworkPoolStatus("done", cleared.Title)
+                    : counted ? new HomeworkPoolStatus("done", null)
+                    : new HomeworkPoolStatus(fresh ? "todo" : "unknown", null);
             }
             return result;
         }
@@ -316,10 +319,14 @@ public sealed class HomeworkService
             status is HomeworkCardStatus.Pending or HomeworkCardStatus.InProgress ? st?.RemainingCount : null);
     }
 
-    /// <summary>공유 풀 완료 = 풀 안 항목 중 하나라도 완료. 형제 상태를 복사하지 않고 매번 계산한다.</summary>
+    /// <summary>
+    /// 공유 풀 완료 = 풀 안 항목 중 하나라도 완료, 또는 클리어 미션 카운터가 올랐는데 어느 항목인지 못 가린 경우("클리어 추정").
+    /// 택1 풀(필드 보스)은 카운터가 오른 것만으로 이번 주기가 끝났다(2026-10-22 승운 결정). 형제 상태를 복사하지 않고 매번 계산한다.
+    /// </summary>
     private bool PoolDone(string pool, HomeworkFile file, HomeworkLedger character) =>
         _catalog.Items.Where(d => d.Pool == pool)
-            .Any(d => (d.Share == HomeworkShare.Account ? file.Account : character).Items.GetValueOrDefault(d.Id)?.Completed == true);
+            .Any(d => (d.Share == HomeworkShare.Account ? file.Account : character).Items.GetValueOrDefault(d.Id) is { } st
+                && (st.Completed || st.Suggestion is { Code: "missionCleared" }));
 
     private static HomeworkProgress Progress(IReadOnlyList<HomeworkCard> cards, HomeworkPeriod period)
     {

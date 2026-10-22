@@ -181,11 +181,26 @@ public class HomeworkClearMissionTests : IDisposable
         var autos = svc.GetAutoStatuses(new[] { Main })[Main];
         Assert.All(autos.Where(a => a.Id is "raid_cavrak" or "raid_airel" or "raid_white_succubus"), a => Assert.True(a.Guess, a.Id));
         Assert.All(autos.Where(a => a.Id.StartsWith("abyss_")), a => Assert.False(a.Guess, a.Id));   // 어비스 미션은 안 올랐다
-        Assert.True(svc.GetFieldBossStatuses(new[] { Main })[Main].Guess);
+        var boss = svc.GetFieldBossStatuses(new[] { Main })[Main];
+        Assert.Equal("done", boss.State);                                                  // 필드 보스는 택1: 카운터가 오른 것만으로 이번 주 끝
+        Assert.Null(boss.Item);
+        Assert.All(_catalog.Items.Where(d => d.Id.StartsWith("fieldboss_")), d => Assert.Equal(HomeworkCardStatus.PoolDone, Card(svc, Main, d.Id).Status));
 
         svc.Set(Main, "raid_airel", completed: true);                                     // 사용자가 확인
         svc.Evaluate(Main, Obs(Town, new[] { Raid(1), Boss1(1) }));
         Assert.DoesNotContain(svc.GetAutoStatuses(new[] { Main })[Main], a => a.Guess && a.Id.StartsWith("raid_"));
         Assert.Contains(svc.GetAutoStatuses(new[] { Main })[Main], a => a.Id == "raid_airel" && a.State == "done" && !a.Guess);
+    }
+
+    [Fact]
+    public void TheGuessSurvivesObservationsThatDidNotReadTheMissions()
+    {
+        var svc = NewService();
+        svc.Evaluate(Main, Obs(Town, new[] { Boss1(1) }));                                 // 처음부터 1: 어느 보스인지 모른다
+        Assert.Equal("done", svc.GetFieldBossStatuses(new[] { Main })[Main].State);
+        _now += TimeSpan.FromSeconds(20);
+        svc.Evaluate(Main, new HomeworkObservation(Environment: new EnvironmentInfo("채널 1", null, null, Town)));   // 빠른 관찰: 미션 목록 없음
+        Assert.Equal("done", svc.GetFieldBossStatuses(new[] { Main })[Main].State);        // 깜빡이지 않는다
+        Assert.Equal(HomeworkCardStatus.PoolDone, Card(svc, Main, "fieldboss_peri").Status);
     }
 }

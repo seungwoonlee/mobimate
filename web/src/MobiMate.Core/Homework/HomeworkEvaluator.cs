@@ -145,8 +145,10 @@ public static partial class HomeworkEvaluator
                 }
                 continue;
             }
-            // 이번 관찰에서 더는 필요 없는 "클리어 추정"(다른 항목을 확인했거나 미션이 리셋됨)은 치운다
-            if (existing?.Suggestion is { Code: "missionCleared" } && !raidSuggestions.ContainsKey(def.Id))
+            // 이번 관찰에서 더는 필요 없는 "클리어 추정"(다른 항목을 확인했거나 미션이 리셋됨)은 치운다.
+            // 미션 목록을 읽지 않은 관찰(빠른 관찰·캐릭터 전환 직후)은 판단 근거가 없으므로 그대로 둔다(추정이 깜빡이지 않게).
+            if (existing?.Suggestion is { Code: "missionCleared" } && !raidSuggestions.ContainsKey(def.Id)
+                && !characterJustSwitched && obs.WeeklyMissions is { Count: > 0 })
             {
                 existing.Suggestion = null;
                 changed.Add(def.Id);
