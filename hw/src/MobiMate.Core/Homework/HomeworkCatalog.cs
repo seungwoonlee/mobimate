@@ -112,6 +112,16 @@ public sealed class HomeworkDefinition
     /// </summary>
     public Dictionary<string, long> AreaRewards { get; init; } = new();
 
+    /// <summary>전용 지역 이름의 접두어(지역 이름 뒤가 바뀌는 콘텐츠: 뱅가드 `뱅가드 브리치 • 늑대의 숲`). EntrySpaceNames와 같이 쓴다.</summary>
+    public List<string> EntrySpacePrefixes { get; init; } = new();
+
+    /// <summary>
+    /// 주기마다 여러 번 깨는 콘텐츠의 목표 횟수(뱅가드 3). 0이 아니면 퀘스트가 안 보이는 것으로는 완료하지 않는다(뱅가드 퀘스트는 다른 퀘스트에 따라
+    /// 보였다 안 보였다 한다, 승운 2026-10-22). 이번 주 횟수 = 퀘스트가 보일 때 목표 N/M의 N(게임 값), 그 사이엔 전용 지역 안 보상(AreaRewards)이 들어올 때마다 +1.
+    /// 횟수가 목표에 닿으면 완료.
+    /// </summary>
+    public int RunGoal { get; init; }
+
     /// <summary>
     /// 보상 재화가 늘어도 SpaceNames의 지역 안에서(또는 방금까지 있었던 경우에만) 클리어로 본다 (어비스: 지역 진입 뒤 마물 퇴치 증표 획득).
     /// 다른 곳에서 같은 재화를 얻어도(카브락 +270 등) 클리어로 세지 않는다.

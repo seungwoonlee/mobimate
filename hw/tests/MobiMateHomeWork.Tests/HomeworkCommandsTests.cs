@@ -139,7 +139,7 @@ public class HomeworkCommandsTests
         Assert.Equal(HomeworkCardStatus.PoolDone, Card(h, Aira, "fieldboss_krama").Status);
 
         Assert.True(h.Commands.SetHomework("fieldboss_peri", false, null).Ok);
-        Assert.Equal("todo", h.Session.Characters().Card(Aira).FieldBoss.State);   // 이번 주기 기록은 있는데 넘긴 보스가 없음
+        Assert.Equal("unknown", h.Session.Characters().Card(Aira).FieldBoss.State);   // 안 깼다는 것은 CLI로 확인할 수 없다(2026-10-22)
         Assert.Null(h.Session.Characters().Card(Aira).FieldBoss.Item);
     }
 

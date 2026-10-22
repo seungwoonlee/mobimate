@@ -39,7 +39,7 @@ public static partial class HomeworkEvaluator
         {
             var due = def.Period == HomeworkPeriod.Daily ? dailyDue : weeklyDue;
             if (due && ledger.Items.Remove(def.Id)) changed.Add(def.Id);
-            if (due) { ledger.QuestSightings?.Remove(def.Id); ledger.QuestContinuityBroken?.Remove(def.Id); ledger.QuestVanishPending?.Remove(def.Id); ledger.RaidAreaSince?.Remove(ClearKey(def)); }
+            if (due) { ledger.QuestSightings?.Remove(def.Id); ledger.QuestContinuityBroken?.Remove(def.Id); ledger.QuestVanishPending?.Remove(def.Id); ledger.RaidAreaSince?.Remove(ClearKey(def)); ledger.RunCounts?.Remove(def.Id); }
         }
         if (weeklyDue) { ledger.ClearMissionCounts = null; ledger.ClearMissionCountsUtc = null; ledger.ProgressSeen = null; }   // 이번 주기에 본 클리어 미션 카운터·진행 신호는 지난 주 것이다
         if (dailyDue) ledger.LastDailyResetUtc = lastDaily;
@@ -80,6 +80,7 @@ public static partial class HomeworkEvaluator
             if (def.EffectiveMode == HomeworkMode.QuestVanish && questsUsable
                 && existing is { Completed: true }
                 && !clearedHere && !RecentlyClearedByGame(existing, nowUtc)
+                && !(def.RunGoal > 0 && existing.Auto && existing.CompletedAtUtc is { } runDoneAt && nowUtc - runDoneAt < RunReopenGrace)
                 && QuestVisible(def, obs, now: nowUtc))
             {
                 ledger.Items.Remove(def.Id);
@@ -156,7 +157,11 @@ public static partial class HomeworkEvaluator
                     EvaluateQuestSuffix(def, st, obs, nowUtc);
                     break;
             }
-            if (!st.Completed && raidSuggestions.TryGetValue(def.Id, out var suggestion))
+            if (!st.Completed && def.RunGoal > 0)
+            {
+                CountRun(def, st, character, raidSuggestions.GetValueOrDefault(def.Id), nowUtc);
+            }
+            else if (!st.Completed && raidSuggestions.TryGetValue(def.Id, out var suggestion))
             {
                 if (AutoCompletes(def, suggestion)) Complete(st, def.Goal, EvidenceOf(suggestion), nowUtc);
                 else st.Suggestion = suggestion;
@@ -217,6 +222,32 @@ public static partial class HomeworkEvaluator
 
     /// <summary>클리어 상태로 완료한 직후, 나가기 전까지 퀘스트가 아직 보이는 동안은 완료를 취소하지 않는다. 이 시간이 지나도 보이면 취소(오탐 회복).</summary>
     public static readonly TimeSpan ClearedQuestGrace = TimeSpan.FromMinutes(2);
+
+    /// <summary>여러 번 깨는 콘텐츠가 목표 횟수로 완료된 직후, 목록에 잠깐 남은 퀘스트로 되돌리지 않는 시간.</summary>
+    private static readonly TimeSpan RunReopenGrace = TimeSpan.FromMinutes(3);
+
+    /// <summary>
+    /// 여러 번 깨는 콘텐츠(RunGoal, 뱅가드)의 이번 주 횟수: 전용 지역 안 보상이 들어오면 +1, 목표에 닿으면 완료. 퀘스트가 보일 때의 N/M은 EvaluateQuestVanish가 맞춰 둔다.
+    /// </summary>
+    private static void CountRun(HomeworkDefinition def, HomeworkItemState st, HomeworkLedger character, HomeworkSuggestion? reward, DateTimeOffset now)
+    {
+        var counts = character.RunCounts ??= new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        var n = counts.GetValueOrDefault(def.Id);
+        if (reward is { Code: "areaReward" })
+        {
+            n = Math.Min(def.RunGoal, n + 1);
+            counts[def.Id] = n;
+            st.Evidence = $"전용 지역 안에서 {reward.Item} +{reward.To - reward.From:N0}: 클리어 관찰, 이번 주 {n}/{def.RunGoal}";
+        }
+        if (!counts.ContainsKey(def.Id)) return;
+        if (n >= def.RunGoal)
+        {
+            st.RemainingCount = null;
+            Complete(st, def.Goal, $"이번 주 {def.Title} {n}/{def.RunGoal} 클리어", now);
+            return;
+        }
+        st.RemainingCount = def.RunGoal - n;
+    }
 
     private static bool RecentlyClearedByGame(HomeworkItemState st, DateTimeOffset now) =>
         st.Evidence == DungeonClearedEvidence && st.CompletedAtUtc is { } at && now - at < ClearedQuestGrace;
@@ -300,8 +331,11 @@ public static partial class HomeworkEvaluator
             character.QuestVanishPending?.Remove(def.Id);                  // 잠깐 안 보였을 뿐: 사라짐 확인을 처음부터 다시 한다
             st.RemainingCount = def.ShowRemaining ? RemainingOf(visible) : null;
             st.Evidence = $"퀘스트 '{HomeworkText.StripTags(visible.QuestTitle)}'가 아직 목록에 있음: 이번 주기 미완료" + (st.RemainingCount is { } r ? $" (남은 {r}회)" : "");
+            if (def.RunGoal > 0 && st.RemainingCount is { } left)   // 게임이 보여 주는 N/M이 이번 주 횟수의 정답이다
+                (character.RunCounts ??= new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase))[def.Id] = Math.Max(0, def.RunGoal - left);
             return;
         }
+        if (def.RunGoal > 0) return;   // 안 보이는 것은 근거가 아니다(뱅가드 퀘스트는 다른 퀘스트에 따라 보였다 안 보였다 한다)
         if (obs.Quests!.Count == 0) return;
         if (!sightings.TryGetValue(def.Id, out var seen) || seen < cycleStart) return;
         // 공간 이름이 비어 있으면 로딩·맵 이동 중이다: 이때의 퀘스트 목록은 믿지 않는다 (조회에 실패한 null과는 구분한다)
@@ -450,10 +484,10 @@ public static partial class HomeworkEvaluator
         if (space.Length > 0)
         {
             var since = character.RaidAreaSince ??= new Dictionary<string, DateTimeOffset>(StringComparer.OrdinalIgnoreCase);
-            foreach (var d in catalog.Items.Where(d => d.Active && (d.EntrySpaceNames.Count > 0 || d.TokenRequiresSpace)))
+            foreach (var d in catalog.Items.Where(d => d.Active && (d.EntrySpaceNames.Count > 0 || d.EntrySpacePrefixes.Count > 0 || d.TokenRequiresSpace)))
             {
-                var areas = d.EntrySpaceNames.Count > 0 ? d.EntrySpaceNames : d.SpaceNames;
-                if (areas.Any(n => HomeworkText.Normalize(n) == space))
+                var areas = d.EntrySpaceNames.Count > 0 || d.EntrySpacePrefixes.Count > 0 ? d.EntrySpaceNames : d.SpaceNames;
+                if (areas.Any(n => HomeworkText.Normalize(n) == space) || d.EntrySpacePrefixes.Any(p => space.StartsWith(HomeworkText.Normalize(p), StringComparison.Ordinal)))
                 {
                     since.TryAdd(d.Id, now);
                     if (d.EntrySpaceNames.Count > 0 && d.EntryCompletes)
@@ -470,7 +504,7 @@ public static partial class HomeworkEvaluator
         // 보상 재화(TokenCurrency)와 전용 지역 안 보상(AreaRewards)을 같이 비교한다
         var entries = catalog.Items.Where(d => d.Active && !string.IsNullOrWhiteSpace(d.TokenCurrency))
             .Select(d => (Def: d, Name: d.TokenCurrency!, IsItem: d.TokenIsItem, Min: (long)Math.Max(1, d.TokenMinIncrease), NeedsArea: d.TokenRequiresSpace, AreaReward: false))
-            .Concat(catalog.Items.Where(d => d.Active && d.EntrySpaceNames.Count > 0)
+            .Concat(catalog.Items.Where(d => d.Active && (d.EntrySpaceNames.Count > 0 || d.EntrySpacePrefixes.Count > 0))
                 .SelectMany(d => d.AreaRewards.Select(r => (Def: d, Name: r.Key, IsItem: false, Min: Math.Max(1L, r.Value), NeedsArea: true, AreaReward: true))))
             .ToList();
         if (entries.Count == 0) return result;
@@ -606,7 +640,8 @@ public static partial class HomeworkEvaluator
     /// <summary>제안이 곧바로 자동 완료가 되는가: 미션 카운터로 항목이 가려졌으면 예, 못 가려 "추정"만 있으면 아니오(수동 확인), 그 밖은 증표·존재 근거 규칙.</summary>
     private static bool AutoCompletes(HomeworkDefinition def, HomeworkSuggestion s) => s.Code switch
     {
-        "missionClearedHere" or "areaReward" => true,
+        "missionClearedHere" => true,
+        "areaReward" => def.RunGoal == 0,   // 여러 번 깨는 콘텐츠(뱅가드)는 횟수만 센다
         "missionCleared" => false,
         _ => def.TokenAuto || IsPresenceCode(s.Code),
     };
