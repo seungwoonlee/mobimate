@@ -76,6 +76,8 @@ builder.Services.AddSingleton<GameQueries>();
 builder.Services.AddSingleton<GameStateCache>();
 builder.Services.AddSingleton(sp => new SnapshotManager(Dir(sp)));
 builder.Services.AddSingleton(sp => new RankingService(Dir(sp), sp.GetRequiredService<SnapshotManager>()));
+builder.Services.AddSingleton(_ => new MobiRankClient());
+builder.Services.AddSingleton(sp => new RankingMobiRefresher(sp.GetRequiredService<RankingService>(), sp.GetRequiredService<MobiRankClient>(), sp.GetRequiredService<ILogger<RankingMobiRefresher>>()));
 builder.Services.AddSingleton(_ => HomeworkCatalog.LoadEmbedded());
 builder.Services.AddSingleton(sp =>
 {
