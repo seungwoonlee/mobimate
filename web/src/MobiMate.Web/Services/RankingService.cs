@@ -10,7 +10,7 @@ public sealed class RankEntryData
     public int? Rank { get; set; }
     public long? Score { get; set; }
     public DateTimeOffset AtUtc { get; set; }
-    public string Source { get; set; } = "bookmarklet";   // bookmarklet | manual | mabimobi
+    public string Source { get; set; } = "bookmarklet";   // bookmarklet | mabimobi
 }
 
 /// <summary>캐릭터 하나의 랭킹 기록. Name·ServerId는 조회한 때의 값이라, 별칭이 바뀌면 이 기록은 옛 이름의 순위다.</summary>
@@ -42,7 +42,7 @@ public sealed record RankBadge(int Rank, string Tier, bool Stale, DateTimeOffset
 
 /// <summary>
 /// 서버 랭킹 저장·조회 (v0.3). 앱이 넥슨 랭킹 페이지를 스스로 부르지 않는다(자동 접속 차단 장치가 있어 우회하지 않는다):
-/// 값은 사용자가 자기 브라우저에서 북마크릿을 눌렀을 때, 또는 화면에서 직접 적었을 때만 들어온다.
+/// 값은 사용자가 자기 브라우저에서 북마크릿을 눌렀을 때, 또는 모비라이프 버튼을 눌렀을 때만 들어온다.
 /// 순위는 별칭(사용자가 입력한 캐릭터 이름)과 서버로 찾은 값이라, 별칭이나 서버가 바뀌면 그 기록은 쓰지 않는다.
 /// </summary>
 public sealed class RankingService
@@ -132,40 +132,6 @@ public sealed class RankingService
             if (accepted > 0) _data = next;
         }
         return new RankImportResult(accepted, rejected, problems);
-    }
-
-    /// <summary>화면에서 직접 적은 순위. rank가 null이면 "순위 없음"으로 기록한다.</summary>
-    public (bool Ok, string? Error) SetManual(string key, int kindValue, int? rank, long? score)
-    {
-        if (KindOf(kindValue) is not { } kind) return (false, "알 수 없는 종류입니다.");
-        if (rank is <= 0) return (false, "순위는 1 이상이어야 합니다.");
-        if (score is < 0) return (false, "점수가 올바르지 않습니다.");
-        var t = Targets().FirstOrDefault(x => string.Equals(x.Key, key, StringComparison.OrdinalIgnoreCase));
-        if (t == null) return (false, "캐릭터 이름(별칭)이 있는 캐릭터만 입력할 수 있습니다.");
-        lock (_lock)
-        {
-            var next = Clone(_data);
-            Put(next, t, kind, rank, score, "manual");
-            if (!_store.Save(_path, next)) return (false, "저장하지 못했습니다.");
-            _data = next;
-        }
-        return (true, null);
-    }
-
-    /// <summary>입력한 순위 하나를 지운다.</summary>
-    public bool Clear(string key, int kindValue)
-    {
-        if (KindOf(kindValue) is not { } kind) return false;
-        lock (_lock)
-        {
-            if (!_data.Records.TryGetValue(key, out var rec) || !rec.Entries.ContainsKey(KeyOf(kind))) return true;
-            var next = Clone(_data);
-            next.Records[key].Entries.Remove(KeyOf(kind));
-            if (next.Records[key].Entries.Count == 0) next.Records.Remove(key);
-            if (!_store.Save(_path, next)) return false;
-            _data = next;
-            return true;
-        }
     }
 
     /// <summary>캐릭터 한 명의 랭킹 보기. 지금 별칭·서버와 다른 이름으로 조회한 값이면 NameChanged이고 순위는 비운다.</summary>

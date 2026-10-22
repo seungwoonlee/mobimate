@@ -162,7 +162,7 @@ export type AskEvent =
 export type RankTierName = 'gold' | 'orange' | 'pink' | 'purple' | 'none';
 export interface RankBadgeData { rank: number; tier: Exclude<RankTierName, 'none'>; stale: boolean; at: string }
 export type RankKindKey = 'total' | 'combat' | 'living' | 'attract';
-export interface RankEntryView { rank: number | null; score: number | null; tier: RankTierName; at: string; source: 'bookmarklet' | 'manual' | 'mabimobi'; stale: boolean }
+export interface RankEntryView { rank: number | null; score: number | null; tier: RankTierName; at: string; source: 'bookmarklet' | 'mabimobi'; stale: boolean }
 export interface RankView {
   key: string; name: string | null; serverName: string | null;
   /** 캐릭터 이름(별칭)을 입력했는가 */ hasName: boolean;

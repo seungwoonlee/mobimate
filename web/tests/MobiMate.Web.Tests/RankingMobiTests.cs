@@ -88,7 +88,7 @@ public sealed class RankingMobiTests : IDisposable
     public async Task NotFound_AndAMismatchedCharacter_AreReportedAndDoNotOverwriteWhatWeHave()
     {
         var r = Ranking();
-        r.SetManual("아이라_힐러", 1, 4000, null);                              // 이미 있던 값
+        r.Import(new[] { new RankImportItem("아이라_힐러", "GALAXYZ", 1, RankingServiceTests.Item(4000, "GALAXYZ", "힐러", "전투력", "115,000")) });   // 이미 있던 값(북마크릿)
         RespondByName(n => n == "GALAXYZ" ? "" : Row("활잡이", "02", 30000));   // 힐러는 사이트에 없고, 궁수는 전투력이 너무 다르다
         var res = await Refresher(r).RunAsync(CancellationToken.None);
         Assert.Equal(0, res.Updated);

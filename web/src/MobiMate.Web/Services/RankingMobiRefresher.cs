@@ -44,7 +44,7 @@ public sealed class RankingMobiRefresher
                 if (i > 0) await _delay(_gap, ct);
                 var t = targets[i];
                 var r = await _client.SearchAsync(t.Name, ct);
-                if (r.Status == MobiStatus.Blocked) { stopped = $"모비라이프가 요청을 막았습니다({r.Detail}). 더 조회하지 않았습니다."; break; }
+                if (r.Status == MobiStatus.Blocked) { stopped = $"모비라이프가 이 앱의 접속을 거절했습니다({r.Detail}). 사이트가 프로그램의 접속을 막는 것으로 보여 우회하지 않고 멈췄습니다."; break; }
                 if (r.Status == MobiStatus.Failed)
                 {
                     if (++failures >= 2) { stopped = $"모비라이프에 연속으로 접속하지 못했습니다({r.Detail}). 더 조회하지 않았습니다."; break; }
