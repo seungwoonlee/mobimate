@@ -66,6 +66,18 @@ public class HomeworkAutoCheckTests : IDisposable
     }
 
     [Fact]
+    public void DayDungeon_RecommendedSweepEntryDisappearing_IsNotACompletion()
+    {
+        var svc = NewService();
+        svc.Evaluate(Main, Quests(Quest("요일 던전 소탕", false), Other));
+        _now += TimeSpan.FromMinutes(1);
+        svc.Evaluate(Main, Quests(Other));                                   // 추천 목록이 바뀌어 빠졌다
+        _now += HomeworkEvaluator.VanishConfirmWindow + TimeSpan.FromSeconds(1);
+        svc.Evaluate(Main, Quests(Other));
+        Assert.NotEqual(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main), "daily_day_dungeon").Status);
+    }
+
+    [Fact]
     public void DayDungeon_OnlyTodaysQuestCounts()
     {
         var svc = NewService();   // 화요일: 보석. 황금(월·목) 퀘스트는 오늘 것이 아니다
