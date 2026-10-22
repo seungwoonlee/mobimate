@@ -46,7 +46,9 @@ public static class RankingEndpoints
             Cors(ctx);
             var req = await ReadBody<RankTokenRequest>(ctx);
             if (req == null || !r.TokenOk(req.Token)) return ApiResults.Error(StatusCodes.Status403Forbidden, "BAD_TOKEN", "북마크릿 토큰이 맞지 않습니다. 앱에서 북마크릿을 다시 만들어 주세요.");
-            return ApiResults.Ok(new { targets = r.TargetsByNeed() });
+            // 최신인 종류는 빼고 줄 일이 있는 것만 보낸다(넥슨에 한꺼번에 너무 많이 부르지 않게). all = 이름이 있는 전체 캐릭터 수
+            var todo = r.TargetsByNeed().Select(t => new { t.Key, t.Name, t.ServerId, t.ServerName, t.Job, t.Combat, kinds = r.KindsNeeded(t) }).Where(t => t.kinds.Count > 0).ToList();
+            return ApiResults.Ok(new { targets = todo, all = r.Targets().Count });
         });
 
         api.MapMethods("/import", new[] { "OPTIONS" }, (HttpContext ctx) => Preflight(ctx));
@@ -110,17 +112,19 @@ const msg=m=>{let e=document.getElementById('mm-rank-msg');if(!e){e=document.cre
 try{
 const r=await fetch(A+'/api/rankings/targets',{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({token:T})});
 const j=await r.json();if(!r.ok)throw new Error(j.error&&j.error.message||'앱에 연결하지 못했습니다');
-const ts=j.data.targets;if(!ts.length){msg('순위를 가져올 캐릭터가 없습니다. 앱에서 캐릭터 이름(별칭)을 먼저 입력하세요.');return}
-let n=0,acc=0,rej=0,blind=0,done=0;const total=ts.length*4;const probs=[];
-for(const t of ts){const items=[];for(const k of [4,1,3,2]){
-msg('순위 가져오는 중 '+(++n)+'/'+total+' · '+t.name);
-const f=new FormData();f.append('t',k);f.append('pageno',1);f.append('s',t.serverId);f.append('c','0');f.append('search',t.name);
+const ts=j.data.targets;if(!ts.length){msg(j.data.all?'모든 캐릭터의 순위가 최신이에요(6시간 이내). 가져올 것이 없습니다.':'순위를 가져올 캐릭터가 없습니다. 앱에서 캐릭터 이름(별칭)을 먼저 입력하세요.');return}
+const nap=ms=>new Promise(s=>setTimeout(s,ms));
+const get=async(t,k)=>{const f=new FormData();f.append('t',k);f.append('pageno',1);f.append('s',t.serverId);f.append('c','0');f.append('search',t.name);
 const x=await fetch('/Ranking/List/rankdata',{method:'POST',body:f,headers:{'X-Requested-With':'XMLHttpRequest'}});
-const h=await x.text();let html=null;
-if(h.indexOf('결과가 없습니다')>-1)html='결과가 없습니다';
-else{const li=new DOMParser().parseFromString(h,'text/html').querySelector('li.item.on');html=li?li.outerHTML:null}
+const h=await x.text();if(h.indexOf('결과가 없습니다')>-1)return '결과가 없습니다';
+const li=new DOMParser().parseFromString(h,'text/html').querySelector('li.item.on');return li?li.outerHTML:null};
+let n=0,acc=0,rej=0,blind=0,done=0;const total=ts.reduce((a,t)=>a+t.kinds.length,0);const probs=[];
+for(const t of ts){const items=[];for(const k of t.kinds){
+msg('순위 가져오는 중 '+(++n)+'/'+total+' · '+t.name);
+let html=await get(t,k);
+if(html===null){msg('잠깐 쉬었다가 다시 시도해요 · '+t.name);await nap(6000);html=await get(t,k)}
 items.push({key:t.key,name:t.name,kind:k,html:html});
-await new Promise(s=>setTimeout(s,1200))}
+await nap(2000)}
 const o=await fetch(A+'/api/rankings/import',{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({token:T,items:items})});
 const oj=await o.json();if(!o.ok)throw new Error(oj.error&&oj.error.message||'저장하지 못했습니다');
 acc+=oj.data.accepted;rej+=oj.data.rejected;(oj.data.problems||[]).forEach(p=>{if(probs.length<5)probs.push(p)});done++;

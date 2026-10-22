@@ -31,6 +31,13 @@ public static partial class RankingParser
     [GeneratedRegex(@"<dd\s+class=""type_(?<t>\d)"">\s*(?<v>[\d,]+)\s*</dd>", RegexOptions.None, matchTimeoutMilliseconds: 500)]
     private static partial Regex Score();
 
+    // 종합 랭킹의 2026-10-23 실측 형식: 합계는 <dt><span>종합 점수</span><span>243,887</span></dt>, 나머지는 <span class="type_N"><em>전투력</em>138,089</span>
+    [GeneratedRegex(@"<dt>\s*<span>\s*종합\s*점수\s*</span>\s*<span>\s*(?<v>[\d,]+)\s*</span>\s*</dt>", RegexOptions.None, matchTimeoutMilliseconds: 500)]
+    private static partial Regex TotalScore();
+
+    [GeneratedRegex(@"<span\s+class=""type_(?<t>\d)"">\s*<em>[^<]*</em>\s*(?<v>[\d,]+)\s*</span>", RegexOptions.None, matchTimeoutMilliseconds: 500)]
+    private static partial Regex SubScore();
+
     /// <param name="html">검색 응답 전체, 또는 북마크릿이 보낸 <c>on</c> 항목 하나</param>
     public static RankReading? Parse(string? html, RankKind kind)
     {
@@ -51,11 +58,22 @@ public static partial class RankingParser
         if (!rank.Success) return null;
 
         var scores = Score().Matches(body).Select(x => (Type: int.Parse(x.Groups["t"].Value), Value: long.Parse(x.Groups["v"].Value.Replace(",", "")))).ToList();
-        if (scores.Count == 0) return null;
-        // 종합은 type 속성이 아니라 순서로 구분한다 (합계, 전투력, 생활력, 매력)
         long? combat = null, living = null, attract = null;
         long score;
-        if (kind == RankKind.Total)
+        if (kind == RankKind.Total && TotalScore().Match(body) is { Success: true } tm)
+        {
+            // 새 형식: 합계와 세 점수가 따로 있고, 세 점수는 type 번호(1 전투력·3 생활력·2 매력)로 구분한다
+            score = long.Parse(tm.Groups["v"].Value.Replace(",", ""));
+            foreach (Match sm in SubScore().Matches(body))
+            {
+                var v = long.Parse(sm.Groups["v"].Value.Replace(",", ""));
+                switch (int.Parse(sm.Groups["t"].Value)) { case 1: combat = v; break; case 3: living = v; break; case 2: attract = v; break; }
+            }
+            if (combat == null || living == null || attract == null) return null;
+        }
+        else if (scores.Count == 0) return null;
+        // 옛 형식의 종합은 type 속성이 아니라 순서로 구분한다 (합계, 전투력, 생활력, 매력)
+        else if (kind == RankKind.Total)
         {
             if (scores.Count < 4) return null;
             score = scores[0].Value; combat = scores[1].Value; living = scores[2].Value; attract = scores[3].Value;
