@@ -124,7 +124,7 @@ public class ObserveSplitTests(ITestOutputHelper output)
     }
 
     [Fact]
-    public async Task FastObservation_UsesTheMap_RaidAreaEntryCompletesWithoutWaitingForTheFullRead()
+    public async Task FastObservation_UsesTheMap_RaidAreaEntryShowsInProgressWithoutWaitingForTheFullRead()
     {
         using var game = new FakeGame();
         await using var h = await AppHarness.StartAsync(game: game);
@@ -132,7 +132,7 @@ public class ObserveSplitTests(ITestOutputHelper output)
         await h.Watcher.ObserveAsync(CancellationToken.None, full: true);
         game.SetMap("먼 바다의 춤추는 바람");   // 에이렐 전용 지역
         await h.Watcher.ObserveAsync(CancellationToken.None, full: false);
-        Assert.Equal(HomeworkCardStatus.AutoDone, Card(h, FakeGame.SampleKey, "raid_airel").Status);
+        Assert.Equal(HomeworkCardStatus.InProgress, Card(h, FakeGame.SampleKey, "raid_airel").Status);   // 진입은 진행 중일 뿐, 완료는 미션 카운터로 (2026-10-22)
     }
 
     [Fact]

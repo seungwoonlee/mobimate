@@ -101,6 +101,12 @@ public sealed class HomeworkDefinition
     public List<string> EntrySpaceNames { get; init; } = new();
 
     /// <summary>
+    /// EntrySpaceNames 지역에 들어온 것만으로 완료로 볼지 (기본 예). 아니오면 진입은 "진행 중"일 뿐이고, 완료는 클리어 미션 카운터·보상 증가로만 판정한다
+    /// (레이드, 2026-10-22 승운 결정: 들어갔다 실패하거나 나와도 완료로 남던 문제. 서큐버스 실측에서 "레이드 1회 토벌"이 처치 순간 0→1로 오르는 것을 확인).
+    /// </summary>
+    public bool EntryCompletes { get; init; } = true;
+
+    /// <summary>
     /// 보상 재화가 늘어도 SpaceNames의 지역 안에서(또는 방금까지 있었던 경우에만) 클리어로 본다 (어비스: 지역 진입 뒤 마물 퇴치 증표 획득).
     /// 다른 곳에서 같은 재화를 얻어도(카브락 +270 등) 클리어로 세지 않는다.
     /// </summary>
