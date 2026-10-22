@@ -51,6 +51,12 @@ public sealed class HomeworkDefinition
     /// <summary>요일별 퀘스트 이름 (키: mon~sun, 게임의 하루는 06:00에 바뀐다). QuestVanish에서 오늘 보고 있어야 할 퀘스트를 정한다.</summary>
     public Dictionary<string, List<string>> DayQuestTitles { get; init; } = new();
 
+    /// <summary>
+    /// 보이면 "이번 주기 미완료 확인"으로만 쓰는 퀘스트 이름 (요일 던전: 추천 활동 "요일 던전 소탕", 2026-10-22 실측).
+    /// 클리어한 뒤에도 남아 있을 수 있어 완료를 되돌리는 근거로는 쓰지 않는다. 완료는 게임의 던전 클리어 상태로 판정한다.
+    /// </summary>
+    public List<string> SightOnlyQuestTitles { get; init; } = new();
+
     /// <summary>false면 지금 열려 있지 않은 콘텐츠: 목록·진행 통계·판정에서 빠진다 (예: 지금 열려 있지 않은 레이드).</summary>
     public bool Active { get; init; } = true;
 
@@ -68,13 +74,6 @@ public sealed class HomeworkDefinition
     /// 다른 캐릭터를 관찰하면 이전 캐릭터의 목격 기록을 지운다 (로그아웃·캐릭터 변경 사이에 사라진 것은 완료의 근거가 아니다).
     /// </summary>
     public bool Continuous { get; init; }
-
-    /// <summary>
-    /// 이 숙제의 진행을 직접 알려 주는 **캐릭터별 주간 미션**의 제목(공백·태그 정규화 후 정확히 일치). 예: 뱅가드 브리치 → "우리 집에 왜 왔니?"(뱅가드 브리치 3회 토벌).
-    /// 2026-10-22 실측: 주간 미션은 캐릭터마다 값이 다르다(궁수 3/3 → 화염술사 0/3). 그 캐릭터의 카운터가 진실이라
-    /// 미션이 보이면 퀘스트 목록의 변화(사라짐)보다 우선하고, 안 보이면 기존 판정(QuestVanish)이 예비로 남는다.
-    /// </summary>
-    public List<string> CounterMissionTitles { get; init; } = new();
 
     /// <summary>
     /// 클리어 미션 묶음 이름(`ClearMissions`의 키: raid·abyss·fieldBoss). 그 묶음의 주간 미션 카운터가 오르면 이 묶음의 항목 중 하나가 클리어된 것이다.
@@ -105,6 +104,13 @@ public sealed class HomeworkDefinition
     /// (레이드, 2026-10-22 승운 결정: 들어갔다 실패하거나 나와도 완료로 남던 문제. 서큐버스 실측에서 "레이드 1회 토벌"이 처치 순간 0→1로 오르는 것을 확인).
     /// </summary>
     public bool EntryCompletes { get; init; } = true;
+
+    /// <summary>
+    /// 전용 지역(EntrySpaceNames) 안에서 이 재화가 이만큼 이상 늘면 클리어 보상이다 (레이드: 지역 안에는 다른 골드 수입원이 없다.
+    /// 2026-10-22 서큐버스 실측: 처치 순간 골드 +101,200, 하트 토큰 +3). 재화는 캐릭터별이라 주간 미션(계정 공유)보다 확실한 캐릭터별 근거다.
+    /// 직전 관찰이 오래됐으면(AreaRewardFresh) 비교하지 않는다.
+    /// </summary>
+    public Dictionary<string, long> AreaRewards { get; init; } = new();
 
     /// <summary>
     /// 보상 재화가 늘어도 SpaceNames의 지역 안에서(또는 방금까지 있었던 경우에만) 클리어로 본다 (어비스: 지역 진입 뒤 마물 퇴치 증표 획득).
@@ -254,7 +260,7 @@ public sealed class HomeworkCatalog
             if (i.TokenAuto && string.IsNullOrWhiteSpace(i.TokenCurrency)) errors.Add($"증표 재화 없는 TokenAuto: {i.Id}");
 
             // 매칭 키는 정규화 후 일반어 단독이면 안 된다
-            foreach (var key in i.MissionTitles.Concat(i.CounterMissionTitles).Concat(i.QuestTitles).Concat(i.DaySpaceNamePrefixes.Values.SelectMany(v => v)).Concat(i.DayQuestTitles.Values.SelectMany(v => v)).Concat(i.BossNames).Concat(i.SpaceNames).Concat(i.SpaceNamePrefixes).Concat(i.ClearQuestTitles))
+            foreach (var key in i.MissionTitles.Concat(i.QuestTitles).Concat(i.DaySpaceNamePrefixes.Values.SelectMany(v => v)).Concat(i.DayQuestTitles.Values.SelectMany(v => v)).Concat(i.SightOnlyQuestTitles).Concat(i.BossNames).Concat(i.SpaceNames).Concat(i.SpaceNamePrefixes).Concat(i.ClearQuestTitles))
             {
                 var n = HomeworkText.Normalize(key);
                 if (n.Length < 2 || GenericWords.Contains(n)) errors.Add($"일반어 단독 매칭 키: {i.Id} → \"{key}\"");
