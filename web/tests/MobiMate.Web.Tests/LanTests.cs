@@ -228,3 +228,33 @@ public class LanTests
         Assert.NotNull(src.PrivateAddresses());
     }
 }
+
+/// <summary>폰에 알려 줄 주소의 순서 (2026-10-23: QR이 Tailscale 주소 100.78.x.x를 가리켰다)</summary>
+public class LanAddressPreferenceTests
+{
+    [Fact]
+    public void HomeAddresses_ComeBeforeVpnAddresses_AndTheOriginalOrderIsKeptWithinAGroup()
+    {
+        var order = LanAddressPreference.Order(new[] { "100.78.52.65", "192.168.0.4", "192.168.0.5" });
+        Assert.Equal(new[] { "192.168.0.4", "192.168.0.5", "100.78.52.65" }, order);
+    }
+
+    [Theory]
+    [InlineData("192.168.0.4", 0)]
+    [InlineData("10.0.0.7", 0)]
+    [InlineData("172.16.3.1", 0)]
+    [InlineData("172.31.9.9", 0)]
+    [InlineData("172.32.0.1", 1)]       // 사설 대역(172.16~31)이 아니다
+    [InlineData("100.64.0.1", 2)]       // CGNAT: Tailscale·통신사 NAT
+    [InlineData("100.127.255.254", 2)]
+    [InlineData("100.128.0.1", 1)]      // CGNAT 대역 밖
+    [InlineData("not-an-ip", 3)]
+    public void Rank_FollowsTheAddressRange(string ip, int rank) => Assert.Equal(rank, LanAddressPreference.Rank(ip));
+
+    [Fact]
+    public void OnlyAVpnAddress_StillWorks()
+    {
+        Assert.Equal(new[] { "100.78.52.65" }, LanAddressPreference.Order(new[] { "100.78.52.65" }));
+        Assert.Empty(LanAddressPreference.Order(Array.Empty<string>()));
+    }
+}
