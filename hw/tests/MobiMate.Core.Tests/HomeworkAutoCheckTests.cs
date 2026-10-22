@@ -224,7 +224,7 @@ public class HomeworkAutoCheckTests : IDisposable
         HomeworkObservation Cur(long n) => new(Currencies: new List<CurrencyItem> { new(token, n), new("골드", 1000) });
         var svc = NewService();
         svc.Evaluate(Main, Cur(84));
-        Assert.Equal("todo", Auto(svc, Main, "raid_cavrak").State);
+        Assert.Equal("unknown", Auto(svc, Main, "raid_cavrak").State);   // 안 깼다는 것은 CLI로 확인할 수 없다
         _now += TimeSpan.FromHours(2);
         svc.Evaluate(Main, Cur(102));   // 카브락 입문 +18
         var card = Card(svc.GetBoard(Main), "raid_cavrak");
