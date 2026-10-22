@@ -5,7 +5,7 @@ import { CardHead, Dialog, ErrorCard, Fresh, Icon, Pill, Skeleton } from '../com
 import { useNow } from '../hooks/layout';
 import { collect, collectAll, setFavorite, startGather } from '../lib/actions';
 import { useBusy } from '../lib/busy';
-import { finishClock, fmt, remaining } from '../lib/format';
+import { finishClock, fmt, plain, remaining } from '../lib/format';
 export { finishClock };
 import { useRouter } from '../state/router';
 import { useUi } from '../state/ui';
@@ -122,7 +122,7 @@ function Works({ works, at }: { works: Work[]; at: number }) {
                     const done = isDone(w);
                     return (
                       <div className="wk-row" key={w.facility + w.name + i}>
-                        <span className="n">{w.name}</span>
+                        <span className="n">{plain(w.name)}</span>
                         {done
                           ? <button type="button" className="btn wk-take" disabled={collecting} onClick={() => collect(w.name)} data-needs-conn>수거</button>
                           : <b className="tm num" aria-label={`완료까지 ${remaining(cum[i])}`}>{remaining(cum[i])}</b>}
@@ -192,9 +192,9 @@ function GatherHelper({ items }: { items: Gatherable[] }) {
             const need = Math.max(0, target - g.inBag);
             return (
               <div className={`gx-row ${g.favorite ? 'fav' : ''}`} key={g.name}>
-                <button type="button" className="star" aria-pressed={g.favorite} aria-label={`${g.name} 즐겨찾기`} title={g.favorite ? '즐겨찾기 해제' : '즐겨찾기'}
+                <button type="button" className="star" aria-pressed={g.favorite} aria-label={`${plain(g.name)} 즐겨찾기`} title={g.favorite ? '즐겨찾기 해제' : '즐겨찾기'}
                   onClick={() => void setFavorite('gather', g.name, !g.favorite)}>{g.favorite ? '★' : '☆'}</button>
-                <span className="n">{g.name}</span>
+                <span className="n">{plain(g.name)}</span>
                 <span className="m">
                   <span className="have">보유 <b className="num">{fmt(g.inBag)}</b></span>
                   {need > 0 && <span className="num warn-text">부족 {fmt(need)}</span>}
@@ -209,7 +209,7 @@ function GatherHelper({ items }: { items: Gatherable[] }) {
       )}
       {confirm && (
         <Dialog
-          title={`${confirm.name} 채집`}
+          title={`${plain(confirm.name)} 채집`}
           onClose={() => setConfirm(null)}
           actions={<>
             <button type="button" className="btn" onClick={() => setConfirm(null)}>취소</button>

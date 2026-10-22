@@ -3,7 +3,7 @@ import { useCurrencies, useInventory, useNearby } from '../api/queries';
 import type { Currency, InvItem } from '../api/types';
 import { Delta, ErrorCard, Fresh, Gauge, Icon, LevelState, Pill, Skeleton } from '../components/ui';
 import { setFavorite } from '../lib/actions';
-import { fmt } from '../lib/format';
+import { fmt, plain } from '../lib/format';
 import { useRouter } from '../state/router';
 import { autoStyle, MissingLine, PlayerLine } from './players';
 
@@ -33,7 +33,7 @@ export function InventoryView() {
       else if (loc !== 'all') r = r.filter(x => x.location === loc);
       r = r.sort((a, b) => Number(b.favorite) - Number(a.favorite));   // 즐겨찾기가 먼저 (정렬은 안정적이라 나머지 순서는 그대로)
     }
-    if (search) r = r.filter(x => x.name.includes(search) || x.category.includes(search));
+    if (search) r = r.filter(x => plain(x.name).includes(search) || x.category.includes(search));
     return r;
   }, [q.data, loc, search]);
 
@@ -66,9 +66,9 @@ export function InventoryView() {
           {rows.map(r => (
             <div className={`row ${r.favorite ? 'fav' : ''}`} role="listitem" key={`${r.location}|${r.name}`}>
               <div className="t">
-                <button type="button" className="star" aria-pressed={r.favorite} aria-label={`${r.name} 즐겨찾기`} title={r.favorite ? '즐겨찾기 해제' : '즐겨찾기'}
+                <button type="button" className="star" aria-pressed={r.favorite} aria-label={`${plain(r.name)} 즐겨찾기`} title={r.favorite ? '즐겨찾기 해제' : '즐겨찾기'}
                   onClick={() => void setFavorite('items', r.name, !r.favorite)}>{r.favorite ? '★' : '☆'}</button>
-                {r.locked && <Icon name="lock" label="잠금" />}<span>{r.name}</span>
+                {r.locked && <Icon name="lock" label="잠금" />}<span>{plain(r.name)}</span>
               </div>
               <div className="r">
                 <span className="num strong">{fmt(r.count)}</span>
