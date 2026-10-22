@@ -347,7 +347,7 @@ public class HomeworkTests : IDisposable
 
         var s = svc.GetFieldBossStatuses(new[] { Main, Alt });
         Assert.Equal(new HomeworkPoolStatus("done", "크라마"), s[Main]);
-        Assert.Equal("todo", s[Alt].State);
+        Assert.Equal("unknown", s[Alt].State);   // 안 깼다는 것은 CLI로 확인할 수 없다
         Assert.Equal("unknown", svc.GetFieldBossStatuses(new[] { "없는_캐릭터" })["없는_캐릭터"].State);
 
         _now = Kst(2026, 10, 5, 6, 1);   // 다음 주 월요일 새벽: 지난 주 완료는 이번 주기의 근거가 아니다

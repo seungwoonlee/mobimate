@@ -264,6 +264,9 @@ public sealed class HomeworkService
                     if (st?.Completed == true) state = "done";
                     else if (def.EffectiveMode == HomeworkMode.QuestVanish) state = fresh && (ledger!.QuestSightings?.GetValueOrDefault(def.Id) >= cycleStart || st?.Evidence != null) ? "todo" : "unknown";
                     else if (def.EffectiveMode == HomeworkMode.QuestSuffix) state = st?.Evidence != null ? "todo" : "unknown";
+                    // 레이드·어비스·필드 보스는 "아직 안 깼다"를 CLI로 확인할 길이 없다(게임의 "남은 클리어 전리품"은 CLI에 없음, 2026-10-22).
+                    // 앱이 보기 전에 깼을 수 있으므로 완료를 본 게 아니면 미확인으로 둔다(근거 없이 "확인된 미완료"라 하지 않는다).
+                    else if (def.ClearGroup != null) state = "unknown";
                     else if (!string.IsNullOrWhiteSpace(def.TokenCurrency)) state = fresh && ledger!.RaidTokensObservedUtc >= cycleStart ? "todo" : "unknown";
                     else state = "unknown";
                     var guess = state != "done" && st?.Suggestion is { Code: "missionCleared" };
@@ -296,7 +299,7 @@ public sealed class HomeworkService
                 var counted = cleared == null && fresh && defs.Any(d => ledger!.Items.GetValueOrDefault(d.Id)?.Suggestion is { Code: "missionCleared" });
                 result[key] = cleared != null ? new HomeworkPoolStatus("done", cleared.Title)
                     : counted ? new HomeworkPoolStatus("done", null)
-                    : new HomeworkPoolStatus(fresh ? "todo" : "unknown", null);
+                    : new HomeworkPoolStatus("unknown", null);   // 미완료는 CLI로 확인할 수 없다(위 GetAutoStatuses 참고)
             }
             return result;
         }
