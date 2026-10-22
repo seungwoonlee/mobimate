@@ -124,7 +124,7 @@ public static partial class HomeworkEvaluator
                 continue;
             }
 
-            if (existing?.Completed != true && def.HasProgressSignal && IsProgressSignal(def, obs)) inProgress.Add(def.Id);
+            if (existing?.Completed != true && (def.HasProgressSignal && IsProgressSignal(def, obs) || InEntryAreaOnly(def, obs))) inProgress.Add(def.Id);
             // 수동으로 "미완료"로 둔 레이드에 클리어 증거(보상 증가)가 보이면 완료로 바꾸지는 않고 "완료 제안"만 남긴다.
             // 수동 설정을 존중하되, 놓친 클리어를 알려 준다 (제안은 수동 설정·완료·리셋 때 사라진다).
             if (existing is { ManualOverride: true, Completed: false } manual && raidSuggestions.TryGetValue(def.Id, out var manualSuggestion))
@@ -505,8 +505,8 @@ public static partial class HomeworkEvaluator
                 if (areas.Any(n => HomeworkText.Normalize(n) == space))
                 {
                     since.TryAdd(d.Id, now);
-                    if (d.EntrySpaceNames.Count > 0)
-                        result[d.Id] = new HomeworkSuggestion("raidMapEntered", HomeworkText.StripTags(obs.Environment!.GameSpaceDisplayName), 0, 0);
+                    if (d.EntrySpaceNames.Count > 0 && d.EntryCompletes)
+                        result[d.Id] =new HomeworkSuggestion("raidMapEntered", HomeworkText.StripTags(obs.Environment!.GameSpaceDisplayName), 0, 0);
                 }
                 else since.Remove(d.Id);
             }
@@ -646,6 +646,10 @@ public static partial class HomeworkEvaluator
         "bossCleared" => $"퀘스트 '{s.Item}' 등장: 보스 처치",
         _ => $"{s.Item} {s.From} → {s.To} 증가 관찰",
     };
+
+    /// <summary>진입이 완료가 아닌 항목(레이드)의 전용 지역 안에 있다: 전투 여부와 무관하게 "진행 중"이다.</summary>
+    private static bool InEntryAreaOnly(HomeworkDefinition def, HomeworkObservation obs) =>
+        !def.EntryCompletes && def.EntrySpaceNames.Count > 0 && AreaNow(def, HomeworkText.Normalize(obs.Environment?.GameSpaceDisplayName));
 
     private static bool IsProgressSignal(HomeworkDefinition def, HomeworkObservation obs)
     {
