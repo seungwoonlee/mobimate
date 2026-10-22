@@ -65,6 +65,9 @@ public sealed class HomeworkLedger
     /// </summary>
     public Dictionary<string, int>? ClearMissionCounts { get; set; }
 
+    /// <summary>ClearMissionCounts를 마지막으로 읽은 시각. 주간 미션은 계정 공유라, 이 캐릭터로 계속 지켜보던 중(직전 읽기가 최근)에 오른 것만 이 캐릭터의 클리어다.</summary>
+    public DateTimeOffset? ClearMissionCountsUtc { get; set; }
+
     /// <summary>항목(레이드·어비스·필드 보스)별로 마지막에 본 진행 신호(보스 교전·전용 지역) 시각. 카운터가 오른 순간 어느 항목인지 가리는 근거다. 주간 리셋 때 지운다.</summary>
     public Dictionary<string, DateTimeOffset>? ProgressSeen { get; set; }
 

@@ -41,7 +41,7 @@ public static partial class HomeworkEvaluator
             if (due && ledger.Items.Remove(def.Id)) changed.Add(def.Id);
             if (due) { ledger.QuestSightings?.Remove(def.Id); ledger.QuestContinuityBroken?.Remove(def.Id); ledger.QuestVanishPending?.Remove(def.Id); ledger.RaidAreaSince?.Remove(ClearKey(def)); }
         }
-        if (weeklyDue) { ledger.ClearMissionCounts = null; ledger.ProgressSeen = null; }   // 이번 주기에 본 클리어 미션 카운터·진행 신호는 지난 주 것이다
+        if (weeklyDue) { ledger.ClearMissionCounts = null; ledger.ClearMissionCountsUtc = null; ledger.ProgressSeen = null; }   // 이번 주기에 본 클리어 미션 카운터·진행 신호는 지난 주 것이다
         if (dailyDue) ledger.LastDailyResetUtc = lastDaily;
         if (weeklyDue) ledger.LastWeeklyResetUtc = lastWeekly;
         return changed;
@@ -69,9 +69,6 @@ public static partial class HomeworkEvaluator
             var ledger = def.Share == HomeworkShare.Account ? account : character;
             var existing = ledger.Items.GetValueOrDefault(def.Id);
 
-            // 이 캐릭터의 주간 미션 카운터(뱅가드 등): 보이면 퀘스트 목록보다 확실한 근거다. 캐릭터를 바꾼 직후 목록은 이전 캐릭터 것일 수 있어 쓰지 않는다.
-            var counterMission = !characterJustSwitched && def.CounterMissionTitles.Count > 0 ? FindCounterMission(def, obs) : null;
-
             // 던전 클리어 상태(게임이 직접 알려 줌)가 같은 관찰의 현재 맵과 맞으면 확정 근거다 (요일 던전, 2026-10-12 실측).
             // 캐릭터를 바꾼 직후 관찰은 쓰지 않는다. Cleared는 처치 순간부터 약 17초만 유지된다.
             var clearedHere = !characterJustSwitched && def.ClearOnDungeonCleared && DungeonClearedHere(def, obs, nowUtc);
@@ -79,7 +76,7 @@ public static partial class HomeworkEvaluator
             // 퀘스트가 트래커에 다시 보이면 그 주기에 아직 끝내지 않은 것이 확실하다: 자동 완료는 물론 수동 완료도 취소한다
             // (확실한 증거는 수동 설정보다 우선한다. 사라져서 완료로 본 판정이 틀렸거나, 수동 체크가 잘못된 것이다)
             // 단, 던전 클리어 상태로 방금 완료한 것은 제외한다: 클리어 직후에는 나갈 때까지 퀘스트가 아직 목록에 남아 있다.
-            if (def.EffectiveMode == HomeworkMode.QuestVanish && questsUsable && counterMission == null
+            if (def.EffectiveMode == HomeworkMode.QuestVanish && questsUsable
                 && existing is { Completed: true }
                 && !clearedHere && !RecentlyClearedByGame(existing, nowUtc)
                 && QuestVisible(def, obs, now: nowUtc))
@@ -87,27 +84,6 @@ public static partial class HomeworkEvaluator
                 ledger.Items.Remove(def.Id);
                 changed.Add(def.Id);
                 existing = null;
-            }
-
-            if (counterMission != null)
-            {
-                var done = IsMissionDone(counterMission);
-                // 카운터가 미완료면 자동으로 완료했던 것(퀘스트 사라짐 등 약한 근거)은 취소한다. 수동 완료는 존중한다.
-                if (!done && existing is { Completed: true, ManualOverride: false })
-                {
-                    ledger.Items.Remove(def.Id);
-                    changed.Add(def.Id);
-                    existing = null;
-                }
-                // 카운터가 완료면 수동 미완료도 이긴다(확실한 근거)
-                else if (done && existing is { ManualOverride: true, Completed: false } manualCounter)
-                {
-                    manualCounter.ManualOverride = false;
-                    manualCounter.ManualAtUtc = null;
-                    EvaluateMissionCounter(def, manualCounter, character, counterMission, nowUtc);
-                    changed.Add(def.Id);
-                    continue;
-                }
             }
 
             // 던전 클리어: 확정 근거라 수동 미완료도 이긴다 — 단, 수동 설정 뒤에 생긴 클리어일 때만.
@@ -145,8 +121,10 @@ public static partial class HomeworkEvaluator
                 }
                 continue;
             }
-            // 이번 관찰에서 더는 필요 없는 "클리어 추정"(다른 항목을 확인했거나 미션이 리셋됨)은 치운다
-            if (existing?.Suggestion is { Code: "missionCleared" } && !raidSuggestions.ContainsKey(def.Id))
+            // 더는 필요 없는 "클리어 추정"은 치운다: 같은 묶음의 항목이 끝났거나(어느 것인지 확인됨),
+            // 지켜보던 중에 오른 것이 아닌 옛 추정(From >= To: 주간 미션이 캐릭터별이라고 잘못 알던 때 처음 본 값으로 만든 것)이다.
+            if (existing?.Suggestion is { Code: "missionCleared" } old && !raidSuggestions.ContainsKey(def.Id)
+                && (old.From >= old.To || GroupResolved(def, catalog, character)))
             {
                 existing.Suggestion = null;
                 changed.Add(def.Id);
@@ -169,9 +147,6 @@ public static partial class HomeworkEvaluator
                     break;
                 case HomeworkMode.AlteringCollected when alteringCollected != null:
                     Complete(st, def.Goal, alteringCollected, nowUtc);
-                    break;
-                case HomeworkMode.QuestVanish when counterMission != null:
-                    EvaluateMissionCounter(def, st, character, counterMission, nowUtc);
                     break;
                 case HomeworkMode.QuestVanish when questsUsable:
                     EvaluateQuestVanish(def, st, character, obs, nowUtc);
@@ -211,38 +186,6 @@ public static partial class HomeworkEvaluator
         st.Count = Math.Clamp(m.CurrentCount, 0, goal);
         var done = m.IsCompleted || (m.GoalCount > 0 && m.CurrentCount >= m.GoalCount);
         if (done) Complete(st, goal, $"{PeriodName(def)} 미션 '{m.Title}' {Math.Min(Math.Max(m.CurrentCount, m.IsCompleted ? goal : 0), goal)}/{goal}", now);
-    }
-
-    private static MissionItem? FindCounterMission(HomeworkDefinition def, HomeworkObservation obs)
-    {
-        var titles = def.CounterMissionTitles.Select(HomeworkText.Normalize).ToHashSet();
-        return MissionsFor(def, obs)?.FirstOrDefault(x => titles.Contains(HomeworkText.Normalize(x.Title)));
-    }
-
-    private static bool IsMissionDone(MissionItem m) => m.IsCompleted || (m.GoalCount > 0 && m.CurrentCount >= m.GoalCount);
-
-    /// <summary>
-    /// 캐릭터별 주간 미션 카운터로 판정한다(뱅가드 브리치 3회 토벌 N/3): 카운터가 목표에 닿으면 완료, 아니면 남은 횟수(목표 − 카운터)를 알려 준다.
-    /// 미완료여도 이번 주기에 직접 확인했으므로 "확인된 미완료"로 보이게 목격 기록을 남긴다.
-    /// </summary>
-    private static void EvaluateMissionCounter(HomeworkDefinition def, HomeworkItemState st, HomeworkLedger character, MissionItem m, DateTimeOffset now)
-    {
-        var goal = m.GoalCount > 0 ? m.GoalCount : Math.Max(def.Goal, 1);
-        var count = Math.Clamp(m.CurrentCount, 0, goal);
-        var sightings = character.QuestSightings ??= new Dictionary<string, DateTimeOffset>(StringComparer.OrdinalIgnoreCase);
-        if (!sightings.TryGetValue(def.Id, out var at) || at < KstClock.LastReset(def.Period, now)) sightings[def.Id] = now;
-        character.QuestVanishPending?.Remove(def.Id);
-        character.QuestContinuityBroken?.Remove(def.Id);
-        st.Goal = goal;
-        st.Count = count;
-        if (IsMissionDone(m))
-        {
-            st.RemainingCount = null;
-            Complete(st, goal, $"{PeriodName(def)} 미션 '{HomeworkText.StripTags(m.Title)}' {goal}/{goal} ({HomeworkText.StripTags(m.Description)})", now);
-            return;
-        }
-        st.RemainingCount = goal - count;
-        st.Evidence = $"{PeriodName(def)} 미션 '{HomeworkText.StripTags(m.Title)}' {count}/{goal}: 남은 {goal - count}회";
     }
 
     private static void EvaluateMissionTotal(HomeworkDefinition def, HomeworkItemState st, HomeworkObservation obs, DateTimeOffset now)
@@ -340,7 +283,9 @@ public static partial class HomeworkEvaluator
         var titles = TodayQuestTitles(def, now);
         var sightings = character.QuestSightings ??= new Dictionary<string, DateTimeOffset>(StringComparer.OrdinalIgnoreCase);
         var cycleStart = KstClock.LastReset(def.Period, now);
-        var visible = obs.Quests!.FirstOrDefault(q => MatchesQuest(def, titles, q.QuestTitle));
+        var sightOnly = def.SightOnlyQuestTitles.Select(HomeworkText.Normalize).ToHashSet();
+        var visible = obs.Quests!.FirstOrDefault(q => MatchesQuest(def, titles, q.QuestTitle))
+            ?? obs.Quests!.FirstOrDefault(q => sightOnly.Contains(HomeworkText.Normalize(q.QuestTitle)));
         var broken = character.QuestContinuityBroken?.Contains(def.Id) == true;
         if (visible != null)
         {
@@ -516,8 +461,13 @@ public static partial class HomeworkEvaluator
         var haveItems = obs.Items is { Count: > 0 };
         if (!haveCurrencies && !haveItems) return result;
 
-        var defs = catalog.Items.Where(d => d.Active && !string.IsNullOrWhiteSpace(d.TokenCurrency)).ToList();
-        if (defs.Count == 0) return result;
+        // 보상 재화(TokenCurrency)와 전용 지역 안 보상(AreaRewards)을 같이 비교한다
+        var entries = catalog.Items.Where(d => d.Active && !string.IsNullOrWhiteSpace(d.TokenCurrency))
+            .Select(d => (Def: d, Name: d.TokenCurrency!, IsItem: d.TokenIsItem, Min: (long)Math.Max(1, d.TokenMinIncrease), NeedsArea: d.TokenRequiresSpace, AreaReward: false))
+            .Concat(catalog.Items.Where(d => d.Active && d.EntrySpaceNames.Count > 0)
+                .SelectMany(d => d.AreaRewards.Select(r => (Def: d, Name: r.Key, IsItem: false, Min: Math.Max(1L, r.Value), NeedsArea: true, AreaReward: true))))
+            .ToList();
+        if (entries.Count == 0) return result;
 
         var currencies = haveCurrencies
             ? obs.Currencies!.GroupBy(c => HomeworkText.Normalize(c.DisplayName)).ToDictionary(g => g.Key, g => g.Sum(c => c.Amount))
@@ -531,20 +481,21 @@ public static partial class HomeworkEvaluator
         var prev = samePeriod ? character.RaidTokens : null;   // 지난 주기 기준값은 버린다
         var next = new Dictionary<string, long>(prev ?? new Dictionary<string, long>());
         var observed = false;
-        foreach (var d in defs)
+        var recentBase = samePeriod && now - character.RaidTokensObservedUtc!.Value <= AreaRewardFresh;   // 지역 보상은 직전 관찰과의 차이만 본다
+        foreach (var (d, name, isItem, min, needsArea, areaReward) in entries)
         {
-            var key = HomeworkText.Normalize(d.TokenCurrency);
+            var key = HomeworkText.Normalize(name);
             long now_;
-            if (d.TokenIsItem)
+            if (isItem)
             {
                 if (!haveItems) continue;
                 now_ = items.GetValueOrDefault(key);
             }
             else if (!currencies.TryGetValue(key, out now_)) continue;   // 목록에 없음: 기준값 유지, 비교 안 함
             observed = true;
-            var inArea = !d.TokenRequiresSpace || wasIn.Contains(d.Id) || character.RaidAreaSince?.ContainsKey(d.Id) == true;
-            if (inArea && prev != null && prev.TryGetValue(key, out var before) && now_ - before >= Math.Max(1, d.TokenMinIncrease) && !result.ContainsKey(d.Id))
-                result[d.Id] = new HomeworkSuggestion("raidTokenIncreased", d.TokenCurrency!, before, now_);
+            var inArea = !needsArea || wasIn.Contains(d.Id) || character.RaidAreaSince?.ContainsKey(d.Id) == true;
+            if (inArea && (!areaReward || recentBase) && prev != null && prev.TryGetValue(key, out var before) && now_ - before >= min && !result.ContainsKey(d.Id))
+                result[d.Id] = new HomeworkSuggestion(areaReward ? "areaReward" : "raidTokenIncreased", name, before, now_);
             next[key] = now_;
         }
         if (!observed) return result;
@@ -553,6 +504,17 @@ public static partial class HomeworkEvaluator
         character.RaidTokensObservedUtc = now;
         return result;
     }
+
+    /// <summary>주간 미션 카운터를 이 간격 안에 다시 읽었을 때만 "지켜보던 중 오름"으로 본다(관찰 주기 20초~1분에 여유. 같은 계정의 다른 캐릭터로 바꿔 레이드를 깨고 돌아오는 데는 이보다 오래 걸린다).</summary>
+    private static readonly TimeSpan MissionWatchGap = TimeSpan.FromMinutes(10);
+
+    /// <summary>지역 보상(AreaRewards) 비교에 쓰는 직전 관찰의 최대 나이.</summary>
+    private static readonly TimeSpan AreaRewardFresh = TimeSpan.FromMinutes(5);
+
+    /// <summary>같은 클리어 묶음(ClearGroup)의 항목이 이 캐릭터에 하나라도 끝났다.</summary>
+    private static bool GroupResolved(HomeworkDefinition def, HomeworkCatalog catalog, HomeworkLedger character) =>
+        def.ClearGroup is { } g && catalog.Items.Any(d => string.Equals(d.ClearGroup, g, StringComparison.OrdinalIgnoreCase)
+            && character.Items.TryGetValue(d.Id, out var st) && st.Completed);
 
     /// <summary>카운터가 오른 순간에 그 항목의 지역에 있거나 최근에 보스와 싸웠으면 그 항목이라고 보는 시간.</summary>
     private static readonly TimeSpan ClearSignalRecent = TimeSpan.FromMinutes(20);
@@ -578,6 +540,8 @@ public static partial class HomeworkEvaluator
         var space = HomeworkText.Normalize(obs.Environment?.GameSpaceDisplayName);
         var seen = character.ProgressSeen ??= new Dictionary<string, DateTimeOffset>(StringComparer.OrdinalIgnoreCase);
         var counts = character.ClearMissionCounts ??= new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        var watching = character.ClearMissionCountsUtc is { } lastRead && now - lastRead <= MissionWatchGap;
+        character.ClearMissionCountsUtc = now;
 
         foreach (var (group, descriptions) in catalog.ClearMissions)
         {
@@ -590,7 +554,7 @@ public static partial class HomeworkEvaluator
             if (matched.Count == 0) continue;
 
             var current = matched.Max(m => Math.Clamp(m.CurrentCount, 0, m.GoalCount > 0 ? m.GoalCount : Math.Max(m.CurrentCount, 0)));
-            int? before = counts.TryGetValue(group, out var p) ? p : null;
+            int? before = watching && counts.TryGetValue(group, out var p) ? p : null;   // 오래전 값과의 차이는 같은 계정의 다른 캐릭터 몫일 수 있다
             counts[group] = current;
             if (current <= 0) continue;
             if (items.Any(d => character.Items.TryGetValue(d.Id, out var st) && st.Completed)) continue;   // 이미 이 묶음의 항목이 끝났다
@@ -598,6 +562,7 @@ public static partial class HomeworkEvaluator
 
             var description = HomeworkText.StripTags(matched[0].Description);
             var justRose = before is { } b && current > b;
+            if (!justRose) continue;   // 계정 공유 카운터: 처음 본 값이나 지켜보지 않은 동안 오른 값은 이 캐릭터의 근거가 아니다
             HomeworkDefinition? pick = null;
             if (justRose)
             {
@@ -611,8 +576,8 @@ public static partial class HomeworkEvaluator
             }
             if (pick == null && items.Count == 1) pick = items[0];
 
-            if (pick != null) result[pick.Id] = new HomeworkSuggestion("missionClearedHere", description, before ?? 0, current);
-            else foreach (var d in items) result[d.Id] = new HomeworkSuggestion("missionCleared", description, before ?? 0, current);
+            if (pick != null) result[pick.Id] = new HomeworkSuggestion("missionClearedHere", description, before!.Value, current);
+            else foreach (var d in items) result[d.Id] = new HomeworkSuggestion("missionCleared", description, before!.Value, current);
         }
         return result;
     }
@@ -634,7 +599,7 @@ public static partial class HomeworkEvaluator
     /// <summary>제안이 곧바로 자동 완료가 되는가: 미션 카운터로 항목이 가려졌으면 예, 못 가려 "추정"만 있으면 아니오(수동 확인), 그 밖은 증표·존재 근거 규칙.</summary>
     private static bool AutoCompletes(HomeworkDefinition def, HomeworkSuggestion s) => s.Code switch
     {
-        "missionClearedHere" => true,
+        "missionClearedHere" or "areaReward" => true,
         "missionCleared" => false,
         _ => def.TokenAuto || IsPresenceCode(s.Code),
     };
@@ -642,6 +607,7 @@ public static partial class HomeworkEvaluator
     private static string EvidenceOf(HomeworkSuggestion s) => s.Code switch
     {
         "missionClearedHere" => $"주간 미션 '{s.Item}' {s.From}→{s.To} 증가: 이 캐릭터가 클리어",
+        "areaReward" => $"전용 지역 안에서 {s.Item} {s.From:N0} → {s.To:N0} (+{s.To - s.From:N0}): 클리어 보상",
         "raidMapEntered" => $"전용 지역 '{s.Item}' 진입",
         "bossCleared" => $"퀘스트 '{s.Item}' 등장: 보스 처치",
         _ => $"{s.Item} {s.From} → {s.To} 증가 관찰",
