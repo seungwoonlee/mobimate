@@ -1,0 +1,45 @@
+{
+  "_comment": "사람이 쓰는 실측 메모. make_doc.py가 게임에서 받은 명세·필드와 합쳐 docs/CLI_COMMAND_TABLE.md를 만든다. 실측할 때마다 여기에 날짜와 함께 더한다.",
+  "general": [
+    "CLI(`MabinogiMobile_CLI.exe`)는 .NET 10 NativeAOT로 만든 얇은 중계기다. 명령 이름·응답은 게임 클라이언트가 정한다(모르는 명령은 게임이 `unknown_command`로 거절). 사용법: `MabinogiMobile_CLI <dispatch-command> [body]`, `capabilities`, `status`.",
+    "`status`는 게임 연결만 알려 준다: `{\"pipe\":\"connected\"}` 또는 `{\"pipe\":\"disconnected\",\"reason\":\"game_off\",...}`. 게임이 꺼져 있으면 모든 명령이 약 5.03초 기다린 뒤 이 응답을 준다(2026-10-22 실측).",
+    "응답 시간은 보통 약 93ms, 20개를 동시에 불러도 문제없다(2026-10-22 실측).",
+    "파이프로 받은 출력은 대개 UTF-8이고 한글은 \\uXXXX로 이스케이프된다. 콘솔에 바로 찍으면 cp949로 나올 수 있다.",
+    "CLI 실행 파일은 게임 업데이트 없이도 갱신된다(2026-10-22 09:25 갱신, 명령 목록은 그대로 28개).",
+    "게임 데이터(global-metadata.dat 문자열 표)에는 공개 28개 외에 조회형 명령 이름이 더 있다. 2026-10-22 현재 모두 unknown_command — 아래 '숨은 명령' 표 참조. 녹화기(record.py)가 CLI가 바뀔 때마다 다시 확인한다.",
+    "랭킹·서버 순위·랭킹 딱지 정보는 어느 공개 명령에도 없다(2026-10-22 전수 조사). `Title`은 칭호 문자열뿐이다."
+  ],
+  "history": [
+    "2026-10-22: 문서 신설. 공개 28개 명령 전수 조회·필드 목록, 게임 데이터에서 숨은 명령 이름 추출(조회형 12개 모두 unknown_command), 주간 미션=계정·일일 미션=캐릭터 확인, 녹화기(record.py) 가동."
+  ],
+  "commands": {
+    "capabilities": { "scope": "-", "notes": ["명령 목록·설명·예시. `loading: true`면 아직 준비 중이니 게임 접속 뒤 다시 읽는다."] },
+    "get_current_environment": { "scope": "캐릭터(현재 위치)", "used": true, "notes": ["`GameSpaceDisplayName`이 지역 판정의 핵심(레이드·어비스 전용 지역 이름, 요일 던전 'OO V' 등). 로딩·맵 이동 중엔 빈 값.", "레이드 지역 실측: 카브락 어려움 `먼 바다의 바위 협곡`, 에이렐 어려움 `먼 바다의 춤추는 바람`, 서큐버스 매우 어려움 `먼 바다의 빛바랜 환영`. 클리어 뒤 '콜헨'으로 바뀐다.", "어비스: `허상의 정박지`·`광기의 동굴`·`흩어진 물길`(지역 이름 = 어비스 이름)."] },
+    "write_chat": { "scope": "-", "mutates": true, "notes": ["매번 게임 안 확인 창이 뜬다. 앱은 사용자가 누를 때만 쓴다."] },
+    "get_activity": { "scope": "캐릭터", "used": true, "notes": ["2026-10-15 게임 업데이트로 IsGathering·IsAltering·IsCrafting·IsPlayingInstrument·IsSitting·IsOverweight·CurrentAction·CanStopCurrentAction이 빠지고 Mode·Performance·Interaction·IsReviving이 생겼다.", "`Dungeon.State`: 요일 던전 처치 순간부터 약 17초 `Cleared`(2026-10-12 실측). 레이드 중에는 계속 `NotInDungeon`(2026-10-22 서큐버스 실측).", "판정 후보(실측 필요): `Dungeon.IsBossBattleInProgress`, `IsAbyssResultSequencePlaying`(어비스 결과 연출), `Battlefield.IsInBattleField`, `Scenario.*`, `IsDialoguePlaying`."] },
+    "get_my_info": { "scope": "캐릭터", "used": true, "notes": ["`Title` = 칭호(랭킹 딱지 아님). 전투력·마도저항·스탯·가방 무게(Vitals.InventoryWeight*).", "가방 최대 무게가 3.4e38(float 최대)로 오는 때가 있다 → 앱은 비정상 값으로 거른다."] },
+    "get_quests": { "scope": "캐릭터", "used": true, "notes": ["퀘스트 트래커의 **현재 탭**에 보이는 것만 준다. 길드 의뢰 등은 트래커에 걸려 있어야 보인다.", "Source `recommended_activity`(추천, 예: '요일 던전 소탕')·`guide_mission`도 온다.", "필드 보스 앙그르바한: 처치하면 '토벌' 퀘스트가 '영역 나가기'로 바뀐다(2026-10-05). 처치 순간 목록이 잠깐 빈다."] },
+    "get_currencies": { "scope": "캐릭터", "used": true, "notes": ["레이드 클리어 보상(실측): 에이렐·서큐버스 골드 약 +101,100~101,200·하트 토큰 +3, 카브락 골드 +1,100·하트 +3·원정의 증거 +24(어려움). 어비스(매우 어려움) 마물 퇴치 증표 +300·골드 +100,200·하트 +1."] },
+    "get_near_npcs": { "scope": "-", "notes": [] },
+    "get_near_pcs": { "scope": "-", "used": true, "notes": ["반경 약 30m만. 이름·사망 여부는 없다. `Performance.IsPlaying`(연주 중)은 있다.", "`Title`은 칭호. 랭킹 딱지 없음."] },
+    "get_inventory": { "scope": "캐릭터", "notes": ["가방 무게 현재/최대. Decimal 판도 같이 온다."] },
+    "get_music_scores": { "scope": "캐릭터", "notes": [] },
+    "play_music_score": { "scope": "-", "mutates": true, "notes": [] },
+    "get_instruments": { "scope": "캐릭터", "notes": [] },
+    "change_instrument": { "scope": "-", "mutates": true, "notes": [] },
+    "get_items": { "scope": "캐릭터+계정 창고", "used": true, "notes": ["Location: inventory·account_storage·character_storage. 응답이 커서 앱은 시간 제한 10초.", "레이드 고유 조각: 에이렐 '선율을 품은 하프 조각', 서큐버스 '꿈을 비추는 거울 조각'. 100개 모이면 자동으로 합쳐지는 조각(정수·열쇠)은 개수가 줄어 보인다."] },
+    "get_social_actions": { "scope": "-", "notes": [] },
+    "stop_action": { "scope": "-", "mutates": true, "used": true, "notes": [] },
+    "stand_up": { "scope": "-", "mutates": true, "used": true, "notes": [] },
+    "get_daily_missions": { "scope": "**캐릭터**(명세: for my character)", "used": true, "notes": ["실측(2026-10-22): 같은 계정의 전사 '던전 3회 토벌' 3/3, 듀얼블레이드 0/3."] },
+    "get_weekly_missions": { "scope": "**계정**(명세: for my account)", "used": true, "notes": ["실측(2026-10-22): 같은 계정 전사·듀얼블레이드의 15개 값이 모두 같다. 레이드·어비스는 '1회 토벌'(목표 1)이라 계정에서 첫 클리어 한 번만 오른다.", "서큐버스 처치 순간 '레이드 1회 토벌' 0→1(2026-10-22 09:32:40, 진입 약 1분 50초 뒤).", "앱 규칙: 이 캐릭터로 지켜보던 중(직전 읽기 10분 안)에 오른 것만 그 캐릭터의 근거."] },
+    "get_gatherable_items": { "scope": "캐릭터", "used": true, "notes": [] },
+    "execute_gathering": { "scope": "-", "mutates": true, "used": true, "notes": [] },
+    "get_alterable_items": { "scope": "캐릭터", "notes": [] },
+    "get_altering_works": { "scope": "캐릭터", "used": true, "notes": ["가공 대기열·남은 시간."] },
+    "execute_altering": { "scope": "-", "mutates": true, "notes": [] },
+    "complete_altering_work": { "scope": "-", "mutates": true, "used": true, "notes": ["시설까지 이동이 포함돼 오래 걸린다(앱 시간 제한 12초)."] },
+    "get_craftable_items": { "scope": "캐릭터", "notes": [] },
+    "execute_crafting": { "scope": "-", "mutates": true, "notes": [] }
+  }
+}
