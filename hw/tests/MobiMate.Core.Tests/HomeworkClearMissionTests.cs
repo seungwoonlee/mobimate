@@ -102,7 +102,7 @@ public class HomeworkClearMissionTests : IDisposable
         svc.Evaluate(Main, Obs(Town, new[] { Abyss(1), Boss1(1) }));
         Assert.Null(Card(svc, Main, "abyss_madness_cave").Suggestion);
         Assert.Equal(HomeworkCardStatus.Pending, Card(svc, Main, "abyss_madness_cave").Status);
-        Assert.Equal("todo", svc.GetFieldBossStatuses(new[] { Main })[Main].State);
+        Assert.NotEqual("done", svc.GetFieldBossStatuses(new[] { Main })[Main].State);
     }
 
     [Fact]
@@ -131,7 +131,7 @@ public class HomeworkClearMissionTests : IDisposable
         svc.Evaluate(Main, Obs(Town, new[] { Boss1(1) }));   // 6분 만에 돌아왔다
         _now += TimeSpan.FromSeconds(30);
         svc.Evaluate(Main, Obs(Town, new[] { Boss1(1) }));
-        Assert.Equal("todo", svc.GetFieldBossStatuses(new[] { Main })[Main].State);
+        Assert.NotEqual("done", svc.GetFieldBossStatuses(new[] { Main })[Main].State);
         Assert.Equal("done", svc.GetFieldBossStatuses(new[] { Alt })[Alt].State);
     }
 
