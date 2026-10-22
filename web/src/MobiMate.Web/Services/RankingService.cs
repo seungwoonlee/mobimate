@@ -98,6 +98,25 @@ public sealed class RankingService
         return result;
     }
 
+    /// <summary>
+    /// 북마크릿이 가져올 순서: 순위를 아직 못 가져온 캐릭터, 그다음 가장 오래된 순서. 도중에 멈추거나 끊겨도 빠진 캐릭터부터 채워지게 한다(2026-10-23:
+    /// 열쇠 순서대로만 가져오면 뒤쪽 5명이 계속 비어 있었다).
+    /// </summary>
+    public List<RankTarget> TargetsByNeed()
+    {
+        (int Missing, DateTimeOffset Oldest) NeedOf(RankTarget t)
+        {
+            lock (_lock)
+            {
+                var kinds = new[] { "combat", "attract", "living", "total" };
+                if (!_data.Records.TryGetValue(t.Key, out var rec) || rec.Name != t.Name || rec.ServerId != t.ServerId) return (kinds.Length, DateTimeOffset.MinValue);
+                var have = kinds.Where(rec.Entries.ContainsKey).Select(k => rec.Entries[k].AtUtc).ToList();
+                return (kinds.Length - have.Count, have.Count == 0 ? DateTimeOffset.MinValue : have.Min());   // 빠진 종류가 많은 캐릭터가 먼저, 같으면 오래된 것
+            }
+        }
+        return Targets().OrderByDescending(t => NeedOf(t).Missing).ThenBy(t => NeedOf(t).Oldest).ThenBy(t => t.Key, StringComparer.Ordinal).ToList();
+    }
+
     /// <summary>북마크릿이 보낸 결과를 저장한다. 조회 대상이 아니거나 이름·서버가 어긋나거나 형식이 다른 항목은 건너뛴다.</summary>
     public RankImportResult Import(IEnumerable<RankImportItem> items)
     {
@@ -113,9 +132,9 @@ public sealed class RankingService
                 RankTarget? t = null;
                 if (it.Key == null || !targets.TryGetValue(it.Key, out t)) why = "조회 대상이 아닌 캐릭터";
                 else if (KindOf(it.Kind) is not { } kind) why = "알 수 없는 종류";
-                else if (it.Name != null && it.Name != t.Name) why = $"{t.Name}: 조회한 이름이 지금 별칭과 다름";
-                else if (RankingParser.Parse(it.Html, kind) is not { } reading) why = $"{t.Name}: 응답 형식을 읽지 못함";
-                else if (reading.Found && !SameCharacter(reading, t)) why = $"{t.Name}: 같은 이름의 다른 캐릭터로 보임";
+                else if (it.Name != null && it.Name != t.Name) why = $"{t.Name} {KeyOf(kind)}: 조회한 이름이 지금 별칭과 다름";
+                else if (RankingParser.Parse(it.Html, kind) is not { } reading) why = $"{t.Name} {KeyOf(kind)}: 응답 형식을 읽지 못함";
+                else if (reading.Found && !SameCharacter(reading, t)) why = $"{t.Name} {KeyOf(kind)}: 같은 이름의 다른 캐릭터로 보임";
                 else
                 {
                     Put(next, t, kind, reading.Found ? reading.Rank : null, reading.Found ? reading.Score : null, "bookmarklet");

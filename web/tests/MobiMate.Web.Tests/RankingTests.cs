@@ -191,6 +191,30 @@ public sealed class RankingServiceTests : IDisposable
         Assert.DoesNotContain("__PORT__", js);
         Assert.DoesNotContain("__TOKEN__", js);
     }
+
+    [Fact]
+    public void Bookmarklet_SavesPerCharacter_StopsWhenNothingIsReadable_AndShowsWhySomeWereSkipped()
+    {
+        var js = RankingBookmarklet.Build(17800, "abc123");
+        // 캐릭터마다 바로 저장해 도중에 끊겨도 앞부분이 남는다(2026-10-23: 한꺼번에 저장하던 때 뒤쪽 5명이 비었다)
+        Assert.Equal(1, js.Split("/api/rankings/import").Length - 1);   // 호출 위치는 하나(반복문 안)
+        Assert.Contains("blind>=2", js);                                 // 두 캐릭터 연속으로 하나도 못 읽으면 멈춘다
+        Assert.Contains("probs.join", js);                               // 제외된 이유를 화면에 보여 준다
+    }
+
+    [Fact]
+    public void TargetsByNeed_PutsMissingAndOldestFirst_SoAnInterruptedRunFillsTheGaps()
+    {
+        var s = Service();
+        s.Import(new[] { new RankImportItem(Key, "헤니컵A", 1, Item(8, "헤니컵A", "격투가", "전투력", "91,000")) });   // 한 종류만 있다
+        Assert.Single(s.TargetsByNeed());
+
+        // 두 번째 대상: 순위가 하나도 없는 캐릭터가 한 종류만 있는 캐릭터보다 먼저 와야 한다
+        Seed("아이라", "전사", 70000, "순위없음");
+        var order = s.TargetsByNeed().Select(t => t.Name).ToList();
+        Assert.Equal("순위없음", order[0]);
+        Assert.Equal("헤니컵A", order[1]);
+    }
 }
 
 /// <summary>북마크릿이 부르는 API: 토큰과 CORS</summary>

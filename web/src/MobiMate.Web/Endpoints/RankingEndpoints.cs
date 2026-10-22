@@ -46,17 +46,18 @@ public static class RankingEndpoints
             Cors(ctx);
             var req = await ReadBody<RankTokenRequest>(ctx);
             if (req == null || !r.TokenOk(req.Token)) return ApiResults.Error(StatusCodes.Status403Forbidden, "BAD_TOKEN", "북마크릿 토큰이 맞지 않습니다. 앱에서 북마크릿을 다시 만들어 주세요.");
-            return ApiResults.Ok(new { targets = r.Targets() });
+            return ApiResults.Ok(new { targets = r.TargetsByNeed() });
         });
 
         api.MapMethods("/import", new[] { "OPTIONS" }, (HttpContext ctx) => Preflight(ctx));
-        api.MapPost("/import", async (HttpContext ctx, RankingService r, SseHub hub) =>
+        api.MapPost("/import", async (HttpContext ctx, RankingService r, SseHub hub, ILogger<RankingService> log) =>
         {
             Cors(ctx);
             var req = await ReadBody<RankImportRequest>(ctx);
             if (req == null || !r.TokenOk(req.Token)) return ApiResults.Error(StatusCodes.Status403Forbidden, "BAD_TOKEN", "북마크릿 토큰이 맞지 않습니다. 앱에서 북마크릿을 다시 만들어 주세요.");
             if (req.Items is not { Count: > 0 and <= 200 }) return ApiResults.Error(StatusCodes.Status400BadRequest, "VALIDATION", "저장할 순위가 없거나 너무 많습니다.");
             var result = r.Import(req.Items);
+            log.LogInformation("랭킹 가져오기: {Accepted}건 저장, {Rejected}건 제외{Why}", result.Accepted, result.Rejected, result.Problems.Count == 0 ? "" : " — " + string.Join(" / ", result.Problems));
             if (result.Accepted > 0) hub.Broadcast("state.changed", new { keys = new[] { "rankings", "characters", "header" } });
             return ApiResults.Ok(result);
         });
@@ -110,8 +111,8 @@ try{
 const r=await fetch(A+'/api/rankings/targets',{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({token:T})});
 const j=await r.json();if(!r.ok)throw new Error(j.error&&j.error.message||'앱에 연결하지 못했습니다');
 const ts=j.data.targets;if(!ts.length){msg('순위를 가져올 캐릭터가 없습니다. 앱에서 캐릭터 이름(별칭)을 먼저 입력하세요.');return}
-const items=[];let n=0;const total=ts.length*4;
-for(const t of ts){for(const k of [4,1,3,2]){
+let n=0,acc=0,rej=0,blind=0,done=0;const total=ts.length*4;const probs=[];
+for(const t of ts){const items=[];for(const k of [4,1,3,2]){
 msg('순위 가져오는 중 '+(++n)+'/'+total+' · '+t.name);
 const f=new FormData();f.append('t',k);f.append('pageno',1);f.append('s',t.serverId);f.append('c','0');f.append('search',t.name);
 const x=await fetch('/Ranking/List/rankdata',{method:'POST',body:f,headers:{'X-Requested-With':'XMLHttpRequest'}});
@@ -119,10 +120,13 @@ const h=await x.text();let html=null;
 if(h.indexOf('결과가 없습니다')>-1)html='결과가 없습니다';
 else{const li=new DOMParser().parseFromString(h,'text/html').querySelector('li.item.on');html=li?li.outerHTML:null}
 items.push({key:t.key,name:t.name,kind:k,html:html});
-await new Promise(s=>setTimeout(s,1200))}}
+await new Promise(s=>setTimeout(s,1200))}
 const o=await fetch(A+'/api/rankings/import',{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({token:T,items:items})});
 const oj=await o.json();if(!o.ok)throw new Error(oj.error&&oj.error.message||'저장하지 못했습니다');
-msg('완료: '+oj.data.accepted+'건 저장'+(oj.data.rejected?(', '+oj.data.rejected+'건 제외'):''))
+acc+=oj.data.accepted;rej+=oj.data.rejected;(oj.data.problems||[]).forEach(p=>{if(probs.length<5)probs.push(p)});done++;
+blind=items.every(i=>i.html===null)?blind+1:0;
+if(blind>=2){msg('넥슨 보안 검사 등으로 읽지 못해 멈췄어요. '+done+'명까지 저장했어요. 잠시 뒤 다시 눌러 주세요.');return}}
+msg('완료: '+acc+'건 저장'+(rej?(', '+rej+'건 제외 — '+probs.join(' / ')):''))
 }catch(e){msg('실패: '+e.message)}})()
 """;
 
