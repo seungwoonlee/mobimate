@@ -1,6 +1,6 @@
 # 게임 CLI 명령 표 (MabinogiMobile_CLI)
 
-> 자동 생성: `web/tools/CliResearch/make_doc.py` — 마지막 생성 2026-10-22 22:38 (게임에서 새로 읽음). CLI 실행 파일 2026-10-22 09:25.
+> 자동 생성: `web/tools/CliResearch/make_doc.py` — 마지막 생성 2026-10-22 22:42 (게임에서 새로 읽음). CLI 실행 파일 2026-10-22 09:25.
 > 손으로 쓰는 실측 메모는 `notes.json`에 더하고 다시 생성한다. 게임하는 동안 `record.py`(녹화기)를 켜 두면 값이 바뀐 필드가 `records/`에 쌓인다.
 
 ## 개요
@@ -75,15 +75,15 @@
 
 | 필드 | 타입 | 녹화 중 바뀐 횟수 |
 |---|---|---|
-| `ChannelDisplayName` | string | 1 |
-| `GameSpaceDisplayName` | string | 1 |
-| `WorldPosition.X` | number | 6 |
-| `WorldPosition.Y` | number | 6 |
+| `ChannelDisplayName` | string | 3 |
+| `GameSpaceDisplayName` | string | 3 |
+| `WorldPosition.X` | number | 11 |
+| `WorldPosition.Y` | number | 11 |
 | `Weather` | string |  |
-| `ErinnNow` | string | 9 |
-| `Housing.IsInHousing` | bool | 2 |
+| `ErinnNow` | string | 33 |
+| `Housing.IsInHousing` | bool | 6 |
 | `Housing.IsOwnedHousing` | bool |  |
-| `Housing.CanEnterHousing` | bool | 2 |
+| `Housing.CanEnterHousing` | bool | 6 |
 | `Housing.CannotEnterHousingReason` | string |  |
 | `Housing.CanExitHousing` | bool |  |
 
@@ -105,20 +105,20 @@
 
 | 필드 | 타입 | 녹화 중 바뀐 횟수 |
 |---|---|---|
-| `IsAutoPlaying` | bool | 3 |
+| `IsAutoPlaying` | bool | 4 |
 | `CanStartAutoPlay` | bool |  |
 | `AutoPlayTarget` | string | 2 |
 | `AutoPlayTargetDisplayName` | string | 2 |
-| `IsAutoTraveling` | bool | 7 |
-| `AutoTravelRemainingPositionCount` | int | 8 |
+| `IsAutoTraveling` | bool | 10 |
+| `AutoTravelRemainingPositionCount` | int | 20 |
 | `IsDead` | bool |  |
 | `IsReviving` | bool |  |
 | `IsInCombat` | bool | 2 |
 | `IsDialoguePlaying` | bool |  |
 | `IsDialogueNextAvailable` | bool |  |
 | `IsWaitingForSelection` | bool |  |
-| `Dungeon.State` | string | 2 |
-| `Dungeon.IsBossBattleInProgress` | bool | 1 |
+| `Dungeon.State` | string | 3 |
+| `Dungeon.IsBossBattleInProgress` | bool | 2 |
 | `Battlefield.IsInBattleField` | bool |  |
 | `IsAbyssResultSequencePlaying` | bool |  |
 | `Tutorial.IsPlaying` | bool |  |
@@ -139,8 +139,8 @@
 | `Interaction.AvailableInteractionType` | string | 2 |
 | `Interaction.LastRunningInteractionType` | string | 1 |
 | `Interaction.TargetKind` | string | 8 |
-| `Mode.MainButtonState` | string | 10 |
-| `Mode.MountPartState` | string |  |
+| `Mode.MainButtonState` | string | 14 |
+| `Mode.MountPartState` | string | 2 |
 | `Mode.SitState` | string |  |
 | `Mode.IsPlayingMiniGame` | bool |  |
 | `Mode.IsHousingEditMode` | bool |  |
@@ -203,9 +203,9 @@
 | `Vitals.SatietyValue` | int |  |
 | `Vitals.SatietyMax` | int |  |
 | `Vitals.SatietyRatio` | number |  |
-| `Vitals.InventoryWeightCurrent` | number | 3 |
+| `Vitals.InventoryWeightCurrent` | number | 4 |
 | `Vitals.InventoryWeightMax` | number | 2 |
-| `Vitals.ActiveBuffCount` | int | 4 |
+| `Vitals.ActiveBuffCount` | int | 5 |
 
 ### `get_quests`
 
@@ -215,10 +215,11 @@
 - 실측: 퀘스트 트래커의 **현재 탭**에 보이는 것만 준다. 길드 의뢰 등은 트래커에 걸려 있어야 보인다.
 - 실측: Source `recommended_activity`(추천, 예: '요일 던전 소탕')·`guide_mission`도 온다.
 - 실측: 필드 보스 앙그르바한: 처치하면 '토벌' 퀘스트가 '영역 나가기'로 바뀐다(2026-10-05). 처치 순간 목록이 잠깐 빈다.
+- 실측: 코드에 `includeTrackerId` 입력이 있지만 공개 채널에서 `{"includeTrackerId":true}`를 줘도 ID가 붙지 않는다(2026-10-22). 잠긴 `execute_quest_tracker`(QuestTrackerId로 트래커 퀘스트 실행)용으로 보인다.
 
 | 필드 | 타입 | 녹화 중 바뀐 횟수 |
 |---|---|---|
-| `[]` | array | 5 |
+| `[]` | array | 9 |
 
 ### `get_currencies`
 
@@ -229,8 +230,8 @@
 | 필드 | 타입 | 녹화 중 바뀐 횟수 |
 |---|---|---|
 | `[]` | array |  |
-| `[].DisplayName` | string |  |
-| `[].Amount` | int | 3 |
+| `[].DisplayName` | string | 58 |
+| `[].Amount` | int | 64 |
 
 ### `get_near_npcs`
 
@@ -240,7 +241,7 @@
 
 | 필드 | 타입 | 녹화 중 바뀐 횟수 |
 |---|---|---|
-| `[]` | array |  |
+| `[]` | array | 1 |
 
 ### `get_near_pcs`
 
@@ -252,7 +253,35 @@
 
 | 필드 | 타입 | 녹화 중 바뀐 횟수 |
 |---|---|---|
-| `[]` | array | 1 |
+| `[]` | array | 2 |
+| `[].RealmName` | string | 211 |
+| `[].Title` | string | 211 |
+| `[].Distance` | number | 304 |
+| `[].ClothesCount` | int | 246 |
+| `[].CrowdAppearanceColorCount` | int | 211 |
+| `[].IsRobeWeared` | bool | 228 |
+| `[].IsHoodOn` | bool | 241 |
+| `[].IsWeaponHidden` | bool | 228 |
+| `[].Performance.IsPlaying` | bool | 211 |
+| `[].Performance.MusicTitle` | string | 211 |
+| `[].Performance.IsCopyingAllowed` | bool | 211 |
+| `[].Performance.IsLoop` | bool | 211 |
+| `[].Performance.StartAt` | string | 211 |
+| `[].Performance.TotalDurationSeconds` | number | 211 |
+| `[].Performance.ElapsedSeconds` | number | 211 |
+| `[].Performance.RemainingSeconds` | number | 211 |
+| `[].Performance.ChannelCount` | int | 211 |
+| `[].Level` | int | 214 |
+| `[].EnabledCombatJobDisplayName` | string | 251 |
+| `[].CombatScore` | int | 255 |
+| `[].LivingScore` | int | 254 |
+| `[].AttractivenessScore` | int | 256 |
+| `[].IsFriend` | bool | 211 |
+| `[].IsInParty` | bool | 211 |
+| `[].HasGuild` | bool | 219 |
+| `[].IsSameGuild` | bool | 211 |
+| `[].IsCoOwner` | bool | 211 |
+| `[].IsInCombat` | bool | 211 |
 
 ### `get_inventory`
 
@@ -263,8 +292,8 @@
 
 | 필드 | 타입 | 녹화 중 바뀐 횟수 |
 |---|---|---|
-| `CurrentInventoryWeight` | number | 3 |
-| `CurrentInventoryWeightAsDecimal` | int | 3 |
+| `CurrentInventoryWeight` | number | 4 |
+| `CurrentInventoryWeightAsDecimal` | int | 4 |
 | `MaxInventoryWeight` | number | 2 |
 | `MaxInventoryWeightAsDecimal` | int | 2 |
 
@@ -325,7 +354,7 @@
 | `[].DisplayName` | string | 3 |
 | `[].Category` | string | 3 |
 | `[].CategoryDisplayName` | string | 3 |
-| `[].Count` | int | 4 |
+| `[].Count` | int | 6 |
 | `[].IsLocked` | bool | 3 |
 
 ### `get_social_actions`
@@ -367,9 +396,9 @@
 | `[]` | array |  |
 | `[].Title` | string |  |
 | `[].Description` | string |  |
-| `[].CurrentCount` | int | 5 |
+| `[].CurrentCount` | int | 6 |
 | `[].GoalCount` | int |  |
-| `[].IsCompleted` | bool |  |
+| `[].IsCompleted` | bool | 1 |
 | `[].IsRewardReceived` | bool |  |
 | `[].HasShortcut` | bool |  |
 
@@ -419,6 +448,7 @@
 - 입력(body) 예: `버섯`
 - 출력(명세): { items: [{ DisplayName, Alterable, ProducedPerWork, Reason, MissingIngredients: [{ DisplayName, Required, Owned }] }] }. ProducedPerWork = items yielded by one altering work. Reason: queue_full, insufficient_facility_level, not_enough_ingredient, ingredient_locked, insufficient_transfer_cost
 - 명세 메모: The body filter (raw string) is matched against the recipe name OR any ingredient name; case-insensitive substring. Empty body returns everything. Altering is queue-based: start with execute_altering, watch progress with get_altering_works, and collect with complete_altering_work. Pass a returned DisplayName verbatim to execute_altering. Related: execute_altering, get_altering_works
+- 실측: 입력은 JSON이 아니라 날것의 문자열(예: `버섯`)이다. 레시피 이름이나 재료 이름에 부분 일치. JSON을 주면 빈 목록이 온다(2026-10-22).
 
 | 필드 | 타입 | 녹화 중 바뀐 횟수 |
 |---|---|---|
@@ -495,23 +525,129 @@
 
 게임의 IL2CPP 문자열 표(`MabinogiMobile_Data/il2cpp_data/Metadata/global-metadata.dat`)에서 뽑은 이름이다. 공개 목록(capabilities)에는 없다. 조회형만 실제로 불러 확인한다.
 
-| 명령 | 상태 (확인 2026-10-22T22:38) |
+| 명령 | 상태 (확인 2026-10-22T22:42) |
 |---|---|
-| `get_growth_guide` | unknown_command |
-| `get_chats` | unknown_command |
-| `get_camera_state` | unknown_command |
-| `get_dialogue_host_state` | unknown_command |
-| `get_login_state` | unknown_command |
-| `get_quick_navigation_shortcuts` | unknown_command |
-| `get_housing_inventory` | unknown_command |
-| `get_housing_placements` | unknown_command |
-| `get_housing_placement_mode_state` | unknown_command |
-| `get_photo_mode_state` | unknown_command |
-| `list_dev_actions` | unknown_command |
 | `game_list_destinations` | unknown_command |
+| `get_camera_state` | unknown_command |
+| `get_chats` | unknown_command |
+| `get_dialogue_host_state` | unknown_command |
+| `get_growth_guide` | unknown_command |
+| `get_housing_inventory` | unknown_command |
+| `get_housing_placement_mode_state` | unknown_command |
+| `get_housing_placements` | unknown_command |
+| `get_login_state` | unknown_command |
+| `get_photo_mode_state` | unknown_command |
+| `get_quick_navigation_shortcuts` | unknown_command |
+| `list_commands` | unknown_command |
+| `list_dev_actions` | unknown_command |
 
 상태를 바꾸는 것으로 보이는 후보(호출하지 않음): `execute_mission_shortcut`, `execute_quest_tracker`, `execute_quick_navigation_shortcut`, `run_dev_action`, `game_move_to_named_location`, `start_housing_edit_mode`, `end_housing_edit_mode`, `move_housing_prop`, `cancel_housing_placement`, `set_photo_mode_blur`, `set_photo_mode_zoom`, `take_photo`, `set_camera`
+
+## 게임 코드 안의 명령 클래스 전체 (정적 분석)
+
+게임 코드(`MM.Client.Game.Integration.MCP.Commands` 이름공간)에 있는 `Mcp…Command` 클래스다. 공개 여부는 게임 데이터 표(`cliForAiCommandSheetId`)와 등급(`McpCliTier`: CliChannel / Dev)으로 정해진다(`McpCommandCatalog.IsCommandEnabled`). 그래서 잠긴 명령은 게임 업데이트 없이 서버 데이터만으로 열릴 수 있다. 명령 이름은 클래스 이름에서 만든 추정이라 실제와 다를 수 있다. 오른쪽 열은 그 클래스 근처의 필드·메서드 이름(응답 구조의 단서)이다.
+
+| 구분 | 명령(추정) | 상태 | 관련 이름 |
+|---|---|---|---|
+| 잠김 | `cancel_housing_placement` | 확인 안 함(상태 변경형) | McpCategoryLabels GetQuestSourceDisplayName |
+| 공개 | `change_instrument` | 공개 | BuildEquipErrorBody TryParseName alreadyEquipped foundTool TryFindInstrumentByName TryGetLocalBlockReason McpChangeInstrumentBody |
+| 잠김 | `close_photo_mode` | 확인 안 함(상태 변경형) | McpCommandCost cliForAiCommandSheetId BuildNote AppendNote payment AppendSpent TryGetCost Payment errorBody spent Free usedAmount ownedBeforePay Paid ErrorBody Spent |
+| 공개 | `complete_altering_work` | 공개 | TryGetOpenAlteringFacility bodyStr TryParseBody CompleteAlteringWorkBody arrivedNow sheets targetFacility |
+| 잠김 | `connect_to_gateway` | 확인 안 함(상태 변경형) | ConnectBody server BeginRun EndRun CheckExceeded OpenConfirmPopup accumulatedSeconds runStartedAt activeRunCount isConfirming LimitSeconds TotalSeconds |
+| 잠김 | `create_character_from_preset` | 확인 안 함(상태 변경형) | TryResolvePresetSheetId ToErrorCode CreateBody |
+| 잠김 | `dialogue_next` | 확인 안 함(상태 변경형) |  |
+| 잠김 | `end_housing_edit_mode` | 확인 안 함(상태 변경형) |  |
+| 잠김 | `enter_my_housing` | 확인 안 함(상태 변경형) |  |
+| 공개 | `execute_altering` | 공개 | alteringData EnqueueAtFacility IsAtFacilityInProductionMode McpExecuteAlteringBody enqueueFailBody targetQueueId beforeCount |
+| 공개 | `execute_crafting` | 공개 | McpExecuteCraftingBody |
+| 공개 | `execute_gathering` | 공개 | ExecuteGatheringAsync eligiblePairs BuildStoppedBody missingConsumableName missingConsumableAmount CheckRequiredConsumablesMissing BuildRequiredConsumableMissingBody BuildNonCombatAttackedBody IsKnockedDownInNonCombat objectiveCap AppendProgress CountGained CountOwned ExecuteFishingAsync fisheryGroup IsInFisheryRegion rejectionBody TryFindFishingCandidate TryFindGatheringPairsByDisplayName DefaultObjectiveCount McpExecuteGatheringBody wasInterruptedByNonCombatAttack fishingRequested McpExecuteGuards CheckBlocked |
+| 잠김 | `execute_mission_shortcut` | 확인 안 함(상태 변경형) | McpShortcutBody |
+| 잠김 | `execute_quest_tracker` | 확인 안 함(상태 변경형) | requestBody executeResponse TryExecuteQuestTracker McpExecutedQuestTrackerItem QuestTrackerId |
+| 잠김 | `execute_quick_navigation_shortcut` | 확인 안 함(상태 변경형) | TryParseShortcutId McpExecuteQuickNavigationShortcutBody |
+| 잠김 | `exit_housing` | 확인 안 함(상태 변경형) | McpFishingGathering FindCandidates fishery FindCandidatesForFishery hasLivingSkill hasToolInventory toolInventoryComponent GetToolStatus IsFishingActive GetAutomaticFishingRewardIds |
+| 잠김 | `game_list_destinations` | unknown_command | ParseListDestinationsFilter FormatNavigationError CreateNavigationService NavigationService |
+| 잠김 | `game_move_to_named_location` | 확인 안 함(상태 변경형) | TryParseMoveToNamedLocationBody |
+| 공개 | `get_activity` | 공개 | BuildActivityJson BuildInteraction ResolveTargetKind GetAutoPlayTargetLabel BuildPerformanceInfo McpActivity CanStartAutoPlay AutoPlayTargetDisplayName IsAutoTraveling AutoTravelRemainingPositionCount IsDialogueNextAvailable IsWaitingForSelection IsAbyssResultSequencePlaying McpMode |
+| 공개 | `get_alterable_items` | 공개 | BuildAlterableItemsJson MatchesFilter IsFacilityQueueFull TryValidateAltering TryFindAlteringByDisplayName BuildMissingIngredients McpAlterableItem Alterable ProducedPerWork MissingIngredients McpMissingIngredient |
+| 공개 | `get_altering_works` | 공개 | BuildWorksJson McpAlteringWork |
+| 잠김 | `get_chats` | unknown_command | MakeChatResponse returnChats hasThreshold maxFetchedChatId hasMaxFetchedChatId AddChatLogs lastFetchedChatId hasFetchedChatId McpFetchedChat SentAtRawValue SentAtKst ChannelDisplayName Caller Sender LocalChatGameSpaceName |
+| 공개 | `get_craftable_items` | 공개 | BuildCraftableItemsJson visibilityComponent CanDisplayRecipe GetControlObjectDecorScore GetMaxCraftCount IsCraftingSystemUnlocked EvaluateRecipe TryValidateRecipe TryFindRecipeByDisplayName McpCraftableItem Craftable ProducedPerCraft |
+| 공개 | `get_currencies` | 공개 | BuildCurrenciesJson EnumerateSheetIdsToShow McpCurrencyInfo |
+| 공개 | `get_current_environment` | 공개 | BuildCurrentEnvironmentJson BuildHousingInfo McpCurrentEnvironment GameSpaceDisplayName ErinnNow McpHousingInfo IsInHousing CanEnterHousing CannotEnterHousingReason CanExitHousing |
+| 공개 | `get_daily_missions` | 공개 | McpMissionProgress HasShortcut |
+| 잠김 | `get_dialogue_host_state` | unknown_command | ReadBool ExtractLastLine ReadChoiceDisplayNames Attr_IsVisibleDialogueHost Attr_IsHostTurn Attr_AllowGuestFreeInput Attr_DialogueHistoryText Attr_GuestSpeakerName Attr_GuestDialogueText Attr_Choices Attr_DisplayName StateNotActive StateHostTurn StateGuestTurn StateWaiting McpDialogueHostState IsHostTurn IsGuestTurn AllowGuestFreeInput DialogueHistory LastLine GuestSpeaker GuestPrompt Choices |
+| 공개 | `get_gatherable_items` | 공개 | BuildGatherableItemsJson HasUsableTool FindNearbyGatherableProps NearbySearchDistance NearbySearchDistanceSquared ToolStatus Usable Missing McpNearbyGatherableProp McpGatherableItem ToolOk |
+| 잠김 | `get_growth_guide` | unknown_command | ToCardDto BuildContentsTargets GetDayType McpGrowthGuide IsLevelGuideEnabled IsContentsGuideEnabled IsAttractivenessGuideEnabled RecommendedByPriority ContentsTargets McpGrowthGuideRecommendation TopCard McpGrowthGuideCard ContentType McpGrowthGuideContentsTarget DayType |
+| 잠김 | `get_housing_inventory` | unknown_command | McpPropItem PropStackKey |
+| 잠김 | `get_housing_placement_mode_state` | unknown_command |  |
+| 잠김 | `get_housing_placements` | unknown_command | McpPlacedProp |
+| 공개 | `get_instruments` | 공개 | BuildInstrumentsJson McpInstrument |
+| 공개 | `get_inventory` | 공개 | BuildInventoryJson McpInventoryWeight CurrentInventoryWeightAsDecimal MaxInventoryWeightAsDecimal |
+| 공개 | `get_items` | 공개 | nameFilter categoryFilter ParseFilters BuildItemsJson haystack McpItem CategoryDisplayName McpGetItemsBody |
+| 잠김 | `get_login_state` | unknown_command | MapScreen |
+| 공개 | `get_music_scores` | 공개 | BuildMusicScoresJson AddMusicScores McpMusicScore |
+| 공개 | `get_my_info` | 공개 | BuildMyInfoJson MakeStat MakeScore McpMyInfo EnabledCombatJobDisplayName DecorScore DefencePower STR DEX INT LUCK WILL PaladinStats Vitals McpLabeledStat McpPaladinStats McpVitals |
+| 공개 | `get_near_npcs` | 공개 | BuildNearNPCsJson BuildTitledName McpNearbyNpc |
+| 공개 | `get_near_pcs` | 공개 | BuildNearPCsJsonAsync McpNearbyPc ClothesCount CrowdAppearanceColorCount IsInParty IsSameGuild |
+| 잠김 | `get_photo_mode_state` | unknown_command | GetStageObjectDirectionDegree |
+| 공개 | `get_quests` | 공개 | questTrackerUIComponent includeTrackerId MakeQuestTrackerResponse GetSource MakeQuestObjectives McpFetchedQuestTrackerItem SourceDisplayName McpFetchedQuestObjective |
+| 잠김 | `get_quick_navigation_shortcuts` | unknown_command | BuildQuickNavigationShortcutsJson GetQuickNavigationShortcuts markerType GetShortcutType McpQuickNavigationShortcutsResponse shortcuts McpQuickNavigationShortcut |
+| 공개 | `get_social_actions` | 공개 | BuildSocialActionsJson MatchesBehaviour McpSocialActionsResult Behaviours Facials McpBehaviourInfo McpFacialInfo EmojiText |
+| 공개 | `get_weekly_missions` | 공개 | McpInteractionLabels ResolveInteractionType McpItemNameMatching |
+| 잠김 | `list_commands` | unknown_command | BuildCommandListJson BuildLoadingCommandListJson LoadingSafeCommandTypes |
+| 잠김 | `login_with_webo` | 확인 안 함(상태 변경형) | ResolveDefaultAccountName FallbackAccountName LoginWithWeboBody |
+| 잠김 | `logout` | 확인 안 함(상태 변경형) |  |
+| 잠김 | `move_housing_prop` | 확인 안 함(상태 변경형) | McpMoveBody |
+| 잠김 | `open_photo_mode` | 확인 안 함(상태 변경형) | OpenBody McpPhotoModeSupport recognized ParseCropRatio ToTakingOptions |
+| 잠김 | `pickup_housing_prop` | 확인 안 함(상태 변경형) | McpPickupBody |
+| 잠김 | `play_growth_guide` | 확인 안 함(상태 변경형) | McpPlayGrowthGuideBody McpPlayGrowthGuideResult |
+| 공개 | `play_music_score` | 공개 | BuildPlayErrorBody TryParseTitle TryFindMusicNoteItemByTitle TryFindInCollection McpPlayMusicScoreBody |
+| 잠김 | `press_login_button` | 확인 안 함(상태 변경형) | McpRewardEntry McpRewardSummary ResolveName |
+| 잠김 | `select_character` | 확인 안 함(상태 변경형) | ToErrorBody SelectBody |
+| 잠김 | `set_housing_room_setting` | 확인 안 함(상태 변경형) | BuildErrorBody McpSetRoomSettingBody propStackKey |
+| 잠김 | `set_photo_mode_blur` | 확인 안 함(상태 변경형) | MinBlurStep MaxBlurStep BlurBody blurStep |
+| 잠김 | `set_photo_mode_studio` | 확인 안 함(상태 변경형) | SetStudioBody |
+| 잠김 | `set_photo_mode_zoom` | 확인 안 함(상태 변경형) | MinZoomIndex MaxZoomIndex ZoomBody |
+| 잠김 | `stand_toward_photo_mode` | 확인 안 함(상태 변경형) |  |
+| 공개 | `stand_up` | 공개 | ConfirmPollIntervalSeconds ConfirmTimeoutSeconds |
+| 잠김 | `start_compass` | 확인 안 함(상태 변경형) |  |
+| 잠김 | `start_housing_edit_mode` | 확인 안 함(상태 변경형) |  |
+| 잠김 | `stash_housing_prop` | 확인 안 함(상태 변경형) | McpStashBody |
+| 공개 | `stop_action` | 공개 |  |
+| 잠김 | `submit_dialogue_host` | 확인 안 함(상태 변경형) | choices SetHostChoices parsed TryReadEvent Attr_HostDialogueTextChanged Attr_ToggleAllowGuestFreeInput Attr_SubmitEvent Attr_EndEvent Attr_InputTextChanged McpSubmitDialogueHostBody AllowFreeInput |
+| 잠김 | `take_photo` | 확인 안 함(상태 변경형) | TakeBody |
+| 잠김 | `try_to_place_housing_prop` | 확인 안 함(상태 변경형) | McpPlacementBody |
+| 공개 | `write_chat` | 공개 | CheckTextRejectedAsync ConfirmWithUserAsync nextAllowedTime WriteChatCooldown Approved Declined TimedOut ChatConfirmPopupHandler TimeOut SendButtonIndex CheatMcpSupport LoadCheatInfosAsync ParseCommandName found TryFindByCommandName badCommandName Suggest CalculateScore MatchScore CheatInfosLoad cheatDisabled CheatDisabled HasList McpCameraControl followCamera |
+| 개발·테스트 | `capture_screen` | - |  |
+| 개발·테스트 | `click_screen` | - | IsWorldTouchReceiver ClickRequest |
+| 개발·테스트 | `dismiss_ingame_blockers` | - | DefaultQuietSeconds DefaultMaxSeconds MinSecondsLimit MaxSecondsLimit DismissBody quietSeconds maxSeconds |
+| 개발·테스트 | `drag_screen` | - | DragRequest fromX fromY toX toY |
+| 개발·테스트 | `dump_u_i_hierarchy` | - | CollectSortedRootCanvases ScanFlatNodes FlattenAll FlattenInteractables accum AccumulateTexts AccumulateDynTex AccumulateSprites FindFallbackSpriteInChildren AccumulateBinds DecorateContext HasInteractable IsListContainer CollectSiblingTexts StripRichText sel MapSelectableKind masked ReadTextField ReadUITextString TryBuildDynamicTextureMap CamFor GetScreenRect IsFullyClippedByAncestorMask es |
+| 개발·테스트 | `dump_world_objects` | - | rawBody onScreenOnly noRadiusLimit ParseFlags BuildWorldObjectsJson Round DefaultRadius MaxProbeObjects McpWorldDump objects excluded excludedImpls probeCapped selectCapped McpDumpCamera halfFovV halfFovH screenW screenH McpWorldObject |
+| 개발·테스트 | `get_camera_state` | unknown_command |  |
+| 개발·테스트 | `get_cheat_arguments` | - | argIndex DefaultLimit MaxLimit MaxSuggestions McpArgResult ArgIndex ArgName ArgType McpArgCandidate McpArgErrorResult Suggestions McpGetCheatArgumentsBody |
+| 개발·테스트 | `get_cheats` | - | ParseBody BuildCheatInfo McpGetCheatsResult ReturnedCount Cheats McpCheatInfo McpCheatArgumentInfo McpGetCheatsBody |
+| 개발·테스트 | `input_text` | - | InputTextRequest |
+| 개발·테스트 | `interact_world_object` | - | select targetLabel ExplainSelectBlock InteractionWaitSeconds PollSeconds InteractRequest expect |
+| 개발·테스트 | `list_dev_actions` | unknown_command | Matches ListBody |
+| 개발·테스트 | `look_at_world_object` | - | LookAtRequest |
+| 개발·테스트 | `rec_step` | - | CaptureShot NormalizeResult RecStepBody ShotResult RelativePath |
+| 개발·테스트 | `run_cheat` | - | ExecuteOne TryParseCommands MaxCommandCount McpRunCheatResult AllSuccess McpRunCheatResultItem |
+| 개발·테스트 | `run_dev_action` | - | RunBody |
+| 개발·테스트 | `set_camera` | - | TryValidate currentYaw ResolveYaw currentPitch hasOrbitLimits ResolvePitch currentDistance ResolveDistance SetCameraRequest yawDelta pitchDelta distanceDelta McpUiInputProbe BuildPenetrationChecker screenPos TryPickReceiver FindNearbyLabel ReadFirstTextInChildren penetrationTrackerField tryGetPenetrationCheckerMethod isPenetrableProp tracker McpWorldAffordance ResolveInteraction ResolvePropKind |
+
+### 정적 분석으로 본 공통 구조
+
+- 명령 목록(`McpCommandCatalog`): 명령마다 등급(`McpCliTier`: CliChannel=공개 채널, Dev=개발)과 데이터 표 항목(`cliForAiCommandSheetId`)이 있고 `IsCommandEnabled`로 켜고 끈다. `capabilities`(=`McpListCommandsCommand`)는 켜진 것만 보여 주고, 로딩 중엔 `LoadingSafeCommandTypes`만 보여 준다.
+- 비용(`McpCommandCost`): 일부 명령은 재화를 쓴다(Free/Paid, 지불 전 보유량·사용량을 응답에 적는다). 부족하면 `not_enough_currency`.
+- 실행 전 검사(`McpExecuteGuards`): 가방 무게 초과, 채널 이동 필요, 시설 없음, 비용 부족, 다른 동작 중(선점), 시간 초과, 사용자가 멈춤 → 각각 오류 응답. 실행형 명령은 '이동 → 실행 → 결과 표시' 단계를 기다린다(`WaitPhase`: Traveling·Running).
+- 연속 실행 제한(`McpContinuousRunLimit`, `CheckExceeded`, `OpenConfirmPopup`): 자동 실행이 일정 시간 넘게 이어지면 게임이 확인 창을 띄운다.
+- 설정: 게임 설정의 'Mabinogi Mobile AI Connector'(`UseCliForAi`)는 마지막 사용 뒤 일정 기간이 지나면 만료된다(`IsCliForAiExpired`, `cliForAiExpirationDuration`). 켤 때 확인 창(`CliForAiActivatePopup`)이 뜬다.
+- 통신: CLI(`MabinogiMobile_CLI.exe`)가 네임드 파이프 서버(Bridge)이고 게임이 붙는다. 게임이 TCP 포트를 열지는 않는다(2026-10-22 확인). 코드에 `McpEndpointConfig`(Host·Port·RequestPath)·`DefaultMcpServerPort`·`McpConnectToGatewayCommand`가 있어 다른 연결 방식(게이트웨이)도 준비돼 있다.
+- 녹화(`MM.Client.Game.Integration.MCP.Recording`): 설치 폴더에 '무장(armed)' 파일이 있으면 명령 세션을 이벤트·스크린샷으로 기록하는 개발 기능이 있다. 건드리지 않는다.
+- 잠긴 명령 중 활용 가치가 큰 것: `get_growth_guide`(콘텐츠 가이드: 레벨/콘텐츠/매력 가이드, 추천 우선순위, 콘텐츠 목표 ContentType·DayType → 숙제 목록 그 자체), `get_chats`(채팅 로그: 보낸 시각 KST·채널·보낸 사람, 마지막으로 읽은 ID 이후만), `get_dialogue_host_state`(대화 진행 상태·선택지), `get_quick_navigation_shortcuts`(빠른 이동 목록), `game_list_destinations`(이동 가능한 장소 목록), `get_login_state`(로그인 화면 상태). 상태 변경형으로는 `execute_quest_tracker`(트래커 퀘스트 실행), `execute_mission_shortcut`(미션 바로가기), `play_growth_guide`(가이드 콘텐츠 실행), `game_move_to_named_location`(이름으로 이동).
 
 ## 변경 이력
 
 - 2026-10-22: 문서 신설. 공개 28개 명령 전수 조회·필드 목록, 게임 데이터에서 숨은 명령 이름 추출(조회형 12개 모두 unknown_command), 주간 미션=계정·일일 미션=캐릭터 확인, 녹화기(record.py) 가동.
+- 2026-10-22: 게임 코드 이름 표(IL2CPP 식별자 40만 개) 분석 — 명령 클래스 86개(공개 28·잠김·개발용) 확인, 공개 여부는 서버 데이터 표로 결정됨, 비용·실행 검사·연속 실행 제한·AI Connector 만료 구조 파악.
