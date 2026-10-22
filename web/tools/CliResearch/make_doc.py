@@ -9,6 +9,7 @@ import datetime as dt
 import glob
 import json
 import os
+import sys
 import re
 import subprocess
 
@@ -50,6 +51,33 @@ def fields_of(v, path='', out=None):
     return out
 
 
+META = r'C:\Nexon\MabinogiMobile\MabinogiMobile_Data\il2cpp_data\Metadata\global-metadata.dat'
+DEV_FIRST = 'CaptureScreen'   # 이 클래스부터 뒤는 개발·테스트용 묶음(화면 캡처·치트·UI 덤프 등)
+
+
+def snake(name):
+    return re.sub(r'(?<!^)(?=[A-Z])', '_', name).lower()
+
+
+def command_classes():
+    """IL2CPP 식별자 표에서 Mcp<Name>Command 클래스와, 그 뒤에 이어지는 필드·메서드 이름을 뽑는다(정의 순서대로라 다음 클래스 전까지가 그 명령 몫)."""
+    ids_path = os.path.join(SNAP, 'meta', 'identifiers.json')
+    if not os.path.exists(ids_path) or os.path.getmtime(ids_path) < os.path.getmtime(META):
+        subprocess.run([sys.executable, '-I', os.path.join(HERE, 'il2cpp_names.py'), META, os.path.join(SNAP, 'meta')], check=True)
+    ids = json.load(open(ids_path, encoding='utf-8'))
+    pos = [(i, x) for i, x in enumerate(ids) if re.fullmatch(r'Mcp[A-Za-z]+Command', x)]
+    out = []
+    dev = False
+    for k, (i, x) in enumerate(pos):
+        end = pos[k + 1][0] if k + 1 < len(pos) else i + 80
+        core = x[3:-7]
+        dev = dev or core == DEV_FIRST
+        words = [w for w in ids[i + 1:min(end, i + 80)]
+                 if re.fullmatch(r'[A-Za-z][A-Za-z0-9_]{1,40}', w) and not w.startswith(('get_', 'set_', 'System')) and w != x]
+        out.append({'class': x, 'command': snake(core), 'dev': dev, 'names': list(dict.fromkeys(words))[:40]})
+    return out
+
+
 def main():
     os.makedirs(SNAP, exist_ok=True)
     live = call('status').get('pipe') == 'connected'
@@ -59,7 +87,9 @@ def main():
         for c in caps['commands']:
             if c['Command'].startswith('get_'):
                 json.dump(call(c['Command']), open(os.path.join(SNAP, c['Command'] + '.json'), 'w', encoding='utf-8'), ensure_ascii=False)
-        hidden = {h: ('열림' if call(h).get('error') != 'unknown_command' else 'unknown_command') for h in HIDDEN}
+        public = {c['Command'] for c in caps['commands']}
+        reads = sorted({c['command'] for c in command_classes() if not c['dev'] and c['command'].startswith(('get_', 'list_', 'game_list_')) and c['command'] not in public} | set(HIDDEN))
+        hidden = {h: ('열림' if call(h).get('error') != 'unknown_command' else 'unknown_command') for h in reads}
         json.dump({'checked': dt.datetime.now().isoformat(timespec='minutes'), 'result': hidden},
                   open(os.path.join(SNAP, 'hidden.json'), 'w', encoding='utf-8'), ensure_ascii=False, indent=1)
     caps = json.load(open(os.path.join(SNAP, 'capabilities.json'), encoding='utf-8'))
@@ -144,6 +174,26 @@ def main():
         w(f'| `{h}` | {s} |')
     w('')
     w('상태를 바꾸는 것으로 보이는 후보(호출하지 않음): ' + ', '.join(f'`{x}`' for x in HIDDEN_MUTATING))
+    w('')
+    classes = command_classes()
+    public = {c['Command'] for c in cmds}
+    w('## 게임 코드 안의 명령 클래스 전체 (정적 분석)')
+    w('')
+    w('게임 코드(`MM.Client.Game.Integration.MCP.Commands` 이름공간)에 있는 `Mcp…Command` 클래스다. 공개 여부는 게임 데이터 표(`cliForAiCommandSheetId`)와 등급(`McpCliTier`: CliChannel / Dev)으로 정해진다(`McpCommandCatalog.IsCommandEnabled`). '
+      '그래서 잠긴 명령은 게임 업데이트 없이 서버 데이터만으로 열릴 수 있다. 명령 이름은 클래스 이름에서 만든 추정이라 실제와 다를 수 있다. 오른쪽 열은 그 클래스 근처의 필드·메서드 이름(응답 구조의 단서)이다.')
+    w('')
+    w('| 구분 | 명령(추정) | 상태 | 관련 이름 |')
+    w('|---|---|---|---|')
+    for c in classes:
+        cmd = c['command']
+        kind = '개발·테스트' if c['dev'] else ('공개' if cmd in public else '잠김')
+        state = '공개' if cmd in public else hidden['result'].get(cmd, '-' if c['dev'] else '확인 안 함(상태 변경형)')
+        w(f"| {kind} | `{cmd}` | {state} | {' '.join(c['names'][:25])} |")
+    w('')
+    w('### 정적 분석으로 본 공통 구조')
+    w('')
+    for x in notes.get('internals', []):
+        w(f'- {x}')
     w('')
     w('## 변경 이력')
     w('')
