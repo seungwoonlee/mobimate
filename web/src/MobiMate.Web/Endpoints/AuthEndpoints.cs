@@ -46,11 +46,12 @@ public static class AuthEndpoints
         {
             var s = lan.Status;
             if (!s.Active) return ApiResults.Error(StatusCodes.Status409Conflict, "LAN_OFF", "LAN 모드가 꺼져 있거나 쓸 수 없습니다. 설정에서 LAN 모드를 켜 주세요.");
+            var addresses = LanAddressPreference.Order(s.Addresses);   // 집 와이파이로 닿는 주소를 먼저 (VPN 주소는 맨 뒤)
             return ApiResults.Ok(new
             {
-                urlIp = $"http://{s.Addresses[0]}:{s.Port}/" + (s.MdnsName is { } nm ? $"?n={Uri.EscapeDataString(nm)}" : ""),
+                urlIp = $"http://{addresses[0]}:{s.Port}/" + (s.MdnsName is { } nm ? $"?n={Uri.EscapeDataString(nm)}" : ""),
                 urlName = s.MdnsName is { } n ? $"http://{n}:{s.Port}/" : null,
-                addresses = s.Addresses,
+                addresses,
                 // 윈도우 방화벽은 접속을 조용히 버린다: 포트 허용 규칙이 없으면 폰 연결 창이 배치 파일 실행을 안내한다
                 firewall = new { state = (await Task.Run(() => fw.Check(s.Port))).ToString(), script = FirewallScript.Find() is not null },
             });
@@ -70,7 +71,7 @@ public static class AuthEndpoints
 
     internal static object LanView(LanStatus s) => new
     {
-        enabled = s.Enabled, active = s.Active, hosts = s.Addresses, mdnsName = s.MdnsName, port = s.Port,
+        enabled = s.Enabled, active = s.Active, hosts = LanAddressPreference.Order(s.Addresses), mdnsName = s.MdnsName, port = s.Port,
         error = s.Error == LanError.None ? null : s.Error.ToString(), networkPrivate = s.NetworkPrivate,
     };
 
