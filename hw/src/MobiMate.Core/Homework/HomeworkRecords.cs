@@ -60,6 +60,15 @@ public sealed class HomeworkLedger
     public Dictionary<string, DateTimeOffset>? RaidAreaSince { get; set; }
 
     /// <summary>
+    /// 클리어 미션 묶음(raid·abyss·fieldBoss)별로 그 캐릭터가 마지막에 본 주간 미션 카운터. 이 값이 오른 순간이 "이 캐릭터가 클리어했다"는 확정 근거다
+    /// (주간 미션은 캐릭터별, 2026-10-22 실측). 주간 리셋 때 지운다.
+    /// </summary>
+    public Dictionary<string, int>? ClearMissionCounts { get; set; }
+
+    /// <summary>항목(레이드·어비스·필드 보스)별로 마지막에 본 진행 신호(보스 교전·전용 지역) 시각. 카운터가 오른 순간 어느 항목인지 가리는 근거다. 주간 리셋 때 지운다.</summary>
+    public Dictionary<string, DateTimeOffset>? ProgressSeen { get; set; }
+
+    /// <summary>
     /// 끊김 없는 관찰이 필요한 항목(Continuous) 중, 목격한 뒤 다른 캐릭터를 관찰해 끊긴 것의 ID. 목격 기록(미완료 확인·남은 횟수)은 그대로 두고
     /// "사라짐 = 완료" 판정만 막는다. 퀘스트가 다시 보이거나 리셋되면 해제된다.
     /// </summary>
