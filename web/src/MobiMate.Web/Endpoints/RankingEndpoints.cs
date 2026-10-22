@@ -8,7 +8,7 @@ namespace MobiMate.Web.Endpoints;
 
 public sealed record RankTokenRequest(string? Token);
 
-/// <summary>서버 랭킹 API (v0.3). 앱은 넥슨 랭킹 페이지를 스스로 부르지 않는다: 값은 북마크릿(사용자가 직접 누름)이나 모비라이프 버튼으로만 들어온다.</summary>
+/// <summary>서버 랭킹 API (v0.3). 앱은 넥슨 랭킹 페이지를 스스로 부르지 않는다: 값은 북마크릿(사용자가 자기 로그인 브라우저에서 직접 누름)으로만 들어온다.</summary>
 public static class RankingEndpoints
 {
     /// <summary>북마크릿이 돌아가는 페이지. 이 주소에서 온 요청만 CORS로 받는다.</summary>
@@ -27,7 +27,6 @@ public static class RankingEndpoints
             {
                 rankingUrl = RankingService.RankingUrl,
                 freshHours = RankingService.FreshFor.TotalHours,
-                mobi = new { url = MobiRankClient.SiteUrl, lastAt = r.MobiRefreshedAt, cooldownMinutes = RankingService.MobiCooldown.TotalMinutes, maxTargets = RankingMobiRefresher.MaxTargets },
                 targets = targets.Select(t => t.Key),
                 characters = keys.ToDictionary(k => k, k => r.ViewOf(k), StringComparer.OrdinalIgnoreCase),
             });
@@ -59,17 +58,6 @@ public static class RankingEndpoints
             if (req.Items is not { Count: > 0 and <= 200 }) return ApiResults.Error(StatusCodes.Status400BadRequest, "VALIDATION", "저장할 순위가 없거나 너무 많습니다.");
             var result = r.Import(req.Items);
             if (result.Accepted > 0) hub.Broadcast("state.changed", new { keys = new[] { "rankings", "characters", "header" } });
-            return ApiResults.Ok(result);
-        });
-
-        // 모비라이프에서 한 번에 가져오기: 사용자가 버튼을 누를 때만(자동 조회 없음). 쿨다운 10분, 캐릭터당 1회 조회, 막히면 바로 멈춘다.
-        api.MapPost("/refresh-mobi", async (RankingMobiRefresher refresher, SseHub hub, CancellationToken ct) =>
-        {
-            var result = await refresher.RunAsync(ct);
-            if (!result.Started && result.WaitSeconds > 0)
-                return ApiResults.Error(StatusCodes.Status429TooManyRequests, "COOLDOWN", $"방금 조회했어요. {(result.WaitSeconds + 59) / 60}분 뒤에 다시 눌러 주세요.");
-            if (!result.Started) return ApiResults.Error(StatusCodes.Status409Conflict, "BUSY", result.Stopped ?? "이미 조회 중입니다.");
-            if (result.Updated > 0) hub.Broadcast("state.changed", new { keys = new[] { "rankings", "characters", "header" } });
             return ApiResults.Ok(result);
         });
     }
