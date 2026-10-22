@@ -82,14 +82,14 @@ public sealed class CharacterWatcher(GameQueries q, GameViews views, StatusMonit
     internal static readonly TimeSpan ClearedSecondDelay = TimeSpan.FromSeconds(3);
 
     /// <summary>
-    /// 오토 의심용(2026-10-22): 던전·레이드 안(던전 상태가 안이거나, 어비스·레이드·요일 던전 지역)인지 AutoWatch에 알리고,
+    /// 오토 의심용(2026-10-22): 레이드·어비스 지역 안인지 AutoWatch에 알리고(일반 던전·요일 던전은 보지 않는다, 승운 결정),
     /// 안이면 평소의 읽기 주기인 이 감시 틱마다 주변을 읽어 넣는다. 의심 조건이 시작되어 카운터가 도는 동안은 AutoWatcher가 1초마다 읽으므로 여기서는 건너뛴다.
     /// 안이 아니면 쌓은 것을 지운다(평상시에는 호출을 늘리지 않는다).
     /// </summary>
     private async Task WatchNearbyAsync(DungeonClearDetector dungeon, CancellationToken ct)
     {
         var map = state.Environment?.GameSpaceDisplayName;
-        var inside = dungeon.Inside || state.Activity?.Dungeon is { IsInside: true } || homework.Service.Catalog.FindByArea(map) != null;
+        var inside = homework.Service.Catalog.IsAutoWatchArea(map);
         var now = DateTimeOffset.UtcNow;
         auto.SetInstance(inside, now);
         if (!inside) { auto.Observe(now, false, null); return; }

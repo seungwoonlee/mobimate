@@ -169,6 +169,19 @@ public sealed class HomeworkCatalog
     /// 지금 있는 지역(GameSpaceDisplayName)이 어느 콘텐츠(레이드·어비스·요일 던전)의 지역인지 찾는다. 공백·태그 정규화 후 완전 일치. 없으면 null.
     /// 헤더의 "진행 중" 표시에 쓴다.
     /// </summary>
+    /// <summary>
+    /// 오토 의심을 볼 지역인가: 레이드·어비스의 전용 지역만(2026-10-22 승운: 일반 던전에서는 의미가 없다). 이름·접두어를 정규화해 비교한다.
+    /// 지역 이름을 아직 실측하지 못한 레이드 난이도는 여기에 걸리지 않는다(카탈로그에 이름을 더하면 된다).
+    /// </summary>
+    public bool IsAutoWatchArea(string? space)
+    {
+        var n = HomeworkText.Normalize(space);
+        if (n.Length == 0) return false;
+        return Items.Any(d => d.Active && d.Category is "raid" or "abyss"
+            && (d.EntrySpaceNames.Concat(d.SpaceNames).Any(a => HomeworkText.Normalize(a) == n)
+                || d.EntrySpacePrefixes.Concat(d.SpaceNamePrefixes).Any(p => n.StartsWith(HomeworkText.Normalize(p), StringComparison.Ordinal))));
+    }
+
     public HomeworkDefinition? FindByArea(string? space)
     {
         var n = HomeworkText.Normalize(space);
