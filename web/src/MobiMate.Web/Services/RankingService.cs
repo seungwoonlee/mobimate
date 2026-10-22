@@ -10,7 +10,7 @@ public sealed class RankEntryData
     public int? Rank { get; set; }
     public long? Score { get; set; }
     public DateTimeOffset AtUtc { get; set; }
-    public string Source { get; set; } = "bookmarklet";   // bookmarklet | mabimobi
+    public string Source { get; set; } = "bookmarklet";   // bookmarklet
 }
 
 /// <summary>캐릭터 하나의 랭킹 기록. Name·ServerId는 조회한 때의 값이라, 별칭이 바뀌면 이 기록은 옛 이름의 순위다.</summary>
@@ -25,8 +25,6 @@ public sealed class RankingData
 {
     /// <summary>북마크릿 전용 토큰. 같은 PC의 다른 웹 페이지가 함부로 순위를 쓰지 못하게 한다.</summary>
     public string Token { get; set; } = "";
-    /// <summary>모비라이프 조회를 마지막으로 시작한 시각(재시작해도 이어지는 쿨다운용)</summary>
-    public DateTimeOffset? MobiRefreshedUtc { get; set; }
     public Dictionary<string, RankRecord> Records { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 }
 
@@ -37,12 +35,11 @@ public sealed record RankImportResult(int Accepted, int Rejected, List<string> P
 
 public sealed record RankEntryView(int? Rank, long? Score, string Tier, DateTimeOffset At, string Source, bool Stale);
 public sealed record RankView(string Key, string? Name, string? ServerName, bool HasName, bool Supported, bool NameChanged, Dictionary<string, RankEntryView> Entries);
-public enum MobiApply { Updated, NotFound, Mismatch, SaveFailed }
 public sealed record RankBadge(int Rank, string Tier, bool Stale, DateTimeOffset At);
 
 /// <summary>
 /// 서버 랭킹 저장·조회 (v0.3). 앱이 넥슨 랭킹 페이지를 스스로 부르지 않는다(자동 접속 차단 장치가 있어 우회하지 않는다):
-/// 값은 사용자가 자기 브라우저에서 북마크릿을 눌렀을 때, 또는 모비라이프 버튼을 눌렀을 때만 들어온다.
+/// 값은 사용자가 자기 브라우저에서 북마크릿을 눌렀을 때만 들어온다.
 /// 순위는 별칭(사용자가 입력한 캐릭터 이름)과 서버로 찾은 값이라, 별칭이나 서버가 바뀌면 그 기록은 쓰지 않는다.
 /// </summary>
 public sealed class RankingService
@@ -169,56 +166,6 @@ public sealed class RankingService
         rec.Entries[KeyOf(kind)] = new RankEntryData { Rank = rank, Score = score, AtUtc = _now(), Source = source };
     }
 
-    // ── 모비라이프 조회 (버튼을 누를 때만) ──
-
-    /// <summary>조회 사이의 최소 간격. 버튼을 연달아 눌러도 사이트에 몰리지 않게 한다(2026-10-22).</summary>
-    public static readonly TimeSpan MobiCooldown = TimeSpan.FromMinutes(10);
-
-    public DateTimeOffset? MobiRefreshedAt { get { lock (_lock) return _data.MobiRefreshedUtc; } }
-
-    /// <summary>조회를 시작해도 되면 시각을 남기고 true, 쿨다운 중이면 남은 시간을 주고 false.</summary>
-    public bool TryBeginMobiRefresh(out TimeSpan wait)
-    {
-        lock (_lock)
-        {
-            var last = _data.MobiRefreshedUtc;
-            wait = last is { } l ? MobiCooldown - (_now() - l) : TimeSpan.Zero;
-            if (wait > TimeSpan.Zero) return false;
-            wait = TimeSpan.Zero;
-            var next = Clone(_data);
-            next.MobiRefreshedUtc = _now();
-            if (!_store.Save(_path, next)) return false;
-            _data = next;
-            return true;
-        }
-    }
-
-    /// <summary>
-    /// 모비라이프에서 찾은 한 줄을 저장한다. 이름·서버가 같고 전투력이 20% 안쪽으로 맞을 때만(같은 이름의 다른 캐릭터 방지).
-    /// 사이트에 없는 값(null)은 건드리지 않는다. 사이트에 이 캐릭터가 아직 없다는 것이 "순위 없음"은 아니기 때문이다.
-    /// </summary>
-    public MobiApply ApplyMobi(RankTarget t, IReadOnlyList<MobiRankRow> rows)
-    {
-        var row = rows.FirstOrDefault(r => string.Equals(r.Name.Trim(), t.Name, StringComparison.OrdinalIgnoreCase)
-            && r.Server == t.ServerId.ToString("00"));
-        if (row == null) return MobiApply.NotFound;
-        if (row.Combat is { } cs && t.Combat > 0 && Math.Abs(cs - t.Combat) > t.Combat * 0.2) return MobiApply.Mismatch;
-        lock (_lock)
-        {
-            var next = Clone(_data);
-            var any = false;
-            void Set(RankKind k, int? rank, long? score) { if (rank is > 0) { Put(next, t, k, rank, score, "mabimobi"); any = true; } }
-            Set(RankKind.Combat, row.ServerCombatRank, row.Combat);
-            Set(RankKind.Attract, row.ServerCharmRank, row.Charm);
-            Set(RankKind.Living, row.ServerLifeRank, row.Life);
-            Set(RankKind.Total, row.ServerTotalRank, row.Total);
-            if (!any) return MobiApply.NotFound;
-            if (!_store.Save(_path, next)) return MobiApply.SaveFailed;
-            _data = next;
-            return MobiApply.Updated;
-        }
-    }
-
     /// <summary>동명이인 걸러내기: 응답의 클래스가 이 캐릭터의 직업과 다르면서, 전투력을 알 때 20% 넘게 차이 나면 다른 캐릭터다.</summary>
     private static bool SameCharacter(RankReading r, RankTarget t)
     {
@@ -231,7 +178,6 @@ public sealed class RankingService
     private static RankingData Clone(RankingData d) => new()
     {
         Token = d.Token,
-        MobiRefreshedUtc = d.MobiRefreshedUtc,
         Records = new Dictionary<string, RankRecord>(d.Records.ToDictionary(x => x.Key, x => new RankRecord
         {
             Name = x.Value.Name, ServerId = x.Value.ServerId,

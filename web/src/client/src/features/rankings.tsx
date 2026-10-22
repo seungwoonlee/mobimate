@@ -1,11 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
-import { useHeader, useRankings, useRankingSetup, useSession, keys } from '../api/queries';
-import { api, ApiError } from '../api/http';
-import type { MobiRefreshResult, RankEntryView, RankKindKey, RankView } from '../api/types';
+import { useHeader, useRankings, useRankingSetup, useSession } from '../api/queries';
+import type { RankEntryView, RankKindKey, RankView } from '../api/types';
 import { RankBadge, TIER_RULE } from '../components/RankBadge';
 import { CardHead, Dialog, Icon } from '../components/ui';
 import { useNow } from '../hooks/layout';
-import { queryClient } from '../lib/queryClient';
 import { fmt } from '../lib/format';
 import { useUi } from '../state/ui';
 
@@ -72,7 +70,7 @@ function RankRow({ label, e, now }: { label: string; e: RankEntryView | undefine
         : e.rank == null ? <span className="rk-v faint">순위 정보 없음</span>
         : <span className="rk-v num">서버 {fmt(e.rank)}위 <RankBadge tier={e.tier} rank={e.rank} stale={e.stale} /></span>}
       <span className="rk-s num faint">{e?.score != null ? fmt(e.score) : ''}</span>
-      <span className={`rk-t small ${e?.stale ? 'warn-text' : 'faint'}`}>{e ? `${agoText(e.at, now)}${e.stale ? ' · 오래됨' : ''}${e.source === 'mabimobi' ? ' · 모비라이프' : ''}` : ''}</span>
+      <span className={`rk-t small ${e?.stale ? 'warn-text' : 'faint'}`}>{e ? `${agoText(e.at, now)}${e.stale ? ' · 오래됨' : ''}` : ''}</span>
     </li>
   );
 }
@@ -83,9 +81,6 @@ function RankUpdateDialog({ onClose }: { onClose: () => void }) {
   const local = useSession().data?.kind === 'local';
   const setup = useRankingSetup(local);
   const link = useRef<HTMLAnchorElement>(null);
-  const [mobiBusy, setMobiBusy] = useState(false);
-  const [mobiResult, setMobiResult] = useState<MobiRefreshResult | null>(null);
-  const rankings = useRankings().data?.data;
   const code = setup.data?.data.bookmarklet;
   const url = setup.data?.data.rankingUrl ?? 'https://mabinogimobile.nexon.com/Ranking/List?t=1';
 
@@ -97,36 +92,11 @@ function RankUpdateDialog({ onClose }: { onClose: () => void }) {
     try { await navigator.clipboard.writeText(code); toast('북마크릿 코드를 복사했어요', 'ok'); } catch { toast('복사하지 못했어요. 버튼을 즐겨찾기 막대로 끌어 놓으세요.', 'warn'); }
   };
 
-  /** 모비라이프에서 한 번 조회: 누를 때만, 캐릭터당 1회. 쿨다운(10분)은 서버가 지킨다. */
-  const refreshMobi = async () => {
-    setMobiBusy(true);
-    try {
-      const r = await api.post<MobiRefreshResult>('/api/rankings/refresh-mobi');
-      setMobiResult(r.data);
-      await Promise.all([queryClient.invalidateQueries({ queryKey: keys.rankings }), queryClient.invalidateQueries({ queryKey: keys.header }), queryClient.invalidateQueries({ queryKey: keys.characters })]);
-      toast(r.data.updated > 0 ? `${r.data.updated}명의 순위를 가져왔어요` : '가져온 순위가 없어요', r.data.updated > 0 ? 'ok' : 'warn');
-    } catch (err) {
-      toast(err instanceof ApiError ? err.message : '조회하지 못했어요', 'warn');
-    } finally { setMobiBusy(false); }
-  };
-
   return (
     <Dialog title="서버 랭킹 갱신" onClose={onClose}
       actions={<button type="button" className="btn" onClick={onClose}>닫기</button>}>
       <div className="rank-dialog">
-        <h4>0. 모비라이프에서 한 번에 가져오기 (추천)</h4>
-        <p className="small m0">정보 사이트 <a href={rankings?.mobi.url ?? 'https://mabimobi.life/ranking'} target="_blank" rel="noopener noreferrer">모비라이프</a>에 <b>이름이 있는 캐릭터 {rankings?.targets.length ?? 0}명의 이름</b>을 한 명당 한 번씩 보내 서버 순위를 받아와요. <b>버튼을 누를 때만</b> 조회하고, 자동으로는 하지 않아요. 한 번 누르면 {rankings?.mobi.cooldownMinutes ?? 10}분 동안은 다시 못 눌러요.</p>
-        <p><button type="button" className="btn primary" disabled={mobiBusy} onClick={() => void refreshMobi()}>{mobiBusy ? '조회 중… (약 20초)' : '모비라이프에서 가져오기'}</button>
-          {rankings?.mobi.lastAt && <span className="faint small"> 마지막 조회 {agoText(rankings.mobi.lastAt, Date.now())}</span>}</p>
-        {mobiResult && (
-          <p className="small m0" role="status">
-            {mobiResult.updated}/{mobiResult.total}명 갱신.
-            {mobiResult.notFound.length > 0 && <> 사이트에 없거나 못 읽음: {mobiResult.notFound.join(', ')}.</>}
-            {mobiResult.mismatch.length > 0 && <> 같은 이름의 다른 캐릭터로 보여 건너뜀: {mobiResult.mismatch.join(', ')}.</>}
-            {mobiResult.stopped && <span className="warn-text"> {mobiResult.stopped}</span>}
-          </p>
-        )}
-        <p className="small m0">아래는 모비라이프를 쓰지 않을 때의 방법이에요. 넥슨 랭킹 페이지는 프로그램이 직접 가져오지 못하게 막혀 있어서, <b>승운님의 브라우저에서 버튼을 누를 때만</b> 순위를 가져옵니다. 앱이 스스로 조회하지는 않아요.</p>
+        <p className="small m0">넥슨 랭킹 페이지는 프로그램이 직접 가져오지 못하게 막혀 있어서, <b>승운님의 브라우저에서 버튼을 누를 때만</b> 순위를 가져옵니다. 앱이 스스로 조회하지는 않아요.</p>
         {local ? (
           <>
           <h4>1. 북마크릿으로 가져오기 (PC 브라우저)</h4>

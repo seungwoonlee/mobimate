@@ -162,7 +162,7 @@ export type AskEvent =
 export type RankTierName = 'gold' | 'orange' | 'pink' | 'purple' | 'none';
 export interface RankBadgeData { rank: number; tier: Exclude<RankTierName, 'none'>; stale: boolean; at: string }
 export type RankKindKey = 'total' | 'combat' | 'living' | 'attract';
-export interface RankEntryView { rank: number | null; score: number | null; tier: RankTierName; at: string; source: 'bookmarklet' | 'mabimobi'; stale: boolean }
+export interface RankEntryView { rank: number | null; score: number | null; tier: RankTierName; at: string; source: 'bookmarklet'; stale: boolean }
 export interface RankView {
   key: string; name: string | null; serverName: string | null;
   /** 캐릭터 이름(별칭)을 입력했는가 */ hasName: boolean;
@@ -170,8 +170,6 @@ export interface RankView {
   /** 순위를 가져온 뒤 이름·서버가 바뀌었다: 옛 순위는 쓰지 않는다 */ nameChanged: boolean;
   entries: Partial<Record<RankKindKey, RankEntryView>>;
 }
-export interface MobiInfo { url: string; lastAt: string | null; cooldownMinutes: number; maxTargets: number }
-export interface MobiRefreshResult { started: boolean; waitSeconds: number; updated: number; notFound: string[]; mismatch: string[]; stopped: string | null; total: number }
-export interface Rankings { rankingUrl: string; mobi: MobiInfo; freshHours: number; targets: string[]; characters: Record<string, RankView> }
+export interface Rankings { rankingUrl: string; freshHours: number; targets: string[]; characters: Record<string, RankView> }
 export interface RankingSetup { rankingUrl: string; bookmarklet: string }
 
