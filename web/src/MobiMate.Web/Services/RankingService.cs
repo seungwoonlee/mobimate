@@ -117,6 +117,22 @@ public sealed class RankingService
         return Targets().OrderByDescending(t => NeedOf(t).Missing).ThenBy(t => NeedOf(t).Oldest).ThenBy(t => t.Key, StringComparer.Ordinal).ToList();
     }
 
+    /// <summary>
+    /// 이 캐릭터에서 지금 가져와야 할 종류(넥슨 종류 번호: 4 종합·1 전투력·3 생활력·2 매력). 없거나 FreshFor(6시간)보다 오래된 것만이다.
+    /// 최신인 것까지 매번 다시 부르면 넥슨 쪽에서 짧은 시간에 너무 많은 요청으로 막는다(2026-10-23: 52건을 연달아 부르면 끝부분이 막혔다).
+    /// </summary>
+    public List<int> KindsNeeded(RankTarget t)
+    {
+        lock (_lock)
+        {
+            _data.Records.TryGetValue(t.Key, out var rec);
+            var same = rec != null && rec.Name == t.Name && rec.ServerId == t.ServerId;   // 이름·서버가 바뀌었으면 옛 값은 쓰지 않는다
+            return new[] { RankKind.Total, RankKind.Combat, RankKind.Living, RankKind.Attract }
+                .Where(k => !same || !rec!.Entries.TryGetValue(KeyOf(k), out var e) || _now() - e.AtUtc > FreshFor)
+                .Select(k => (int)k).ToList();
+        }
+    }
+
     /// <summary>북마크릿이 보낸 결과를 저장한다. 조회 대상이 아니거나 이름·서버가 어긋나거나 형식이 다른 항목은 건너뛴다.</summary>
     public RankImportResult Import(IEnumerable<RankImportItem> items)
     {

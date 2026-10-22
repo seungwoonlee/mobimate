@@ -73,6 +73,34 @@ public sealed class RankingServiceTests : IDisposable
         Assert.False(badge.Stale);
     }
 
+    /// <summary>2026-10-23 넥슨 종합 랭킹 화면의 실제 형식(검색한 캐릭터는 클래스에 on이 붙는다)</summary>
+    private const string TotalRealFormat =
+        "<li class=\"item rank05 on\"> <div> <dl> <dt>3,190위</dt> </dl> </div> <div> <dl> <dt>서버명</dt> <dd>아이라</dd> </dl> </div> <div> <dl> <dt>길드명</dt> <dd>천사S2</dd> </dl> </div> " +
+        "<div> <dl> <dt>캐릭터명</dt> <dd data-charactername=\"헤니컵A\">헤니컵A</dd> </dl> </div> <div> <dl> <dt>클래스</dt> <dd class=\"warrior_4\"> 격투가 </dd> </dl> </div> " +
+        "<div> <dl> <dt> <span>종합 점수</span> <span>194,656</span> </dt> <dd> <span class=\"type_1\"><em>전투력</em>91,000</span> <span class=\"type_3\"><em>생활력</em>28,100</span> <span class=\"type_2\"><em>매력</em>51,308</span> </dd> </dl> </div> </li>";
+
+    [Fact]
+    public void TotalRanking_InTheCurrentNexonFormat_IsRead()
+    {
+        var s = Service();
+        var r = s.Import(new[] { new RankImportItem(Key, "헤니컵A", 4, TotalRealFormat) });
+        Assert.Equal(1, r.Accepted);
+        var e = s.ViewOf(Key).Entries["total"];
+        Assert.Equal(3190, e.Rank);
+        Assert.Equal(194656, e.Score);
+        var reading = RankingParser.Parse(TotalRealFormat, RankKind.Total)!;
+        Assert.Equal(91000, reading.CombatScore);
+        Assert.Equal(28100, reading.LivingScore);
+        Assert.Equal(51308, reading.AttractScore);
+    }
+
+    [Fact]
+    public void TotalRanking_WithMissingSubScores_IsNotAccepted()
+    {
+        var broken = TotalRealFormat.Replace("<span class=\"type_2\"><em>매력</em>51,308</span>", "");
+        Assert.Null(RankingParser.Parse(broken, RankKind.Total));
+    }
+
     [Theory]
     [InlineData(10, "gold")]
     [InlineData(11, "orange")]
@@ -200,6 +228,25 @@ public sealed class RankingServiceTests : IDisposable
         Assert.Equal(1, js.Split("/api/rankings/import").Length - 1);   // 호출 위치는 하나(반복문 안)
         Assert.Contains("blind>=2", js);                                 // 두 캐릭터 연속으로 하나도 못 읽으면 멈춘다
         Assert.Contains("probs.join", js);                               // 제외된 이유를 화면에 보여 준다
+        Assert.Contains("t.kinds", js);                                  // 최신인 종류는 건너뛴다(넥슨에 한꺼번에 너무 많이 부르지 않게)
+        Assert.Contains("nap(2000)", js);                                // 요청 사이 2초
+        Assert.Contains("nap(6000)", js);                                // 읽지 못하면 한 번 쉬었다 다시
+    }
+
+    [Fact]
+    public void KindsNeeded_OnlyWhatIsMissingOrOlderThanSixHours()
+    {
+        var s = Service();
+        var t = s.Targets().Single();
+        Assert.Equal(new[] { 4, 1, 3, 2 }, s.KindsNeeded(t));                                   // 아무것도 없다
+        s.Import(new[]
+        {
+            new RankImportItem(Key, "헤니컵A", 1, Item(8, "헤니컵A", "격투가", "전투력", "91,000")),
+            new RankImportItem(Key, "헤니컵A", 3, Item(9, "헤니컵A", "격투가", "생활력", "45,237")),
+        });
+        Assert.Equal(new[] { 4, 2 }, s.KindsNeeded(t));                                         // 종합·매력만 남았다
+        _now += TimeSpan.FromHours(7);
+        Assert.Equal(new[] { 4, 1, 3, 2 }, s.KindsNeeded(t));                                   // 6시간이 지나면 다시
     }
 
     [Fact]
