@@ -169,10 +169,10 @@ function HomeworkChecklist({ kind, d }: { kind: 'daily' | 'weekly'; d: OverviewD
       {q.isPending ? <p className="faint small m0">불러오는 중…</p> : cards.length === 0 ? <p className="faint small m0">표시할 숙제가 없어요.</p> : (
         <ul className="hw-ck">
           {cards.map(c => (
-            <li key={c.id} className={c.isDone ? 'done' : c.status === 'inProgress' ? 'doing' : ''}>
+            <li key={c.id} className={c.isDone ? 'done' : c.suggestion?.code === 'missionCleared' ? 'guess' : c.status === 'inProgress' ? 'doing' : ''}>
               <span className="ck" aria-hidden="true">{c.isDone && <Icon name="check" size={12} />}</span>
               <span className="t">{c.title}{c.isDone && <span className="sr-only"> 완료</span>}</span>
-              <span className="r num faint">{c.isDone ? '' : c.remaining != null ? `남은 ${c.remaining}회` : c.goal > 1 ? `${c.count}/${c.goal}` : c.status === 'inProgress' ? '진행 중' : ''}</span>
+              <span className="r num faint">{c.isDone ? '' : c.suggestion?.code === 'missionCleared' ? '클리어 추정' : c.remaining != null ? `남은 ${c.remaining}회` : c.goal > 1 ? `${c.count}/${c.goal}` : c.status === 'inProgress' ? '진행 중' : ''}</span>
             </li>
           ))}
         </ul>

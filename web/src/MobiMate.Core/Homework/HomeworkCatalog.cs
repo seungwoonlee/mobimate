@@ -76,6 +76,12 @@ public sealed class HomeworkDefinition
     /// </summary>
     public List<string> CounterMissionTitles { get; init; } = new();
 
+    /// <summary>
+    /// 클리어 미션 묶음 이름(`ClearMissions`의 키: raid·abyss·fieldBoss). 그 묶음의 주간 미션 카운터가 오르면 이 묶음의 항목 중 하나가 클리어된 것이다.
+    /// 미션은 "어느 레이드·어디"를 알려 주지 않으므로 오른 순간의 현재 지역·최근 보스 교전으로 항목을 가리고, 못 가리면 "클리어 추정"으로만 알린다.
+    /// </summary>
+    public string? ClearGroup { get; init; }
+
     /// <summary>퀘스트가 보일 때 남은 횟수를 읽어 둔다 (목표의 Count/Goal, 없으면 이름의 N/M). 카드 칩에 이름(N)으로 보인다.</summary>
     public bool ShowRemaining { get; init; }
 
@@ -163,6 +169,9 @@ public sealed class HomeworkCatalog
     private static readonly HashSet<string> ValidDays = new() { "mon", "tue", "wed", "thu", "fri", "sat", "sun" };
 
     public Dictionary<string, HomeworkPoolDefinition> SharedPools { get; init; } = new();
+
+    /// <summary>클리어 미션 묶음 → 그 묶음의 주간 미션 설명(Description, 정규화 후 정확히 일치). 예: raid → "레이드 1회 토벌". 설명이 제목보다 안정적이고 필드 보스처럼 제목이 같은 미션도 가른다.</summary>
+    public Dictionary<string, List<string>> ClearMissions { get; init; } = new();
     public List<HomeworkDefinition> Items { get; init; } = new();
 
     private Dictionary<string, HomeworkDefinition>? _byId;
@@ -235,6 +244,7 @@ public sealed class HomeworkCatalog
                 foreach (var p in list)
                     if (!i.SpaceNamePrefixes.Contains(p)) errors.Add($"요일 지역이 SpaceNamePrefixes에 없음: {i.Id} → {day}/{p}");
             }
+            if (i.ClearGroup != null && !ClearMissions.ContainsKey(i.ClearGroup)) errors.Add($"정의되지 않은 클리어 미션 묶음: {i.Id} → {i.ClearGroup}");
             if (i.TokenAuto && string.IsNullOrWhiteSpace(i.TokenCurrency)) errors.Add($"증표 재화 없는 TokenAuto: {i.Id}");
 
             // 매칭 키는 정규화 후 일반어 단독이면 안 된다
