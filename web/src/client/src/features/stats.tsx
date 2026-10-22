@@ -81,7 +81,7 @@ function StatRow({ c, view, now }: { c: CharacterCard; view: RankView | undefine
           <span className="small muted">{c.job} Lv.{c.level}{c.isCurrent ? '' : ` · ${agoText(c.lastSeen, now)}`}</span>
         </span>
       </span>
-      <Score label="전투력" value={c.combat} kind="combat" rank={e('combat')} badge={c.combatRank} />
+      <Score label="전투력" value={c.combat} kind="combat" rank={e('combat')} />
       <Score label="마도저항" value={c.mdef} kind="mdef" />
       <Score label="생활력" value={c.living} rank={e('living')} />
       <Score label="매력" value={c.attract} kind="attract" rank={e('attract')} />
@@ -119,12 +119,10 @@ function Recommend({ items }: { items: CharacterCard['recommend'] }) {
 }
 
 /** 점수 한 칸: 값(게임과 같은 점수 색) + 서버 순위. 좁은 화면에서는 앞에 이름표가 붙는다. */
-function Score({ label, value, kind, rank, badge }: {
-  label: string; value: number; kind?: ScoreKind; rank?: RankEntryView; badge?: CharacterCard['combatRank'];
-}) {
+function Score({ label, value, kind, rank }: { label: string; value: number; kind?: ScoreKind; rank?: RankEntryView }) {
   return (
     <span className="st-s" data-label={label}>
-      <b className={`num ${kind ? scoreClass(kind, value) : ''}`}>{fmt(value)}{badge && <RankBadge badge={badge} />}</b>
+      <b className={`num ${kind ? scoreClass(kind, value) : ''}`}>{fmt(value)}{rank && <RankBadge tier={rank.tier} rank={rank.rank} stale={rank.stale} />}</b>
       {rank?.rank != null && <span className={`st-rk num small ${rank.stale ? 'warn-text' : 'faint'}`}>{fmt(rank.rank)}위</span>}
     </span>
   );

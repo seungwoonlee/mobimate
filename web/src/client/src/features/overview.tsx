@@ -87,8 +87,8 @@ function ScoresCard({ h }: { h: Header }) {
         <div><span className="lbl">마도저항</span><div className={`big num ${scoreClass('mdef', s.mdef)}`}>{fmt(s.mdef)}</div><Delta value={s.mdefDelta} /></div>
       </div>
       <div className="score-row">
-        <span><Icon name="hammer" size={14} />생활력 <b className="num">{fmt(s.living)}</b></span>
-        <span><Icon name="heart" size={14} />매력 <b className={`num ${scoreClass('attract', s.attract)}`}>{fmt(s.attract)}</b></span>
+        <span><Icon name="hammer" size={14} />생활력 <b className="num">{fmt(s.living)}</b><RankBadge badge={s.livingRank} /></span>
+        <span><Icon name="heart" size={14} />매력 <b className={`num ${scoreClass('attract', s.attract)}`}>{fmt(s.attract)}</b><RankBadge badge={s.attractRank} /></span>
       </div>
     </LinkCard>
   );
