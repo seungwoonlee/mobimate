@@ -117,6 +117,25 @@ public class HomeworkClearMissionTests : IDisposable
     }
 
     [Fact]
+    public void SwitchingAwayAndBackQuickly_DoesNotAttributeTheOtherCharactersClear()
+    {
+        var svc = NewService();
+        svc.Evaluate(Main, Obs(Town, new[] { Boss1(0) }));
+        _now += TimeSpan.FromMinutes(1);
+        svc.Evaluate(Alt, Obs(Town, new[] { Boss1(0) }));    // 같은 계정의 다른 캐릭터 (전환 직후: 건너뜀)
+        _now += TimeSpan.FromSeconds(30);
+        svc.Evaluate(Alt, Obs(Town, new[] { Boss1(0) }));                                 // 기준 0
+        _now += TimeSpan.FromMinutes(3);
+        svc.Evaluate(Alt, Obs(Town, new[] { Boss1(1) }));                                 // 그 캐릭터가 필드 보스를 잡았다
+        _now += TimeSpan.FromMinutes(2);
+        svc.Evaluate(Main, Obs(Town, new[] { Boss1(1) }));   // 6분 만에 돌아왔다
+        _now += TimeSpan.FromSeconds(30);
+        svc.Evaluate(Main, Obs(Town, new[] { Boss1(1) }));
+        Assert.Equal("todo", svc.GetFieldBossStatuses(new[] { Main })[Main].State);
+        Assert.Equal("done", svc.GetFieldBossStatuses(new[] { Alt })[Alt].State);
+    }
+
+    [Fact]
     public void OldGuessesMadeFromAFirstSightValue_AreCleanedUp()
     {
         var store = new HomeworkStore(_dir);

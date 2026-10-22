@@ -32,11 +32,10 @@ public class HomeworkAccountMissionTests : IDisposable
     private static QuestItem Quest(string title) => new(title, "pinned_sub", "사이드", new List<QuestObjective> { new("<color=orange>목표</color>", false) });
 
     [Fact]
-    public void Catalog_WeeklyMissionsAreAccountWide()
+    public void Catalog_EveryHomeworkItemIsPerCharacter()
     {
         Assert.Empty(_catalog.Validate());
-        Assert.Equal(HomeworkShare.Account, _catalog.Find("weekly_missions_all")!.Share);
-        Assert.Equal(HomeworkShare.Account, _catalog.Find("daily_missions_all")!.Share);
+        Assert.All(_catalog.Items, d => Assert.Equal(HomeworkShare.Character, d.Share));   // 승운 확인(2026-10-22): 숙제는 모두 캐릭터별
     }
 
     [Fact]

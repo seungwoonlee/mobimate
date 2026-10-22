@@ -262,7 +262,7 @@ public sealed class HomeworkService
                     var st = fresh ? ledger!.Items.GetValueOrDefault(def.Id) : null;
                     string state;
                     if (st?.Completed == true) state = "done";
-                    else if (def.EffectiveMode == HomeworkMode.QuestVanish) state = fresh && ledger!.QuestSightings?.GetValueOrDefault(def.Id) >= cycleStart ? "todo" : "unknown";
+                    else if (def.EffectiveMode == HomeworkMode.QuestVanish) state = fresh && (ledger!.QuestSightings?.GetValueOrDefault(def.Id) >= cycleStart || st?.Evidence != null) ? "todo" : "unknown";
                     else if (def.EffectiveMode == HomeworkMode.QuestSuffix) state = st?.Evidence != null ? "todo" : "unknown";
                     else if (!string.IsNullOrWhiteSpace(def.TokenCurrency)) state = fresh && ledger!.RaidTokensObservedUtc >= cycleStart ? "todo" : "unknown";
                     else state = "unknown";

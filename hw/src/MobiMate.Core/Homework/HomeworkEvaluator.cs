@@ -57,6 +57,7 @@ public static partial class HomeworkEvaluator
         var alteringCollected = ObserveAltering(character, obs, nowUtc, characterJustSwitched);
         var questsUsable = !characterJustSwitched && obs.Quests != null;   // 캐릭터를 바꾼 직후의 퀘스트 목록은 이전 캐릭터 것일 수 있다
         var raidSuggestions = ObserveRaidTokens(character, catalog, obs, nowUtc, questsUsable);
+        if (characterJustSwitched) character.ClearMissionCountsUtc = null;   // 이 캐릭터를 지켜보지 않은 동안 계정 카운터는 다른 캐릭터 몫으로 올랐을 수 있다
         // 클리어 미션 카운터(레이드·어비스·필드 보스): 카운터가 오른 순간은 더 확실한 근거라, 같은 항목의 약한 근거(지역 진입 등)를 덮는다.
         // 애매해서 항목을 못 가린 "클리어 추정"은 이미 있는 근거를 약하게 만들지 않도록 비어 있는 항목에만 담는다.
         if (!characterJustSwitched)
@@ -283,10 +284,15 @@ public static partial class HomeworkEvaluator
         var titles = TodayQuestTitles(def, now);
         var sightings = character.QuestSightings ??= new Dictionary<string, DateTimeOffset>(StringComparer.OrdinalIgnoreCase);
         var cycleStart = KstClock.LastReset(def.Period, now);
-        var sightOnly = def.SightOnlyQuestTitles.Select(HomeworkText.Normalize).ToHashSet();
-        var visible = obs.Quests!.FirstOrDefault(q => MatchesQuest(def, titles, q.QuestTitle))
-            ?? obs.Quests!.FirstOrDefault(q => sightOnly.Contains(HomeworkText.Normalize(q.QuestTitle)));
+        var visible = obs.Quests!.FirstOrDefault(q => MatchesQuest(def, titles, q.QuestTitle));
         var broken = character.QuestContinuityBroken?.Contains(def.Id) == true;
+        // 미완료 확인 전용 이름(요일 던전 소탕): 근거만 남기고, 목격 기록은 하지 않는다(사라짐 → 완료 판정을 무장하지 않는다)
+        var sightOnly = def.SightOnlyQuestTitles.Select(HomeworkText.Normalize).ToHashSet();
+        if (visible == null && obs.Quests!.FirstOrDefault(q => sightOnly.Contains(HomeworkText.Normalize(q.QuestTitle))) is { } hint)
+        {
+            st.Evidence = $"추천 활동 '{HomeworkText.StripTags(hint.QuestTitle)}'이 목록에 있음: 이번 주기 미완료";
+            return;
+        }
         if (visible != null)
         {
             if (!sightings.TryGetValue(def.Id, out var at) || at < cycleStart) sightings[def.Id] = now;   // 주기당 한 번만 기록(저장 횟수를 줄인다)
@@ -540,8 +546,7 @@ public static partial class HomeworkEvaluator
         var space = HomeworkText.Normalize(obs.Environment?.GameSpaceDisplayName);
         var seen = character.ProgressSeen ??= new Dictionary<string, DateTimeOffset>(StringComparer.OrdinalIgnoreCase);
         var counts = character.ClearMissionCounts ??= new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-        var watching = character.ClearMissionCountsUtc is { } lastRead && now - lastRead <= MissionWatchGap;
-        character.ClearMissionCountsUtc = now;
+        var readAt = character.ClearMissionCountsUtc ??= new Dictionary<string, DateTimeOffset>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var (group, descriptions) in catalog.ClearMissions)
         {
@@ -554,6 +559,8 @@ public static partial class HomeworkEvaluator
             if (matched.Count == 0) continue;
 
             var current = matched.Max(m => Math.Clamp(m.CurrentCount, 0, m.GoalCount > 0 ? m.GoalCount : Math.Max(m.CurrentCount, 0)));
+            var watching = readAt.TryGetValue(group, out var lastRead) && now - lastRead <= MissionWatchGap;
+            readAt[group] = now;
             int? before = watching && counts.TryGetValue(group, out var p) ? p : null;   // 오래전 값과의 차이는 같은 계정의 다른 캐릭터 몫일 수 있다
             counts[group] = current;
             if (current <= 0) continue;
