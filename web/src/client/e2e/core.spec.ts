@@ -466,7 +466,7 @@ test('서버 랭킹: 전투력 옆에 등급 뱃지가 붙고, 개요·스탯 �
   await expect(badge.first()).toBeVisible();
   await expect(page.locator('.card.char .rank-badge.pink').first()).toBeVisible();
 
-  for (const path of ['/overview', '/stats']) {
+  for (const path of ['/overview']) {
     await page.goto(path);
     const panel = page.locator('.rank-panel');
     await expect(panel).toBeVisible();
@@ -477,6 +477,22 @@ test('서버 랭킹: 전투력 옆에 등급 뱃지가 붙고, 개요·스탯 �
     await expect(panel.locator('.rank-badge.purple')).toHaveCount(2);   // 생활력 2,400위·매력 8,800위는 1000위 밖·1만 위 이내라 보라
     await expect(panel.getByText(/종합 = 전투력 \+ 생활력 \+ 매력/)).toBeVisible();
   }
+});
+
+test('스탯 탭: 계정의 캐릭터 표에 점수·서버 순위·추천이 한 줄로 보인다 (2026-10-23)', async ({ page, request }) => {
+  await seedRanking(request);
+  await page.goto('/stats');
+  const table = page.locator('.st-table');
+  await expect(table).toBeVisible();
+  const row = table.locator('.st-row.current');
+  await expect(row).toContainText('접속 중');
+  await expect(row).toContainText('523위');      // 전투력 서버 순위
+  await expect(row).toContainText('2,400위');    // 생활력
+  await expect(row).toContainText('8,800위');    // 매력
+  await expect(row).toContainText('612위');      // 종합
+  await expect(row).toContainText('어비스');     // 어비스·레이드 추천
+  await expect(table).toContainText('종합 = 전투력 + 생활력 + 매력');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1)).toBe(true);   // 옆 스크롤 없음
 });
 
 test('서버 랭킹: 랭킹 갱신 창에 북마크릿 안내만 있고 직접 입력은 없다', async ({ page, request }) => {

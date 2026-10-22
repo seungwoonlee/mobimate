@@ -113,6 +113,8 @@ export interface CharacterCard {
   fieldBoss: { state: 'done' | 'todo' | 'unknown'; item: string | null; /** 클리어 추정(미션 카운터는 올랐는데 어느 보스인지 모름) */ guess?: boolean };
   /** 전투력 서버 순위 뱃지 (10000위 이내만, 모르면 null) */
   combatRank: RankBadgeData | null;
+  /** 어비스·레이드 추천(이 캐릭터의 전투력·마도저항 기준) */
+  recommend: { id: string; name: string; status: CutoffStatus; tier: string | null; maxEntry: string | null }[];
 }
 export interface HomeworkAuto { id: string; title: string; period: 'daily' | 'weekly'; state: 'done' | 'todo' | 'unknown'; evidence: string | null; /** 남은 횟수 (뱅가드 등, 알 때만) */ remaining: number | null; category?: string; /** 클리어 추정: 주간 미션 카운터는 올랐는데 어느 항목인지 못 가렸다 */ guess?: boolean }
 export interface AccountGroup {
