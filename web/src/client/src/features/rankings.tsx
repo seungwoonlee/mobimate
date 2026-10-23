@@ -108,7 +108,7 @@ function RankUpdateDialog({ onClose }: { onClose: () => void }) {
     <Dialog title="서버 랭킹 갱신" onClose={onClose}
       actions={<button type="button" className="btn" onClick={onClose}>닫기</button>}>
       <div className="rank-dialog">
-        <p className="small m0">넥슨 랭킹 페이지는 프로그램이 직접 가져오지 못하게 막혀 있어서, <b>승운님의 브라우저에서 버튼을 누를 때만</b> 순위를 가져옵니다. 앱이 스스로 조회하지는 않아요.</p>
+        <p className="small m0">넥슨 랭킹 페이지는 프로그램이 직접 가져오지 못하게 막혀 있어서, <b>내 브라우저에서 버튼을 누를 때만</b> 순위를 가져옵니다. 앱이 스스로 조회하지는 않아요.</p>
         {local ? (
           <>
           <h4>1. 북마크릿으로 가져오기 (PC 브라우저)</h4>
