@@ -45,7 +45,13 @@ public sealed record RankBadge(int Rank, string Tier, bool Stale, DateTimeOffset
 public sealed class RankingService
 {
     public const string FileName = "rankings.json";
-    public static readonly TimeSpan FreshFor = TimeSpan.FromHours(6);
+    public static readonly TimeSpan FreshFor = TimeSpan.FromHours(6);   // 화면에서 "오래됨"으로 표시하는 기준
+
+    /// <summary>
+    /// 북마크릿이 이 시간 안에 가져온 종류는 건너뛴다(2026-10-23). 지금 로그인한 계정의 캐릭터만 조회해 호출이 적으므로(2~6명, 최대 24건),
+    /// 누르면 순위가 실제로 갱신돼야 한다. 연달아 눌러도 넥슨에 몰리지 않을 정도만 남긴다.
+    /// </summary>
+    public static readonly TimeSpan RefetchAfter = TimeSpan.FromMinutes(5);
     public const string RankingUrl = "https://mabinogimobile.nexon.com/Ranking/List?t=1";
 
     private readonly JsonFileStore _store = new();
@@ -118,8 +124,8 @@ public sealed class RankingService
     }
 
     /// <summary>
-    /// 이 캐릭터에서 지금 가져와야 할 종류(넥슨 종류 번호: 4 종합·1 전투력·3 생활력·2 매력). 없거나 FreshFor(6시간)보다 오래된 것만이다.
-    /// 최신인 것까지 매번 다시 부르면 넥슨 쪽에서 짧은 시간에 너무 많은 요청으로 막는다(2026-10-23: 52건을 연달아 부르면 끝부분이 막혔다).
+    /// 이 캐릭터에서 지금 가져와야 할 종류(넥슨 종류 번호: 4 종합·1 전투력·3 생활력·2 매력). 없거나 RefetchAfter(5분)보다 오래된 것만이다.
+    /// 방금 가져온 것까지 바로 다시 부르면 넥슨 쪽에서 짧은 시간에 너무 많은 요청으로 막는다(2026-10-23: 52건을 연달아 부르면 끝부분이 막혔다).
     /// </summary>
     public List<int> KindsNeeded(RankTarget t)
     {
@@ -128,7 +134,7 @@ public sealed class RankingService
             _data.Records.TryGetValue(t.Key, out var rec);
             var same = rec != null && rec.Name == t.Name && rec.ServerId == t.ServerId;   // 이름·서버가 바뀌었으면 옛 값은 쓰지 않는다
             return new[] { RankKind.Total, RankKind.Combat, RankKind.Living, RankKind.Attract }
-                .Where(k => !same || !rec!.Entries.TryGetValue(KeyOf(k), out var e) || _now() - e.AtUtc > FreshFor)
+                .Where(k => !same || !rec!.Entries.TryGetValue(KeyOf(k), out var e) || _now() - e.AtUtc > RefetchAfter)
                 .Select(k => (int)k).ToList();
         }
     }

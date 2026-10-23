@@ -115,7 +115,7 @@ if(document.body.innerText.indexOf('로그인 후 이용해')>-1){msg('넥슨에
 try{
 const r=await fetch(A+'/api/rankings/targets',{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({token:T})});
 const j=await r.json();if(!r.ok)throw new Error(j.error&&j.error.message||'앱에 연결하지 못했습니다');
-const ts=j.data.targets;if(!ts.length){msg(j.data.all?'모든 캐릭터의 순위가 최신이에요(6시간 이내). 가져올 것이 없습니다.':'순위를 가져올 캐릭터가 없습니다. 앱에서 캐릭터 이름(별칭)을 먼저 입력하세요.');return}
+const ts=j.data.targets;if(!ts.length){msg(j.data.all?'방금(5분 안에) 가져와서 다시 가져올 것이 없어요. 잠시 뒤 눌러 주세요.':'순위를 가져올 캐릭터가 없습니다. 앱에서 캐릭터 이름(별칭)을 먼저 입력하세요.');return}
 const nap=ms=>new Promise(s=>setTimeout(s,ms));
 const get=async(t,k)=>{const f=new FormData();f.append('t',k);f.append('pageno',1);f.append('s',t.serverId);f.append('c','0');f.append('search',t.name);
 const x=await fetch('/Ranking/List/rankdata',{method:'POST',body:f,headers:{'X-Requested-With':'XMLHttpRequest'}});
