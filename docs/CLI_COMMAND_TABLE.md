@@ -1,6 +1,6 @@
 # 게임 CLI 명령 표 (MabinogiMobile_CLI)
 
-> 자동 생성: `web/tools/CliResearch/make_doc.py` — 마지막 생성 2026-10-23 09:56 (게임에서 새로 읽음). CLI 실행 파일 2026-10-22 09:25.
+> 자동 생성: `web/tools/CliResearch/make_doc.py` — 마지막 생성 2026-10-23 09:59 (게임에서 새로 읽음). CLI 실행 파일 2026-10-22 09:25.
 > 손으로 쓰는 실측 메모는 `notes.json`에 더하고 다시 생성한다. 게임하는 동안 `record.py`(녹화기)를 켜 두면 값이 바뀐 필드가 `records/`에 쌓인다.
 
 ## 개요
@@ -78,10 +78,10 @@
 |---|---|---|
 | `ChannelDisplayName` | string | 153 |
 | `GameSpaceDisplayName` | string | 149 |
-| `WorldPosition.X` | number | 584 |
-| `WorldPosition.Y` | number | 585 |
+| `WorldPosition.X` | number | 598 |
+| `WorldPosition.Y` | number | 599 |
 | `Weather` | string | 92 |
-| `ErinnNow` | string | 1394 |
+| `ErinnNow` | string | 1413 |
 | `Housing.IsInHousing` | bool | 255 |
 | `Housing.IsOwnedHousing` | bool | 84 |
 | `Housing.CanEnterHousing` | bool | 255 |
@@ -108,22 +108,22 @@
 
 | 필드 | 타입 | 녹화 중 바뀐 횟수 |
 |---|---|---|
-| `IsAutoPlaying` | bool | 250 |
+| `IsAutoPlaying` | bool | 252 |
 | `CanStartAutoPlay` | bool | 85 |
 | `AutoPlayTarget` | string | 211 |
 | `AutoPlayTargetDisplayName` | string | 210 |
-| `IsAutoTraveling` | bool | 634 |
-| `AutoTravelRemainingPositionCount` | int | 985 |
+| `IsAutoTraveling` | bool | 638 |
+| `AutoTravelRemainingPositionCount` | int | 1000 |
 | `IsDead` | bool | 82 |
 | `IsReviving` | bool | 82 |
-| `IsInCombat` | bool | 354 |
+| `IsInCombat` | bool | 359 |
 | `IsDialoguePlaying` | bool | 118 |
 | `IsDialogueNextAvailable` | bool | 112 |
 | `IsWaitingForSelection` | bool | 108 |
 | `Dungeon.State` | string | 180 |
 | `Dungeon.IsBossBattleInProgress` | bool | 137 |
 | `Battlefield.IsInBattleField` | bool | 82 |
-| `IsAbyssResultSequencePlaying` | bool | 86 |
+| `IsAbyssResultSequencePlaying` | bool | 87 |
 | `Tutorial.IsPlaying` | bool | 82 |
 | `Scenario.IsInScenario` | bool | 82 |
 | `Scenario.IsSequencePlaying` | bool | 102 |
@@ -137,12 +137,12 @@
 | `Performance.ElapsedSeconds` | number | 80 |
 | `Performance.RemainingSeconds` | number | 80 |
 | `Performance.ChannelCount` | int | 82 |
-| `Interaction.HasTarget` | bool | 578 |
-| `Interaction.IsTargetAttackable` | bool | 436 |
+| `Interaction.HasTarget` | bool | 583 |
+| `Interaction.IsTargetAttackable` | bool | 441 |
 | `Interaction.AvailableInteractionType` | string | 241 |
 | `Interaction.LastRunningInteractionType` | string | 157 |
-| `Interaction.TargetKind` | string | 606 |
-| `Mode.MainButtonState` | string | 761 |
+| `Interaction.TargetKind` | string | 611 |
+| `Mode.MainButtonState` | string | 773 |
 | `Mode.MountPartState` | string | 183 |
 | `Mode.SitState` | string | 82 |
 | `Mode.IsPlayingMiniGame` | bool | 84 |
@@ -170,9 +170,9 @@
 | `DecorScore.DisplayName` | string | 46 |
 | `DecorScore.Value` | int | 48 |
 | `HealthMax.DisplayName` | string | 46 |
-| `HealthMax.Value` | int | 258 |
+| `HealthMax.Value` | int | 262 |
 | `AttackPower.DisplayName` | string | 46 |
-| `AttackPower.Value` | int | 466 |
+| `AttackPower.Value` | int | 483 |
 | `DefencePower.DisplayName` | string | 46 |
 | `DefencePower.Value` | int | 167 |
 | `ArcaneResistance.DisplayName` | string | 46 |
@@ -184,7 +184,7 @@
 | `INT.DisplayName` | string | 46 |
 | `INT.Value` | int | 154 |
 | `LUCK.DisplayName` | string | 46 |
-| `LUCK.Value` | int | 194 |
+| `LUCK.Value` | int | 203 |
 | `WILL.DisplayName` | string | 46 |
 | `WILL.Value` | int | 158 |
 | `PaladinStats.PaladinAttackPower.DisplayName` | string | 46 |
@@ -199,16 +199,16 @@
 | `PaladinStats.OrderPower.Value` | int | 47 |
 | `PaladinStats.BlessingPower.DisplayName` | string | 46 |
 | `PaladinStats.BlessingPower.Value` | int | 46 |
-| `Vitals.HealthCurrent` | int | 293 |
-| `Vitals.HealthMax` | int | 258 |
-| `Vitals.ShieldAmount` | int | 251 |
-| `Vitals.ShieldMax` | int | 233 |
-| `Vitals.SatietyValue` | int | 724 |
+| `Vitals.HealthCurrent` | int | 299 |
+| `Vitals.HealthMax` | int | 262 |
+| `Vitals.ShieldAmount` | int | 263 |
+| `Vitals.ShieldMax` | int | 246 |
+| `Vitals.SatietyValue` | int | 739 |
 | `Vitals.SatietyMax` | int | 46 |
-| `Vitals.SatietyRatio` | number | 724 |
-| `Vitals.InventoryWeightCurrent` | number | 335 |
+| `Vitals.SatietyRatio` | number | 739 |
+| `Vitals.InventoryWeightCurrent` | number | 336 |
 | `Vitals.InventoryWeightMax` | number | 148 |
-| `Vitals.ActiveBuffCount` | int | 515 |
+| `Vitals.ActiveBuffCount` | int | 533 |
 
 ### `get_quests`
 
@@ -226,15 +226,7 @@
 
 | 필드 | 타입 | 녹화 중 바뀐 횟수 |
 |---|---|---|
-| `[]` | array | 584 |
-| `[].QuestTitle` | string | 970 |
-| `[].Source` | string | 970 |
-| `[].SourceDisplayName` | string | 970 |
-| `[].Objectives[]` | array |  |
-| `[].Objectives[].Description` | string | 1188 |
-| `[].Objectives[].IsCompleted` | bool | 1188 |
-| `[].Objectives[].Count` | int | 1188 |
-| `[].Objectives[].Goal` | int | 1188 |
+| `[]` | array | 587 |
 
 ### `get_currencies`
 
@@ -245,12 +237,13 @@
 - 실측: 뱅가드 브리치 1회(2026-10-22): 골드 +100,000, 마물 퇴치 증표 +10, 정령의 날개 +300.
 - 실측: 뱅가드 브리치 2·3회(2026-10-22): 2회째 골드 +100,000, 3회째 +120,000(정령의 날개 +300·증표 +10은 같다). 던전 안 몹 골드는 +99 수준.
 - 실측: 어비스 클리어(2026-10-23 09:54:15, 광기의 동굴): 마물 퇴치 증표 +300, 골드 +100,200, 하트 토큰 +1 — 연출이 시작되는 순간 한 번에 들어온다. 허상의 정박지 클리어도 증표 +300. (이 값은 앞서 매우 어려움 실측과 같아 난이도 '매우 어려움'으로 보인다; 매우 어려움 2는 다시 측정한다.)
+- 실측: **어비스 매우 어려움 2**(2026-10-23 09:58:47, 광기의 동굴): 마물 퇴치 증표 +300(매우 어려움과 같음), **골드 +140,250**(매우 어려움은 +100,200), 하트 토큰 +1, 심해의 화석 +20. 난이도는 퀘스트 이름에 없고 골드 보상으로만 구분된다. 앱의 어비스 완료 판정(증표 +200 이상)은 그대로 맞는다.
 
 | 필드 | 타입 | 녹화 중 바뀐 횟수 |
 |---|---|---|
 | `[]` | array | 2 |
 | `[].DisplayName` | string | 2320 |
-| `[].Amount` | int | 2725 |
+| `[].Amount` | int | 2731 |
 
 ### `get_near_npcs`
 
@@ -275,7 +268,7 @@
 | `[]` | array | 170 |
 | `[].RealmName` | string | 5007 |
 | `[].Title` | string | 5000 |
-| `[].Distance` | number | 7737 |
+| `[].Distance` | number | 7784 |
 | `[].ClothesCount` | int | 5493 |
 | `[].CrowdAppearanceColorCount` | int | 5000 |
 | `[].IsRobeWeared` | bool | 5236 |
@@ -296,11 +289,11 @@
 | `[].LivingScore` | int | 5619 |
 | `[].AttractivenessScore` | int | 5635 |
 | `[].IsFriend` | bool | 5003 |
-| `[].IsInParty` | bool | 5066 |
+| `[].IsInParty` | bool | 5072 |
 | `[].HasGuild` | bool | 5083 |
 | `[].IsSameGuild` | bool | 5000 |
 | `[].IsCoOwner` | bool | 5000 |
-| `[].IsInCombat` | bool | 5267 |
+| `[].IsInCombat` | bool | 5282 |
 
 ### `get_inventory`
 
@@ -311,8 +304,8 @@
 
 | 필드 | 타입 | 녹화 중 바뀐 횟수 |
 |---|---|---|
-| `CurrentInventoryWeight` | number | 331 |
-| `CurrentInventoryWeightAsDecimal` | int | 306 |
+| `CurrentInventoryWeight` | number | 332 |
+| `CurrentInventoryWeightAsDecimal` | int | 307 |
 | `MaxInventoryWeight` | number | 144 |
 | `MaxInventoryWeightAsDecimal` | int | 144 |
 
@@ -369,12 +362,12 @@
 | 필드 | 타입 | 녹화 중 바뀐 횟수 |
 |---|---|---|
 | `[]` | array |  |
-| `[].Location` | string | 9098 |
-| `[].DisplayName` | string | 9098 |
-| `[].Category` | string | 9098 |
-| `[].CategoryDisplayName` | string | 9098 |
-| `[].Count` | int | 10890 |
-| `[].IsLocked` | bool | 9108 |
+| `[].Location` | string | 9099 |
+| `[].DisplayName` | string | 9099 |
+| `[].Category` | string | 9099 |
+| `[].CategoryDisplayName` | string | 9099 |
+| `[].Count` | int | 10897 |
+| `[].IsLocked` | bool | 9109 |
 
 ### `get_social_actions`
 
@@ -492,13 +485,13 @@
 
 | 필드 | 타입 | 녹화 중 바뀐 횟수 |
 |---|---|---|
-| `completedCount` | int | 29 |
+| `completedCount` | int | 30 |
 | `works[]` | array |  |
 | `works[].DisplayName` | string | 60 |
 | `works[].FacilityName` | string | 60 |
-| `works[].State` | string | 73 |
-| `works[].IsCompleted` | bool | 70 |
-| `works[].RemainingSeconds` | int | 141 |
+| `works[].State` | string | 74 |
+| `works[].IsCompleted` | bool | 71 |
+| `works[].RemainingSeconds` | int | 143 |
 
 ### `execute_altering`
 
@@ -546,7 +539,7 @@
 
 게임의 IL2CPP 문자열 표(`MabinogiMobile_Data/il2cpp_data/Metadata/global-metadata.dat`)에서 뽑은 이름이다. 공개 목록(capabilities)에는 없다. 조회형만 실제로 불러 확인한다.
 
-| 명령 | 상태 (확인 2026-10-23T09:56) |
+| 명령 | 상태 (확인 2026-10-23T09:59) |
 |---|---|
 | `game_list_destinations` | unknown_command |
 | `get_camera_state` | unknown_command |
@@ -676,3 +669,4 @@
 - 2026-10-22: 뱅가드 브리치 1회 녹화 — 캐릭터별 진행은 `[긴급 의뢰] 뱅가드 브리치`의 목표 N/3, 던전 안 퀘스트 `뱅가드 브리치 클리어`, 지역 이름 확인.
 - 2026-10-22: 뱅가드 3회 연속 녹화 — 매 판 처치 순간 골드 +10만~12만으로 클리어를 셀 수 있음 확인. 앱은 퀘스트 N/3 + 지역 안 골드로 횟수를 세도록 변경.
 - 2026-10-23: 어비스 2곳 연속 클리어 녹화 — 결과 연출 플래그(IsAbyssResultSequencePlaying)·진행 퀘스트 `[<던전>] 클리어`의 사라짐·보상 재화가 같은 순간에 일어남. 어비스에서 어비스로 옮길 때 맵 이름만 바뀌고 주변 파티원이 전부 바뀐다(오토 의심 초기화 버그의 원인).
+- 2026-10-23: 어비스 매우 어려움 2 클리어 녹화 — 연출 플래그·퀘스트 사라짐은 매우 어려움과 같고 보상 골드만 다르다(+140,250). 방을 옮긴 뒤에도 오토 의심 오탐 없음.
