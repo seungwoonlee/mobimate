@@ -165,6 +165,10 @@ public sealed class AutoSuspicionTracker
         _visible = list.Count;
         Rekey(list);
 
+        // 파티가 통째로 바뀌었다(다른 방·다시 들어옴): 어비스 파티는 나 포함 4명이라 한 번에 보이는 사람은 최대 3명이다.
+        // 추적하던 사람(2명 이상)이 아무도 안 보이고 보이는 사람이 전부 새 얼굴이면 이전 파티원을 "안 보임"으로 남기지 않고 처음부터 다시 한다.
+        if (_tracks.Values.Count(t => !t.Absent) >= 2 && list.Count >= 2 && !list.Any(p => _tracks.ContainsKey(p.Key))) _tracks.Clear();
+
         // 1) 거리 변화(움직임)부터 갱신한다: 정지 판정은 "다른 사람은 움직이는데 이 사람만 그대로"라서 모두의 변화가 필요하다
         foreach (var p in list)
         {

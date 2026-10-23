@@ -14,11 +14,24 @@ public sealed class AutoWatch
     private readonly AutoSuspicionTracker _tracker = new();
     private bool _inInstance;
     private DateTimeOffset _instanceAt = DateTimeOffset.MinValue;
+    private string? _space;
 
-    /// <summary>감시가 던전·레이드 안인지 알린다(4초마다).</summary>
-    public void SetInstance(bool inside, DateTimeOffset? now = null)
+    /// <summary>
+    /// 감시가 던전·레이드 안인지 알린다(4초마다). space는 지금 맵 이름.
+    /// 어비스에서 어비스로 옮기면 "밖으로 나갔다 들어옴"이 없어 이전 방 파티원이 "안 보임"으로 남았다(2026-10-23): 맵이 바뀌면 처음부터 다시 쌓는다.
+    /// 맵 이름이 비는 로딩 중에는 바뀐 것으로 보지 않는다.
+    /// </summary>
+    public void SetInstance(bool inside, DateTimeOffset? now = null, string? space = null)
     {
-        lock (_lock) { _inInstance = inside; _instanceAt = now ?? DateTimeOffset.UtcNow; }
+        lock (_lock)
+        {
+            _inInstance = inside; _instanceAt = now ?? DateTimeOffset.UtcNow;
+            var s = space?.Trim();
+            if (!inside) { _space = null; return; }
+            if (string.IsNullOrEmpty(s)) return;
+            if (_space != null && _space != s) _tracker.Reset();
+            _space = s;
+        }
     }
 
     public bool InInstance(DateTimeOffset? now = null)

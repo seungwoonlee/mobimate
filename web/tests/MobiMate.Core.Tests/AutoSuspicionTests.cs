@@ -281,4 +281,24 @@ public class AutoSuspicionTests
         // 전투력이 크게 다르면 다른 사람: 옛 사람은 사라진 것으로 추적된다(표시 기준 전이라 아직 의심 표시는 없다)
         Assert.DoesNotContain(t.Suspects, x => x.Player.CombatScore == 90000 && x.Reason == AutoSuspicionReason.Missing);
     }
+
+    [Fact]
+    public void AWholeNewParty_DoesNotLeaveTheOldPartyBehindAsMissing()
+    {
+        // 어비스는 나 포함 4명: 방이 바뀌면 이전 파티원 3명이 "안 보임"으로 올라오던 문제(2026-10-23)
+        var t = new AutoSuspicionTracker();
+        var now = Run(t, T0, 40, s => Fighters(s));
+        var next = new[] { P("마법사", true, 5), P("도적", true, 7), P("검술사", true, 9) };
+        now = Run(t, now.AddSeconds(1), 120, s => next.Select(p => p with { Distance = p.Distance + (s % 2) * 0.5 }).ToList());
+        Assert.DoesNotContain(t.Suspects, x => x.Reason == AutoSuspicionReason.Missing);
+    }
+
+    [Fact]
+    public void OneMemberLeaving_OfTheSameParty_IsStillMissing()
+    {
+        var t = new AutoSuspicionTracker();
+        var now = Run(t, T0, 30, s => Fighters(s));
+        now = Run(t, now.AddSeconds(1), 120, s => Fighters(s).Take(2).ToList());   // 힐러가 사라졌다, 나머지 둘은 그대로
+        Assert.Contains(t.Suspects, x => x.Reason == AutoSuspicionReason.Missing && x.Player.Job == "힐러");
+    }
 }

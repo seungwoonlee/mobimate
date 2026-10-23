@@ -91,7 +91,7 @@ public sealed class CharacterWatcher(GameQueries q, GameViews views, StatusMonit
         var map = state.Environment?.GameSpaceDisplayName;
         var inside = homework.Service.Catalog.IsAutoWatchArea(map);
         var now = DateTimeOffset.UtcNow;
-        auto.SetInstance(inside, now);
+        auto.SetInstance(inside, now, map);
         if (!inside) { auto.Observe(now, false, null); return; }
         if (auto.NeedsFast()) return;
         q.Invalidate("get_near_pcs");
