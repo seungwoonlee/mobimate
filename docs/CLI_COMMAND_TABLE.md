@@ -1,6 +1,6 @@
 # 게임 CLI 명령 표 (MabinogiMobile_CLI)
 
-> 자동 생성: `web/tools/CliResearch/make_doc.py` — 마지막 생성 2026-10-22 23:20 (게임에서 새로 읽음). CLI 실행 파일 2026-10-22 09:25.
+> 자동 생성: `web/tools/CliResearch/make_doc.py` — 마지막 생성 2026-10-23 09:56 (게임에서 새로 읽음). CLI 실행 파일 2026-10-22 09:25.
 > 손으로 쓰는 실측 메모는 `notes.json`에 더하고 다시 생성한다. 게임하는 동안 `record.py`(녹화기)를 켜 두면 값이 바뀐 필드가 `records/`에 쌓인다.
 
 ## 개요
@@ -76,17 +76,17 @@
 
 | 필드 | 타입 | 녹화 중 바뀐 횟수 |
 |---|---|---|
-| `ChannelDisplayName` | string | 20 |
-| `GameSpaceDisplayName` | string | 20 |
-| `WorldPosition.X` | number | 148 |
-| `WorldPosition.Y` | number | 147 |
-| `Weather` | string | 10 |
-| `ErinnNow` | string | 258 |
-| `Housing.IsInHousing` | bool | 38 |
-| `Housing.IsOwnedHousing` | bool | 8 |
-| `Housing.CanEnterHousing` | bool | 38 |
-| `Housing.CannotEnterHousingReason` | string | 8 |
-| `Housing.CanExitHousing` | bool | 8 |
+| `ChannelDisplayName` | string | 153 |
+| `GameSpaceDisplayName` | string | 149 |
+| `WorldPosition.X` | number | 584 |
+| `WorldPosition.Y` | number | 585 |
+| `Weather` | string | 92 |
+| `ErinnNow` | string | 1394 |
+| `Housing.IsInHousing` | bool | 255 |
+| `Housing.IsOwnedHousing` | bool | 84 |
+| `Housing.CanEnterHousing` | bool | 255 |
+| `Housing.CannotEnterHousingReason` | string | 84 |
+| `Housing.CanExitHousing` | bool | 84 |
 
 ### `write_chat`
 
@@ -104,48 +104,49 @@
 - 실측: `Dungeon.State`: 요일 던전 처치 순간부터 약 17초 `Cleared`(2026-10-12 실측). 레이드 중에는 계속 `NotInDungeon`(2026-10-22 서큐버스 실측).
 - 실측: 판정 후보(실측 필요): `Dungeon.IsBossBattleInProgress`, `IsAbyssResultSequencePlaying`(어비스 결과 연출), `Battlefield.IsInBattleField`, `Scenario.*`, `IsDialoguePlaying`.
 - 실측: 레이드 중(에이렐, 2026-10-22): `Dungeon.State`는 계속 `NotInDungeon`, `Dungeon.IsBossBattleInProgress`도 바뀌지 않았다. 레이드 판정에는 쓸 수 없다. 요일 던전·심층 던전은 처치 순간 `State`가 `Cleared`, `IsBossBattleInProgress`가 true로 바뀐다(나갈 때까지 유지).
+- 실측: **어비스 클리어 순간**(2026-10-23 09:54:15, 광기의 동굴 매우 어려움): `IsAbyssResultSequencePlaying`이 false→true가 되고(약 47초 뒤 09:55:02 true→false), 같은 순간 보상 재화가 들어오고 진행 퀘스트가 사라진다. 어비스 결과 연출이 나오는 동안만 true라 클리어 직후를 알 수 있다. 실패했을 때도 true가 되는지는 아직 못 봤다(실측 필요) — 그래서 앱은 아직 이 값만으로 완료하지 않고 재화(마물 퇴치 증표) 판정을 쓴다.
 
 | 필드 | 타입 | 녹화 중 바뀐 횟수 |
 |---|---|---|
-| `IsAutoPlaying` | bool | 31 |
-| `CanStartAutoPlay` | bool | 11 |
-| `AutoPlayTarget` | string | 24 |
-| `AutoPlayTargetDisplayName` | string | 23 |
-| `IsAutoTraveling` | bool | 132 |
-| `AutoTravelRemainingPositionCount` | int | 232 |
-| `IsDead` | bool | 8 |
-| `IsReviving` | bool | 8 |
-| `IsInCombat` | bool | 60 |
-| `IsDialoguePlaying` | bool | 10 |
-| `IsDialogueNextAvailable` | bool | 10 |
-| `IsWaitingForSelection` | bool | 8 |
-| `Dungeon.State` | string | 14 |
-| `Dungeon.IsBossBattleInProgress` | bool | 12 |
-| `Battlefield.IsInBattleField` | bool | 8 |
-| `IsAbyssResultSequencePlaying` | bool | 8 |
-| `Tutorial.IsPlaying` | bool | 8 |
-| `Scenario.IsInScenario` | bool | 8 |
-| `Scenario.IsSequencePlaying` | bool | 10 |
-| `Performance.IsPlaying` | bool | 8 |
-| `Performance.InstrumentName` | string | 8 |
-| `Performance.MusicTitle` | string | 8 |
-| `Performance.IsCopyingAllowed` | bool | 8 |
-| `Performance.IsLoop` | bool | 8 |
-| `Performance.StartAt` | string | 8 |
-| `Performance.TotalDurationSeconds` | number | 8 |
-| `Performance.ElapsedSeconds` | number | 8 |
-| `Performance.RemainingSeconds` | number | 8 |
-| `Performance.ChannelCount` | int | 8 |
-| `Interaction.HasTarget` | bool | 125 |
-| `Interaction.IsTargetAttackable` | bool | 102 |
-| `Interaction.AvailableInteractionType` | string | 44 |
-| `Interaction.LastRunningInteractionType` | string | 27 |
-| `Interaction.TargetKind` | string | 132 |
-| `Mode.MainButtonState` | string | 141 |
-| `Mode.MountPartState` | string | 47 |
-| `Mode.SitState` | string | 8 |
-| `Mode.IsPlayingMiniGame` | bool | 10 |
-| `Mode.IsHousingEditMode` | bool | 8 |
+| `IsAutoPlaying` | bool | 250 |
+| `CanStartAutoPlay` | bool | 85 |
+| `AutoPlayTarget` | string | 211 |
+| `AutoPlayTargetDisplayName` | string | 210 |
+| `IsAutoTraveling` | bool | 634 |
+| `AutoTravelRemainingPositionCount` | int | 985 |
+| `IsDead` | bool | 82 |
+| `IsReviving` | bool | 82 |
+| `IsInCombat` | bool | 354 |
+| `IsDialoguePlaying` | bool | 118 |
+| `IsDialogueNextAvailable` | bool | 112 |
+| `IsWaitingForSelection` | bool | 108 |
+| `Dungeon.State` | string | 180 |
+| `Dungeon.IsBossBattleInProgress` | bool | 137 |
+| `Battlefield.IsInBattleField` | bool | 82 |
+| `IsAbyssResultSequencePlaying` | bool | 86 |
+| `Tutorial.IsPlaying` | bool | 82 |
+| `Scenario.IsInScenario` | bool | 82 |
+| `Scenario.IsSequencePlaying` | bool | 102 |
+| `Performance.IsPlaying` | bool | 82 |
+| `Performance.InstrumentName` | string | 82 |
+| `Performance.MusicTitle` | string | 82 |
+| `Performance.IsCopyingAllowed` | bool | 82 |
+| `Performance.IsLoop` | bool | 82 |
+| `Performance.StartAt` | string | 82 |
+| `Performance.TotalDurationSeconds` | number | 82 |
+| `Performance.ElapsedSeconds` | number | 80 |
+| `Performance.RemainingSeconds` | number | 80 |
+| `Performance.ChannelCount` | int | 82 |
+| `Interaction.HasTarget` | bool | 578 |
+| `Interaction.IsTargetAttackable` | bool | 436 |
+| `Interaction.AvailableInteractionType` | string | 241 |
+| `Interaction.LastRunningInteractionType` | string | 157 |
+| `Interaction.TargetKind` | string | 606 |
+| `Mode.MainButtonState` | string | 761 |
+| `Mode.MountPartState` | string | 183 |
+| `Mode.SitState` | string | 82 |
+| `Mode.IsPlayingMiniGame` | bool | 84 |
+| `Mode.IsHousingEditMode` | bool | 82 |
 
 ### `get_my_info`
 
@@ -156,58 +157,58 @@
 
 | 필드 | 타입 | 녹화 중 바뀐 횟수 |
 |---|---|---|
-| `Title` | string | 22 |
-| `RealmName` | string | 8 |
-| `Level` | int | 8 |
-| `EnabledCombatJobDisplayName` | string | 8 |
-| `CombatScore.DisplayName` | string | 8 |
-| `CombatScore.Value` | int | 22 |
-| `LivingScore.DisplayName` | string | 8 |
-| `LivingScore.Value` | int | 9 |
-| `AttractivenessScore.DisplayName` | string | 8 |
-| `AttractivenessScore.Value` | int | 22 |
-| `DecorScore.DisplayName` | string | 8 |
-| `DecorScore.Value` | int | 8 |
-| `HealthMax.DisplayName` | string | 8 |
-| `HealthMax.Value` | int | 43 |
-| `AttackPower.DisplayName` | string | 8 |
-| `AttackPower.Value` | int | 106 |
-| `DefencePower.DisplayName` | string | 8 |
-| `DefencePower.Value` | int | 22 |
-| `ArcaneResistance.DisplayName` | string | 8 |
-| `ArcaneResistance.Value` | int | 8 |
-| `STR.DisplayName` | string | 8 |
-| `STR.Value` | int | 24 |
-| `DEX.DisplayName` | string | 8 |
-| `DEX.Value` | int | 24 |
-| `INT.DisplayName` | string | 8 |
-| `INT.Value` | int | 24 |
-| `LUCK.DisplayName` | string | 8 |
-| `LUCK.Value` | int | 36 |
-| `WILL.DisplayName` | string | 8 |
-| `WILL.Value` | int | 24 |
-| `PaladinStats.PaladinAttackPower.DisplayName` | string | 8 |
-| `PaladinStats.PaladinAttackPower.Value` | int | 8 |
-| `PaladinStats.PaladinDefencePower.DisplayName` | string | 8 |
-| `PaladinStats.PaladinDefencePower.Value` | int | 8 |
-| `PaladinStats.JusticePower.DisplayName` | string | 8 |
-| `PaladinStats.JusticePower.Value` | int | 9 |
-| `PaladinStats.JudgementPower.DisplayName` | string | 8 |
-| `PaladinStats.JudgementPower.Value` | int | 8 |
-| `PaladinStats.OrderPower.DisplayName` | string | 8 |
-| `PaladinStats.OrderPower.Value` | int | 9 |
-| `PaladinStats.BlessingPower.DisplayName` | string | 8 |
-| `PaladinStats.BlessingPower.Value` | int | 8 |
-| `Vitals.HealthCurrent` | int | 49 |
-| `Vitals.HealthMax` | int | 43 |
-| `Vitals.ShieldAmount` | int | 71 |
-| `Vitals.ShieldMax` | int | 62 |
-| `Vitals.SatietyValue` | int | 140 |
-| `Vitals.SatietyMax` | int | 8 |
-| `Vitals.SatietyRatio` | number | 140 |
-| `Vitals.InventoryWeightCurrent` | number | 46 |
-| `Vitals.InventoryWeightMax` | number | 21 |
-| `Vitals.ActiveBuffCount` | int | 114 |
+| `Title` | string | 147 |
+| `RealmName` | string | 46 |
+| `Level` | int | 46 |
+| `EnabledCombatJobDisplayName` | string | 46 |
+| `CombatScore.DisplayName` | string | 46 |
+| `CombatScore.Value` | int | 149 |
+| `LivingScore.DisplayName` | string | 46 |
+| `LivingScore.Value` | int | 49 |
+| `AttractivenessScore.DisplayName` | string | 46 |
+| `AttractivenessScore.Value` | int | 148 |
+| `DecorScore.DisplayName` | string | 46 |
+| `DecorScore.Value` | int | 48 |
+| `HealthMax.DisplayName` | string | 46 |
+| `HealthMax.Value` | int | 258 |
+| `AttackPower.DisplayName` | string | 46 |
+| `AttackPower.Value` | int | 466 |
+| `DefencePower.DisplayName` | string | 46 |
+| `DefencePower.Value` | int | 167 |
+| `ArcaneResistance.DisplayName` | string | 46 |
+| `ArcaneResistance.Value` | int | 46 |
+| `STR.DisplayName` | string | 46 |
+| `STR.Value` | int | 162 |
+| `DEX.DisplayName` | string | 46 |
+| `DEX.Value` | int | 152 |
+| `INT.DisplayName` | string | 46 |
+| `INT.Value` | int | 154 |
+| `LUCK.DisplayName` | string | 46 |
+| `LUCK.Value` | int | 194 |
+| `WILL.DisplayName` | string | 46 |
+| `WILL.Value` | int | 158 |
+| `PaladinStats.PaladinAttackPower.DisplayName` | string | 46 |
+| `PaladinStats.PaladinAttackPower.Value` | int | 46 |
+| `PaladinStats.PaladinDefencePower.DisplayName` | string | 46 |
+| `PaladinStats.PaladinDefencePower.Value` | int | 46 |
+| `PaladinStats.JusticePower.DisplayName` | string | 46 |
+| `PaladinStats.JusticePower.Value` | int | 47 |
+| `PaladinStats.JudgementPower.DisplayName` | string | 46 |
+| `PaladinStats.JudgementPower.Value` | int | 46 |
+| `PaladinStats.OrderPower.DisplayName` | string | 46 |
+| `PaladinStats.OrderPower.Value` | int | 47 |
+| `PaladinStats.BlessingPower.DisplayName` | string | 46 |
+| `PaladinStats.BlessingPower.Value` | int | 46 |
+| `Vitals.HealthCurrent` | int | 293 |
+| `Vitals.HealthMax` | int | 258 |
+| `Vitals.ShieldAmount` | int | 251 |
+| `Vitals.ShieldMax` | int | 233 |
+| `Vitals.SatietyValue` | int | 724 |
+| `Vitals.SatietyMax` | int | 46 |
+| `Vitals.SatietyRatio` | number | 724 |
+| `Vitals.InventoryWeightCurrent` | number | 335 |
+| `Vitals.InventoryWeightMax` | number | 148 |
+| `Vitals.ActiveBuffCount` | int | 515 |
 
 ### `get_quests`
 
@@ -221,10 +222,19 @@
 - 실측: **레이드 클리어 = 퀘스트**(2026-10-22 에이렐 매우 어려움 실측): 레이드 지역에 들어가면 `[에이렐] 클리어`(목표: 파티의 남은 부활 횟수 5/5)가 뜨고, 처치 약 10초 뒤 `[에이렐] 토벌 완료`(목표: 포탈을 사용하여 출항선으로 이동)로 바뀐다. 앱은 `<보스> 토벌 완료`가 보이면 그 레이드를 완료로 본다(카브락·서큐버스 이름은 같은 형식으로 추정, 실측 필요).
 - 실측: **뱅가드 브리치**(2026-10-22 힐러#2 1회 실측): 평소 트래커에 `[긴급 의뢰] 뱅가드 브리치`(목표 `작전 장소로 이동 N/3`, 캐릭터별 진행)가 있다. 안에 들어가면 `뱅가드 브리치 클리어`(목표가 단계별로 바뀜: 소환의 결계 활성화 → 적 처치 → 캠프파이어 → 지름길 → 이동 → 보스 처치하기)로 바뀌고, 처치 순간 목록이 잠깐 빈 뒤 `[긴급 의뢰]`가 돌아오면서 `0/3 → 1/3`이 된다. 지역 이름 `뱅가드 브리치 • 늑대의 숲`. 앱은 이 N/3으로 남은 횟수를 센다.
 - 실측: 뱅가드 처치 순간마다 퀘스트 목록이 잠깐 빈다. 3/3을 채운 뒤 `[긴급 의뢰]`가 어떻게 남는지는 아직 못 봤다(바로 이벤트 맵으로 이동해 목록이 비어 있었다).
+- 실측: **어비스 진행 퀘스트**: 어비스 지역에 들어가면 `[<던전 이름>] 클리어`(예: `[광기의 동굴] 클리어`)가 트래커에 뜨고, 클리어 순간(결과 연출이 시작될 때) 사라진다. 연출이 끝나면(약 47초 뒤) 다시 뜬다. 던전 안에서는 목록이 자주 잠깐 빈다(몬스터 처치 등 퀘스트 갱신). 난이도는 퀘스트 이름에 없다.
 
 | 필드 | 타입 | 녹화 중 바뀐 횟수 |
 |---|---|---|
-| `[]` | array | 85 |
+| `[]` | array | 584 |
+| `[].QuestTitle` | string | 970 |
+| `[].Source` | string | 970 |
+| `[].SourceDisplayName` | string | 970 |
+| `[].Objectives[]` | array |  |
+| `[].Objectives[].Description` | string | 1188 |
+| `[].Objectives[].IsCompleted` | bool | 1188 |
+| `[].Objectives[].Count` | int | 1188 |
+| `[].Objectives[].Goal` | int | 1188 |
 
 ### `get_currencies`
 
@@ -234,12 +244,13 @@
 - 실측: 에이렐 매우 어려움(2026-10-22 22:55:05): 골드 +101,200, 하트 토큰 +3 — 토벌 완료 퀘스트보다 약 10초 먼저 들어온다.
 - 실측: 뱅가드 브리치 1회(2026-10-22): 골드 +100,000, 마물 퇴치 증표 +10, 정령의 날개 +300.
 - 실측: 뱅가드 브리치 2·3회(2026-10-22): 2회째 골드 +100,000, 3회째 +120,000(정령의 날개 +300·증표 +10은 같다). 던전 안 몹 골드는 +99 수준.
+- 실측: 어비스 클리어(2026-10-23 09:54:15, 광기의 동굴): 마물 퇴치 증표 +300, 골드 +100,200, 하트 토큰 +1 — 연출이 시작되는 순간 한 번에 들어온다. 허상의 정박지 클리어도 증표 +300. (이 값은 앞서 매우 어려움 실측과 같아 난이도 '매우 어려움'으로 보인다; 매우 어려움 2는 다시 측정한다.)
 
 | 필드 | 타입 | 녹화 중 바뀐 횟수 |
 |---|---|---|
-| `[]` | array |  |
-| `[].DisplayName` | string | 290 |
-| `[].Amount` | int | 347 |
+| `[]` | array | 2 |
+| `[].DisplayName` | string | 2320 |
+| `[].Amount` | int | 2725 |
 
 ### `get_near_npcs`
 
@@ -249,7 +260,7 @@
 
 | 필드 | 타입 | 녹화 중 바뀐 횟수 |
 |---|---|---|
-| `[]` | array | 6 |
+| `[]` | array | 46 |
 
 ### `get_near_pcs`
 
@@ -261,35 +272,35 @@
 
 | 필드 | 타입 | 녹화 중 바뀐 횟수 |
 |---|---|---|
-| `[]` | array | 22 |
-| `[].RealmName` | string | 809 |
-| `[].Title` | string | 804 |
-| `[].Distance` | number | 1543 |
-| `[].ClothesCount` | int | 945 |
-| `[].CrowdAppearanceColorCount` | int | 804 |
-| `[].IsRobeWeared` | bool | 868 |
-| `[].IsHoodOn` | bool | 900 |
-| `[].IsWeaponHidden` | bool | 860 |
-| `[].Performance.IsPlaying` | bool | 804 |
-| `[].Performance.MusicTitle` | string | 804 |
-| `[].Performance.IsCopyingAllowed` | bool | 804 |
-| `[].Performance.IsLoop` | bool | 804 |
-| `[].Performance.StartAt` | string | 804 |
-| `[].Performance.TotalDurationSeconds` | number | 804 |
-| `[].Performance.ElapsedSeconds` | number | 811 |
-| `[].Performance.RemainingSeconds` | number | 811 |
-| `[].Performance.ChannelCount` | int | 804 |
-| `[].Level` | int | 807 |
-| `[].EnabledCombatJobDisplayName` | string | 966 |
-| `[].CombatScore` | int | 985 |
-| `[].LivingScore` | int | 973 |
-| `[].AttractivenessScore` | int | 983 |
-| `[].IsFriend` | bool | 804 |
-| `[].IsInParty` | bool | 808 |
-| `[].HasGuild` | bool | 818 |
-| `[].IsSameGuild` | bool | 804 |
-| `[].IsCoOwner` | bool | 804 |
-| `[].IsInCombat` | bool | 864 |
+| `[]` | array | 170 |
+| `[].RealmName` | string | 5007 |
+| `[].Title` | string | 5000 |
+| `[].Distance` | number | 7737 |
+| `[].ClothesCount` | int | 5493 |
+| `[].CrowdAppearanceColorCount` | int | 5000 |
+| `[].IsRobeWeared` | bool | 5236 |
+| `[].IsHoodOn` | bool | 5298 |
+| `[].IsWeaponHidden` | bool | 5200 |
+| `[].Performance.IsPlaying` | bool | 5018 |
+| `[].Performance.MusicTitle` | string | 5018 |
+| `[].Performance.IsCopyingAllowed` | bool | 5015 |
+| `[].Performance.IsLoop` | bool | 5013 |
+| `[].Performance.StartAt` | string | 5018 |
+| `[].Performance.TotalDurationSeconds` | number | 5018 |
+| `[].Performance.ElapsedSeconds` | number | 5113 |
+| `[].Performance.RemainingSeconds` | number | 5113 |
+| `[].Performance.ChannelCount` | int | 5018 |
+| `[].Level` | int | 5011 |
+| `[].EnabledCombatJobDisplayName` | string | 5571 |
+| `[].CombatScore` | int | 5667 |
+| `[].LivingScore` | int | 5619 |
+| `[].AttractivenessScore` | int | 5635 |
+| `[].IsFriend` | bool | 5003 |
+| `[].IsInParty` | bool | 5066 |
+| `[].HasGuild` | bool | 5083 |
+| `[].IsSameGuild` | bool | 5000 |
+| `[].IsCoOwner` | bool | 5000 |
+| `[].IsInCombat` | bool | 5267 |
 
 ### `get_inventory`
 
@@ -300,10 +311,10 @@
 
 | 필드 | 타입 | 녹화 중 바뀐 횟수 |
 |---|---|---|
-| `CurrentInventoryWeight` | number | 46 |
-| `CurrentInventoryWeightAsDecimal` | int | 38 |
-| `MaxInventoryWeight` | number | 21 |
-| `MaxInventoryWeightAsDecimal` | int | 21 |
+| `CurrentInventoryWeight` | number | 331 |
+| `CurrentInventoryWeightAsDecimal` | int | 306 |
+| `MaxInventoryWeight` | number | 144 |
+| `MaxInventoryWeightAsDecimal` | int | 144 |
 
 ### `get_music_scores`
 
@@ -314,10 +325,10 @@
 | 필드 | 타입 | 녹화 중 바뀐 횟수 |
 |---|---|---|
 | `[]` | array |  |
-| `[].Location` | string |  |
-| `[].DisplayTitle` | string |  |
-| `[].IsCopyingAllowed` | bool |  |
-| `[].IsLocked` | bool |  |
+| `[].Location` | string | 71 |
+| `[].DisplayTitle` | string | 71 |
+| `[].IsCopyingAllowed` | bool | 71 |
+| `[].IsLocked` | bool | 71 |
 
 ### `play_music_score`
 
@@ -335,9 +346,9 @@
 | 필드 | 타입 | 녹화 중 바뀐 횟수 |
 |---|---|---|
 | `[]` | array |  |
-| `[].Name` | string |  |
-| `[].Durability` | int |  |
-| `[].IsEquipped` | bool |  |
+| `[].Name` | string | 151 |
+| `[].Durability` | int | 151 |
+| `[].IsEquipped` | bool | 155 |
 
 ### `change_instrument`
 
@@ -358,12 +369,12 @@
 | 필드 | 타입 | 녹화 중 바뀐 횟수 |
 |---|---|---|
 | `[]` | array |  |
-| `[].Location` | string | 13 |
-| `[].DisplayName` | string | 13 |
-| `[].Category` | string | 13 |
-| `[].CategoryDisplayName` | string | 13 |
-| `[].Count` | int | 112 |
-| `[].IsLocked` | bool | 13 |
+| `[].Location` | string | 9098 |
+| `[].DisplayName` | string | 9098 |
+| `[].Category` | string | 9098 |
+| `[].CategoryDisplayName` | string | 9098 |
+| `[].Count` | int | 10890 |
+| `[].IsLocked` | bool | 9108 |
 
 ### `get_social_actions`
 
@@ -374,11 +385,11 @@
 | 필드 | 타입 | 녹화 중 바뀐 횟수 |
 |---|---|---|
 | `Behaviours[]` | array |  |
-| `Behaviours[].DisplayName` | string |  |
-| `Behaviours[].ChatCommands[]` | string |  |
+| `Behaviours[].DisplayName` | string | 1164 |
+| `Behaviours[].ChatCommands[]` | string | 1367 |
 | `Facials[]` | array |  |
-| `Facials[].DisplayName` | string |  |
-| `Facials[].EmojiText` | string |  |
+| `Facials[].DisplayName` | string | 300 |
+| `Facials[].EmojiText` | string | 300 |
 
 ### `stop_action`
 
@@ -402,13 +413,13 @@
 | 필드 | 타입 | 녹화 중 바뀐 횟수 |
 |---|---|---|
 | `[]` | array |  |
-| `[].Title` | string | 66 |
-| `[].Description` | string | 66 |
-| `[].CurrentCount` | int | 89 |
-| `[].GoalCount` | int | 66 |
-| `[].IsCompleted` | bool | 71 |
-| `[].IsRewardReceived` | bool | 73 |
-| `[].HasShortcut` | bool | 66 |
+| `[].Title` | string | 484 |
+| `[].Description` | string | 484 |
+| `[].CurrentCount` | int | 715 |
+| `[].GoalCount` | int | 484 |
+| `[].IsCompleted` | bool | 575 |
+| `[].IsRewardReceived` | bool | 596 |
+| `[].HasShortcut` | bool | 484 |
 
 ### `get_weekly_missions`
 
@@ -424,13 +435,13 @@
 | 필드 | 타입 | 녹화 중 바뀐 횟수 |
 |---|---|---|
 | `[]` | array |  |
-| `[].Title` | string | 56 |
-| `[].Description` | string | 56 |
-| `[].CurrentCount` | int | 59 |
-| `[].GoalCount` | int | 56 |
-| `[].IsCompleted` | bool | 57 |
-| `[].IsRewardReceived` | bool | 57 |
-| `[].HasShortcut` | bool | 56 |
+| `[].Title` | string | 588 |
+| `[].Description` | string | 588 |
+| `[].CurrentCount` | int | 594 |
+| `[].GoalCount` | int | 588 |
+| `[].IsCompleted` | bool | 590 |
+| `[].IsRewardReceived` | bool | 589 |
+| `[].HasShortcut` | bool | 588 |
 
 ### `get_gatherable_items`
 
@@ -442,8 +453,8 @@
 | 필드 | 타입 | 녹화 중 바뀐 횟수 |
 |---|---|---|
 | `items[]` | array |  |
-| `items[].DisplayName` | string |  |
-| `items[].ToolOk` | bool |  |
+| `items[].DisplayName` | string | 1877 |
+| `items[].ToolOk` | bool | 1947 |
 
 ### `execute_gathering`
 
@@ -463,14 +474,14 @@
 | 필드 | 타입 | 녹화 중 바뀐 횟수 |
 |---|---|---|
 | `items[]` | array |  |
-| `items[].DisplayName` | string |  |
-| `items[].Alterable` | bool | 3 |
-| `items[].ProducedPerWork` | int |  |
-| `items[].Reason` | string | 3 |
+| `items[].DisplayName` | string | 1044 |
+| `items[].Alterable` | bool | 1088 |
+| `items[].ProducedPerWork` | int | 1044 |
+| `items[].Reason` | string | 996 |
 | `items[].MissingIngredients[]` | array |  |
-| `items[].MissingIngredients[].DisplayName` | string | 4 |
-| `items[].MissingIngredients[].Required` | int | 4 |
-| `items[].MissingIngredients[].Owned` | int | 15 |
+| `items[].MissingIngredients[].DisplayName` | string | 1748 |
+| `items[].MissingIngredients[].Required` | int | 1748 |
+| `items[].MissingIngredients[].Owned` | int | 1900 |
 
 ### `get_altering_works`
 
@@ -481,13 +492,13 @@
 
 | 필드 | 타입 | 녹화 중 바뀐 횟수 |
 |---|---|---|
-| `completedCount` | int |  |
+| `completedCount` | int | 29 |
 | `works[]` | array |  |
-| `works[].DisplayName` | string |  |
-| `works[].FacilityName` | string |  |
-| `works[].State` | string |  |
-| `works[].IsCompleted` | bool |  |
-| `works[].RemainingSeconds` | int |  |
+| `works[].DisplayName` | string | 60 |
+| `works[].FacilityName` | string | 60 |
+| `works[].State` | string | 73 |
+| `works[].IsCompleted` | bool | 70 |
+| `works[].RemainingSeconds` | int | 141 |
 
 ### `execute_altering`
 
@@ -513,16 +524,16 @@
 
 | 필드 | 타입 | 녹화 중 바뀐 횟수 |
 |---|---|---|
-| `craftingUnlocked` | bool |  |
+| `craftingUnlocked` | bool | 12 |
 | `items[]` | array |  |
-| `items[].DisplayName` | string |  |
-| `items[].Craftable` | bool | 1 |
-| `items[].ProducedPerCraft` | int |  |
-| `items[].Reason` | string | 1 |
+| `items[].DisplayName` | string | 21115 |
+| `items[].Craftable` | bool | 22585 |
+| `items[].ProducedPerCraft` | int | 21115 |
+| `items[].Reason` | string | 17819 |
 | `items[].MissingIngredients[]` | array |  |
-| `items[].MissingIngredients[].DisplayName` | string | 11 |
-| `items[].MissingIngredients[].Required` | int | 11 |
-| `items[].MissingIngredients[].Owned` | int | 34 |
+| `items[].MissingIngredients[].DisplayName` | string | 39868 |
+| `items[].MissingIngredients[].Required` | int | 39875 |
+| `items[].MissingIngredients[].Owned` | int | 43534 |
 
 ### `execute_crafting`
 
@@ -535,7 +546,7 @@
 
 게임의 IL2CPP 문자열 표(`MabinogiMobile_Data/il2cpp_data/Metadata/global-metadata.dat`)에서 뽑은 이름이다. 공개 목록(capabilities)에는 없다. 조회형만 실제로 불러 확인한다.
 
-| 명령 | 상태 (확인 2026-10-22T23:20) |
+| 명령 | 상태 (확인 2026-10-23T09:56) |
 |---|---|
 | `game_list_destinations` | unknown_command |
 | `get_camera_state` | unknown_command |
@@ -664,3 +675,4 @@
 - 2026-10-22: 레이드 클리어를 CLI로 직접 확인하는 방법 발견 — `get_quests`의 `<보스> 토벌 완료` 퀘스트. 녹화기로 에이렐 매우 어려움 한 판을 기록해 확인.
 - 2026-10-22: 뱅가드 브리치 1회 녹화 — 캐릭터별 진행은 `[긴급 의뢰] 뱅가드 브리치`의 목표 N/3, 던전 안 퀘스트 `뱅가드 브리치 클리어`, 지역 이름 확인.
 - 2026-10-22: 뱅가드 3회 연속 녹화 — 매 판 처치 순간 골드 +10만~12만으로 클리어를 셀 수 있음 확인. 앱은 퀘스트 N/3 + 지역 안 골드로 횟수를 세도록 변경.
+- 2026-10-23: 어비스 2곳 연속 클리어 녹화 — 결과 연출 플래그(IsAbyssResultSequencePlaying)·진행 퀘스트 `[<던전>] 클리어`의 사라짐·보상 재화가 같은 순간에 일어남. 어비스에서 어비스로 옮길 때 맵 이름만 바뀌고 주변 파티원이 전부 바뀐다(오토 의심 초기화 버그의 원인).
