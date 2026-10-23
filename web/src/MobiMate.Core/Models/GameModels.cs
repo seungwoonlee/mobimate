@@ -198,11 +198,22 @@ public record NearPcItem(
     [property: JsonPropertyName("IsFriend")] bool IsFriend,
     [property: JsonPropertyName("IsInCombat")] bool IsInCombat,
     [property: JsonPropertyName("HasGuild")] bool HasGuild = false,
-    [property: JsonPropertyName("Performance")] PerformanceInfo? Performance = null
+    [property: JsonPropertyName("Performance")] PerformanceInfo? Performance = null,
+    [property: JsonPropertyName("LivingScore")] long LivingScore = 0,
+    [property: JsonPropertyName("AttractivenessScore")] long AttractivenessScore = 0,
+    [property: JsonPropertyName("ClothesCount")] int ClothesCount = 0,
+    [property: JsonPropertyName("CrowdAppearanceColorCount")] int ColorCount = 0,
+    [property: JsonPropertyName("IsRobeWeared")] bool IsRobeWeared = false,
+    [property: JsonPropertyName("IsHoodOn")] bool IsHoodOn = false,
+    [property: JsonPropertyName("IsWeaponHidden")] bool IsWeaponHidden = false
 );
 
-/// <summary>get_near_pcs의 Performance: 악기를 연주 중인지(IsPlaying). 나머지 값(곡 이름·시간)은 쓰지 않는다.</summary>
-public record PerformanceInfo([property: JsonPropertyName("IsPlaying")] bool IsPlaying = false);
+/// <summary>get_near_pcs의 Performance: 연주 중인지(IsPlaying)와, 연주 중일 때만 오는 곡 이름·남은 시간(초)·채널 수.</summary>
+public record PerformanceInfo(
+    [property: JsonPropertyName("IsPlaying")] bool IsPlaying = false,
+    [property: JsonPropertyName("MusicTitle")] string? MusicTitle = null,
+    [property: JsonPropertyName("RemainingSeconds")] double? RemainingSeconds = null,
+    [property: JsonPropertyName("ChannelCount")] int? ChannelCount = null);
 
 // 9-1. 퀘스트 트래커 (get_quests). 제목·목표 문구에 유니티 리치텍스트 태그가 섞여 온다 (K-04).
 public record QuestObjective(

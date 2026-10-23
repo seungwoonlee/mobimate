@@ -231,8 +231,30 @@ button.toast { border: 0; text-align: left; cursor: pointer; }
 .score-main{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .score-main .lbl{display:block;font-size:12px;color:var(--text-2);font-weight:600;margin-bottom:2px}
 .score-main .big{font-size:calc(40px * var(--scale))}
+.nb-table{container-type:inline-size;padding:8px 10px;min-width:0}
+.nb-body{list-style:none;margin:0;padding:0}
+.nb-row{display:grid;grid-template-columns:4.2em minmax(110px,1.3fr) 44px minmax(76px,.9fr) minmax(70px,.8fr) minmax(70px,.8fr) minmax(110px,1.4fr) minmax(90px,1fr) minmax(130px,1.6fr) 56px;column-gap:10px;align-items:center;padding:7px 6px;font-size:14px}
+.nb-head{font-size:12px;color:var(--text-3);padding-bottom:4px;border-bottom:1px solid var(--line)}
+.nb-body .nb-row{border-bottom:1px solid var(--line)}
+.nb-body .nb-row:last-child{border-bottom:0}
+.nb-row.pl-row{justify-content:normal}
+.nb-c{min-width:0;display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 6px}
+.nb-out,.nb-st{flex-direction:column;align-items:flex-start;gap:1px}
+.nb-play{color:var(--text-2);overflow-wrap:anywhere}
+.nb-title{overflow-wrap:anywhere}
+.nb-row .pl{font-size:14px}
+@container (max-width: 760px){
+  .nb-head{display:none}
+  .nb-row{grid-template-columns:repeat(3,minmax(0,1fr));row-gap:6px;padding:10px 6px}
+  .nb-rel{grid-column:1 / -1}
+  .nb-rel:empty,.nb-rel:has(.pl-tag:empty){display:none}
+  .nb-job,.nb-title,.nb-st{grid-column:1 / -1}
+  .nb-c::before{content:attr(data-label);font-size:11px;color:var(--text-3);width:100%}
+  .nb-rel::before,.nb-job::before{content:none}
+}
 .pl-list{display:grid;gap:6px;margin-top:4px}
-.pl-list.big{gap:2px}
+.pl-list.big{display:block;column-width:280px;column-gap:20px}
+.pl-list.big>*{break-inside:avoid}
 .pl-row{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:8px 4px;border-bottom:1px solid var(--line)}
 .pl-row:last-child{border-bottom:0}
 .pl{display:inline-flex;align-items:baseline;gap:6px;flex-wrap:wrap;min-width:0;font-size:14px}
@@ -249,7 +271,7 @@ button.toast { border: 0; text-align: left; cursor: pointer; }
 
 /* ── 스탯·재화 타일 ── */
 .tiles.five{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
-.tiles.core{grid-template-columns:repeat(auto-fit,minmax(180px,1fr))}
+.tiles.core{grid-template-columns:repeat(auto-fill,minmax(200px,280px))}
 .tile.big .v{font-size:calc(34px * var(--scale))}
 .group-h{margin:6px 0 8px;font-size:13px;font-weight:600;color:var(--text-2);letter-spacing:.02em}
 .vitals{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
@@ -794,7 +816,13 @@ button.hw-cell:focus-visible { outline: 2px solid var(--accent); outline-offset:
 .st-note{padding:6px 6px 2px}
 .st-now{margin-top:12px;padding-bottom:10px}
 .st-now-g{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px 18px;align-items:end}
-.st-cut{margin-top:12px}
+.sat{margin-top:12px;display:grid;gap:4px}
+.st-acct{display:flex;align-items:center;gap:8px;margin:0 0 6px;font-size:15px}
+.st-table+.st-table{margin-top:10px}
+.st-cut-h{margin:14px 2px 8px}
+/* 박스 폭을 창 크기에 맞춰 열 수로 나눈다(캐릭 탭과 같은 방식): 박스가 길게 늘어나 안쪽이 비지 않는다 */
+.st-cut{column-width:280px;column-gap:10px}
+.st-cut>*{break-inside:avoid;margin:0 0 10px}
 @container (max-width: 760px){
   .st-head{display:none}
   .st-row{grid-template-columns:repeat(3,minmax(0,1fr));row-gap:6px;padding:10px 6px}

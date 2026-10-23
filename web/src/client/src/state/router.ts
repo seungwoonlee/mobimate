@@ -11,7 +11,7 @@ export const ROUTES: { name: RouteName; path: string; label: string; icon: strin
   { name: 'inventory', path: '/inventory', label: '가방', icon: 'bag', key: '5' },
   { name: 'currencies', path: '/currencies', label: '재화', icon: 'coins', key: '6' },
   { name: 'life', path: '/life', label: '생활', icon: 'leaf', key: '7' },
-  { name: 'nearby', path: '/nearby', label: '레이더', icon: 'radar', key: '8' },
+  { name: 'nearby', path: '/nearby', label: '주변', icon: 'radar', key: '8' },
   { name: 'settings', path: '/settings', label: '설정', icon: 'gear' },
 ];
 

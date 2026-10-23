@@ -167,6 +167,9 @@ button{cursor:pointer}
 .search .ic{width:16px;height:16px;color:var(--text-3)}
 .search input{border:0;outline:0;background:transparent;flex:1;min-width:0;font-size:14px}
 .list{display:grid;border:1px solid var(--line);border-radius:14px;background:var(--bg-2);overflow:hidden}
+/* 넓은 화면의 목록: 한 줄 전폭이면 이름과 값 사이가 텅 비므로 여러 열로 나눈다 */
+.list.cols{display:block;column-width:280px;column-gap:8px;border:0;background:none;border-radius:0;overflow:visible}
+.list.cols .row{break-inside:avoid;margin:0 0 8px;border:1px solid var(--line);border-radius:12px;background:var(--bg-2)}
 .row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 12px;align-items:center;padding:10px 14px;border-top:1px solid var(--line)}
 .row:first-child{border-top:0}
 .row .t{font-weight:600;display:flex;align-items:center;gap:6px;min-width:0}

@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { useHomework, useInventory, useOverview } from '../api/queries';
+import { useCharacter, useHomework, useInventory, useOverview } from '../api/queries';
 import type { CutoffContent, Header, HomeworkCard, InvItem, Life, Nearby, Overview as OverviewData } from '../api/types';
 import { CardHead, Delta, Dialog, ErrorCard, Fresh, Gauge, Icon, JobIcon, LevelState, LinkCard, Pill, Ring, Skeleton } from '../components/ui';
 import { useLayout, useNow } from '../hooks/layout';
 import { collectAll, stopAction } from '../lib/actions';
 import { useBusy } from '../lib/busy';
 import { fmt, plain, remaining, short, until } from '../lib/format';
-import { scoreClass } from '../lib/score';
+import { scoreClass, vitalLevel } from '../lib/score';
 import { useDevice } from '../state/device';
 import { useRouter } from '../state/router';
 import { CUTOFF_STATUS } from './cutoffs';
@@ -97,6 +97,8 @@ function ScoresCard({ h }: { h: Header }) {
 function WeightCard({ h }: { h: Header }) {
   const w = h.weight;
   const inv = useInventory();
+  const sat = useCharacter().data?.data.character?.Vitals;
+  const satPct = sat?.SatietyMax ? (sat.SatietyValue / sat.SatietyMax) * 100 : 0;
   const grown = merged(inv.data?.data.items ?? [])
     .filter(x => x.location === 'bag' && !x.locked && x.sessionDelta > 0)
     .sort((a, b) => b.sessionDelta - a.sessionDelta || b.count - a.count)
@@ -111,6 +113,12 @@ function WeightCard({ h }: { h: Header }) {
           <div className="spread"><LevelState level={w.level} /><span className="faint num">{w.current.toFixed(1)} / {fmt(w.max)}</span></div>
         </>
       ) : <p className="muted">무게 정보가 없습니다.</p>}
+      {sat && (
+        <div className="sat">
+          <div className="spread"><span className="muted small">만복도</span><span className="num small">{fmt(sat.SatietyValue)} / {fmt(sat.SatietyMax)}</span></div>
+          <Gauge pct={satPct} level={vitalLevel(satPct)} label="만복도" />
+        </div>
+      )}
       <div className="grown">
         <div className="grown-h faint small">최근 늘어난 아이템 <span className="weak">· 이번 접속</span></div>
         {grown.length === 0

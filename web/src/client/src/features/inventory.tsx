@@ -1,11 +1,11 @@
 import { useDeferredValue, useMemo, useState } from 'react';
 import { useCurrencies, useInventory, useNearby } from '../api/queries';
-import type { Currency, InvItem } from '../api/types';
-import { Delta, ErrorCard, Fresh, Gauge, Icon, LevelState, Pill, Skeleton } from '../components/ui';
+import type { Currency, InvItem, NearPlayer } from '../api/types';
+import { Delta, ErrorCard, Fresh, Gauge, Icon, JobIcon, LevelState, Pill, Skeleton } from '../components/ui';
 import { setFavorite } from '../lib/actions';
 import { fmt, plain } from '../lib/format';
 import { useRouter } from '../state/router';
-import { autoStyle, MissingLine, PlayerLine } from './players';
+import { AutoBadge, autoStyle, jobLabel, MissingLine, REL_TAG, REL_TEXT } from './players';
 
 const LOC: Record<string, string> = { bag: '가방', account: '계정 창고', character: '캐릭터 창고' };
 const SEGS: [string, string][] = [['all', '전체'], ['fav', '★ 즐겨찾기'], ['bag', '가방'], ['account', '계정 창고'], ['character', '캐릭터 창고'], ['diet', '⚖ 다이어트']];
@@ -62,7 +62,7 @@ export function InventoryView() {
       </div>
       {loc === 'diet' && <p className="muted small m0">가방 안 잠금 해제 아이템 중 <b>이번 접속에 늘어난 순</b> → 많이 가진 순입니다.</p>}
       {rows.length === 0 ? <div className="card muted">{loc === 'fav' ? '즐겨찾기한 아이템이 없습니다. 아이템 옆 별을 눌러 추가하세요.' : '조건에 맞는 아이템이 없습니다.'}</div> : (
-        <div className="list" role="list">
+        <div className="list cols" role="list">
           {rows.map(r => (
             <div className={`row ${r.favorite ? 'fav' : ''}`} role="listitem" key={`${r.location}|${r.name}`}>
               <div className="t">
@@ -157,9 +157,33 @@ export function CurrenciesView() {
 }
 
 /**
- * 주변 레이더 (FR-DT-06·30~34): 파티원 > 친구 > 길드원 > 그 외(서버 정렬), 한 줄에 클래스 - 레벨 - 전투력 - 칭호.
- * 친구·길드원은 색과 굵은 글씨, 나보다 강하면 전투력 숫자의 색으로만 알린다. 길드원만 보기 필터.
+ * 주변 (FR-DT-06·30~34): 파티원 > 친구 > 길드원 > 그 외(서버 정렬)를 표로 보인다. 열: 관계 · 직업 · 레벨 · 전투력 · 생활력 · 매력 · 칭호 · 복장 · 상태 · 거리.
+ * 게임은 캐릭터 이름을 주지 않아 이름 열은 없다. 친구·길드원은 색과 굵은 글씨, 나보다 강하면 전투력 숫자의 색으로만 알린다. 길드원만 보기 필터.
  */
+const mmss = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+
+function Outfit({ p }: { p: NearPlayer }) {
+  const flags = [p.robe && '로브', p.hood && '후드', p.weaponHidden && '무기 숨김'].filter(Boolean).join('·');
+  return (
+    <span className="nb-c nb-out" data-label="복장">
+      {p.clothes > 0 || p.colors > 0 ? <span className="num">옷 {p.clothes} · {p.colors}색</span> : <span className="faint">–</span>}
+      {flags && <span className="faint small">{flags}</span>}
+    </span>
+  );
+}
+
+function Status({ p }: { p: NearPlayer }) {
+  const perf = p.performing;
+  return (
+    <span className="nb-c nb-st" data-label="상태">
+      {p.inCombat && <span className="pl-combat">전투 중</span>}
+      {perf && <span className="nb-play" title={perf.title ?? undefined}>연주 중{perf.title ? ` · ${perf.title}` : ''}{perf.remaining != null ? ` (${mmss(perf.remaining)})` : ''}</span>}
+      {p.autoSuspect && <AutoBadge reason={p.autoSuspect.reason} seconds={p.autoSuspect.seconds} intensity={p.autoSuspect.intensity} />}
+      {!p.inCombat && !perf && !p.autoSuspect && <span className="faint">–</span>}
+    </span>
+  );
+}
+
 export function NearbyView() {
   const q = useNearby();
   const [guildOnly, setGuildOnly] = useState(false);
@@ -170,20 +194,31 @@ export function NearbyView() {
   return (
     <>
       <div className="view-head">
-        <h2>주변 플레이어 <span className="num muted">({d.count}명)</span></h2>
+        <h2>주변 <span className="num muted">({d.count}명)</span></h2>
         <span className="sub"><Fresh at={q.dataUpdatedAt} /> <button type="button" className="chip" aria-pressed={guildOnly} onClick={() => setGuildOnly(v => !v)}>길드원만</button></span>
       </div>
       {rows.length === 0 ? <div className="card muted">주변에 표시할 플레이어가 없습니다.</div> : (
-        <div className="card">
-          <div className="pl-list big" role="list">
-            {rows.map((p, i) => (
-              <div className={`pl-row${p.autoSuspect ? ' auto-suspect' : ''}`} style={p.autoSuspect ? autoStyle(p.autoSuspect.intensity) : undefined} role="listitem" key={`${p.job}|${p.level}|${p.combatScore}|${i}`}>
-                <PlayerLine p={p} myRealm={d.myRealm} />
-                <span className="num faint small">{p.distance.toFixed(1)}m</span>
-              </div>
-            ))}
+        <section className="card nb-table" aria-label="주변 플레이어">
+          <div className="nb-row nb-head" aria-hidden="true">
+            <span>관계</span><span>직업</span><span>Lv</span><span>전투력</span><span>생활력</span><span>매력</span><span>칭호</span><span>복장</span><span>상태</span><span>거리</span>
           </div>
-        </div>
+          <ul className="nb-body">
+            {rows.map((p, i) => (
+              <li className={`nb-row pl-row ${p.relation}${p.autoSuspect ? ' auto-suspect' : ''}`} style={p.autoSuspect ? autoStyle(p.autoSuspect.intensity) : undefined} key={`${p.job}|${p.level}|${p.combatScore}|${i}`}>
+                <span className="nb-c nb-rel" data-label="관계"><span className={`pl ${p.relation}`}><span className="pl-tag" aria-label={REL_TEXT[p.relation] || undefined}>{REL_TAG[p.relation]}</span></span></span>
+                <span className={`nb-c nb-job pl ${p.relation}`} data-label="직업"><span className="pl-job"><JobIcon job={p.job} size={17} />{jobLabel(p.job, p.realm, d.myRealm)}</span></span>
+                <span className="nb-c num" data-label="Lv">{p.level}</span>
+                <span className={`nb-c num pl-cs ${p.isStronger ? 'stronger' : ''}`} data-label="전투력">{fmt(p.combatScore)}{p.isStronger && <span className="sr-only"> (나보다 강함)</span>}</span>
+                <span className="nb-c num" data-label="생활력">{p.living > 0 ? fmt(p.living) : <span className="faint">–</span>}</span>
+                <span className="nb-c num" data-label="매력">{p.attract > 0 ? fmt(p.attract) : <span className="faint">–</span>}</span>
+                <span className={`nb-c nb-title pl ${p.relation}`} data-label="칭호"><span className="pl-title">{p.title || <span className="faint">–</span>}</span></span>
+                <Outfit p={p} />
+                <Status p={p} />
+                <span className="nb-c num faint small nb-dist" data-label="거리">{p.distance.toFixed(1)}m</span>
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
       {(d.missing?.length ?? 0) > 0 && (
         <div className="card">
