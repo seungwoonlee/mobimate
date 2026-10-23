@@ -13,19 +13,8 @@ describe('점수 색상', () => {
     expect(scoreTone('mdef', 4_400)).toBe('mdef');
   });
 
-  it('매력은 8,000 / 15,000 / 37,000 기준으로 네 단계다', () => {
-    expect(scoreTone('attract', 0)).toBe('att-blue');
-    expect(scoreTone('attract', 7_999)).toBe('att-blue');
-    expect(scoreTone('attract', 8_000)).toBe('att-purple');
-    expect(scoreTone('attract', 14_999)).toBe('att-purple');
-    expect(scoreTone('attract', 15_000)).toBe('att-pink');
-    expect(scoreTone('attract', 36_999)).toBe('att-pink');
-    expect(scoreTone('attract', 37_000)).toBe('att-gold');
-  });
-
   it('값이 없으면 0으로 본다', () => {
     expect(scoreTone('combat', null)).toBe('base');
-    expect(scoreTone('attract', undefined)).toBe('att-blue');
     expect(scoreClass('mdef', 5_000)).toBe('sc-mdef');
   });
 });

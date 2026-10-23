@@ -87,7 +87,7 @@ function ScoresCard({ h }: { h: Header }) {
       </div>
       <div className="score-row">
         <span><Icon name="hammer" size={14} />생활력 <b className="num">{fmt(s.living)}</b></span>
-        <span><Icon name="heart" size={14} />매력 <b className={`num ${scoreClass('attract', s.attract)}`}>{fmt(s.attract)}</b></span>
+        <span><Icon name="heart" size={14} />매력 <b className="num">{fmt(s.attract)}</b></span>
       </div>
     </LinkCard>
   );

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useCharacter, useCharacters, useCutoffs, useHeader, useRankings } from '../api/queries';
 import type { AccountGroup, CharacterCard, RankEntryView, RankKindKey, RankView } from '../api/types';
 import { CardHead, ErrorCard, Gauge, JobIcon, Pill, Skeleton } from '../components/ui';
-import { NameBadge, TierDot } from '../components/RankBadge';
+import { NameBadge, RankText } from '../components/RankBadge';
 import { fmt } from '../lib/format';
 import { scoreClass, vitalLevel, type ScoreKind } from '../lib/score';
 import { CutoffCard } from './cutoffs';
@@ -84,7 +84,7 @@ function StatRow({ c, view, now }: { c: CharacterCard; view: RankView | undefine
       <Score label="전투력" value={c.combat} kind="combat" rank={e('combat')} />
       <Score label="마도저항" value={c.mdef} kind="mdef" />
       <Score label="생활력" value={c.living} rank={e('living')} />
-      <Score label="매력" value={c.attract} kind="attract" rank={e('attract')} />
+      <Score label="매력" value={c.attract} rank={e('attract')} />
       <Score label="종합" value={e('total')?.score ?? c.combat + c.living + c.attract} rank={e('total')} />
       <Recommend items={c.recommend} />
     </li>
@@ -123,7 +123,7 @@ function Score({ label, value, kind, rank }: { label: string; value: number; kin
   return (
     <span className="st-s" data-label={label}>
       <b className={`num ${kind ? scoreClass(kind, value) : ''}`}>{fmt(value)}</b>
-      {rank?.rank != null && <span className="st-rk num small faint"><TierDot tier={rank.tier} />{fmt(rank.rank)}위</span>}
+      {rank?.rank != null && <RankText rank={rank.rank} tier={rank.tier} className="st-rk" />}
     </span>
   );
 }

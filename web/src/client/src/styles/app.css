@@ -137,7 +137,6 @@ button.toast { border: 0; text-align: left; cursor: pointer; }
 
 /* 점수 색상 (FR-DT-11) */
 .sc-combat{color:var(--sc-combat)} .sc-mdef{color:var(--sc-mdef)}
-.sc-att-blue{color:var(--sc-att-blue)} .sc-att-purple{color:var(--sc-att-purple)} .sc-att-pink{color:var(--sc-att-pink)} .sc-att-gold{color:var(--sc-att-gold)}
 
 /* 다크 모드 색상 패턴 선택 */
 .palette{display:inline-flex;gap:6px;flex-wrap:wrap}
@@ -520,16 +519,19 @@ button.toast { border: 0; text-align: left; cursor: pointer; }
 /* ── 서버 랭킹 뱃지·패널 (v0.3) ── */
 /* 인게임 "딱지"처럼: 등급 색의 팔각 표식 + 순위 종류의 로마숫자(I 전투력·II 매력·III 생활력·IV 종합). 글자 대비 4.5:1 이상 */
 .rank-badge{display:inline-grid;place-items:center;box-sizing:border-box;width:22px;height:22px;padding:0;margin-left:6px;vertical-align:-.32em;
-  font-weight:800;font-size:13px;line-height:1;letter-spacing:0;white-space:nowrap;overflow:hidden;clip-path:polygon(30% 0,70% 0,100% 30%,100% 70%,70% 100%,30% 100%,0 70%,0 30%)}
+  font-weight:700;font-size:11px;line-height:1;letter-spacing:0;white-space:nowrap;overflow:hidden;clip-path:polygon(30% 0,70% 0,100% 30%,100% 70%,70% 100%,30% 100%,0 70%,0 30%)}
 .rank-badge.gold{background:#FFC21A;color:#2B1B00}
 .rank-badge.orange{background:#FF7A1A;color:#2B1200}
 .rank-badge.pink{background:#C72F7A;color:#fff}
 .rank-badge.purple{background:#7C3AED;color:#fff}
-.big .rank-badge{width:28px;height:28px;font-size:16px;vertical-align:-.1em}
+.big .rank-badge{width:28px;height:28px;font-size:14px;vertical-align:-.1em}
 .rk-ago{font-weight:400;margin-left:4px}
-.tier-dot{display:inline-block;width:9px;height:9px;margin-right:6px;border-radius:50%;vertical-align:.05em}
-.tier-dot.gold{background:#FFC21A}.tier-dot.orange{background:#FF7A1A}.tier-dot.pink{background:#E0489A}.tier-dot.purple{background:#8B5CF6}
-.st-rk .tier-dot{width:7px;height:7px;margin-right:4px}
+/* 순위 숫자 자체를 인게임 딱지 등급 색으로(10위 골드·100위 주황·1000위 핑크·10000위 보라). 등급 밖은 일반 글자색 */
+.rk-n{color:var(--text-1)}
+.rk-n.t-gold,.rk-n.t-orange,.rk-n.t-pink,.rk-n.t-purple{font-weight:800;font-size:1.18em;letter-spacing:.01em}
+.rk-n.t-gold{color:var(--tier-gold)}.rk-n.t-orange{color:var(--tier-orange)}.rk-n.t-pink{color:var(--tier-pink)}.rk-n.t-purple{color:var(--tier-purple)}
+.st-rk.rk-n{font-size:13px;font-weight:500}
+.st-rk.rk-n.t-gold,.st-rk.rk-n.t-orange,.st-rk.rk-n.t-pink,.st-rk.rk-n.t-purple{font-size:14px;font-weight:800}
 .g-rank{margin-top:12px}
 .rank-panel{display:grid;gap:8px;align-content:start}
 .rank-list{list-style:none;margin:0;padding:0;display:grid;gap:4px}
