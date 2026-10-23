@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useCharacter, useCharacters, useCutoffs, useHeader, useRankings } from '../api/queries';
-import type { AccountGroup, CharacterCard, RankEntryView, RankKindKey, RankView } from '../api/types';
+import type { AccountGroup, CharStats, CharacterCard, RankEntryView, RankKindKey, RankView } from '../api/types';
 import { CardHead, ErrorCard, Gauge, JobIcon, Pill, Skeleton } from '../components/ui';
 import { NameBadge, RankText } from '../components/RankBadge';
 import { fmt } from '../lib/format';
@@ -56,7 +56,7 @@ export function StatsView() {
               {account.members.map(m => <StatRow key={m.key} c={m} view={views[m.key]} now={now} />)}
             </ul>
             <p className="faint small m0 st-note">
-              접속 중이 아닌 캐릭터는 마지막으로 본 값이에요. 서버 순위는 {oldest ? `${agoText(oldest, now)} 값` : '아직 가져오지 않았어요'}
+              접속 중이 아닌 캐릭터는 마지막으로 본 값이고, 스탯은 그 캐릭터로 한 번 접속해야 채워져요. 서버 순위는 {oldest ? `${agoText(oldest, now)} 값` : '아직 가져오지 않았어요'}
               {oldest ? '' : ' (랭킹 갱신으로 가져오세요)'} · 종합 = 전투력 + 생활력 + 매력
             </p>
           </section>
@@ -87,7 +87,24 @@ function StatRow({ c, view, now }: { c: CharacterCard; view: RankView | undefine
       <Score label="매력" value={c.attract} rank={e('attract')} />
       <Score label="종합" value={e('total')?.score ?? c.combat + c.living + c.attract} rank={e('total')} />
       <Recommend items={c.recommend} />
+      <Detail s={c.stats} />
     </li>
+  );
+}
+
+const DETAIL: [keyof CharStats, string][] = [
+  ['str', '힘'], ['dex', '솜씨'], ['int', '지력'], ['will', '의지'], ['luck', '행운'],
+  ['attack', '공격력'], ['defence', '방어력'], ['health', '최대 체력'], ['decor', '데코'],
+];
+
+/** 캐릭터 한 줄 아래 작은 줄: get_my_info 스탯(접속하지 않은 캐릭터는 마지막으로 본 값, 아직 못 받은 것은 숨긴다). */
+function Detail({ s }: { s: CharStats | undefined }) {
+  const items = DETAIL.filter(([k]) => s?.[k] != null);
+  if (!items.length) return null;
+  return (
+    <span className="st-det" aria-label="스탯">
+      {items.map(([k, label]) => <span key={k} className="st-di"><span className="faint">{label}</span> <b className="num">{fmt(s![k]!)}</b></span>)}
+    </span>
   );
 }
 

@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { clearRanking, seedRanking } from './ranking-seed';
+import { clearRanking } from './ranking-seed';
 
 /**
  * 북마크릿(앱이 만들어 주는 javascript: 코드)을 실제 브라우저(Edge)에서 돌려 본다.
@@ -18,7 +18,10 @@ const item = (rank: number, name: string, type: string, scores: string[]) =>
 test('북마크릿: 넥슨 랭킹 페이지에서 누르면 순위를 가져와 앱에 저장한다', async ({ page, request }, testInfo) => {
   test.skip(testInfo.project.name !== 'pc-1440', '한 환경에서만 확인한다 (브라우저 동작은 화면 크기와 무관)');
   test.setTimeout(60_000);
-  await seedRanking(request);
+  // 다른 시험이 같은 이름으로 방금 넣은 순위가 있으면 앱이 "5분 안에 가져와서 건너뜀"으로 보므로, 이 시험만의 새 이름을 쓴다
+  const who = `북마크릿${Date.now() % 100000}`;
+  await request.get('/api/header');   // 가짜 게임의 캐릭터를 기록에 올린다
+  await request.put('/api/profile/nickname', { data: { nickname: who } });
 
   const setup = await (await request.get('/api/rankings/setup')).json();
   const code: string = setup.data.bookmarklet;
@@ -48,7 +51,7 @@ test('북마크릿: 넥슨 랭킹 페이지에서 누르면 순위를 가져와 
   await expect(page.locator('#mm-rank-msg')).toContainText('완료: 4건 저장', { timeout: 30_000 });
 
   // 순서: 종합 → 전투력 → 생활력 → 매력, 서버 번호 2(아이라), 앱에 적어 둔 이름으로 검색한다
-  expect(asked).toEqual(['4:2:시험캐릭터', '1:2:시험캐릭터', '3:2:시험캐릭터', '2:2:시험캐릭터']);
+  expect(asked).toEqual([`4:2:${who}`, `1:2:${who}`, `3:2:${who}`, `2:2:${who}`]);
 
   const all = await (await request.get('/api/rankings')).json();
   const e = all.data.characters['아이라_격투가'].entries;

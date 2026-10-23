@@ -772,6 +772,8 @@ button.hw-cell:focus-visible { outline: 2px solid var(--accent); outline-offset:
 .st-body .st-row:last-child{border-bottom:0}
 .st-row.current{background:var(--accent-soft);border-radius:10px;border-bottom-color:transparent}
 .st-row.current .faint,.st-row.current .muted{color:var(--text-2)}   /* 강조 바탕 위에서도 글자 대비를 지킨다 */
+.st-det{grid-column:1 / -1;display:flex;flex-wrap:wrap;gap:2px 14px;font-size:13px;padding-top:4px}
+.st-di b{font-weight:600}
 .st-who{display:flex;align-items:center;gap:8px;min-width:0}
 .st-name{display:flex;flex-direction:column;min-width:0;line-height:1.25}
 .st-name .small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

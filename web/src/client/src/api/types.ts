@@ -115,9 +115,12 @@ export interface CharacterCard {
   fieldBoss: { state: 'done' | 'todo' | 'unknown'; item: string | null; /** 클리어 추정(미션 카운터는 올랐는데 어느 보스인지 모름) */ guess?: boolean };
   /** 인게임 딱지 예측: 색 = 네 분류 중 가장 높은 등급, 숫자 = 그 등급에 든 분류 수 (못 받으면 null) */
   rankBadge: NameBadgeData | null;
+  /** get_my_info 스탯(접속 중이면 지금 값, 아니면 마지막 기록, 못 받았으면 null) */
+  stats: CharStats;
   /** 어비스·레이드 추천(이 캐릭터의 전투력·마도저항 기준) */
   recommend: { id: string; name: string; status: CutoffStatus; tier: string | null; maxEntry: string | null }[];
 }
+export interface CharStats { str: number | null; dex: number | null; int: number | null; will: number | null; luck: number | null; attack: number | null; defence: number | null; health: number | null; decor: number | null }
 export interface HomeworkAuto { id: string; title: string; period: 'daily' | 'weekly'; state: 'done' | 'todo' | 'unknown'; evidence: string | null; /** 남은 횟수 (뱅가드 등, 알 때만) */ remaining: number | null; category?: string; /** 클리어 추정: 주간 미션 카운터는 올랐는데 어느 항목인지 못 가렸다 */ guess?: boolean }
 export interface AccountGroup {
   id: string; name: string; solo: boolean; deca: number; mcash: number;

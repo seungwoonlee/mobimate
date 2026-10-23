@@ -442,7 +442,7 @@ public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManag
                 live?.CombatScore?.Value ?? last?.CombatScore ?? 0, live?.ArcaneResistance?.Value ?? last?.ArcaneResistance ?? 0,
                 ScoreReading.OrLast(live?.LivingScore?.Value, last?.LivingScore), ScoreReading.OrLast(live?.AttractivenessScore?.Value, last?.AttractivenessScore),
                 Cur(new[] { "골드" }, last?.Gold), Cur(new[] { "데카" }, last?.Deca), Cur(new[] { "M캐시", "M캐쉬" }, last?.MCash),
-                Cur(new[] { "은동전" }, last?.SilverCoin), Cur(new[] { "마족 공물", "마족공물" }, last?.DemonTribute), lastSeenUtc);
+                Cur(new[] { "은동전" }, last?.SilverCoin), Cur(new[] { "마족 공물", "마족공물" }, last?.DemonTribute), lastSeenUtc, StatsOf(live, p.History));
         }).ToList();
 
         var groups = cards.GroupBy(c => AccountGrouper.AccountOf(data, c.Key)).Select(g =>
@@ -469,6 +469,7 @@ public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManag
                     // 필드 보스 택1: 이번 주기에 넘긴 보스 (done이면 item에 보스 이름)
                     fieldBoss = bossStatus.GetValueOrDefault(c.Key) ?? new HomeworkPoolStatus("unknown", null),
                     rankBadge = rankings.NameBadgeOf(c.Key),   // 인게임 딱지 예측 (못 받으면 null)
+                    stats = c.Stats,
                     // 어비스·레이드 추천(스탯 탭의 계정 표): 이 캐릭터의 전투력·마도저항 기준. 입장 불가면 tier가 null
                     recommend = CutoffEvaluator.EvaluateAll(cutoffs, c.Combat, c.Mdef).Select(r => new
                     {
@@ -502,7 +503,25 @@ public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManag
     private static int VariantOf(string key) => key.LastIndexOf('#') is var i and >= 0 && int.TryParse(key[(i + 1)..], out var n) ? n : 1;
 
     private sealed record CharCard(string Key, string Realm, string Job, string? Nickname, bool IsCurrent, int Level, string Title, long Combat, long Mdef, long Living, long Attract,
-        long Gold, long Deca, long MCash, long Silver, long Tribute, DateTime LastSeenUtc);
+        long Gold, long Deca, long MCash, long Silver, long Tribute, DateTime LastSeenUtc, object Stats);
+
+    /// <summary>스탯 탭용 값: 접속 중이면 지금 값, 아니면 기록에서 0이 아닌 가장 최근 값(0 = 아직 못 받음 → null).</summary>
+    private static object StatsOf(CharacterInfo? live, IReadOnlyList<CharacterHistoryRecord> history)
+    {
+        long? Pick(long? now, Func<CharacterHistoryRecord, long> field)
+        {
+            if (now is > 0) return now;
+            for (var i = history.Count - 1; i >= 0; i--) { var v = field(history[i]); if (v > 0) return v; }
+            return null;
+        }
+        return new
+        {
+            str = Pick(live?.STR?.Value, h => h.Str), dex = Pick(live?.DEX?.Value, h => h.Dex), @int = Pick(live?.INT?.Value, h => h.Int),
+            will = Pick(live?.WILL?.Value, h => h.Will), luck = Pick(live?.LUCK?.Value, h => h.Luck),
+            attack = Pick(live?.AttackPower?.Value, h => h.AttackPower), defence = Pick(live?.DefencePower?.Value, h => h.DefencePower),
+            health = Pick(live?.HealthMax?.Value, h => h.HealthMax), decor = Pick(live?.DecorScore?.Value, h => h.DecorScore),
+        };
+    }
 
     private static object CoinView(CoinState c) => new
     {

@@ -169,9 +169,9 @@ test('별칭: 이름 옆 연필로 그 자리에서 고치고 지울 수 있다 
   await page.goto('/overview');
   await page.getByRole('button', { name: '캐릭터명 바꾸기' }).click();
   const input = page.getByLabel('캐릭터명', { exact: true });
-  await input.fill('모험가 승운');
+  await input.fill('모험가 테스트');
   await input.press('Enter');
-  await expect(page.locator('.who-name .nm')).toHaveText('모험가 승운');
+  await expect(page.locator('.who-name .nm')).toHaveText('모험가 테스트');
   await page.getByRole('button', { name: '캐릭터명 바꾸기' }).click();   // 되돌려 두기 (서버 상태를 공유한다)
   await page.getByLabel('캐릭터명', { exact: true }).fill('');
   await page.getByLabel('캐릭터명', { exact: true }).press('Enter');
