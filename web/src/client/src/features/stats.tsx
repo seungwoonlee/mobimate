@@ -1,10 +1,9 @@
-import { useState } from 'react';
-import { useCharacter, useCharacters, useCutoffs, useHeader, useRankings } from '../api/queries';
+import { useCharacters, useCutoffs, useRankings } from '../api/queries';
 import type { AccountGroup, CharStats, CharacterCard, RankEntryView, RankKindKey, RankView } from '../api/types';
-import { CardHead, ErrorCard, Gauge, JobIcon, Pill, Skeleton } from '../components/ui';
+import { ErrorCard, JobIcon, Pill, Skeleton } from '../components/ui';
 import { NameBadge, RankText } from '../components/RankBadge';
 import { fmt } from '../lib/format';
-import { scoreClass, vitalLevel, type ScoreKind } from '../lib/score';
+import { scoreClass, type ScoreKind } from '../lib/score';
 import { CutoffCard } from './cutoffs';
 import { charName } from './characters';
 import { RankRefreshButton, agoText } from './rankings';
@@ -19,52 +18,48 @@ export function StatsView() {
   const chars = useCharacters();
   const rank = useRankings();
   const now = useNow(60_000);
-  const [picked, setPicked] = useState<string | null>(null);
 
   const accounts: AccountGroup[] = chars.data?.data.accounts ?? [];
-  const current = chars.data?.data.currentAccountId ?? accounts[0]?.id;
-  const account = accounts.find(a => a.id === (picked ?? current)) ?? accounts[0];
+  const current = chars.data?.data.currentAccountId;
+  // 지금 접속한 계정을 맨 위에 둔다
+  const ordered = [...accounts].sort((x, y) => Number(y.id === current) - Number(x.id === current));
   const views = rank.data?.data.characters ?? {};
-  const oldest = account ? account.members.flatMap(m => Object.values(views[m.key]?.entries ?? {})).map(e => e.at).sort()[0] : undefined;
+  const total = accounts.reduce((n, a) => n + a.members.length, 0);
+  const oldest = accounts.flatMap(a => a.members).flatMap(m => Object.values(views[m.key]?.entries ?? {})).map(e => e.at).sort()[0];
 
   return (
     <>
       <div className="view-head">
-        <h2>스탯 {account && <span className="num muted">({account.members.length}명)</span>}</h2>
+        <h2>스탯 {total > 0 && <span className="num muted">({total}명)</span>}</h2>
         <span className="sub st-actions"><RankRefreshButton /></span>
       </div>
 
-      {accounts.length > 1 && (
-        <div className="seg st-accts" role="group" aria-label="계정 선택">
-          {accounts.map(a => (
-            <button key={a.id} type="button" aria-pressed={a.id === account?.id} onClick={() => setPicked(a.id)}>
-              {a.solo ? a.name : `${a.name} 계정`}
-            </button>
-          ))}
-        </div>
-      )}
-
       {chars.isPending ? <Skeleton lines={5} />
         : chars.isError && !chars.data ? <ErrorCard error={chars.error} onRetry={() => chars.refetch()} />
-        : !account ? <div className="card muted">아직 확인한 캐릭터가 없습니다. 게임에 접속하면 여기에 모입니다.</div>
+        : accounts.length === 0 ? <div className="card muted">아직 확인한 캐릭터가 없습니다. 게임에 접속하면 여기에 모입니다.</div>
         : (
-          <section className="card st-table" aria-label={`${account.name} 계정 캐릭터 스탯`}>
-            <div className="st-row st-head" aria-hidden="true">
-              <span>캐릭터</span><span>전투력</span><span>마도저항</span><span>생활력</span><span>매력</span><span>종합</span>
-              {DETAIL.map(([k, label]) => <span key={k} className="st-hx">{label === '최대 체력' ? '체력' : label}</span>)}
-              <span>어비스·레이드 추천</span>
-            </div>
-            <ul className="st-body">
-              {account.members.map(m => <StatRow key={m.key} c={m} view={views[m.key]} now={now} />)}
-            </ul>
+          <>
+            {ordered.map(account => (
+              <section key={account.id} className="card st-table" aria-label={`${account.name} 계정 캐릭터 스탯`}>
+                <h3 className="st-acct">{account.solo ? account.name : `${account.name} 계정`}{account.id === current && <Pill tone="ok">접속 중</Pill>} <span className="num muted small">{account.members.length}명</span></h3>
+                <div className="st-row st-head" aria-hidden="true">
+                  <span>캐릭터</span><span>전투력</span><span>마도저항</span><span>생활력</span><span>매력</span><span>종합</span>
+                  {DETAIL.map(([k, label]) => <span key={k} className="st-hx">{label === '최대 체력' ? '체력' : label}</span>)}
+                  <span>어비스·레이드 추천</span>
+                </div>
+                <ul className="st-body">
+                  {account.members.map(m => <StatRow key={m.key} c={m} view={views[m.key]} now={now} />)}
+                </ul>
+              </section>
+            ))}
             <p className="faint small m0 st-note">
               접속 중이 아닌 캐릭터는 마지막으로 본 값이고, 스탯은 그 캐릭터로 한 번 접속해야 채워져요. 서버 순위는 {oldest ? `${agoText(oldest, now)} 값` : '아직 가져오지 않았어요'}
               {oldest ? '' : ' (랭킹 갱신으로 가져오세요)'} · 종합 = 전투력 + 생활력 + 매력
             </p>
-          </section>
+          </>
         )}
 
-      <CurrentDetail />
+      <CurrentCutoffs />
     </>
   );
 }
@@ -152,38 +147,14 @@ function Score({ label, value, kind, rank }: { label: string; value: number; kin
   );
 }
 
-/** 지금 접속한 캐릭터만 아는 것: 데코 점수·체력·만복도·행동 상태·버프, 그리고 다음 단계 가이드가 들어 있는 콘텐츠 추천 카드 */
-function CurrentDetail() {
-  const header = useHeader();
-  const ch = useCharacter();
+/** 지금 접속한 캐릭터의 어비스·레이드 추천(다음 단계 가이드). 카드 수만큼 폭을 나눠 빈 칸이 남지 않게 한다. */
+function CurrentCutoffs() {
   const cut = useCutoffs();
-  const h = header.data?.data;
-  const c = ch.data?.data.character;
-  if (!h) return null;
-  const v = c?.Vitals;
+  if (!cut.data) return null;
   return (
-    <>
-      <section className="card st-now" aria-label="지금 캐릭터">
-        <CardHead title="지금 캐릭터" right={<span className="small muted">행동 <Pill>{h.activity.text}</Pill>{v ? ` · 버프 ${v.ActiveBuffCount}개` : ''}</span>} />
-        <div className="st-now-g">
-          <div className="kv"><span className="muted">데코 점수</span><span className="v num">{fmt(c?.DecorScore?.Value)}</span></div>
-          {v && (
-            <>
-              <div>
-                <div className="kv"><span className="muted">체력</span><span className="v num">{fmt(v.HealthCurrent)} / {fmt(v.HealthMax)}</span></div>
-                <Gauge pct={pctOf(v.HealthCurrent, v.HealthMax)} level={vitalLevel(pctOf(v.HealthCurrent, v.HealthMax))} label="체력" />
-              </div>
-              <div>
-                <div className="kv"><span className="muted">만복도</span><span className="v num">{fmt(v.SatietyValue)} / {fmt(v.SatietyMax)}</span></div>
-                <Gauge pct={pctOf(v.SatietyValue, v.SatietyMax)} level={vitalLevel(pctOf(v.SatietyValue, v.SatietyMax))} label="만복도" />
-              </div>
-            </>
-          )}
-        </div>
-      </section>
-      {cut.data && <div className="two st-cut">{cut.data.data.contents.map(x => <CutoffCard key={x.id} c={x} />)}</div>}
-    </>
+    <section aria-label="지금 캐릭터 어비스·레이드 추천">
+      <h3 className="st-acct st-cut-h">지금 캐릭터 · 어비스·레이드 추천</h3>
+      <div className="st-cut">{cut.data.data.contents.map(x => <CutoffCard key={x.id} c={x} />)}</div>
+    </section>
   );
 }
-
-const pctOf = (cur: number, max: number) => (max ? (cur / max) * 100 : 0);

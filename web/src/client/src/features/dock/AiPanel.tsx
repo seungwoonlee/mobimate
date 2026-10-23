@@ -27,7 +27,7 @@ const GUIDE: { label: string; hint: string; icon: string; to: RouteName; params?
   { label: '일일 미션과 요일 던전', hint: '오늘 남은 숙제', icon: 'list', to: 'homework', params: { tab: 'daily' } },
   { label: '가공 대기열과 수거', hint: '종류별 진행 상황', icon: 'clock', to: 'life' },
   { label: '채집 도우미', hint: '즐겨찾기 재료 채집', icon: 'leaf', to: 'life' },
-  { label: '주변 플레이어', hint: '친구·길드원 먼저', icon: 'radar', to: 'nearby' },
+  { label: '주변', hint: '친구·길드원 먼저', icon: 'radar', to: 'nearby' },
   { label: '설정', hint: '테마·색상·LAN', icon: 'gear', to: 'settings' },
 ];
 

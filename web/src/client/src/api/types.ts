@@ -68,6 +68,9 @@ export interface Life { works: Work[] | null; gatherables: Gatherable[] | null }
 export interface NearPlayer {
   title: string; realm: string; job: string; level: number; combatScore: number; distance: number;
   inCombat: boolean; relation: 'friend' | 'guild' | 'other'; relationLabel: string; isStronger: boolean;
+  living: number; attract: number;
+  /** 입은 옷 수·옷 색 수, 로브·후드·무기 숨김 */ clothes: number; colors: number; robe: boolean; hood: boolean; weaponHidden: boolean;
+  /** 연주 중이면 곡·남은 초·채널 수 */ performing: { title: string | null; remaining: number | null; channels: number | null } | null;
   /** 오토 의심 표식: 던전·레이드 안에서 다른 사람은 모두 전투 중인데 혼자 오래 전투하지 않는 사람 */ autoSuspect?: { reason: 'idle'; seconds: number; intensity: number } | null;
 }
 /** 함께 보이다가 던전·레이드 안인데 주변에서 오래 보이지 않는 사람(목록에 없어 따로 온다) */

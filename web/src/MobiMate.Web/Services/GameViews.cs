@@ -360,6 +360,9 @@ public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManag
                 title = e.Pc.Title, realm = e.Pc.RealmName, job = e.Pc.JobName, level = e.Pc.Level, combatScore = e.Pc.CombatScore,
                 distance = Math.Round(e.Pc.Distance, 1), inCombat = e.Pc.IsInCombat, relation = e.Relation, relationLabel = e.RelationLabel,
                 isStronger = e.IsStronger,
+                living = e.Pc.LivingScore, attract = e.Pc.AttractivenessScore,
+                clothes = e.Pc.ClothesCount, colors = e.Pc.ColorCount, robe = e.Pc.IsRobeWeared, hood = e.Pc.IsHoodOn, weaponHidden = e.Pc.IsWeaponHidden,
+                performing = e.Pc.Performance is { IsPlaying: true } pf ? new { title = pf.MusicTitle, remaining = pf.RemainingSeconds is { } rs ? (int?)Math.Max(0, (int)Math.Round(rs)) : null, channels = pf.ChannelCount } : null,
             }),
         }, null, r.FetchedAt);
     }

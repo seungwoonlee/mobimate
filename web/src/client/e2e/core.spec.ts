@@ -114,7 +114,10 @@ test('주변 레이더: 친구 > 길드원 > 그 외(파티원 표시 없음), �
   await expect(page.getByText('마법사').filter({ visible: true }).first()).toBeVisible();
   const rows = page.locator('.pl-row');
   await expect(rows.first()).toContainText('(친구)');
-  await expect(rows.first()).toContainText(/마법사\s*-\s*Lv\.72\s*-\s*32,100\s*-\s*던바튼 요리사/);
+  await expect(rows.first().locator('.pl-job')).toContainText('마법사');
+  await expect(rows.first().locator('[data-label="Lv"]')).toHaveText('72');
+  await expect(rows.first().locator('[data-label="전투력"]')).toContainText('32,100');
+  await expect(rows.first().locator('[data-label="칭호"]')).toContainText('던바튼 요리사');
   const tags = await rows.locator('.pl-tag').allTextContents();
   expect(tags.filter(t => t).join(',')).toBe('(친구),(길드원),(길드원),(길드원)');   // 표식이 있는 줄의 순서
   expect(tags.join('')).not.toContain('파티원');          // 게임 정보로는 내 파티원을 알 수 없다 (파티 없이도 파티원으로 오던 오류)
