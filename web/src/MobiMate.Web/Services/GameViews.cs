@@ -213,11 +213,11 @@ public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManag
             // 4대 점수 (WPF판 v1.2.0): 전투력·마도저항은 세션 변화량 포함
             scores = new
             {
-                combat = ch.CombatScore?.Value ?? 0, combatDelta = delta.CombatScoreDiff, combatRank = rankings.BadgeOf(key),
+                combat = ch.CombatScore?.Value ?? 0, combatDelta = delta.CombatScoreDiff,
                 mdef = ch.ArcaneResistance?.Value ?? 0, mdefDelta = delta.ArcaneResistanceDiff,
                 living = ScoreReading.OrLast(ch.LivingScore?.Value, lastRec?.LivingScore), attract = ScoreReading.OrLast(ch.AttractivenessScore?.Value, lastRec?.AttractivenessScore),
-                livingRank = rankings.BadgeOf(key, "living"), attractRank = rankings.BadgeOf(key, "attract"),   // 생활력·매력도 같은 등급 규칙의 딱지
             },
+            rankBadge = rankings.NameBadgeOf(key),   // 인게임 딱지 예측(색 = 가장 높은 등급, 숫자 = 그 등급에 든 분류 수). 못 받으면 null
             inProgress = InProgressOf(homework.Catalog, env),
             activity = new { text = GameStateCache.DescribeActivity(act), inCombat = act?.IsInCombat ?? false, canStop = act?.CanStop() ?? false },
             location = new
@@ -468,8 +468,7 @@ public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManag
                     homework = hwStatus.GetValueOrDefault(c.Key) ?? Array.Empty<HomeworkAutoStatus>(),
                     // 필드 보스 택1: 이번 주기에 넘긴 보스 (done이면 item에 보스 이름)
                     fieldBoss = bossStatus.GetValueOrDefault(c.Key) ?? new HomeworkPoolStatus("unknown", null),
-                    combatRank = rankings.BadgeOf(c.Key),   // 전투력 서버 순위 뱃지 (순위를 모르면 null)
-                    livingRank = rankings.BadgeOf(c.Key, "living"), attractRank = rankings.BadgeOf(c.Key, "attract"), totalRank = rankings.BadgeOf(c.Key, "total"),
+                    rankBadge = rankings.NameBadgeOf(c.Key),   // 인게임 딱지 예측 (못 받으면 null)
                     // 어비스·레이드 추천(스탯 탭의 계정 표): 이 캐릭터의 전투력·마도저항 기준. 입장 불가면 tier가 null
                     recommend = CutoffEvaluator.EvaluateAll(cutoffs, c.Combat, c.Mdef).Select(r => new
                     {

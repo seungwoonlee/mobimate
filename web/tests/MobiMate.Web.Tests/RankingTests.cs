@@ -67,10 +67,9 @@ public sealed class RankingServiceTests : IDisposable
         Assert.Equal(1, v.Entries["total"].Rank);
         Assert.Equal(245172, v.Entries["total"].Score);
         Assert.Equal(66, v.Entries["attract"].Rank);
-        var badge = s.BadgeOf(Key)!;
-        Assert.Equal(8, badge.Rank);
-        Assert.Equal("gold", badge.Tier);
-        Assert.False(badge.Stale);
+        var badge = s.NameBadgeOf(Key)!;
+        Assert.Equal("gold", badge.Tier);   // 전투력 8·종합 1·생활력 9는 골드(10위 이내), 매력 66은 주황
+        Assert.Equal(3, badge.Count);       // 골드 등급에 든 분류가 셋
     }
 
     /// <summary>2026-10-23 넥슨 종합 랭킹 화면의 실제 형식(검색한 캐릭터는 클래스에 on이 붙는다)</summary>
@@ -110,24 +109,52 @@ public sealed class RankingServiceTests : IDisposable
     {
         var s = Service();
         s.Import(new[] { new RankImportItem(Key, "헤니컵A", 1, Item(rank, "헤니컵A", "격투가", "전투력", "90,000")) });
-        Assert.Equal(tier, s.BadgeOf(Key)!.Tier);
+        Assert.Equal(tier, s.NameBadgeOf(Key)!.Tier);
     }
 
+    /// <summary>인게임 딱지(승운 2026-10-23): 캐릭터당 하나. 색 = 네 분류 중 가장 높은 등급, 숫자 = 그 등급에 든 분류 수.</summary>
     [Fact]
-    public void LivingAttractAndTotal_GetTheSameBadgeRule_AsCombat()
+    public void NameBadge_IsTheHighestTier_AndTheNumberIsHowManyCategoriesReachedIt()
     {
         var s = Service();
+        // 전투력만 1만 위 안 → 보라 I (승운의 실제 경우)
         s.Import(new[]
         {
-            new RankImportItem(Key, "헤니컵A", 3, Item(9, "헤니컵A", "격투가", "생활력", "45,237")),                              // 10위 이내: 골드
-            new RankImportItem(Key, "헤니컵A", 2, Item(66, "헤니컵A", "격투가", "매력", "58,836")),                               // 100위 이내: 주황
-            new RankImportItem(Key, "헤니컵A", 4, Item(523, "헤니컵A", "격투가", "종합 점수", "245,172", "141,099", "45,237", "58,836")),   // 1000위 이내: 핑크
+            new RankImportItem(Key, "헤니컵A", 1, Item(6827, "헤니컵A", "격투가", "전투력", "107,724")),
+            new RankImportItem(Key, "헤니컵A", 3, Item(49070, "헤니컵A", "격투가", "생활력", "22,141")),
+            new RankImportItem(Key, "헤니컵A", 2, Item(27617, "헤니컵A", "격투가", "매력", "28,504")),
+            new RankImportItem(Key, "헤니컵A", 4, Item(15432, "헤니컵A", "격투가", "종합 점수", "158,369", "107,724", "22,141", "28,504")),
         });
-        Assert.Equal("gold", s.BadgeOf(Key, "living")!.Tier);
-        Assert.Equal("orange", s.BadgeOf(Key, "attract")!.Tier);
-        Assert.Equal("pink", s.BadgeOf(Key, "total")!.Tier);
-        Assert.Null(s.BadgeOf(Key));                                      // 전투력은 아직 없다
-        Assert.Null(s.BadgeOf(Key, "combat"));
+        Assert.Equal(new NameBadge("purple", 1), s.NameBadgeOf(Key));
+
+        // 전투력 150위·매력 400위(둘 다 1000위 이내), 나머지는 보라 수준 → 핑크 II
+        s.Import(new[]
+        {
+            new RankImportItem(Key, "헤니컵A", 1, Item(150, "헤니컵A", "격투가", "전투력", "107,724")),
+            new RankImportItem(Key, "헤니컵A", 2, Item(400, "헤니컵A", "격투가", "매력", "28,504")),
+            new RankImportItem(Key, "헤니컵A", 3, Item(5000, "헤니컵A", "격투가", "생활력", "22,141")),
+            new RankImportItem(Key, "헤니컵A", 4, Item(7000, "헤니컵A", "격투가", "종합 점수", "158,369", "107,724", "22,141", "28,504")),
+        });
+        Assert.Equal(new NameBadge("pink", 2), s.NameBadgeOf(Key));
+
+        // 더 높은 등급이 하나라도 있으면 그 색이 되고, 숫자는 그 색 등급에 든 분류만 센다(아래 등급은 세지 않는다)
+        s.Import(new[] { new RankImportItem(Key, "헤니컵A", 3, Item(40, "헤니컵A", "격투가", "생활력", "22,141")) });   // 주황
+        Assert.Equal(new NameBadge("orange", 1), s.NameBadgeOf(Key));
+    }
+
+    [Theory]
+    [InlineData(10, "gold")]
+    [InlineData(11, "orange")]
+    [InlineData(100, "orange")]
+    [InlineData(101, "pink")]
+    [InlineData(1000, "pink")]
+    [InlineData(1001, "purple")]
+    [InlineData(10000, "purple")]
+    public void TierBoundaries_AreTenHundredThousandTenThousand(int rank, string tier)
+    {
+        var s = Service();
+        s.Import(new[] { new RankImportItem(Key, "헤니컵A", 2, Item(rank, "헤니컵A", "격투가", "매력", "50,000")) });
+        Assert.Equal(new NameBadge(tier, 1), s.NameBadgeOf(Key));   // 어느 분류든 같은 규칙
     }
 
     [Fact]
@@ -135,12 +162,12 @@ public sealed class RankingServiceTests : IDisposable
     {
         var s = Service();
         s.Import(new[] { new RankImportItem(Key, "헤니컵A", 1, Item(10001, "헤니컵A", "격투가", "전투력", "90,000")) });
-        Assert.Null(s.BadgeOf(Key));
+        Assert.Null(s.NameBadgeOf(Key));
         Assert.Equal(10001, s.ViewOf(Key).Entries["combat"].Rank);
 
         s.Import(new[] { new RankImportItem(Key, "헤니컵A", 1, "<div>결과가 없습니다.</div>") });
         Assert.Null(s.ViewOf(Key).Entries["combat"].Rank);   // 순위 없음을 확인한 값
-        Assert.Null(s.BadgeOf(Key));
+        Assert.Null(s.NameBadgeOf(Key));
     }
 
     [Fact]
@@ -185,17 +212,17 @@ public sealed class RankingServiceTests : IDisposable
     {
         var s = Service();
         s.Import(new[] { new RankImportItem(Key, "헤니컵A", 1, Item(5, "헤니컵A", "격투가", "전투력", "90,000")) });
-        Assert.NotNull(s.BadgeOf(Key));
+        Assert.NotNull(s.NameBadgeOf(Key));
 
         _snap.SetCustomName("아이라", "격투가", "새이름");
         var v = s.ViewOf(Key);
         Assert.True(v.NameChanged);
         Assert.Empty(v.Entries);
-        Assert.Null(s.BadgeOf(Key));
+        Assert.Null(s.NameBadgeOf(Key));
 
         s.Import(new[] { new RankImportItem(Key, "새이름", 1, Item(50, "새이름", "격투가", "전투력", "90,000")) });
         Assert.False(s.ViewOf(Key).NameChanged);
-        Assert.Equal("orange", s.BadgeOf(Key)!.Tier);
+        Assert.Equal("orange", s.NameBadgeOf(Key)!.Tier);
     }
 
     [Fact]
@@ -207,7 +234,7 @@ public sealed class RankingServiceTests : IDisposable
         Assert.False(s.ViewOf(Key).Entries["combat"].Stale);
         _now += TimeSpan.FromMinutes(2);
         Assert.True(s.ViewOf(Key).Entries["combat"].Stale);
-        Assert.True(s.BadgeOf(Key)!.Stale);   // 오래돼도 뱃지는 남기고 "오래됨"으로 표시한다
+        Assert.NotNull(s.NameBadgeOf(Key));   // 오래돼도 딱지는 그대로 남는다
     }
 
     [Fact]
@@ -367,10 +394,11 @@ public class RankingApiTests
 
         var chars = await TestHost.Data(await c.GetAsync("/api/characters"));
         var me = ViewsTests.Cards(chars).First(m => m.GetProperty("key").GetString() == "아이라_격투가");
-        Assert.Equal("gold", me.GetProperty("combatRank").GetProperty("tier").GetString());
+        Assert.Equal("gold", me.GetProperty("rankBadge").GetProperty("tier").GetString());
+        Assert.Equal(1, me.GetProperty("rankBadge").GetProperty("count").GetInt32());
 
         var header = await TestHost.Data(await c.GetAsync("/api/header"));
-        Assert.Equal(8, header.GetProperty("scores").GetProperty("combatRank").GetProperty("rank").GetInt32());
+        Assert.Equal("gold", header.GetProperty("rankBadge").GetProperty("tier").GetString());
     }
 
     [Fact]

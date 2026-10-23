@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useHeader, useRankings, useRankingSetup, useSession } from '../api/queries';
 import type { RankEntryView, RankKindKey, RankView } from '../api/types';
-import { RankBadge, TIER_RULE } from '../components/RankBadge';
+import { NameBadge, TIER_RULE, TierDot } from '../components/RankBadge';
 import { CardHead, Dialog, Icon } from '../components/ui';
 import { useNow } from '../hooks/layout';
 import { fmt } from '../lib/format';
@@ -35,14 +35,16 @@ export function useCurrentRank(): { key: string | undefined; view: RankView | un
 /** 서버 랭킹 카드 (개요·스탯 탭): 종합·전투력·생활력·매력 순위와 가져온 시각, 갱신 버튼. 앱은 스스로 조회하지 않는다. */
 export function RankPanel() {
   const { key, view } = useCurrentRank();
+  const badge = useHeader().data?.data.rankBadge;   // 지금 캐릭터의 인게임 딱지 예측
   const now = useNow(60_000);
   const [open, setOpen] = useState(false);
   const entries = view?.entries ?? {};
   const hasAny = Object.keys(entries).length > 0;
+  const newest = Object.values(entries).map(e => e.at).sort().at(-1);   // 네 종류를 한꺼번에 가져오므로 시각은 하나로 충분하다
 
   return (
     <section className="card rank-panel" aria-labelledby="rank-h">
-      <CardHead icon="trophy" title={<span id="rank-h">서버 랭킹</span>}
+      <CardHead icon="trophy" title={<><span id="rank-h">서버 랭킹</span>{newest && <span className="rk-ago faint small"> {agoText(newest, now)}</span>}<NameBadge badge={badge} big /></>}
         right={<button type="button" className="btn" disabled={!key} onClick={() => setOpen(true)}>랭킹 갱신</button>} />
       {!view ? <p className="faint small m0">불러오는 중…</p>
         : !view.hasName ? <p className="small m0">캐릭터 이름을 입력하면 서버 랭킹을 볼 수 있어요. 위쪽 이름 옆 연필(<Icon name="edit" size={13} />)로 <b>게임 속 캐릭터 이름</b>을 적어 주세요.</p>
@@ -51,7 +53,7 @@ export function RankPanel() {
           <>
             {view.nameChanged && <p className="small warn-text m0">캐릭터 이름이 바뀌어 이전 순위는 쓰지 않아요. 랭킹 갱신으로 다시 가져와 주세요.</p>}
             <ul className="rank-list" aria-label={`${view.name} 서버 랭킹`}>
-              {KINDS.map(k => <RankRow key={k.key} label={k.label} e={entries[k.key]} now={now} />)}
+              {KINDS.map(k => <RankRow key={k.key} label={k.label} e={entries[k.key]} />)}
             </ul>
             {!hasAny && !view.nameChanged && <p className="faint small m0">아직 가져온 순위가 없어요. 랭킹 갱신을 눌러 가져오세요.</p>}
             <p className="faint small m0">{view.serverName} 서버 · 이름 “{view.name}” 기준 · 종합 = 전투력 + 생활력 + 매력</p>
@@ -62,15 +64,14 @@ export function RankPanel() {
   );
 }
 
-function RankRow({ label, e, now }: { label: string; e: RankEntryView | undefined; now: number }) {
+function RankRow({ label, e }: { label: string; e: RankEntryView | undefined }) {
   return (
     <li className="rank-row">
       <span className="rk-l">{label}</span>
       {e == null ? <span className="rk-v faint">—</span>
         : e.rank == null ? <span className="rk-v faint">순위 정보 없음</span>
-        : <span className="rk-v num">서버 {fmt(e.rank)}위 <RankBadge tier={e.tier} rank={e.rank} stale={e.stale} /></span>}
+        : <span className="rk-v num"><TierDot tier={e.tier} />{fmt(e.rank)}위</span>}
       <span className="rk-s num faint">{e?.score != null ? fmt(e.score) : ''}</span>
-      <span className={`rk-t small ${e?.stale ? 'warn-text' : 'faint'}`}>{e ? `${agoText(e.at, now)}${e.stale ? ' · 오래됨' : ''}` : ''}</span>
     </li>
   );
 }
@@ -120,7 +121,7 @@ function RankUpdateDialog({ onClose }: { onClose: () => void }) {
           <p><a ref={link} className="btn primary bookmarklet" draggable="true" onClick={e => e.preventDefault()} aria-label="MobiMate 순위 북마크릿. 즐겨찾기 막대로 끌어 놓으세요">MobiMate 순위</a></p>
           </>
         ) : <p className="small m0"><b>북마크릿</b>은 게임을 켠 PC의 브라우저에서만 쓸 수 있어요.</p>}
-        <p className="small faint m0">뱃지: {TIER_RULE} (전투력 순위 기준)</p>
+        <p className="small faint m0">딱지: {TIER_RULE} — 색은 네 분류 중 가장 높은 등급, 숫자는 그 등급에 든 분류 수</p>
       </div>
     </Dialog>
   );

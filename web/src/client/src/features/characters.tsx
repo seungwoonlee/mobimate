@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { keys, useCharacters } from '../api/queries';
 import { api, ApiError } from '../api/http';
-import { RankBadge } from '../components/RankBadge';
+import { NameBadge } from '../components/RankBadge';
 import type { AccountGroup, CharacterCard, CoinView, HomeworkAuto } from '../api/types';
 import { CardHead, Dialog, ErrorCard, Fresh, Icon, JobIcon, Pill, Skeleton } from '../components/ui';
 import { useNow } from '../hooks/layout';
@@ -223,7 +223,7 @@ function CharacterCardView({ c, now }: { c: CharacterCard; now: number }) {
   const body = (
     <>
       <CardHead
-        title={<span className="cc-name"><span className="cc-nm">{name}</span>
+        title={<span className="cc-name"><span className="cc-nm">{name}</span><NameBadge badge={c.rankBadge} />
           {!c.isCurrent && <button type="button" className="cc-del" aria-label={`${name} 삭제`} title="이 캐릭터 삭제" onClick={() => setAsking(true)}><Icon name="x" size={12} /></button>}
         </span>}
         right={
@@ -235,12 +235,12 @@ function CharacterCardView({ c, now }: { c: CharacterCard; now: number }) {
       />
       <div className="cc-job"><JobIcon job={c.job} size={30} /><span className="cc-jt"><span>{c.nickname && <span className="realm-chip">{c.realm}</span>}{c.job} Lv.{c.level}</span>{c.title && <span className="cc-title">“{c.title}”</span>}</span></div>
       <div className="cc-main">
-        <div><span className="lbl">전투력<RankBadge badge={c.combatRank} /></span><b className={`v num ${scoreClass('combat', c.combat)}`}>{fmt(c.combat)}</b></div>
+        <div><span className="lbl">전투력</span><b className={`v num ${scoreClass('combat', c.combat)}`}>{fmt(c.combat)}</b></div>
         <div><span className="lbl">마도저항</span><b className={`v num ${scoreClass('mdef', c.mdef)}`}>{fmt(c.mdef)}</b></div>
       </div>
       <div className="cc-sub">
-        <span><Icon name="hammer" size={14} />생활력 <b className="num">{fmt(c.living)}</b><RankBadge badge={c.livingRank} /></span>
-        <span><Icon name="heart" size={14} />매력 <b className={`num ${scoreClass('attract', c.attract)}`}>{fmt(c.attract)}</b><RankBadge badge={c.attractRank} /></span>
+        <span><Icon name="hammer" size={14} />생활력 <b className="num">{fmt(c.living)}</b></span>
+        <span><Icon name="heart" size={14} />매력 <b className={`num ${scoreClass('attract', c.attract)}`}>{fmt(c.attract)}</b></span>
       </div>
       <div className="cc-wallet">
         <span><Icon name="coins" size={14} /><b className="num gold-text">{fmt(c.gold)}</b> G</span>
