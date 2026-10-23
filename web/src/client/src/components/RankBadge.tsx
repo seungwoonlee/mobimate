@@ -22,7 +22,7 @@ export function NameBadge({ badge, big }: { badge: NameBadgeData | null | undefi
   if (!badge) return null;
   const n = Math.min(Math.max(badge.count, 1), 4);
   const label = `예상 딱지 ${TIER_LABEL[badge.tier]} ${n}`;
-  return <span className={`rank-badge ${badge.tier}${big ? ' big' : ''}`} role="img" aria-label={label} title={`${label} (${n}개 분류가 ${TIER_LABEL[badge.tier]} 등급)`}><span aria-hidden="true">{NUMERAL[n]}</span></span>;
+  return <span className={`rank-badge ${badge.tier}${big ? ' rb-title' : ''}`} role="img" aria-label={label} title={`${label} (${n}개 분류가 ${TIER_LABEL[badge.tier]} 등급)`}><span aria-hidden="true">{NUMERAL[n]}</span></span>;
 }
 
 /**
