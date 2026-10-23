@@ -476,10 +476,9 @@ test('서버 랭킹: 캐릭터 이름 옆에 딱지가 하나 붙고, 개요 탭
     await expect(panel.getByText('8,800위')).toBeVisible();   // 매력
     await expect(panel.locator('.rank-badge.pink')).toHaveCount(1);   // 딱지는 캐릭터당 하나: 핑크 Ⅱ
     await expect(panel.locator('.rank-badge')).toHaveText('Ⅱ');
-    await expect(panel.locator('.tier-dot')).toHaveCount(4);          // 분류마다 등급 점
+    await expect(panel.locator('.rk-n.t-pink')).toHaveCount(2);        // 전투력 523위·종합 612위: 숫자 자체가 핑크
+    await expect(panel.locator('.rk-n.t-purple')).toHaveCount(2);      // 생활력 2,400위·매력 8,800위: 숫자 자체가 보라
     await expect(panel.getByText('오래됨')).toHaveCount(0);   // 오래됨 표시는 없다
-    await expect(panel.locator('.tier-dot.purple')).toHaveCount(2);   // 생활력 2,400위·매력 8,800위는 1000위 밖·1만 위 이내라 보라 점
-    await expect(panel.locator('.tier-dot.pink')).toHaveCount(2);     // 전투력 523위·종합 612위는 핑크 점
     await expect(panel.getByText(/종합 = 전투력 \+ 생활력 \+ 매력/)).toBeVisible();
   }
 });
@@ -498,7 +497,8 @@ test('스탯 탭: 계정의 캐릭터 표에 점수·서버 순위·추천이 �
   await expect(row).toContainText('어비스');     // 어비스·레이드 추천
   await expect(row.locator('.rank-badge')).toHaveCount(1);   // 딱지는 캐릭터당 하나: 가장 높은 등급 핑크, 핑크에 든 분류 둘(전투력 523·종합 612) → Ⅱ
   await expect(row.locator('.rank-badge.pink')).toHaveText('Ⅱ');
-  await expect(row.locator('.tier-dot')).toHaveCount(4);      // 전투력·생활력·매력·종합 각 순위 옆 등급 점
+  await expect(row.locator('.rk-n.t-pink')).toHaveCount(2);   // 전투력 523위·종합 612위: 순위 숫자 자체가 핑크
+  await expect(row.locator('.rk-n.t-purple')).toHaveCount(2); // 생활력·매력 순위 숫자는 보라
   await expect(table).toContainText('종합 = 전투력 + 생활력 + 매력');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1)).toBe(true);   // 옆 스크롤 없음
 });

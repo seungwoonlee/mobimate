@@ -25,7 +25,10 @@ export function NameBadge({ badge, big }: { badge: NameBadgeData | null | undefi
   return <span className={`rank-badge ${badge.tier}${big ? ' big' : ''}`} role="img" aria-label={label} title={`${label} (${n}개 분류가 ${TIER_LABEL[badge.tier]} 등급)`}><span aria-hidden="true">{NUMERAL[n]}</span></span>;
 }
 
-/** 분류별 순위 옆의 작은 등급 점(그 순위가 딱지 색 중 어느 등급인지). 등급 밖이면 그리지 않는다. */
-export function TierDot({ tier }: { tier: RankTierName }) {
-  return tier === 'none' ? null : <i className={`tier-dot ${tier}`} aria-hidden="true" />;
+/**
+ * 분류별 서버 순위 숫자("6,827위"). 인게임 딱지와 맞추려고 숫자 자체를 등급 색으로 크고 굵게 보인다
+ * (10위 이내 골드·100위 이내 주황·1000위 이내 핑크·10000위 이내 보라). 등급 밖이면 일반 글자색이다.
+ */
+export function RankText({ rank, tier, className = '' }: { rank: number; tier: RankTierName; className?: string }) {
+  return <b className={`rk-n num ${tier === 'none' ? '' : `t-${tier}`} ${className}`.trim()} title={tier === 'none' ? undefined : `${TIER_LABEL[tier]} 등급`}>{rank.toLocaleString('ko-KR')}위</b>;
 }

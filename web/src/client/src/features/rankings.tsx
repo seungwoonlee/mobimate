@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useHeader, useRankings, useRankingSetup, useSession } from '../api/queries';
 import type { RankEntryView, RankKindKey, RankView } from '../api/types';
-import { NameBadge, TIER_RULE, TierDot } from '../components/RankBadge';
+import { NameBadge, RankText, TIER_RULE } from '../components/RankBadge';
 import { CardHead, Dialog, Icon } from '../components/ui';
 import { useNow } from '../hooks/layout';
 import { fmt } from '../lib/format';
@@ -70,7 +70,7 @@ function RankRow({ label, e }: { label: string; e: RankEntryView | undefined }) 
       <span className="rk-l">{label}</span>
       {e == null ? <span className="rk-v faint">—</span>
         : e.rank == null ? <span className="rk-v faint">순위 정보 없음</span>
-        : <span className="rk-v num"><TierDot tier={e.tier} />{fmt(e.rank)}위</span>}
+        : <span className="rk-v"><RankText rank={e.rank} tier={e.tier} /></span>}
       <span className="rk-s num faint">{e?.score != null ? fmt(e.score) : ''}</span>
     </li>
   );

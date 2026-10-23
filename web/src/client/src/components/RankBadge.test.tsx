@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import { NameBadge, rankLabel, TierDot } from './RankBadge';
+import { NameBadge, RankText, rankLabel } from './RankBadge';
 import { agoText } from '../features/rankings';
 
 describe('NameBadge (인게임 딱지 예측)', () => {
@@ -31,10 +31,18 @@ describe('NameBadge (인게임 딱지 예측)', () => {
   });
 });
 
-describe('TierDot·rankLabel', () => {
-  it('등급 밖이면 점을 그리지 않는다', () => {
-    const { container } = render(<><TierDot tier="none" /><TierDot tier="gold" /></>);
-    expect(container.querySelectorAll('.tier-dot').length).toBe(1);
+describe('RankText·rankLabel', () => {
+  it('순위 숫자 자체에 등급 색 클래스가 붙고, 등급 밖은 일반색이다', () => {
+    const { container } = render(<>
+      <RankText rank={6827} tier="purple" />
+      <RankText rank={523} tier="pink" />
+      <RankText rank={40} tier="orange" />
+      <RankText rank={9} tier="gold" />
+      <RankText rank={49070} tier="none" />
+    </>);
+    const els = [...container.querySelectorAll('.rk-n')];
+    expect(els.map(e => e.textContent)).toEqual(['6,827위', '523위', '40위', '9위', '49,070위']);
+    expect(els.map(e => ['t-gold', 't-orange', 't-pink', 't-purple'].find(c => e.classList.contains(c)) ?? '-')).toEqual(['t-purple', 't-pink', 't-orange', 't-gold', '-']);
   });
   it('천 단위 쉼표', () => expect(rankLabel(2400, 'purple')).toBe('서버 2,400위 · 보라'));
 });
