@@ -41,14 +41,16 @@ public static class RankingEndpoints
 
         // 북마크릿이 부르는 두 곳: 넥슨 랭킹 페이지에서 오므로 CORS를 열고, 토큰으로 막는다. 토큰은 본문에 담아 사전 요청 없는 단순 요청으로 받는다.
         api.MapMethods("/targets", new[] { "OPTIONS" }, (HttpContext ctx) => Preflight(ctx));
-        api.MapPost("/targets", async (HttpContext ctx, RankingService r) =>
+        api.MapPost("/targets", async (HttpContext ctx, RankingService r, GameViews views) =>
         {
             Cors(ctx);
             var req = await ReadBody<RankTokenRequest>(ctx);
             if (req == null || !r.TokenOk(req.Token)) return ApiResults.Error(StatusCodes.Status403Forbidden, "BAD_TOKEN", "북마크릿 토큰이 맞지 않습니다. 앱에서 북마크릿을 다시 만들어 주세요.");
             // 최신인 종류는 빼고 줄 일이 있는 것만 보낸다(넥슨에 한꺼번에 너무 많이 부르지 않게). all = 이름이 있는 전체 캐릭터 수
-            var todo = r.TargetsByNeed().Select(t => new { t.Key, t.Name, t.ServerId, t.ServerName, t.Job, t.Combat, kinds = r.KindsNeeded(t) }).Where(t => t.kinds.Count > 0).ToList();
-            return ApiResults.Ok(new { targets = todo, all = r.Targets().Count });
+            // 지금 로그인한 계정의 캐릭터만(계정을 바꾸면 웹도 다시 로그인해야 한다). all = 그 계정에서 이름이 있는 캐릭터 수
+            var mine = views.ActiveAccountKeys();
+            var todo = r.TargetsByNeed().Where(t => mine.Contains(t.Key)).Select(t => new { t.Key, t.Name, t.ServerId, t.ServerName, t.Job, t.Combat, kinds = r.KindsNeeded(t) }).Where(t => t.kinds.Count > 0).ToList();
+            return ApiResults.Ok(new { targets = todo, all = r.Targets().Count(t => mine.Contains(t.Key)) });
         });
 
         api.MapMethods("/import", new[] { "OPTIONS" }, (HttpContext ctx) => Preflight(ctx));
@@ -109,6 +111,7 @@ public static class RankingBookmarklet
 (async()=>{const A='http://127.0.0.1:__PORT__',T='__TOKEN__';
 if(location.hostname!=='mabinogimobile.nexon.com'){alert('넥슨 마비노기 모바일 랭킹 페이지(mabinogimobile.nexon.com/Ranking)에서 눌러 주세요.');return}
 const msg=m=>{let e=document.getElementById('mm-rank-msg');if(!e){e=document.createElement('div');e.id='mm-rank-msg';e.style.cssText='position:fixed;z-index:99999;top:12px;right:12px;background:#222;color:#fff;padding:10px 14px;border-radius:8px;font:14px sans-serif;max-width:320px';document.body.appendChild(e)}e.textContent=m};
+if(document.body.innerText.indexOf('로그인 후 이용해')>-1){msg('넥슨에서 로그아웃된 것 같아요. 로그인한 뒤 다시 눌러 주세요. (페이지에 "로그인 후 이용해 주세요"가 보여요)');return}
 try{
 const r=await fetch(A+'/api/rankings/targets',{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({token:T})});
 const j=await r.json();if(!r.ok)throw new Error(j.error&&j.error.message||'앱에 연결하지 못했습니다');
@@ -118,18 +121,20 @@ const get=async(t,k)=>{const f=new FormData();f.append('t',k);f.append('pageno',
 const x=await fetch('/Ranking/List/rankdata',{method:'POST',body:f,headers:{'X-Requested-With':'XMLHttpRequest'}});
 const h=await x.text();if(h.indexOf('결과가 없습니다')>-1)return '결과가 없습니다';
 const li=new DOMParser().parseFromString(h,'text/html').querySelector('li.item.on');return li?li.outerHTML:null};
-let n=0,acc=0,rej=0,blind=0,done=0;const total=ts.reduce((a,t)=>a+t.kinds.length,0);const probs=[];
+let n=0,acc=0,rej=0,blind=0,done=0;const total=ts.reduce((a,t)=>a+t.kinds.length,0);const probs=[];let out=null;
 for(const t of ts){const items=[];for(const k of t.kinds){
 msg('순위 가져오는 중 '+(++n)+'/'+total+' · '+t.name);
 let html=await get(t,k);
 if(html===null){msg('잠깐 쉬었다가 다시 시도해요 · '+t.name);await nap(6000);html=await get(t,k)}
+if(html===null){const pg=await (await fetch(location.href)).text();if(pg.indexOf('로그인 후 이용해')>-1){out='넥슨에서 로그아웃된 것 같아요. 로그인한 뒤 다시 눌러 주세요. '+done+'명까지 저장했어요.';break}}
 items.push({key:t.key,name:t.name,kind:k,html:html});
 await nap(2000)}
 const o=await fetch(A+'/api/rankings/import',{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({token:T,items:items})});
 const oj=await o.json();if(!o.ok)throw new Error(oj.error&&oj.error.message||'저장하지 못했습니다');
 acc+=oj.data.accepted;rej+=oj.data.rejected;(oj.data.problems||[]).forEach(p=>{if(probs.length<5)probs.push(p)});done++;
 blind=items.every(i=>i.html===null)?blind+1:0;
-if(blind>=2){msg('넥슨 보안 검사 등으로 읽지 못해 멈췄어요. '+done+'명까지 저장했어요. 잠시 뒤 다시 눌러 주세요.');return}}
+if(out){msg(out);return}
+if(blind>=2){msg('읽지 못해 멈췄어요(로그인은 되어 있어요: 넥슨 보안 검사일 수 있어요). '+done+'명까지 저장했어요. 몇 분 뒤 다시 눌러 주세요.');return}}
 msg('완료: '+acc+'건 저장'+(rej?(', '+rej+'건 제외 — '+probs.join(' / ')):''))
 }catch(e){msg('실패: '+e.message)}})()
 """;
