@@ -524,7 +524,7 @@ button.toast { border: 0; text-align: left; cursor: pointer; }
 .rank-badge.orange{background:#FF7A1A;color:#2B1200}
 .rank-badge.pink{background:#C72F7A;color:#fff}
 .rank-badge.purple{background:#7C3AED;color:#fff}
-.big .rank-badge{width:20px;height:20px;font-size:11px;vertical-align:-.2em}
+.rank-badge.rb-title{width:20px;height:20px;font-size:11px;vertical-align:-.2em}
 .rk-ago{font-weight:400;margin-left:4px}
 /* 순위 숫자 자체를 인게임 딱지 등급 색으로(10위 골드·100위 주황·1000위 핑크·10000위 보라). 등급 밖은 일반 글자색 */
 .rk-n{color:var(--text-1)}
