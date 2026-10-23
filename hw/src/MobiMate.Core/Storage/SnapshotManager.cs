@@ -51,6 +51,14 @@ public class CharacterHistoryRecord
     public long DemonTribute { get; set; }
     public long AttackPower { get; set; }
     public long DefencePower { get; set; }
+    /// <summary>기본 스탯(힘·솜씨·지력·의지·행운)·최대 체력·데코 점수: 스탯 탭이 접속하지 않은 캐릭터의 마지막 값도 보여주려고 기록한다. 0 = 아직 못 받음.</summary>
+    public long Str { get; set; }
+    public long Dex { get; set; }
+    public long Int { get; set; }
+    public long Will { get; set; }
+    public long Luck { get; set; }
+    public long HealthMax { get; set; }
+    public long DecorScore { get; set; }
     public double WeightCurrent { get; set; }
     public long Gold { get; set; }
     public long Wings { get; set; }
@@ -744,6 +752,7 @@ public class SnapshotManager
                 lastRecord.CombatScore != current.CombatScore ||
                 lastRecord.ArcaneResistance != current.ArcaneResistance ||
                 lastRecord.Level != current.Level ||
+                StatsChanged(lastRecord, ch) ||
                 (current.Gold > 0 && lastRecord.Gold != current.Gold) ||
                 (current.Wings > 0 && lastRecord.Wings != current.Wings) ||
                 (current.NyangToken > 0 && lastRecord.NyangToken != current.NyangToken) ||
@@ -766,6 +775,8 @@ public class SnapshotManager
                     DemonTribute = tribute,
                     AttackPower = ch?.AttackPower?.Value ?? 0,
                     DefencePower = ch?.DefencePower?.Value ?? 0,
+                    Str = ch?.STR?.Value ?? 0, Dex = ch?.DEX?.Value ?? 0, Int = ch?.INT?.Value ?? 0, Will = ch?.WILL?.Value ?? 0, Luck = ch?.LUCK?.Value ?? 0,
+                    HealthMax = ch?.HealthMax?.Value ?? 0, DecorScore = ch?.DecorScore?.Value ?? 0,
                     WeightCurrent = current.WeightCurrent,
                     Gold = current.Gold,
                     Wings = current.Wings,
@@ -781,6 +792,15 @@ public class SnapshotManager
             return new SessionDelta(baseline, current);
             }
         });
+    }
+
+    /// <summary>스탯 탭용 값이 지난 기록과 다른가(받은 값만 비교한다: 응답에 없으면 변화로 보지 않는다).</summary>
+    private static bool StatsChanged(CharacterHistoryRecord last, CharacterInfo? ch)
+    {
+        if (ch == null) return false;
+        static bool Diff(long recorded, ScoreVal? v) => v != null && v.Value > 0 && v.Value != recorded;
+        return Diff(last.Str, ch.STR) || Diff(last.Dex, ch.DEX) || Diff(last.Int, ch.INT) || Diff(last.Will, ch.WILL) || Diff(last.Luck, ch.LUCK)
+            || Diff(last.AttackPower, ch.AttackPower) || Diff(last.DefencePower, ch.DefencePower) || Diff(last.HealthMax, ch.HealthMax) || Diff(last.DecorScore, ch.DecorScore);
     }
 
     private static bool SameSnapshot(CharacterSnapshot a, CharacterSnapshot b) =>
