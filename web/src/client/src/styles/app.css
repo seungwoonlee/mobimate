@@ -772,8 +772,16 @@ button.hw-cell:focus-visible { outline: 2px solid var(--accent); outline-offset:
 .st-body .st-row:last-child{border-bottom:0}
 .st-row.current{background:var(--accent-soft);border-radius:10px;border-bottom-color:transparent}
 .st-row.current .faint,.st-row.current .muted{color:var(--text-2)}   /* 강조 바탕 위에서도 글자 대비를 지킨다 */
-.st-det{grid-column:1 / -1;display:flex;flex-wrap:wrap;gap:2px 14px;font-size:13px;padding-top:4px}
-.st-di b{font-weight:600}
+.st-hx{display:none}
+.st-det{order:2;grid-column:1 / -1;display:grid;grid-template-columns:repeat(9,minmax(0,1fr));column-gap:8px;row-gap:4px;padding-top:6px}
+.st-x::before{content:attr(data-label);font-size:11px;color:var(--text-3)}
+.st-x b{font-size:calc(14px * var(--scale));font-weight:600}
+@container (min-width: 1280px){
+  .st-row{grid-template-columns:minmax(150px,1.3fr) repeat(5,minmax(68px,.9fr)) repeat(9,minmax(50px,.55fr)) minmax(160px,1.6fr)}
+  .st-hx{display:block}
+  .st-det{display:contents}
+  .st-x::before{content:none}
+}
 .st-who{display:flex;align-items:center;gap:8px;min-width:0}
 .st-name{display:flex;flex-direction:column;min-width:0;line-height:1.25}
 .st-name .small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -791,6 +799,7 @@ button.hw-cell:focus-visible { outline: 2px solid var(--accent); outline-offset:
   .st-head{display:none}
   .st-row{grid-template-columns:repeat(3,minmax(0,1fr));row-gap:6px;padding:10px 6px}
   .st-who{grid-column:1 / -1}
+  .st-det{grid-template-columns:repeat(3,minmax(0,1fr))}
   .st-s::before,.st-rec::before{content:attr(data-label);font-size:11px;color:var(--text-3)}
   .st-rec{grid-column:1 / -1;flex-direction:row;flex-wrap:wrap;gap:4px 14px;align-items:baseline}
   .st-rec::before{margin-right:2px}

@@ -50,7 +50,9 @@ export function StatsView() {
         : (
           <section className="card st-table" aria-label={`${account.name} 계정 캐릭터 스탯`}>
             <div className="st-row st-head" aria-hidden="true">
-              <span>캐릭터</span><span>전투력</span><span>마도저항</span><span>생활력</span><span>매력</span><span>종합</span><span>어비스·레이드 추천</span>
+              <span>캐릭터</span><span>전투력</span><span>마도저항</span><span>생활력</span><span>매력</span><span>종합</span>
+              {DETAIL.map(([k, label]) => <span key={k} className="st-hx">{label === '최대 체력' ? '체력' : label}</span>)}
+              <span>어비스·레이드 추천</span>
             </div>
             <ul className="st-body">
               {account.members.map(m => <StatRow key={m.key} c={m} view={views[m.key]} now={now} />)}
@@ -86,8 +88,8 @@ function StatRow({ c, view, now }: { c: CharacterCard; view: RankView | undefine
       <Score label="생활력" value={c.living} rank={e('living')} />
       <Score label="매력" value={c.attract} rank={e('attract')} />
       <Score label="종합" value={e('total')?.score ?? c.combat + c.living + c.attract} rank={e('total')} />
-      <Recommend items={c.recommend} />
       <Detail s={c.stats} />
+      <Recommend items={c.recommend} />
     </li>
   );
 }
@@ -97,13 +99,18 @@ const DETAIL: [keyof CharStats, string][] = [
   ['attack', '공격력'], ['defence', '방어력'], ['health', '최대 체력'], ['decor', '데코'],
 ];
 
-/** 캐릭터 한 줄 아래 작은 줄: get_my_info 스탯(접속하지 않은 캐릭터는 마지막으로 본 값, 아직 못 받은 것은 숨긴다). */
+/**
+ * get_my_info 스탯 칸들: 전투력·마도저항과 같은 표 열이다(넓은 화면). 중간 폭에서는 캐릭터 줄 아래 한 줄로 내려가고, 좁으면 카드 안 칸이 된다.
+ * 접속하지 않은 캐릭터는 마지막으로 본 값, 아직 못 받았으면 "–".
+ */
 function Detail({ s }: { s: CharStats | undefined }) {
-  const items = DETAIL.filter(([k]) => s?.[k] != null);
-  if (!items.length) return null;
   return (
-    <span className="st-det" aria-label="스탯">
-      {items.map(([k, label]) => <span key={k} className="st-di"><span className="faint">{label}</span> <b className="num">{fmt(s![k]!)}</b></span>)}
+    <span className="st-det">
+      {DETAIL.map(([k, label]) => (
+        <span key={k} className="st-s st-x" data-label={label}>
+          {s?.[k] != null ? <b className="num">{fmt(s[k]!)}</b> : <b className="faint" aria-label="아직 못 받음">–</b>}
+        </span>
+      ))}
     </span>
   );
 }
