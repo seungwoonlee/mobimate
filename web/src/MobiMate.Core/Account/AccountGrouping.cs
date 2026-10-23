@@ -172,3 +172,20 @@ public static class MembershipClock
         return gameDate.AddDays(days).Add(DayStart);          // 오늘 + (days-1)일의 다음 새벽 6시
     }
 }
+
+/// <summary>
+/// 지금 넥슨에 로그인해 있다고 볼 계정의 캐릭터들 (2026-10-23 승운: 계정을 바꾸면 웹도 다시 로그인하므로 랭킹은 지금 로그인한 계정의 캐릭터만 본다).
+/// 게임에 접속 중인 캐릭터가 있으면 그 계정, 없으면 가장 최근에 본 캐릭터의 계정이다(웹은 마지막으로 플레이한 계정으로 로그인해 있다고 본다).
+/// </summary>
+public static class ActiveAccount
+{
+    public static IReadOnlySet<string> KeysOf(AccountData data, IReadOnlyCollection<(string Key, DateTime LastSeen)> characters, string? currentKey)
+    {
+        if (characters.Count == 0) return new HashSet<string>();
+        var anchor = currentKey != null && characters.Any(c => c.Key == currentKey)
+            ? currentKey
+            : characters.OrderByDescending(c => c.LastSeen).ThenBy(c => c.Key, StringComparer.Ordinal).First().Key;
+        var account = AccountGrouper.AccountOf(data, anchor);
+        return characters.Where(c => AccountGrouper.AccountOf(data, c.Key) == account).Select(c => c.Key).ToHashSet();
+    }
+}

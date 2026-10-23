@@ -248,6 +248,8 @@ public sealed class RankingServiceTests : IDisposable
         Assert.Contains("t.kinds", js);                                  // 최신인 종류는 건너뛴다(넥슨에 한꺼번에 너무 많이 부르지 않게)
         Assert.Contains("nap(2000)", js);                                // 요청 사이 2초
         Assert.Contains("nap(6000)", js);                                // 읽지 못하면 한 번 쉬었다 다시
+        Assert.Equal(3, js.Split("로그인 후 이용해").Length - 1);   // 시작 전 확인·안내 문구, 읽지 못했을 때 확인: 로그아웃을 두 곳에서 확인한다
+        Assert.Contains("로그아웃된 것 같아요", js);
     }
 
     [Fact]

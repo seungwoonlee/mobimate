@@ -114,7 +114,7 @@ function RankUpdateDialog({ onClose }: { onClose: () => void }) {
           <ol className="rank-steps small">
             <li>아래 <b>MobiMate 순위</b> 버튼을 즐겨찾기 막대로 끌어 놓으세요. (안 되면 <button type="button" className="linklike" onClick={() => void copy()}>코드 복사</button> 뒤 즐겨찾기 주소에 붙여넣기)</li>
             <li><a href={url} target="_blank" rel="noopener noreferrer">넥슨 랭킹 페이지 열기</a></li>
-            <li>그 페이지에서 즐겨찾기의 <b>MobiMate 순위</b>를 누르세요. 이름이 있는 캐릭터마다 4종(종합·전투력·생활력·매력)을 1.2초 간격으로 가져와 이 앱에 저장해요.</li>
+            <li>그 페이지에서 즐겨찾기의 <b>MobiMate 순위</b>를 누르세요. <b>지금 로그인한 계정</b>(접속 중인 캐릭터의 계정, 접속이 없으면 마지막으로 본 계정)의 이름 있는 캐릭터만, 6시간 안에 가져온 순위는 건너뛰고 2초 간격으로 가져와 이 앱에 저장해요. 다른 계정은 넥슨에서 그 계정으로 로그인한 뒤 같은 방법으로 가져오세요.</li>
             <li>처음 누르면 브라우저가 <b>“이 기기의 로컬 네트워크에 연결”</b> 같은 권한을 물어요. 이 앱(내 PC)으로 보내려는 것이니 <b>허용</b>을 눌러 주세요.</li>
           </ol>
           <p><a ref={link} className="btn primary bookmarklet" draggable="true" onClick={e => e.preventDefault()} aria-label="MobiMate 순위 북마크릿. 즐겨찾기 막대로 끌어 놓으세요">MobiMate 순위</a></p>

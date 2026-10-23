@@ -403,6 +403,16 @@ public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManag
     /// 지금 캐릭터는 실시간 값, 나머지는 마지막으로 관찰한 값이다. 같은 계정은 데카·M캐시가 같았던 적이 있는 캐릭터끼리 묶는다.
     /// 은동전·마족 공물은 마지막으로 본 값에서 시간이 지난 만큼 충전된 예상 보유량이다 (CoinForecast).
     /// </summary>
+    /// <summary>지금 로그인한 계정의 캐릭터 키들 (서버 순위 북마크릿이 이 계정만 조회한다).</summary>
+    public IReadOnlySet<string> ActiveAccountKeys()
+    {
+        var currentKey = state.Character is { } cur && SnapshotManager.IsRealCharacter(cur) ? state.CurrentKey ?? CharacterKey(cur) : null;
+        var chars = snapshots.GetAllProfiles()
+            .Where(p => !(p.RealmName == "에린" && p.JobName == "밀레시안") && p.History.Any(h => h.Level > 0))
+            .Select(p => (p.CharacterKey, p.LastSeen.ToUniversalTime())).ToList();
+        return ActiveAccount.KeysOf(accounts.Snapshot(), chars, currentKey);
+    }
+
     public object Characters()
     {
         var nowUtc = DateTime.UtcNow;
