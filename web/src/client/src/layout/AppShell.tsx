@@ -5,7 +5,7 @@ import { CommandPalette } from '../features/palette';
 import { NicknameEditor } from '../features/nickname';
 import { MembershipChip } from '../features/membership';
 import { useNow } from '../hooks/layout';
-import { RankBadge } from '../components/RankBadge';
+import { NameBadge } from '../components/RankBadge';
 import { keys, useHeader, useStatus } from '../api/queries';
 import { useLayout } from '../hooks/layout';
 import { useAdaptiveRefresh } from '../hooks/useAdaptiveRefresh';
@@ -201,7 +201,7 @@ function TopBar({ compact, actions, showActions }: { compact: boolean; actions: 
         {h && <span className="who-fig"><JobIcon job={h.character.job} size={compact ? 18 : 30} /></span>}
         <div className="who-txt">
           <div className="who-name">
-            <NicknameEditor name={name} current={h?.character.nickname ?? null} />
+            <NicknameEditor name={name} current={h?.character.nickname ?? null} />{h && <NameBadge badge={h.rankBadge} />}
             {h && <span className="job">{h.character.job} Lv.{h.character.level}</span>}
             {h?.selecting ? <span className="who-title selecting">캐릭터 선택 중</span> : h?.character.title && <span className="who-title">“{h.character.title}”</span>}
             {h && !h.selecting && <MembershipChip />}
@@ -216,7 +216,7 @@ function TopBar({ compact, actions, showActions }: { compact: boolean; actions: 
       </div>
       {h && (
         <div className="hero-scores" title="이번 접속 누적 변화">
-          <div className="hs"><span className="lbl">전투력<RankBadge badge={h.scores.combatRank} /></span><span className={`v num ${scoreClass('combat', h.scores.combat)}`}>{fmt(h.scores.combat)}</span><Delta value={h.scores.combatDelta} hideZero /></div>
+          <div className="hs"><span className="lbl">전투력</span><span className={`v num ${scoreClass('combat', h.scores.combat)}`}>{fmt(h.scores.combat)}</span><Delta value={h.scores.combatDelta} hideZero /></div>
           <div className="hs"><span className="lbl">마도저항</span><span className={`v num ${scoreClass('mdef', h.scores.mdef)}`}>{fmt(h.scores.mdef)}</span><Delta value={h.scores.mdefDelta} hideZero /></div>
         </div>
       )}

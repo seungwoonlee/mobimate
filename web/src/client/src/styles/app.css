@@ -518,21 +518,25 @@ button.toast { border: 0; text-align: left; cursor: pointer; }
 @media (max-width:1100px){.chars{grid-template-columns:repeat(auto-fill,minmax(236px,1fr))}}   /* 채팅을 연 태블릿 가로도 두 열이 나오게 */
 
 /* ── 서버 랭킹 뱃지·패널 (v0.3) ── */
-.rank-badge{display:inline-flex;align-items:center;margin-left:4px;vertical-align:-.12em;line-height:1}
-.rank-badge svg{width:.95em;height:.95em}
-.rank-badge.gold{color:var(--rank-gold)}
-.rank-badge.orange{color:var(--rank-orange)}
-.rank-badge.pink{color:var(--rank-pink)}
-.rank-badge.purple{color:var(--rank-purple)}
-.rank-badge.stale{opacity:.55}
+/* 인게임 "딱지"처럼: 등급 색의 팔각 표식 + 순위 종류의 로마숫자(I 전투력·II 매력·III 생활력·IV 종합). 글자 대비 4.5:1 이상 */
+.rank-badge{display:inline-grid;place-items:center;box-sizing:border-box;width:22px;height:22px;padding:0;margin-left:6px;vertical-align:-.32em;
+  font:800 14px/1 inherit;letter-spacing:.02em;clip-path:polygon(30% 0,70% 0,100% 30%,100% 70%,70% 100%,30% 100%,0 70%,0 30%)}
+.rank-badge.gold{background:#FFC21A;color:#2B1B00}
+.rank-badge.orange{background:#FF7A1A;color:#2B1200}
+.rank-badge.pink{background:#C72F7A;color:#fff}
+.rank-badge.purple{background:#7C3AED;color:#fff}
+.big .rank-badge{width:28px;height:28px;font-size:18px;vertical-align:-.1em}
+.rk-ago{font-weight:400;margin-left:4px}
+.tier-dot{display:inline-block;width:9px;height:9px;margin-right:6px;border-radius:50%;vertical-align:.05em}
+.tier-dot.gold{background:#FFC21A}.tier-dot.orange{background:#FF7A1A}.tier-dot.pink{background:#E0489A}.tier-dot.purple{background:#8B5CF6}
+.st-rk .tier-dot{width:7px;height:7px;margin-right:4px}
 .g-rank{margin-top:12px}
 .rank-panel{display:grid;gap:8px;align-content:start}
 .rank-list{list-style:none;margin:0;padding:0;display:grid;gap:4px}
-.rank-row{display:grid;grid-template-columns:4.5em minmax(0,1fr) auto auto;gap:4px 14px;align-items:baseline;padding:4px 2px;border-bottom:1px solid var(--line)}
+.rank-row{display:grid;grid-template-columns:4.5em minmax(0,1fr) auto;gap:4px 14px;align-items:baseline;padding:4px 2px;border-bottom:1px solid var(--line)}
 .rank-row:last-child{border-bottom:0}
 .rk-l{font-weight:600;color:var(--text-2)}
 .rk-v{font-weight:600;color:var(--text-1)}
-.rk-t{text-align:right;white-space:nowrap}
 .rank-dialog{display:grid;gap:8px;max-width:560px}
 .rank-dialog h4{margin:6px 0 0;font-size:14px}
 .rank-steps{margin:0;padding-left:20px;display:grid;gap:4px}
@@ -677,7 +681,6 @@ button.hw-cell:focus-visible { outline: 2px solid var(--accent); outline-offset:
 .ov .rank-row { grid-template-columns: 3.6em auto minmax(0, 1fr); gap: 0 8px; padding: 3px 2px; }
 .ov .rank-row .rk-v { grid-column: 2 / -1; }
 .ov .rank-row .rk-s { grid-column: 2; grid-row: 2; text-align: left; font-size: 12px; }
-.ov .rank-row .rk-t { grid-column: 3; grid-row: 2; text-align: left; font-size: 12px; }
 .ov .rank-panel .card-h .btn { padding: 4px 10px; min-height: 0; }
 
 /* 가공 대기열 */

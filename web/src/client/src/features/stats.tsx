@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useCharacter, useCharacters, useCutoffs, useHeader, useRankings } from '../api/queries';
 import type { AccountGroup, CharacterCard, RankEntryView, RankKindKey, RankView } from '../api/types';
 import { CardHead, ErrorCard, Gauge, JobIcon, Pill, Skeleton } from '../components/ui';
-import { RankBadge } from '../components/RankBadge';
+import { NameBadge, TierDot } from '../components/RankBadge';
 import { fmt } from '../lib/format';
 import { scoreClass, vitalLevel, type ScoreKind } from '../lib/score';
 import { CutoffCard } from './cutoffs';
@@ -77,7 +77,7 @@ function StatRow({ c, view, now }: { c: CharacterCard; view: RankView | undefine
       <span className="st-who">
         <JobIcon job={c.job} size={22} />
         <span className="st-name">
-          <span className="st-n">{name}{c.isCurrent && <Pill tone="ok">접속 중</Pill>}</span>
+          <span className="st-n">{name}<NameBadge badge={c.rankBadge} />{c.isCurrent && <Pill tone="ok">접속 중</Pill>}</span>
           <span className="small muted">{c.job} Lv.{c.level}{c.isCurrent ? '' : ` · ${agoText(c.lastSeen, now)}`}</span>
         </span>
       </span>
@@ -122,8 +122,8 @@ function Recommend({ items }: { items: CharacterCard['recommend'] }) {
 function Score({ label, value, kind, rank }: { label: string; value: number; kind?: ScoreKind; rank?: RankEntryView }) {
   return (
     <span className="st-s" data-label={label}>
-      <b className={`num ${kind ? scoreClass(kind, value) : ''}`}>{fmt(value)}{rank && <RankBadge tier={rank.tier} rank={rank.rank} stale={rank.stale} />}</b>
-      {rank?.rank != null && <span className={`st-rk num small ${rank.stale ? 'warn-text' : 'faint'}`}>{fmt(rank.rank)}위</span>}
+      <b className={`num ${kind ? scoreClass(kind, value) : ''}`}>{fmt(value)}</b>
+      {rank?.rank != null && <span className="st-rk num small faint"><TierDot tier={rank.tier} />{fmt(rank.rank)}위</span>}
     </span>
   );
 }

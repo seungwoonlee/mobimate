@@ -35,7 +35,8 @@ public sealed record RankImportResult(int Accepted, int Rejected, List<string> P
 
 public sealed record RankEntryView(int? Rank, long? Score, string Tier, DateTimeOffset At, string Source, bool Stale);
 public sealed record RankView(string Key, string? Name, string? ServerName, bool HasName, bool Supported, bool NameChanged, Dictionary<string, RankEntryView> Entries);
-public sealed record RankBadge(int Rank, string Tier, bool Stale, DateTimeOffset At);
+/// <summary>인게임 캐릭터 이름 옆 "딱지": 색 = 네 분류(전투력·생활력·매력·종합) 중 가장 높은 등급, 숫자(Count) = 그 등급에 든 분류의 개수(1~4).</summary>
+public sealed record NameBadge(string Tier, int Count);
 
 /// <summary>
 /// 서버 랭킹 저장·조회 (v0.3). 앱이 넥슨 랭킹 페이지를 스스로 부르지 않는다(자동 접속 차단 장치가 있어 우회하지 않는다):
@@ -193,14 +194,17 @@ public sealed class RankingService
     }
 
     /// <summary>
-    /// 서버 순위 뱃지. 종류는 combat·living·attract·total(승운 2026-10-23: 딱지 등급 규칙은 전투력뿐 아니라 생활력·매력·종합에도 같다).
-    /// 순위가 없거나 별칭이 바뀌었거나 10000위 밖이면 null.
+    /// 인게임 딱지 예측(승운 2026-10-23): 딱지는 캐릭터당 하나다. 색은 전투력·생활력·매력·종합 네 분류의 서버 순위 중 가장 높은 등급
+    /// (10위 이내 골드·100위 이내 주황·1000위 이내 핑크·10000위 이내 보라), 로마숫자는 그 색 등급에 든 분류의 개수다.
+    /// 예) 전투력만 1만 위 안 → 보라 I, 전투력 150위·매력 400위(나머지는 보라 수준) → 핑크 II.
+    /// 순위가 없거나 별칭이 바뀌었거나 어느 분류도 1만 위 안이 아니면 null(딱지를 못 받는다).
     /// </summary>
-    public RankBadge? BadgeOf(string key, string kind = "combat")
+    public NameBadge? NameBadgeOf(string key)
     {
-        var v = ViewOf(key);
-        if (!v.Entries.TryGetValue(kind, out var e) || e.Rank is not { } rank || RankTiers.Of(rank) == RankTier.None) return null;
-        return new RankBadge(rank, RankTiers.Name(RankTiers.Of(rank)), e.Stale, e.At);
+        var tiers = ViewOf(key).Entries.Values.Where(e => e.Rank != null).Select(e => RankTiers.Of(e.Rank)).Where(t => t != RankTier.None).ToList();
+        if (tiers.Count == 0) return null;
+        var best = tiers.Max();   // RankTier 순서: None < Purple < Pink < Orange < Gold
+        return new NameBadge(RankTiers.Name(best), tiers.Count(t => t == best));
     }
 
     private void Put(RankingData data, RankTarget t, RankKind kind, int? rank, long? score, string source)

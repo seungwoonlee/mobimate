@@ -12,7 +12,6 @@ import { useRouter } from '../state/router';
 import { CUTOFF_STATUS } from './cutoffs';
 import { AutoBadge, autoStyle, jobLabel, MissingLine, REL_TAG } from './players';
 import { RankPanel } from './rankings';
-import { RankBadge } from '../components/RankBadge';
 
 /** 가공 종류 순서 (서버 WorkKinds.Order와 같다) */
 const WORK_KIND_ORDER = ['metal', 'wood', 'leather', 'cloth', 'medicine', 'food', 'other'];
@@ -83,12 +82,12 @@ function ScoresCard({ h }: { h: Header }) {
     <LinkCard to="stats" className="scores">
       <CardHead icon="sword" title="점수" />
       <div className="score-main">
-        <div><span className="lbl">전투력<RankBadge badge={s.combatRank} /></span><div className={`big num ${scoreClass('combat', s.combat)}`}>{fmt(s.combat)}</div><Delta value={s.combatDelta} /></div>
+        <div><span className="lbl">전투력</span><div className={`big num ${scoreClass('combat', s.combat)}`}>{fmt(s.combat)}</div><Delta value={s.combatDelta} /></div>
         <div><span className="lbl">마도저항</span><div className={`big num ${scoreClass('mdef', s.mdef)}`}>{fmt(s.mdef)}</div><Delta value={s.mdefDelta} /></div>
       </div>
       <div className="score-row">
-        <span><Icon name="hammer" size={14} />생활력 <b className="num">{fmt(s.living)}</b><RankBadge badge={s.livingRank} /></span>
-        <span><Icon name="heart" size={14} />매력 <b className={`num ${scoreClass('attract', s.attract)}`}>{fmt(s.attract)}</b><RankBadge badge={s.attractRank} /></span>
+        <span><Icon name="hammer" size={14} />생활력 <b className="num">{fmt(s.living)}</b></span>
+        <span><Icon name="heart" size={14} />매력 <b className={`num ${scoreClass('attract', s.attract)}`}>{fmt(s.attract)}</b></span>
       </div>
     </LinkCard>
   );

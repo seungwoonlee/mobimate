@@ -20,7 +20,9 @@ export interface Header {
   /** 캐릭터 선택창: 아래 값은 마지막으로 본 캐릭터의 것이다 */
   selecting: boolean;
   character: { realm: string; job: string; level: number; title: string; nickname: string | null; combatScore: number; combatDelta: number };
-  scores: { combat: number; combatDelta: number; /** 전투력 서버 순위 뱃지 (순위를 모르면 null) */ combatRank: RankBadgeData | null; mdef: number; mdefDelta: number; living: number; livingRank: RankBadgeData | null; attract: number; attractRank: RankBadgeData | null };
+  /** 인게임 딱지 예측 (못 받으면 null) */
+  rankBadge: NameBadgeData | null;
+  scores: { combat: number; combatDelta: number; mdef: number; mdefDelta: number; living: number; attract: number };
   activity: { text: string; inCombat: boolean; canStop: boolean };
   /** 지금 있는 지역이 레이드·어비스·요일 던전이면 그 종류와 이름. 아니면 null */
   inProgress: { kind: string; title: string } | null;
@@ -111,10 +113,8 @@ export interface CharacterCard {
   homework: HomeworkAuto[];
   /** 필드 보스 택1: 이번 주기에 넘긴 보스 (done이면 item에 보스 이름) */
   fieldBoss: { state: 'done' | 'todo' | 'unknown'; item: string | null; /** 클리어 추정(미션 카운터는 올랐는데 어느 보스인지 모름) */ guess?: boolean };
-  /** 전투력 서버 순위 뱃지 (10000위 이내만, 모르면 null) */
-  combatRank: RankBadgeData | null;
-  /** 생활력·매력·종합 서버 순위 뱃지 (같은 등급 규칙) */
-  livingRank: RankBadgeData | null; attractRank: RankBadgeData | null; totalRank: RankBadgeData | null;
+  /** 인게임 딱지 예측: 색 = 네 분류 중 가장 높은 등급, 숫자 = 그 등급에 든 분류 수 (못 받으면 null) */
+  rankBadge: NameBadgeData | null;
   /** 어비스·레이드 추천(이 캐릭터의 전투력·마도저항 기준) */
   recommend: { id: string; name: string; status: CutoffStatus; tier: string | null; maxEntry: string | null }[];
 }
@@ -164,7 +164,8 @@ export type AskEvent =
 
 // ── 서버 랭킹 (v0.3) ──
 export type RankTierName = 'gold' | 'orange' | 'pink' | 'purple' | 'none';
-export interface RankBadgeData { rank: number; tier: Exclude<RankTierName, 'none'>; stale: boolean; at: string }
+/** 인게임 딱지 예측: 색 = 전투력·생활력·매력·종합 중 가장 높은 등급, 숫자 = 그 등급에 든 분류 수(1~4) */
+export interface NameBadgeData { tier: Exclude<RankTierName, 'none'>; count: number }
 export type RankKindKey = 'total' | 'combat' | 'living' | 'attract';
 export interface RankEntryView { rank: number | null; score: number | null; tier: RankTierName; at: string; source: 'bookmarklet'; stale: boolean }
 export interface RankView {
