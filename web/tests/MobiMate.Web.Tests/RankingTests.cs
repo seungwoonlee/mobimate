@@ -253,7 +253,7 @@ public sealed class RankingServiceTests : IDisposable
     }
 
     [Fact]
-    public void KindsNeeded_OnlyWhatIsMissingOrOlderThanSixHours()
+    public void KindsNeeded_OnlyWhatIsMissingOrOlderThanFiveMinutes()
     {
         var s = Service();
         var t = s.Targets().Single();
@@ -264,8 +264,10 @@ public sealed class RankingServiceTests : IDisposable
             new RankImportItem(Key, "헤니컵A", 3, Item(9, "헤니컵A", "격투가", "생활력", "45,237")),
         });
         Assert.Equal(new[] { 4, 2 }, s.KindsNeeded(t));                                         // 종합·매력만 남았다
-        _now += TimeSpan.FromHours(7);
-        Assert.Equal(new[] { 4, 1, 3, 2 }, s.KindsNeeded(t));                                   // 6시간이 지나면 다시
+        _now += TimeSpan.FromMinutes(4);
+        Assert.Equal(new[] { 4, 2 }, s.KindsNeeded(t));                                         // 방금 가져온 것은 건너뛴다
+        _now += TimeSpan.FromMinutes(2);
+        Assert.Equal(new[] { 4, 1, 3, 2 }, s.KindsNeeded(t));                                   // 5분이 지나면 다시 가져온다
     }
 
     [Fact]
