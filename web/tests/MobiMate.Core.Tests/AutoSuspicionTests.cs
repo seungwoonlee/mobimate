@@ -107,19 +107,15 @@ public class AutoSuspicionTests
     }
 
     [Fact]
-    public void MovingAlone_ClearsOnlyWhileAnotherPlayerStaysStill()
+    public void Movement_IsNotProofOfAHuman_BecauseAutoBattleMovesToo()
     {
-        // 다른 사람 하나가 가만히 있으니 내가 움직이는 게 아니다 → 거리가 변하는 사람은 직접 움직인 것
+        // 2026-10-24: 자동전투도 목표를 향해 걷는다. 다른 사람은 전원 전투 중인데 혼자 걸어 다니기만 하는 사람은 풀리지 않는다.
         var t = new AutoSuspicionTracker();
         var still = P("전사", true, 4);
         for (var s = 0; s <= 50; s++)
             t.Observe(T0.AddSeconds(s), true, new[] { still, P("궁수", true, 6), P("힐러", true, 7), Q("마법사", 9 + (s % 4) * 0.7) });
-        Assert.Null(Of(t, "마법사"));
-        // 모두의 거리가 같이 변하면(내가 움직임) 움직임은 증거가 아니다 → 의심이 유지된다
-        var t2 = new AutoSuspicionTracker();
-        for (var s = 0; s <= 50; s++)
-            t2.Observe(T0.AddSeconds(s), true, Fighters(s).Append(Q("마법사", 9 + (s % 4) * 0.7)).ToList());
-        Assert.NotNull(Of(t2, "마법사"));
+        Assert.NotNull(Of(t, "마법사"));
+        Assert.Equal(AutoSuspicionReason.Idle, Of(t, "마법사")!.Reason);
     }
 
     [Fact]
@@ -466,13 +462,12 @@ public class StationaryTests
     }
 }
 
-/// <summary>활동량 하위 이상치(시범, 2026-10-24): 제자리 비율이 파티 중앙값보다 뚜렷이 높은 사람만 표시한다.</summary>
-public class LowActivityTests
+/// <summary>한 자리 고정(2026-10-24): 삼각측량 위치가 3m 안에서 오래 이어지면 표시한다(죽어서 "전투 중"으로 읽혀도 위치는 고정).</summary>
+public class FrozenTests
 {
     private static readonly DateTimeOffset T0 = new(2026, 10, 24, 12, 0, 0, TimeSpan.Zero);
 
-    /// <summary>나는 계속 달린다. movers는 각자 다른 방향으로 계속 움직이고(수동 플레이), still은 한 점에 서 있다.</summary>
-    private static AutoSuspicionTracker Run(int seconds, bool stillToggles = false, int extraStill = 0)
+    private static AutoSuspicionTracker Run(int seconds, int extraMoverIsAlsoFrozen = 0, bool toggleAt60 = false)
     {
         var t = new AutoSuspicionTracker();
         for (var s = 0; s <= seconds; s++)
@@ -483,45 +478,35 @@ public class LowActivityTests
             var list = new List<WatchedPlayer>();
             for (var i = 0; i < 4; i++)
             {
-                // 이동하는 사람: 사인 곡선으로 계속 달린다
                 var x = 15 * Math.Sin(s / (2.0 + i)) + i * 6; var y = my + 20 * Math.Cos(s / (3.0 + i));
-                var still = i >= 4 - extraStill;   // 뒤쪽 extraStill명도 한 점에 선다
-                if (still) { x = 5; y = 100; }
                 list.Add(new($"x|전사{i}|100|100000|", "x", $"전사{i}", 100, 100000, null, true, D(x, y)));
             }
-            var tog = stillToggles && s >= 50;
-            list.Add(new("x|전격술사|100|100000|", "x", "전격술사", 100, 100000, null, true, D(-10, 120), Hood: tog && s % 2 == 0));   // 전투 중으로 보이지만 한 점에서 안 움직임
+            // 죽은 사람: "전투 중"으로 읽히지만 위치는 한 점
+            list.Add(new("x|화염술사|100|100000|", "x", "화염술사", 100, 100000, null, true, D(5, 150), Hood: toggleAt60 && s >= 60 && s % 2 == 0));
             t.Observe(T0.AddSeconds(s), true, list, me);
         }
         return t;
     }
 
     [Fact]
-    public void StandingStillWhileFighting_IsFlaggedOnlyAfterEnoughObservation_AndShowsAsLowActivity()
+    public void AFrozenBody_ThatStillReadsAsFighting_IsFlaggedAfterSeventySeconds()
     {
-        Assert.DoesNotContain(Run(30).Suspects, x => x.Reason == AutoSuspicionReason.LowActivity);   // 아직 표본 부족
-        var s = Run(100).Suspects.FirstOrDefault(x => x.Player.Job == "전격술사");
+        Assert.DoesNotContain(Run(50).Suspects, x => x.Reason == AutoSuspicionReason.Frozen);                   // 아직 이르다
+        var s = Run(130).Suspects.FirstOrDefault(x => x.Player.Job == "화염술사");
         Assert.NotNull(s);
-        Assert.Equal(AutoSuspicionReason.LowActivity, s!.Reason);
-        Assert.DoesNotContain(Run(100).Suspects, x => x.Player.Job.StartsWith("전사"));              // 계속 움직이는 사람은 아니다
+        Assert.Equal(AutoSuspicionReason.Frozen, s!.Reason);
+        Assert.DoesNotContain(Run(130).Suspects, x => x.Player.Job.StartsWith("전사"));                         // 계속 움직이는 사람은 아니다
     }
 
     [Fact]
-    public void StandingOutIsRelative_TwoStillAreBothFlagged_ButAMajorityStillIsNot()
-    {
-        // 둘이 서 있으면 둘 다 잡힌다(중앙값은 그대로 낮다)
-        var two = Run(100, extraStill: 1);
-        Assert.Contains(two.Suspects, x => x.Reason == AutoSuspicionReason.LowActivity && x.Player.Job == "전사3");
-        Assert.Contains(two.Suspects, x => x.Reason == AutoSuspicionReason.LowActivity && x.Player.Job == "전격술사");
-        // 파티의 과반(5명 중 3명)이 서 있으면 중앙값이 올라 아무도 두드러지지 않는다
-        var most = Run(100, extraStill: 2);
-        Assert.DoesNotContain(most.Suspects, x => x.Reason == AutoSuspicionReason.LowActivity);
-    }
+    public void AScreenToggle_BreaksTheFrozenStay()
+        => Assert.DoesNotContain(Run(130, toggleAt60: true).Suspects, x => x.Reason == AutoSuspicionReason.Frozen);
 
     [Fact]
-    public void ScreenToggle_ProvesAHuman_AndClearsTheCandidate()
+    public void SmallMovementOfMine_DoesNotMakeAStillPlayerLookLikeTheyMoved()
     {
-        var t = Run(100, stillToggles: true);
-        Assert.DoesNotContain(t.Suspects, x => x.Player.Job == "전격술사" && x.Reason == AutoSuspicionReason.LowActivity);
+        // 내가 1~10m만 움직이면 거리 변화가 내 탓일 수 있어 판단을 보류한다(움직임으로 오판해 고정 구간을 끊지 않는다)
+        var samples = Enumerable.Range(0, 12).Select(s => new RangeSample(s, s * 0.6, 0, 20 + s * 0.4)).ToList();
+        Assert.Null(Stationary.Judge(samples));
     }
 }
