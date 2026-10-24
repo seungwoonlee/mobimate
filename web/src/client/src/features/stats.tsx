@@ -155,11 +155,15 @@ function Recommend({ items }: { items: CharacterCard['recommend'] }) {
   );
 }
 
-/** 점수 한 칸: 값(게임과 같은 점수 색) + 서버 순위. 좁은 화면에서는 앞에 이름표가 붙는다. */
+/**
+ * 점수 한 칸: 값 + 작은 서버 순위. 전투력·생활력·매력·종합은 **값과 순위 모두** 그 순위의 딱지 등급 색(골드·주황·핑크·보라)으로 칠하고, 등급 밖이면 일반 색이다.
+ * 마도저항은 순위가 없어 점수 색을 쓴다. 좁은 화면에서는 앞에 이름표가 붙는다.
+ */
 function Score({ label, value, kind, rank }: { label: string; value: number; kind?: ScoreKind; rank?: RankEntryView }) {
+  const tierClass = rank && rank.rank != null && rank.tier !== 'none' ? ` cs-t-${rank.tier}` : '';
   return (
     <span className="st-s" data-label={label}>
-      <b className={`num ${kind ? scoreClass(kind, value) : ''}`}>{fmt(value)}</b>
+      <b className={`num ${kind === 'mdef' ? scoreClass(kind, value) : ''}${tierClass}`}>{fmt(value)}</b>
       {rank?.rank != null && <RankText rank={rank.rank} tier={rank.tier} className="st-rk" />}
     </span>
   );
