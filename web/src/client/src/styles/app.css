@@ -410,7 +410,8 @@ button.toast { border: 0; text-align: left; cursor: pointer; }
 }
 
 /* 직업 이미지(전신 실루엣 그대로) */
-.jobimg{display:inline-block;flex:none;background-repeat:no-repeat;background-size:contain;background-position:center bottom;vertical-align:middle}
+/* 카드 그림(932×378, 인물이 가운데 오른쪽)을 정사각형으로 잘라 얼굴·상반신을 보인다. */
+.jobimg{display:inline-block;flex:none;background-repeat:no-repeat;background-size:auto 100%;background-position:64% center;border-radius:8px;background-color:var(--bg-3);vertical-align:middle}
 .who-name .job .jobimg{margin-right:2px}
 .pl-job .jobimg{margin-right:2px}
 .cc-job{display:flex;align-items:center;gap:6px}

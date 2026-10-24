@@ -3,53 +3,49 @@ namespace MobiMate.Web.Services;
 /// <summary>한 직업의 이미지 정보: 이미지 id와 원격 주소</summary>
 public sealed record ClassImage(string Id, string Url)
 {
-    public string FileName => $"{Id}.png";
+    /// <summary>옛 전신 그림(`id.png`)과 섞이지 않게 새 이름으로 저장한다 — 옛 파일은 쓰이지 않고 그대로 남는다.</summary>
+    public string FileName => $"{Id}.main.png";
 }
 
 /// <summary>
-/// 직업별 전신 일러스트 (v1.5 요청 4). 넥슨 마비노기 모바일 "클래스 소개 → 자세히 보기" 페이지의 직업별 이미지(27개)를
+/// 직업별 전신 일러스트 (v1.5 요청 4). 넥슨 마비노기 모바일 메인 페이지 "클래스 선택" 카드의 직업별 상반신 그림(견습 클래스는 숙제가 의미 없어 그림이 없다, 21개)을
 /// **첫 실행 때 이 PC에만 내려받아** 저장 폴더(class-images)에 둔다. 배포 파일(exe·zip)에는 넣지 않는다(저작권).
-/// 직업은 얼굴이 아니라 전체 실루엣으로 구분하므로 전신을 그대로 보여 준다. 내려받지 못하면 SVG 아이콘으로 대신한다.
+/// 내려받지 못하면 SVG 아이콘으로 대신한다.
 /// 직업 이름 → 이미지 id 연결은 화면(lib/job.ts)에 있다. 주소는 정해진 넥슨 이미지 서버(lwi.nexon.com)만 쓰고,
 /// 요청으로 받은 값으로 주소를 만들지 않는다.
 /// </summary>
 public sealed class ClassImages
 {
-    private const string Base = "https://lwi.nexon.com/m_mabinogim/brand/info/class/";
+    private const string Main = "https://lwi.nexon.com/m_mabinogim/brand/main/";
     private const long MaxBytes = 4 * 1024 * 1024;
 
-    private static ClassImage I(string id, string file) => new(id, Base + file + ".png");
+    /// <summary>계열 카드 이미지(메인 페이지의 클래스 선택 카드, 상반신)</summary>
+    private static ClassImage M(string id, string file) => new(id, Main + file + ".png");
 
-    /// <summary>이미지 id → 주소. 파일 이름의 해시가 바뀌면(넥슨이 이미지를 교체하면) 내려받기가 실패하고 SVG 아이콘으로 대신한다.</summary>
+    /// <summary>이미지 id → 주소 (2026-10-24: 메인 페이지의 클래스 카드 그림으로 교체). 파일 이름의 해시가 바뀌면(넥슨이 이미지를 교체하면) 내려받기가 실패하고 SVG 아이콘으로 대신한다.</summary>
     public static readonly IReadOnlyList<ClassImage> Known = new[]
     {
-        I("warrior_1", "warrior_line_1_06066EE99E761EFA"),   // 견습 전사
-        I("warrior_2", "warrior_line_5_8A452CCB080CB6B1"),   // 기사
-        I("warrior_3", "warrior_line_2_37B2D3A04C09CC2F"),   // 전사
-        I("warrior_4", "warrior_line_3_68958D98B3DDC1BF"),   // 대검전사
-        I("warrior_5", "warrior_line_4_5F017124236C03D6"),   // 검술사
-        I("archer_1", "archer_line_1_91D9F178871DF33E"),     // 견습 궁수
-        I("archer_2", "archer_line_2_946AEAF0A67A9596"),     // 궁수
-        I("archer_3", "archer_line_3_1C943631C2AC78C3"),     // 석궁사수
-        I("archer_4", "archer_line_4_87DDBBCFAFAB46A2"),     // 장궁병
-        I("thief_1", "thief_line_1_329BACBB215B9685"),       // 견습 도적
-        I("thief_2", "thief_line_2_329BACBB215B9685"),       // 도적
-        I("thief_3", "thief_line_3_329BACBB215B9685"),       // 격투가
-        I("thief_4", "thief_line_4_329BACBB215B9685"),       // 듀얼블레이드
-        I("mage_1", "mage_line_1_ABCF78594DE826C6"),         // 견습 마법사
-        I("mage_2", "mage_line_5_B081998986AB2402"),         // 전격술사
-        I("mage_3", "mage_line_2_3B83737BEFFE2F1E"),         // 마법사
-        I("mage_4", "mage_line_3_8B52C51AC86C7FF4"),         // 화염술사
-        I("mage_5", "mage_line_4_1407F0E540914B42"),         // 빙결술사
-        I("bard_1", "bard_line_1_665D3DD481B4F2B1"),         // 견습 음유시인
-        I("bard_2", "bard_line_2_9BC13B02244F2CCE"),         // 음유시인
-        I("bard_3", "bard_line_3_292F7849A4CD3D6D"),         // 댄서
-        I("bard_4", "bard_line_4_EE862F9C6C2F489E"),         // 악사
-        I("healer_1", "healer_line_1_CAA08532FD6A5564"),     // 견습 힐러
-        I("healer_2", "healer_line_5_A81ECBD118FDBD03"),     // 암흑술사
-        I("healer_3", "healer_line_2_F36BCFDF34ADEF01"),     // 힐러
-        I("healer_4", "healer_line_3_2D469FC76BCE4EA2"),     // 사제
-        I("healer_5", "healer_line_4_937ABDCBE7D1B193"),     // 수도사
+        M("warrior_2", "warrior_line_5_90B3235A24048548"),   // 기사
+        M("warrior_3", "warrior_line_2_28C37233E92909BE"),   // 전사
+        M("warrior_4", "warrior_line_3_B378B9AA701FB26A"),   // 대검전사
+        M("warrior_5", "warrior_line_4_9434BAA792C97CF7"),   // 검술사
+        M("archer_2", "archer_line_2_D6E45A19E1687DFD"),     // 궁수
+        M("archer_3", "archer_line_3_F973703EF8785147"),     // 석궁사수
+        M("archer_4", "archer_line_4_CEB489C064CB2A2C"),     // 장궁병
+        M("thief_2", "thief_line_2_8F6A4BFBAA15E580"),       // 도적
+        M("thief_3", "thief_line_3_8F6A4BFBAA15E580"),       // 격투가
+        M("thief_4", "thief_line_4_8F6A4BFBAA15E580"),       // 듀얼블레이드
+        M("mage_2", "mage_line_5_5F3544A216895074"),         // 전격술사
+        M("mage_3", "mage_line_2_E7B399F3D4DDBD91"),         // 마법사
+        M("mage_4", "mage_line_3_CDAD51308B7CFACB"),         // 화염술사
+        M("mage_5", "mage_line_4_4F9B334E42140CEF"),         // 빙결술사
+        M("bard_2", "bard_line_2_D8FC30473250D673"),         // 음유시인
+        M("bard_3", "bard_line_3_E9065DF6A2199236"),         // 댄서
+        M("bard_4", "bard_line_4_7E8E049E8DD9B5A8"),         // 악사
+        M("healer_2", "healer_line_5_E9B9FAAA0F0D6D5F"),     // 암흑술사
+        M("healer_3", "healer_line_2_6E1C3698B3515641"),     // 힐러
+        M("healer_4", "healer_line_3_708525A531164BA0"),     // 사제
+        M("healer_5", "healer_line_4_7AB184D51EAB25D1"),     // 수도사
     };
 
     private readonly string _dir;

@@ -92,5 +92,5 @@ function seedCharacters(dir: string) {
 function seedClassImage(dir: string) {
   const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64');
   mkdirSync(join(dir, 'class-images'), { recursive: true });
-  writeFileSync(join(dir, 'class-images', 'thief_3.png'), png);
+  writeFileSync(join(dir, 'class-images', 'thief_3.main.png'), png);
 }

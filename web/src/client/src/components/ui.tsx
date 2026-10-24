@@ -85,8 +85,8 @@ export function JobIcon({ job, size }: { job: string | null | undefined; size?: 
   const id = classImageId(job);
   const has = useClassImage(id);
   if (!id || has !== 'ok') return <Icon name={jobIconName(job)} size={size} />;
-  const h = Math.round((size ?? 16) * 2.6);   // 실루엣이 알아보이도록 아이콘보다 훨씬 크게 (세로가 긴 전신)
-  return <span className="jobimg" role="img" aria-label={`${job ?? ''} 클래스`} style={{ height: h, width: Math.round(h * 0.7), ...figureStyle(id) }} />;
+  const box = Math.round((size ?? 16) * 1.9);   // 얼굴·상반신이 알아보이는 정사각형 칸 (모든 직업이 같은 크기)
+  return <span className="jobimg" role="img" aria-label={`${job ?? ''} 클래스`} style={{ height: box, width: box, ...figureStyle(id) }} />;
 }
 
 /** 카드 머리글 */

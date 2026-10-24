@@ -21,21 +21,21 @@ describe('직업 계열', () => {
   });
 });
 
-// 직업별 전신 이미지: 이름으로 이미지 id를 찾는다 (서버가 내려받는 27개와 같은 id)
+// 직업별 이미지: 이름으로 이미지 id를 찾는다 (서버가 내려받는 21개와 같은 id, 견습 클래스는 그림 없음)
 describe('직업별 이미지', () => {
-  it('27개 직업 모두 이미지 id가 있다', () => {
-    const names = ['견습 전사', '기사', '전사', '대검전사', '검술사', '견습 궁수', '궁수', '석궁사수', '장궁병', '견습 도적', '도적', '격투가', '듀얼블레이드',
-      '견습 마법사', '전격술사', '마법사', '화염술사', '빙결술사', '견습 음유시인', '음유시인', '댄서', '악사', '견습 힐러', '암흑술사', '힐러', '사제', '수도사'];
+  it('견습을 뺀 21개 직업 모두 이미지 id가 있다', () => {
+    const names = ['기사', '전사', '대검전사', '검술사', '궁수', '석궁사수', '장궁병', '도적', '격투가', '듀얼블레이드',
+      '전격술사', '마법사', '화염술사', '빙결술사', '음유시인', '댄서', '악사', '암흑술사', '힐러', '사제', '수도사'];
     const ids = names.map(n => classImageId(n));
     expect(ids.every(Boolean)).toBe(true);
-    expect(new Set(ids).size).toBe(27);                                   // 직업마다 다른 이미지
+    expect(new Set(ids).size).toBe(21);                                   // 직업마다 다른 이미지
   });
 
   it('게임이 주는 이름 그대로 연결된다 (공백은 무시)', () => {
     expect(classImageId('격투가')).toBe('thief_3');
     expect(classImageId('대검전사')).toBe('warrior_4');
     expect(classImageId('음유시인')).toBe('bard_2');
-    expect(classImageId('견습전사')).toBe('warrior_1');
+    expect(classImageId('견습전사')).toBeNull();   // 견습 클래스는 그림이 없다(숙제가 의미 없는 단계)
     expect(classImageId(' 화염술사 ')).toBe('mage_4');
   });
 

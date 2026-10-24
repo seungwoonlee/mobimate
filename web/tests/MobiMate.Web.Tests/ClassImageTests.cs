@@ -26,11 +26,11 @@ public class ClassImageTests
     [Fact]
     public void Known_IsEveryClassOnTheNexonImageServerOnly()
     {
-        Assert.Equal(27, ClassImages.Known.Count);                                          // 6개 계열 × 4~5단계 직업
+        Assert.Equal(21, ClassImages.Known.Count);                                          // 6개 계열 전직 클래스 (견습 제외)
         Assert.Equal(ClassImages.Known.Count, ClassImages.Known.Select(c => c.Id).Distinct().Count());
         Assert.Equal(ClassImages.Known.Count, ClassImages.Known.Select(c => c.Url).Distinct().Count());
-        Assert.All(ClassImages.Known, c => Assert.StartsWith("https://lwi.nexon.com/m_mabinogim/brand/info/class/", c.Url));
-        Assert.All(ClassImages.Known, c => Assert.Matches(@"^(warrior|archer|thief|mage|bard|healer)_[1-5]$", c.Id));
+        Assert.All(ClassImages.Known, c => Assert.StartsWith("https://lwi.nexon.com/m_mabinogim/brand/main/", c.Url));
+        Assert.All(ClassImages.Known, c => Assert.Matches(@"^(warrior|archer|thief|mage|bard|healer)_[2-5]$", c.Id));
     }
 
     [Fact]
@@ -85,7 +85,7 @@ public class ClassImageTests
 
     [Theory]
     [InlineData("../../secrets")]
-    [InlineData("warrior_4.png")]
+    [InlineData("warrior_4.main.png")]
     [InlineData("WARRIOR_4")]
     [InlineData("warrior")]   // 예전 계열 단위 id는 없다
     [InlineData("")]
@@ -100,7 +100,7 @@ public class ClassImageTests
     {
         var dir = TempDir();
         Directory.CreateDirectory(Path.Combine(dir, "class-images"));
-        File.WriteAllBytes(Path.Combine(dir, "class-images", "warrior_4.png"), Png);
+        File.WriteAllBytes(Path.Combine(dir, "class-images", "warrior_4.main.png"), Png);
         try
         {
             using var host = new TestHost(dir) { KeepStorage = true };
