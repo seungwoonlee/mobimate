@@ -1,4 +1,4 @@
-import { groupItems, isMissionItem, MISSION_ITEMS } from './inventory';
+import { groupItems, isMissionItem, MISSION_ITEMS, missionInfo } from './inventory';
 import type { InvItem } from '../api/types';
 
 // 임무용 아이템 묶음 (2026-10-24 승운): 이름이 정확히 같은 것만 임무용으로 묶는다.
@@ -7,6 +7,12 @@ describe('임무용 아이템', () => {
   it('채집물·요리·도구·장비를 알아본다', () => {
     for (const n of ['옥수수', '끈적 풀', '상급 통나무+', '쑥쑥 버섯', '조개찜', '마요네즈 고기볶음', '전문 캠프파이어 키트', '마법 유탄 부품', '비늘 갑옷 신발S', '론 엣지소드S', '양털', '철 광석', '화살꽃', '헤이즐넛', '달걀 프라이', '그랜드 크로스보우', '두꺼운 전투복 신발', '전투복 신발S'])
       expect(isMissionItem(n), n).toBe(true);
+  });
+  it('마을과 종류를 알려 준다', () => {
+    expect(missionInfo('옥수수')).toEqual({ town: '던바튼', kind: '채집' });
+    expect(missionInfo('조개찜')).toEqual({ town: '콜헨', kind: '요리' });
+    expect(missionInfo('전투복 신발S')).toEqual({ town: '이멘마하', kind: '제작' });
+    expect(missionInfo('통나무')).toBeUndefined();
   });
   it('이름 앞뒤 공백과 유니티 색 태그는 무시한다', () => {
     expect(isMissionItem('  콩 ')).toBe(true);

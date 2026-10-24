@@ -11,23 +11,22 @@ import { AutoBadge, autoStyle, jobLabel, MissingLine, REL_TAG, REL_TEXT } from '
  * 임무용 아이템(2026-10-24 승운, 도시별 채집·요리·제작 목록으로 갱신): 임무에 쓰이는 채집물·요리·제작품. 가방·창고 목록에서 일반 아이템보다 위의 별도 묶음으로 먼저 보인다.
  * 이름이 정확히 같은 것만 묶는다(유니티 색 태그는 떼고 비교). 목록은 승운이 준 것이고, 새로 필요한 아이템은 여기에 더한다.
  */
-export const MISSION_ITEMS: ReadonlySet<string> = new Set([
-  // 채집물 (티르코네일·던바튼·콜헨·반호르·이멘마하)
-  '거미줄', '양털', '블러디 허브', '밀', '감자',
-  '쑥쑥 버섯', '우유', '철 광석', '옥수수', '양파',
-  '화살꽃', '달걀', '상급 통나무+', '조개',
-  '콩', '파스닙',
-  '쌀', '호박', '헤이즐넛', '끈적 풀',
-  // 요리 ('달걀프라이'·'전문 캠프파이어 키트'는 앞서 받은 표기라 게임 이름이 어느 쪽이든 잡히도록 함께 둔다)
-  '달걀 프라이', '달걀프라이', '사과 주스', '조개찜', '통감자구이', '마요네즈 고기볶음',
-  // 제작
-  '캠프파이어 키트', '전문 캠프파이어 키트', '마법 유탄 부품',
-  '크레센트 엣지소드', '그랜드 크로스보우', '로터스 힐링 완드',
-  '사슬 갑옷 신발', '두꺼운 가죽 갑옷 신발', '두꺼운 전투복 신발',
-  '론 엣지소드S', '라이트 크로스보우S', '마블 힐링 완드S',
-  '비늘 갑옷 신발S', '가죽 갑옷 신발S', '전투복 신발S',
-]);
-export const isMissionItem = (name: string): boolean => MISSION_ITEMS.has(plain(name).trim());
+export const TOWNS = ['티르코네일', '던바튼', '콜헨', '반호르', '이멘마하'] as const;
+export const KINDS = ['채집', '요리', '제작'] as const;
+export interface MissionInfo { town: string; kind: string }
+/** 임무용 아이템의 마을·종류. '달걀프라이'·'전문 캠프파이어 키트'는 앞서 받은 표기라 게임 이름이 어느 쪽이든 잡히도록 함께 둔다. */
+const MISSION_TABLE: Record<string, Record<string, string[]>> = {
+  '티르코네일': { '채집': ['거미줄', '양털', '블러디 허브', '밀', '감자'], '요리': ['달걀 프라이', '달걀프라이'], '제작': ['캠프파이어 키트', '전문 캠프파이어 키트', '마법 유탄 부품'] },
+  '던바튼': { '채집': ['쑥쑥 버섯', '우유', '철 광석', '옥수수', '양파'], '요리': ['사과 주스'], '제작': ['크레센트 엣지소드', '그랜드 크로스보우', '로터스 힐링 완드'] },
+  '콜헨': { '채집': ['화살꽃', '달걀', '상급 통나무+', '조개'], '요리': ['조개찜'], '제작': ['사슬 갑옷 신발', '두꺼운 가죽 갑옷 신발', '두꺼운 전투복 신발'] },
+  '반호르': { '채집': ['콩', '파스닙'], '요리': ['통감자구이'], '제작': ['론 엣지소드S', '라이트 크로스보우S', '마블 힐링 완드S'] },
+  '이멘마하': { '채집': ['쌀', '호박', '헤이즐넛', '끈적 풀'], '요리': ['마요네즈 고기볶음'], '제작': ['비늘 갑옷 신발S', '가죽 갑옷 신발S', '전투복 신발S'] },
+};
+const MISSION_INFO: ReadonlyMap<string, MissionInfo> = new Map(
+  Object.entries(MISSION_TABLE).flatMap(([town, kinds]) => Object.entries(kinds).flatMap(([kind, names]) => names.map(n => [n, { town, kind }] as const))));
+export const MISSION_ITEMS: ReadonlySet<string> = new Set(MISSION_INFO.keys());
+export const missionInfo = (name: string): MissionInfo | undefined => MISSION_INFO.get(plain(name).trim());
+export const isMissionItem = (name: string): boolean => MISSION_INFO.has(plain(name).trim());
 
 const LOC_SHORT: Record<string, string> = { bag: '가방', account: '계정창고', character: '캐릭터창고' };
 const LOC_KEYS = ['bag', 'account', 'character'] as const;
@@ -63,7 +62,7 @@ export function InventoryView() {
       r = r.sort(SORT_FN[sort] ?? SORT_FN.count);
       r = r.sort((a, b) => Number(b.favorite) - Number(a.favorite));   // 즐겨찾기가 먼저 (정렬은 안정적이라 나머지 순서는 그대로)
     }
-    if (search) r = r.filter(x => plain(x.name).includes(search) || x.category.includes(search));
+    if (search) r = r.filter(x => plain(x.name).includes(search) || x.category.includes(search) || (() => { const m = missionInfo(x.name); return !!m && (m.town.includes(search) || m.kind.includes(search)); })());
     return r;
   }, [q.data, loc, search, sort]);
 
@@ -89,7 +88,7 @@ export function InventoryView() {
         </div>
         <label className="search">
           <Icon name="search" />
-          <input type="search" placeholder="이름·카테고리 검색" value={text} aria-label="아이템 검색"
+          <input type="search" placeholder="이름·카테고리·마을 검색" value={text} aria-label="아이템 검색"
             onChange={e => { setText(e.target.value); setParam('q', e.target.value || null); }} />
         </label>
         {loc !== 'diet' && (
@@ -106,7 +105,16 @@ export function InventoryView() {
           {loc !== 'diet' && missionRows.length > 0 ? (
             <>
               <h3 className="group-h">임무용 아이템 <span className="num muted small">({fmt(missionRows.length)}종)</span></h3>
-              <ItemList rows={missionRows} loc={loc} />
+              {TOWNS.map(t => {
+                const list = missionRows.filter(r => missionInfo(r.name)?.town === t);
+                if (list.length === 0) return null;
+                return (
+                  <section key={t} aria-label={t}>
+                    <h4 className="town-h">{t} <span className="num muted small">({fmt(list.length)}종)</span></h4>
+                    <ItemList rows={list} loc={loc} />
+                  </section>
+                );
+              })}
               {normalRows.length > 0 && (
                 <>
                   <h3 className="group-h">일반 아이템 <span className="num muted small">({fmt(normalRows.length)}종)</span></h3>
@@ -130,7 +138,7 @@ function ItemList({ rows, loc }: { rows: InvGroup[]; loc: string }) {
         const parts = LOC_KEYS.filter(k => (r.by[k] ?? 0) > 0);
         const detail = parts.map(k => `${LOC_SHORT[k]} ${fmt(r.by[k])}`).join(', ');
         return (
-          <div className={`inv-card ${r.favorite ? 'fav' : ''}`} role="listitem" key={r.name} title={`${plain(r.name)} · ${r.category} · 총 ${fmt(r.total)}개${detail ? ` (${detail})` : ''}`}>
+          <div className={`inv-card ${r.favorite ? 'fav' : ''}`} role="listitem" key={r.name} title={`${plain(r.name)} · ${missionInfo(r.name) ? `${missionInfo(r.name)!.town} ${missionInfo(r.name)!.kind}` : r.category} · 총 ${fmt(r.total)}개${detail ? ` (${detail})` : ''}`}>
             <div className="t">
               <button type="button" className="star" aria-pressed={r.favorite} aria-label={`${plain(r.name)} 즐겨찾기`} title={r.favorite ? '즐겨찾기 해제' : '즐겨찾기'}
                 onClick={() => void setFavorite('items', r.name, !r.favorite)}>{r.favorite ? '★' : '☆'}</button>
