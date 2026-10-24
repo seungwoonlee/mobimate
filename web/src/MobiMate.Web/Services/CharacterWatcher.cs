@@ -96,7 +96,7 @@ public sealed class CharacterWatcher(GameQueries q, GameViews views, StatusMonit
         if (auto.NeedsFast()) return;
         q.Invalidate("get_near_pcs");
         var near = await q.Get<List<NearPcItem>>("get_near_pcs", ct);
-        if (near.Ok && near.Value != null) auto.Observe(now, true, near.Value);
+        if (near.Ok && near.Value != null) auto.Observe(now, true, near.Value);   // 내 위치는 넣지 않는다: 감시의 위치는 몇 초 묵은 값이라 삼각측량이 틀어진다(1초 읽기만 위치를 함께 읽는다)
     }
 
     /// <summary>캐릭터 선택창의 빈 정보도 표식이 되므로 선택창 → 캐릭터 진입이 전환으로 잡힌다.</summary>
