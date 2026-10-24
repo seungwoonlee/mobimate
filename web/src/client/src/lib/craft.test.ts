@@ -143,3 +143,21 @@ describe('가공 연계 (2차 재료까지 계산)', () => {
     expect(p.totalProcess).toBe(0);
   });
 });
+
+describe('상급 가죽·상급 옷감 가공', () => {
+  it('상급 가죽이 모자라면 가죽+ → 가죽 → 생가죽, 상급 생가죽·타닌 가루까지 풀어서 센다', () => {
+    // 가죽 갑옷 신발S 1개 = 상급 가죽 3 + 강철괴 2. 상급 가죽 1회 = 가죽+ 3 + 상급 생가죽 15 + 타닌 가루 8
+    const p = planTargets({ '가죽 갑옷 신발S': 1 }, new Map([['강철괴', 2]]), RECIPES, new Map(), PROCESSES);
+    const line = (n: string) => p.lines.find(l => l.name === n);
+    expect(line('상급 가죽')).toMatchObject({ need: 3, short: 3, made: true, processCrafts: 1 });
+    expect(line('가죽+')).toMatchObject({ need: 3, processCrafts: 1 });          // 상급 가죽 가공에 드는 가죽+ 3 → 가죽+ 1회
+    expect(line('상급 생가죽')).toMatchObject({ need: 15, short: 15 });
+    expect(line('타닌 가루')).toMatchObject({ need: 8 + 4 });                    // 상급 가죽 8 + 가죽+ 가공 4
+    expect(line('생가죽')).toMatchObject({ need: 10 });                          // 가죽 1회(가죽+ 가공에 드는 가죽 3)
+  });
+  it('상급 옷감은 옷감+ → 옷감 → 양털, 상급 양털까지', () => {
+    const p = planTargets({ '전투복 신발S': 1 }, new Map([['강철괴', 2]]), RECIPES, new Map(), PROCESSES);
+    expect(p.lines.find(l => l.name === '상급 양털')).toMatchObject({ need: 15 });
+    expect(p.lines.find(l => l.name === '양털')).toMatchObject({ need: 8 + 4 + 10 });   // 상급 옷감 8 + 옷감+ 4 + 옷감 10
+  });
+});

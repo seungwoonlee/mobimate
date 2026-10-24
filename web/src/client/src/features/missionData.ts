@@ -72,7 +72,7 @@ export const COOK_RECIPES: readonly Recipe[] = [
 /**
  * 가공 레시피 (2026-10-25 승운이 가공 화면에서 확인, docs/MISSION_CRAFT_RECIPES.md). 제작 재료(강철괴·목재+ 같은 2차 재료)를 만드는 법이다.
  * 한 번 가공하면 3개가 나온다. 모자란 2차 재료는 이 레시피로 원재료까지 풀어서 계산한다.
- * 상급 가죽·상급 옷감의 가공법은 아직 모른다(원재료처럼 센다).
+ * 가공법을 모르는 재료는 원재료처럼 센다.
  */
 export interface Process { name: string; produces: number; needs: readonly (readonly [string, number])[]; facility: string; minutes: number }
 export const PROCESSES: readonly Process[] = [
@@ -82,8 +82,10 @@ export const PROCESSES: readonly Process[] = [
   { name: '상급 목재', produces: 3, needs: [['목재+', 3], ['상급 통나무', 15], ['나무 진액', 8]], facility: '목재 가공 시설 Lv.2', minutes: 100 },
   { name: '목재+', produces: 3, needs: [['목재', 3], ['나무 진액', 4]], facility: '목재 가공 시설 Lv.1', minutes: 12 },
   { name: '목재', produces: 3, needs: [['통나무', 10]], facility: '목재 가공 시설 Lv.1', minutes: 1.5 },
+  { name: '상급 가죽', produces: 3, needs: [['가죽+', 3], ['상급 생가죽', 15], ['타닌 가루', 8]], facility: '가죽 가공 시설 Lv.2', minutes: 100 },
   { name: '가죽+', produces: 3, needs: [['가죽', 3], ['타닌 가루', 4]], facility: '가죽 가공 시설 Lv.1', minutes: 10 },
   { name: '가죽', produces: 3, needs: [['생가죽', 10]], facility: '가죽 가공 시설 Lv.1', minutes: 1 },
+  { name: '상급 옷감', produces: 3, needs: [['옷감+', 3], ['상급 양털', 15], ['양털', 8]], facility: '옷감 가공 시설 Lv.2', minutes: 100 },
   { name: '옷감+', produces: 3, needs: [['옷감', 3], ['양털', 4]], facility: '옷감 가공 시설 Lv.1', minutes: 12 },
   { name: '옷감', produces: 3, needs: [['양털', 10]], facility: '옷감 가공 시설 Lv.1', minutes: 1.5 },
 ];
