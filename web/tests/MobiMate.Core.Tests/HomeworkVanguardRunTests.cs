@@ -45,6 +45,75 @@ public class HomeworkVanguardRunTests : IDisposable
         svc.Evaluate(Main, Obs(Town, Other));
     }
 
+    // 수동 횟수 (2026-10-24 승운): 3회 중 일부만 했을 수 있어 칸을 누를 때마다 0 → 1 → 2 → 3(완료) → 0으로 돈다.
+
+    [Theory]
+    [InlineData(0, 3)]
+    [InlineData(1, 2)]
+    [InlineData(2, 1)]
+    public void ManualCount_BelowTheGoal_IsStillTodoWithTheRemainingRuns(int count, int remaining)
+    {
+        var svc = NewService();
+        svc.Set(Main, Id, count: count);
+        Assert.Equal(HomeworkCardStatus.Pending, Card(svc).Status);
+        Assert.Equal("todo", Auto(svc).State);
+        Assert.Equal(remaining, Auto(svc).Remaining);
+        Assert.Equal(remaining, Card(svc).Remaining);
+    }
+
+    [Fact]
+    public void ManualCount_AtTheGoal_Completes_AndZeroReopens()
+    {
+        var svc = NewService();
+        svc.Set(Main, Id, count: 3);
+        Assert.Equal(HomeworkCardStatus.ManualDone, Card(svc).Status);
+        Assert.Equal("done", Auto(svc).State);
+        svc.Set(Main, Id, count: 0);
+        Assert.Equal(HomeworkCardStatus.Pending, Card(svc).Status);
+        Assert.Equal(3, Auto(svc).Remaining);
+    }
+
+    [Fact]
+    public void ManualCount_IsClamped_AndSurvivesARestart()
+    {
+        var svc = NewService();
+        svc.Set(Main, Id, count: 99);
+        Assert.Equal(HomeworkCardStatus.ManualDone, Card(NewService()).Status);
+        svc.Set(Main, Id, count: -5);
+        Assert.Equal(3, Auto(NewService()).Remaining);
+    }
+
+    [Fact]
+    public void ManualCount_KeepsCountingFromThere_WhenTheAreaRewardsArrive()
+    {
+        var svc = NewService();
+        svc.Set(Main, Id, count: 1);               // 손으로 1회라고 적어 둔 상태에서
+        svc.Evaluate(Main, Obs(Town, Other));
+        Run(svc);                                  // 한 판 더 깬다 → 2회
+        Assert.Equal(1, Auto(svc).Remaining);
+        Run(svc);                                  // 또 한 판 → 3회 완료
+        Assert.Equal(HomeworkCardStatus.AutoDone, Card(svc).Status);
+    }
+
+    [Fact]
+    public void ManualCount_YieldsToTheGamesOwnCountWhenTheQuestIsVisible()
+    {
+        var svc = NewService();
+        svc.Set(Main, Id, count: 0);
+        svc.Evaluate(Main, Obs(Town, Weekly(2), Other));   // 게임은 2/3이라고 알려 준다
+        Assert.Equal(1, Auto(svc).Remaining);
+    }
+
+    [Fact]
+    public void CompletedFlag_StillWorksForTheOldCallers()
+    {
+        var svc = NewService();
+        svc.Set(Main, Id, completed: true);
+        Assert.Equal(HomeworkCardStatus.ManualDone, Card(svc).Status);
+        svc.Set(Main, Id, completed: false);
+        Assert.Equal(3, Auto(svc).Remaining);
+    }
+
     [Fact]
     public void QuestDisappearing_IsNeverACompletion_TheLastKnownCountStays()
     {
