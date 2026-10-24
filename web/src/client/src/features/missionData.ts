@@ -58,14 +58,13 @@ export const RECIPES: readonly Recipe[] = [
 ];
 
 /**
- * 요리 레시피 (2026-10-24). 요리는 CLI `get_craftable_items`에 제작과 같이 나오지만 "부족한 재료"만 주어 가방에 충분한 재료는 빠진다.
- * 그래서 아래 재료·개수는 아직 확정이 아니다(unverified). 승운이 게임에서 확인해 주면 needs를 채우고 unverified를 지운다.
- * needs에 적은 것은 CLI가 알려 준 부족 재료의 필요 개수이고, 힌트(알려진 재료)는 역조회로 찾은 이름이다.
+ * 요리 레시피 (2026-10-24 승운이 게임 제작 화면에서 확인해 확정, docs/MISSION_CRAFT_RECIPES.md). 1회 제작 기준, 1회에 1개 나온다.
+ * 요리 이름은 임무용 아이템(완성품) 이름과 같아서 가진 개수를 셀 수 있다. CLI 이름은 '달걀프라이'(띄어쓰기 없음)다.
  */
 export const COOK_RECIPES: readonly Recipe[] = [
-  { town: '티르코네일', name: '달걀 프라이', alias: '달걀프라이', produces: 1, needs: [['달걀', 1], ['소금', 1]], unverified: true },
-  { town: '던바튼', name: '사과 주스', produces: 1, needs: [['사과', 4], ['물이 든 병', 1], ['설탕', 0], ['허브', 0]], unverified: true },
-  { town: '콜헨', name: '조개찜', produces: 1, needs: [['조개', 10], ['물이 든 병', 5], ['레몬', 0], ['허브', 0]], unverified: true },
-  { town: '반호르', name: '통감자구이', produces: 1, needs: [['감자', 0], ['설탕', 0], ['허브', 0]], unverified: true },
-  { town: '이멘마하', name: '마요네즈 고기볶음', produces: 1, needs: [['고기', 0], ['마요네즈', 0], ['양배추', 0]], unverified: true },
+  { town: '티르코네일', name: '달걀 프라이', alias: '달걀프라이', produces: 1, needs: [['달걀', 1], ['소금', 1]] },
+  { town: '던바튼', name: '사과 주스', produces: 1, needs: [['사과', 4], ['허브', 2], ['물이 든 병', 1], ['설탕', 2]] },
+  { town: '콜헨', name: '조개찜', produces: 1, needs: [['조개', 10], ['물이 든 병', 5], ['레몬', 4], ['허브', 3]] },
+  { town: '반호르', name: '통감자구이', produces: 1, needs: [['감자', 4], ['허브', 2], ['설탕', 2]] },
+  { town: '이멘마하', name: '마요네즈 고기볶음', produces: 1, needs: [['고기', 4], ['양배추', 1], ['마요네즈', 1]] },
 ];

@@ -41,9 +41,10 @@ describe('제작 레시피', () => {
 });
 
 describe('요리 레시피', () => {
-  it('마을마다 하나씩 5종이고, 확정 전까지 모두 미확정으로 표시한다', () => {
+  it('마을마다 하나씩 5종이고 모두 확정이다', () => {
     expect(COOK_RECIPES.map(r => r.town)).toEqual([...TOWNS]);
-    expect(COOK_RECIPES.every(r => r.unverified)).toBe(true);
+    expect(COOK_RECIPES.some(r => r.unverified)).toBe(false);
+    expect(COOK_RECIPES.find(r => r.name === '조개찜')?.needs).toEqual([['조개', 10], ['물이 든 병', 5], ['레몬', 4], ['허브', 3]]);
   });
   it('요리 이름은 임무용 아이템(완성품) 이름과 같아서 가진 개수를 셀 수 있다', () => {
     for (const r of COOK_RECIPES) expect(isMissionItem(r.name), r.name).toBe(true);

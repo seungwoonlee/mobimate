@@ -157,8 +157,11 @@ test('임무 탭: 채집 모드는 채집 임무용 아이템 20종을 0개도 �
   await expect(page.locator('.inv-card.zero').first()).toBeVisible();        // 없는 것은 흐리게 0개로
   await page.getByRole('button', { name: '요리', exact: true }).click();
   await expect(page.getByRole('heading', { name: '요리 계산' })).toBeVisible();
-  await expect(page.locator('.rc-card')).toHaveCount(5);   // 필요 개수가 미확정인 요리는 "확인 중"으로 보이고 계산에서 빠진다
-  await expect(page.locator('.rc-card.pending')).toHaveCount(5);
+  await expect(page.locator('.rc-card')).toHaveCount(5);
+  await expect(page.locator('.rc-card.pending')).toHaveCount(0);   // 레시피 확정(2026-10-24)
+  await page.getByLabel('조개찜 목표 개수').fill('500');   // 가진 재료를 넉넉히 넘는 목표 → 반드시 모자란다
+  await expect(page.locator('.craft-sum').getByText(/모자란 재료 \d+종/)).toBeVisible();
+  await page.getByRole('button', { name: '목표 모두 지우기' }).click();
 });
 
 test('임무 탭 제작: 목표 개수를 넣으면 필요한 재료 합계와 모자란 만큼이 계산된다 (2026-10-24)', async ({ page }) => {
