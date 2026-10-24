@@ -1,6 +1,7 @@
 import type { InvItem } from '../api/types';
 import { RECIPES, type Recipe } from '../features/missionData';
-import { buildStock, craftableNow, planTargets } from './craft';
+import { buildStock, buildStockBy, craftableNow, planTargets } from './craft';
+import { PROCESSES } from '../features/missionData';
 
 const it_ = (location: string, name: string, count: number): InvItem => ({ location, name, category: '재료', count, locked: false, sessionDelta: 0, favorite: false });
 const recipe = (name: string) => RECIPES.find(r => r.name === name)!;
@@ -85,5 +86,60 @@ describe('요리 계획', () => {
   it('필요 개수가 미확정인 레시피는 계산에서 뺀다', () => {
     const p = planTargets({ '시험 요리': 5 }, new Map(), [{ ...dish, unverified: true }]);
     expect(p.totalCrafts).toBe(0);
+  });
+});
+
+describe('buildStockBy', () => {
+  it('가방·캐릭터·계정별로 따로 센다', () => {
+    const w = buildStockBy([it_('bag', '강철괴', 2), it_('account', '강철괴', 5), it_('character', '<color=#fff>강철괴</color>', 4), it_('bag', '강철괴', 1)]).get('강철괴');
+    expect(w).toEqual({ bag: 3, character: 4, account: 5 });
+  });
+});
+
+describe('가공 연계 (2차 재료까지 계산)', () => {
+  // 크레센트 엣지소드 1개 = 강철괴 2 + 가죽+ 2. 강철괴 1회 가공 = 철괴 3 + 석탄 4 → 3개, 철괴 1회 가공 = 철 광석 10 → 3개.
+  const plan = (target: number, stock: [string, number][]) => planTargets({ '크레센트 엣지소드': target }, new Map(stock), RECIPES, new Map(), PROCESSES);
+  const line = (p: ReturnType<typeof plan>, name: string) => p.lines.find(l => l.name === name);
+
+  it('모자란 강철괴를 가공하는 데 드는 철괴·석탄·철 광석까지 풀어서 센다', () => {
+    const p = plan(3, [['강철괴', 1], ['가죽+', 9]]);   // 필요 강철괴 6, 가진 1 → 5 모자라 2회 가공(6개)
+    expect(line(p, '강철괴')).toMatchObject({ need: 6, have: 1, short: 5, made: true, processCrafts: 2 });
+    expect(line(p, '철괴')).toMatchObject({ need: 6, short: 6, made: true, processCrafts: 2 });   // 강철괴 2회 × 3 = 6 → 철괴 2회 가공
+    expect(line(p, '철 광석')).toMatchObject({ need: 20, short: 20 });                              // 철괴 2회 × 10
+    expect(line(p, '석탄')).toMatchObject({ need: 8, short: 8 });                                   // 강철괴 2회 × 4
+    expect(p.totalProcess).toBe(4);
+    expect(p.shortKinds).toBe(2);   // 구해야 할 원재료 = 철 광석, 석탄
+  });
+  it('가진 철괴가 충분하면 철 광석은 필요 없다', () => {
+    const p = plan(3, [['강철괴', 1], ['가죽+', 9], ['철괴', 9], ['석탄', 99]]);
+    expect(line(p, '철괴')).toMatchObject({ need: 6, have: 9, short: 0, processCrafts: 0 });
+    expect(line(p, '철 광석')).toBeUndefined();
+    expect(p.shortKinds).toBe(0);
+    expect(p.blocked.size).toBe(0);   // 가공만 하면 되니 막힌 것이 아니다
+  });
+  it('가공할 재료가 충분하면 가공 없이 끝난다', () => {
+    const p = plan(3, [['강철괴', 6], ['가죽+', 6]]);
+    expect(p.totalProcess).toBe(0);
+    expect(line(p, '강철괴')).toMatchObject({ short: 0, processCrafts: 0 });
+  });
+  it('원재료가 모자라면 그 재료를 쓰는 완성품이 막힌다', () => {
+    const p = plan(3, [['강철괴', 6], ['가죽+', 1]]);   // 가죽+ 5 모자라 가죽+ 가공(가죽 3·타닌 가루 4 → 가죽 → 생가죽)
+    expect(line(p, '가죽+')).toMatchObject({ made: true, processCrafts: 2 });
+    expect(line(p, '생가죽')).toBeDefined();
+    expect(p.blocked.has('크레센트 엣지소드')).toBe(true);
+  });
+  it('여러 곳에서 쓰는 재료(석탄, 강철괴)는 합쳐서 센다: 합금강괴 → 강철괴 → 철괴', () => {
+    // 론 엣지소드S 1개 = 합금강괴 3 + 가죽+ 3. 합금강괴 1회 = 강철괴 3 + 동 광석 15 + 석탄 8
+    const p = planTargets({ '론 엣지소드S': 1 }, new Map([['가죽+', 9]]), RECIPES, new Map(), PROCESSES);
+    expect(line(p, '합금강괴')).toMatchObject({ need: 3, short: 3, processCrafts: 1 });
+    expect(line(p, '강철괴')).toMatchObject({ need: 3, short: 3, processCrafts: 1 });   // 합금강괴 가공에 드는 강철괴
+    expect(line(p, '석탄')).toMatchObject({ need: 12 });                                // 합금강괴 8 + 강철괴 4
+    expect(line(p, '철 광석')).toMatchObject({ need: 10 });
+    expect(line(p, '동 광석')).toMatchObject({ need: 15 });
+  });
+  it('가공 레시피를 주지 않으면 예전처럼 2차 재료를 그대로 센다', () => {
+    const p = planTargets({ '크레센트 엣지소드': 3 }, new Map([['강철괴', 1], ['가죽+', 9]]), RECIPES);
+    expect(p.lines.map(l => l.name)).toEqual(['강철괴', '가죽+']);
+    expect(p.totalProcess).toBe(0);
   });
 });

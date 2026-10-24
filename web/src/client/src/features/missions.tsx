@@ -2,11 +2,11 @@ import { useDeferredValue, useMemo, useState } from 'react';
 import { useInventory } from '../api/queries';
 import type { InvItem } from '../api/types';
 import { ErrorCard, Fresh, Icon, Pill, Skeleton } from '../components/ui';
-import { buildStock, craftableNow, planTargets } from '../lib/craft';
+import { buildStock, buildStockBy, craftableNow, planTargets, type PlanLine, type Where } from '../lib/craft';
 import { fmt, plain } from '../lib/format';
 import { useRouter } from '../state/router';
 import { groupItems, ItemList, SORT_FN, type InvGroup } from './inventory';
-import { COOK_RECIPES, isMissionItem, MISSION_SLOTS, missionInfo, RECIPES, TOWNS, type Recipe } from './missionData';
+import { COOK_RECIPES, isMissionItem, MISSION_SLOTS, missionInfo, PROCESSES, RECIPES, TOWNS, type Recipe } from './missionData';
 
 type Mode = 'gather' | 'cook' | 'craft';
 const MODES: [Mode, string][] = [['gather', '채집'], ['cook', '요리'], ['craft', '제작']];
@@ -107,9 +107,21 @@ function saveTargets(key: string, t: Record<string, number>) {
   try { localStorage.setItem(key, JSON.stringify(t)); } catch { /* 저장이 막힌 브라우저에서는 이번 접속 동안만 기억한다 */ }
 }
 
+/** 가진 곳을 "가방 3 · 캐릭터 2 · 계정 5"로. 없으면 "없음". */
+export function whereText(w: Where | undefined): string {
+  if (!w) return '없음';
+  const parts = [w.bag > 0 && `가방 ${fmt(w.bag)}`, w.character > 0 && `캐릭터 ${fmt(w.character)}`, w.account > 0 && `계정 ${fmt(w.account)}`].filter(Boolean);
+  return parts.length ? parts.join(' · ') : '없음';
+}
+const minutesText = (m: number): string => {
+  const h = Math.floor(m / 60), r = Math.round(m % 60);
+  return h > 0 ? `${h}시간${r ? ` ${r}분` : ''}` : r === 0 && m > 0 ? `${Math.round(m * 60)}초` : `${Number.isInteger(m) ? m : m.toFixed(1)}분`;
+};
+
 /**
- * 제작·요리 계산기(같은 화면). 위: 레시피 카드(마을별) — 지금 몇 개 만들 수 있나 + 목표 개수 입력.
+ * 제작·요리 계산기(같은 화면). 위: 레시피 카드(마을별) — 지금 몇 개 만들 수 있나 + 목표 개수 입력 + 재료마다 필요 개수와 가진 곳(가방·캐릭터·계정).
  * 옆(좁으면 아래): 목표를 다 만들려면 필요한 재료 합계와 모자란 만큼. 여러 레시피가 같은 재료를 쓰면 합쳐서 센다.
+ * 2차 재료(강철괴·목재+ 등)가 모자라면 그만큼을 가공하는 데 드는 원재료까지 풀어서 센다(PROCESSES).
  * 요리는 완성품 개수도 가방에서 알 수 있어, 이미 가진 요리는 목표에서 빼고 계산한다. 필요 개수가 미확정(unverified)인 레시피는 계산에서 뺀다.
  */
 function RecipePane({ items, at, recipes, kind }: { items: InvItem[]; at: number; recipes: readonly Recipe[]; kind: '제작' | '요리' }) {
@@ -119,11 +131,12 @@ function RecipePane({ items, at, recipes, kind }: { items: InvItem[]; at: number
   const key = targetKey(kind);
   const [targets, setTargets] = useState(() => loadTargets(key));
   const stock = useMemo(() => buildStock(items, !bagOnly), [items, bagOnly]);
+  const where = useMemo(() => buildStockBy(items), [items]);
   const cook = kind === '요리';
   // 요리 완성품 개수: 게임이 달리 부르는 표기도 같은 요리로 센다
   const made = useMemo(() => new Map(cook ? recipes.map(r => [r.name, (stock.get(r.name) ?? 0) + (r.alias ? stock.get(r.alias) ?? 0 : 0)] as const) : []), [cook, recipes, stock]);
-  const plan = useMemo(() => planTargets(targets, stock, recipes, made), [targets, stock, recipes, made]);
-  const short = useMemo(() => new Set(plan.lines.filter(l => l.short > 0).map(l => l.name)), [plan]);
+  const plan = useMemo(() => planTargets(targets, stock, recipes, made, PROCESSES), [targets, stock, recipes, made]);
+  const short = useMemo(() => new Set(plan.lines.filter(l => !l.made && l.short > 0).map(l => l.name)), [plan]);   // 구해야 하는 원재료
   const allPending = recipes.every(r => r.unverified);
 
   const setTarget = (name: string, n: number) => {
@@ -135,6 +148,20 @@ function RecipePane({ items, at, recipes, kind }: { items: InvItem[]; at: number
   const clearAll = () => { setTargets({}); saveTargets(key, {}); };
   const hasTargets = plan.totalCrafts > 0;
   const hasGoal = Object.keys(targets).length > 0;
+  const madeLines = plan.lines.filter(l => l.made);
+  const rawLines = plan.lines.filter(l => !l.made);
+
+  const row = (l: PlanLine) => (
+    <tr key={l.name} className={l.short > 0 && !l.made ? 'bad' : ''}>
+      <td>
+        <div className="sum-n">{l.name}</div>
+        <div className="sum-w faint">{whereText(where.get(l.name))}</div>
+        {l.made && l.processCrafts! > 0 && <div className="sum-p">가공 {fmt(l.processCrafts!)}회 · {minutesText(l.minutes!)}</div>}
+      </td>
+      <td className="n num">{fmt(l.need)}</td><td className="n num">{fmt(l.have)}</td>
+      <td className="n num">{l.short > 0 ? fmt(l.short) : '✓'}</td>
+    </tr>
+  );
 
   return (
     <>
@@ -163,7 +190,7 @@ function RecipePane({ items, at, recipes, kind }: { items: InvItem[]; at: number
                           {cook && <span className="rc-x" title="이미 가진 개수">보유 {fmt(made.get(r.name) ?? 0)}</span>}
                         </div>
                         <div className="rc-now">재료 개수 확인 중 · 계산 제외</div>
-                        <div className="rc-need" title="알려진 재료 이름만 적었습니다. 필요한 개수는 확인되면 채웁니다.">{r.needs.map(([n]) => <span key={n} className="rc-m">{n}</span>)}</div>
+                        <div className="rc-need" title="알려진 재료 이름만 적었습니다. 필요한 개수는 확인되면 채웁니다.">{r.needs.map(([n]) => <div key={n} className="rc-m"><span>{n}</span></div>)}</div>
                       </div>
                     );
                   }
@@ -194,7 +221,12 @@ function RecipePane({ items, at, recipes, kind }: { items: InvItem[]; at: number
                         {r.needs.map(([n, q]) => {
                           const have = stock.get(n) ?? 0;
                           const bad = goal > 0 ? short.has(n) : have < q;
-                          return <span key={n} className={`rc-m ${bad ? 'bad' : ''}`} title={`${n}: 1회에 ${q}개, 가진 것 ${fmt(have)}개`}>{n} {q}</span>;
+                          const w = whereText(where.get(n));
+                          return (
+                            <div key={n} className={`rc-m ${bad ? 'bad' : ''}`} title={`${n}: 1회에 ${q}개 · 가진 것 ${fmt(have)}개 (${w})`}>
+                              <span className="rc-mn">{n} {q}</span><span className="rc-mw">{w}</span>
+                            </div>
+                          );
                         })}
                       </div>
                     </div>
@@ -212,21 +244,26 @@ function RecipePane({ items, at, recipes, kind }: { items: InvItem[]; at: number
             <p className="muted small m0">레시피 카드에 목표 개수(퀘스트가 요구하는 개수)를 넣으면, 다 만드는 데 필요한 재료와 모자란 만큼을 여기서 계산합니다.</p>
           ) : (
             <>
-              <p className="small m0 num">{kind} {fmt(plan.totalCrafts)}회 · {plan.shortKinds > 0 ? <b className="bad-text">모자란 재료 {fmt(plan.shortKinds)}종</b> : <b className="ok-text">재료 충분</b>}</p>
+              <p className="small m0 num">
+                {kind} {fmt(plan.totalCrafts)}회{plan.totalProcess > 0 && <> · 가공 {fmt(plan.totalProcess)}회</>} · {plan.shortKinds > 0 ? <b className="bad-text">모자란 원재료 {fmt(plan.shortKinds)}종</b> : <b className="ok-text">재료 충분</b>}
+              </p>
+              {madeLines.length > 0 && (
+                <>
+                  <h4 className="sum-h">가공해서 쓰는 재료</h4>
+                  <table className="sum-table">
+                    <thead><tr><th>재료</th><th className="n">필요</th><th className="n">보유</th><th className="n">부족</th></tr></thead>
+                    <tbody>{madeLines.map(row)}</tbody>
+                  </table>
+                </>
+              )}
+              <h4 className="sum-h">{madeLines.length > 0 ? '원재료 (가공에 드는 것 포함)' : '재료'}</h4>
               <table className="sum-table">
                 <thead><tr><th>재료</th><th className="n">필요</th><th className="n">보유</th><th className="n">부족</th></tr></thead>
-                <tbody>
-                  {plan.lines.map(l => (
-                    <tr key={l.name} className={l.short > 0 ? 'bad' : ''}>
-                      <td>{l.name}</td><td className="n num">{fmt(l.need)}</td><td className="n num">{fmt(l.have)}</td>
-                      <td className="n num">{l.short > 0 ? fmt(l.short) : '✓'}</td>
-                    </tr>
-                  ))}
-                </tbody>
+                <tbody>{rawLines.map(row)}</tbody>
               </table>
             </>
           )}
-          <p className="faint small m0">보유는 {bagOnly ? '가방' : '가방·계정 창고·캐릭터 창고'}의 합입니다. 창고 재료를 쓰면 이동 비용(분해된 장비 부품)이 듭니다.{cook && ' 이미 가진 요리는 목표에서 뺍니다.'}</p>
+          <p className="faint small m0">보유는 {bagOnly ? '가방' : '가방·계정 창고·캐릭터 창고'}의 합이고, 아래 작은 글씨는 가진 곳입니다. 창고 재료를 쓰면 이동 비용(분해된 장비 부품)이 듭니다.{cook && ' 이미 가진 요리는 목표에서 뺍니다.'} 가공은 한 번에 3개가 나오며, 상급 가죽·상급 옷감처럼 가공법을 모르는 재료는 원재료로 셉니다.</p>
         </aside>
       </div>
     </>
