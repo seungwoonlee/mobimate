@@ -10,6 +10,7 @@ import { OverviewView } from './features/overview';
 import { CharactersView } from './features/characters';
 import { StatsView } from './features/stats';
 import { CurrenciesView, InventoryView, NearbyView } from './features/inventory';
+import { MissionView } from './features/missions';
 import { HomeworkView } from './features/homework';
 import { LifeView } from './features/life';
 import { SettingsView } from './features/settings';
@@ -57,6 +58,7 @@ function Connected() {
       {route === 'overview' && <OverviewView />}
       {route === 'stats' && <StatsView />}
       {route === 'inventory' && <InventoryView />}
+      {route === 'mission' && <MissionView />}
       {route === 'currencies' && <CurrenciesView />}
       {route === 'homework' && <HomeworkView />}
       {route === 'life' && <LifeView />}
