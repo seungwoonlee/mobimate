@@ -8,22 +8,26 @@ import { useRouter } from '../state/router';
 import { AutoBadge, autoStyle, jobLabel, MissingLine, REL_TAG, REL_TEXT } from './players';
 
 /**
- * 임무용 아이템(2026-10-24 승운, 도시별 채집·요리·제작 목록으로 갱신): 임무에 쓰이는 채집물·요리·제작품. 가방·창고 목록에서 일반 아이템보다 위의 별도 묶음으로 먼저 보인다.
- * 이름이 정확히 같은 것만 묶는다(유니티 색 태그는 떼고 비교). 목록은 승운이 준 것이고, 새로 필요한 아이템은 여기에 더한다.
+ * 임무용 아이템(2026-10-24 승운): 마을별 채집·요리·제작 목록. 임무용 보기는 이 목록만, 가진 개수가 0이어도 모두 보여 준다.
+ * 이름이 정확히 같은 것만 임무용으로 본다(유니티 색 태그는 떼고 비교). 목록은 승운이 준 것이고, 새로 필요한 아이템은 여기에 더한다.
+ * 이름에 '|'가 있으면 앞이 화면에 보이는 이름이고 뒤는 게임이 달리 부를 수 있는 표기다(어느 쪽이든 같은 아이템으로 센다).
  */
 export const TOWNS = ['티르코네일', '던바튼', '콜헨', '반호르', '이멘마하'] as const;
 export const KINDS = ['채집', '요리', '제작'] as const;
-export interface MissionInfo { town: string; kind: string }
-/** 임무용 아이템의 마을·종류. '달걀프라이'·'전문 캠프파이어 키트'는 앞서 받은 표기라 게임 이름이 어느 쪽이든 잡히도록 함께 둔다. */
+export interface MissionInfo { town: string; kind: string; canon: string }
 const MISSION_TABLE: Record<string, Record<string, string[]>> = {
-  '티르코네일': { '채집': ['거미줄', '양털', '블러디 허브', '밀', '감자'], '요리': ['달걀 프라이', '달걀프라이'], '제작': ['캠프파이어 키트', '전문 캠프파이어 키트', '마법 유탄 부품'] },
+  '티르코네일': { '채집': ['거미줄', '양털', '블러디 허브', '밀', '감자'], '요리': ['달걀 프라이|달걀프라이'], '제작': ['전문 캠프 파이어 키트|전문 캠프파이어 키트', '마법 유탄 부품'] },
   '던바튼': { '채집': ['쑥쑥 버섯', '우유', '철 광석', '옥수수', '양파'], '요리': ['사과 주스'], '제작': ['크레센트 엣지소드', '그랜드 크로스보우', '로터스 힐링 완드'] },
   '콜헨': { '채집': ['화살꽃', '달걀', '상급 통나무+', '조개'], '요리': ['조개찜'], '제작': ['사슬 갑옷 신발', '두꺼운 가죽 갑옷 신발', '두꺼운 전투복 신발'] },
   '반호르': { '채집': ['콩', '파스닙'], '요리': ['통감자구이'], '제작': ['론 엣지소드S', '라이트 크로스보우S', '마블 힐링 완드S'] },
   '이멘마하': { '채집': ['쌀', '호박', '헤이즐넛', '끈적 풀'], '요리': ['마요네즈 고기볶음'], '제작': ['비늘 갑옷 신발S', '가죽 갑옷 신발S', '전투복 신발S'] },
 };
+/** 목록 순서대로의 임무용 아이템(화면에 보이는 이름 기준). */
+export const MISSION_SLOTS: readonly { town: string; kind: string; name: string }[] = Object.entries(MISSION_TABLE)
+  .flatMap(([town, kinds]) => Object.entries(kinds).flatMap(([kind, names]) => names.map(n => ({ town, kind, name: n.split('|')[0] }))));
 const MISSION_INFO: ReadonlyMap<string, MissionInfo> = new Map(
-  Object.entries(MISSION_TABLE).flatMap(([town, kinds]) => Object.entries(kinds).flatMap(([kind, names]) => names.map(n => [n, { town, kind }] as const))));
+  Object.entries(MISSION_TABLE).flatMap(([town, kinds]) => Object.entries(kinds).flatMap(([kind, names]) =>
+    names.flatMap(n => { const [canon, ...alias] = n.split('|'); return [canon, ...alias].map(a => [a, { town, kind, canon }] as const); }))));
 export const MISSION_ITEMS: ReadonlySet<string> = new Set(MISSION_INFO.keys());
 export const missionInfo = (name: string): MissionInfo | undefined => MISSION_INFO.get(plain(name).trim());
 export const isMissionItem = (name: string): boolean => MISSION_INFO.has(plain(name).trim());
@@ -32,97 +36,146 @@ const LOC_SHORT: Record<string, string> = { bag: '가방', account: '계정창�
 const LOC_KEYS = ['bag', 'account', 'character'] as const;
 /** 같은 이름의 아이템을 한 카드로 합친 것. 위치별 개수와 총합을 가진다. */
 export interface InvGroup { name: string; category: string; favorite: boolean; locked: boolean; sessionDelta: number; total: number; by: Record<string, number> }
-const SORTS: [string, string][] = [['count', '개수 많은 순'], ['countAsc', '개수 적은 순'], ['name', '이름순'], ['category', '카테고리순'], ['delta', '이번 접속 늘어난 순']];
-const SEGS: [string, string][] = [['all', '전체'], ['fav', '★ 즐겨찾기'], ['bag', '가방'], ['account', '계정 창고'], ['character', '캐릭터 창고'], ['diet', '⚖ 다이어트']];
+type Mode = 'mission' | 'diet';
+const MODES: [Mode, string][] = [['mission', '임무용 보기'], ['diet', '다이어트 보기']];
+const SORTS: Record<Mode, [string, string][]> = {
+  mission: [['table', '마을 목록 순'], ['count', '개수 많은 순'], ['countAsc', '개수 적은 순'], ['name', '이름순']],
+  diet: [['count', '개수 많은 순'], ['countAsc', '개수 적은 순'], ['name', '이름순'], ['category', '카테고리순'], ['delta', '이번 접속 늘어난 순']],
+};
+/** 다이어트 보기의 위치 구분. 무게가 걸리는 곳은 가방이라 가방이 기본이다. */
+const DIET_SEGS: [string, string][] = [['bag', '가방'], ['all', '전체'], ['fav', '★ 다이어트 대상'], ['account', '계정 창고'], ['character', '캐릭터 창고']];
 
 /**
- * 가방·창고 (FR-DT-02): 위치 세그먼트, 이름·카테고리 검색, 잠금 표시, 무게 다이어트 정렬.
- * 즐겨찾기 (FR-DT-15·16): 별을 누르면 즐겨찾기가 되어 목록 맨 위에 오고, 이번 접속의 개수 변화는 즐겨찾기 아이템만 보여 준다.
- * (다이어트 보기는 늘어난 순서가 목적이라 모든 아이템의 변화를 보여 준다.)
+ * 가방·창고: 맨 위에서 두 보기를 고른다.
+ * - 임무용 보기: 임무용 아이템만, 개수가 0이어도 채집·요리·제작 → 마을 순으로 모두 보여 준다.
+ * - 다이어트 보기: 가방·창고 전체 아이템. 별(즐겨찾기)을 누른 것이 "다이어트 대상"이라 맨 위에 모인다.
+ *   게임은 아이템별 무게를 주지 않아(가방 전체 무게만 준다) 개수 순이 기본이다.
  */
 export function InventoryView() {
   const q = useInventory();
   const params = useRouter(s => s.loc.params);
   const setParam = useRouter(s => s.setParam);
-  const loc = params.get('loc') ?? 'all';
+  const mode: Mode = params.get('mode') === 'diet' ? 'diet' : 'mission';
+  const rawLoc = params.get('loc');
+  const loc = DIET_SEGS.some(([k]) => k === rawLoc) ? rawLoc! : 'bag';
   const [text, setText] = useState(params.get('q') ?? '');
   const search = useDeferredValue(text.trim());   // 입력 중 화면이 버벅이지 않게 (디바운스 대신)
-
-  const sort = params.get('sort') ?? 'count';
+  const rawSort = params.get('sort');
+  const sort = SORTS[mode].some(([k]) => k === rawSort) ? rawSort! : SORTS[mode][0][0];
 
   const rows = useMemo(() => {
     const items = q.data?.data.items ?? [];
     let r: InvGroup[];
-    if (loc === 'diet') {
-      r = groupItems(items.filter(x => x.location === 'bag' && !x.locked))
-        .sort((a, b) => Number(b.sessionDelta > 0) - Number(a.sessionDelta > 0) || b.sessionDelta - a.sessionDelta || b.total - a.total);
+    if (mode === 'mission') {
+      // 게임이 달리 부르는 표기는 화면 이름으로 모아 센다. 가진 게 없는 임무용 아이템도 0개 카드로 만든다.
+      const have = new Map(groupItems(items.filter(x => isMissionItem(x.name)).map(x => ({ ...x, name: missionInfo(x.name)!.canon }))).map(g => [g.name, g]));
+      r = MISSION_SLOTS.map(s => have.get(s.name) ?? { name: s.name, category: '', favorite: false, locked: false, sessionDelta: 0, total: 0, by: {} });
+      r = r.sort(SORT_FN[sort] ?? SORT_FN.table);
     } else {
       r = groupItems(LOC_KEYS.includes(loc as never) ? items.filter(x => x.location === loc) : items);
       if (loc === 'fav') r = r.filter(x => x.favorite);
       r = r.sort(SORT_FN[sort] ?? SORT_FN.count);
-      r = r.sort((a, b) => Number(b.favorite) - Number(a.favorite));   // 즐겨찾기가 먼저 (정렬은 안정적이라 나머지 순서는 그대로)
     }
-    if (search) r = r.filter(x => plain(x.name).includes(search) || x.category.includes(search) || (() => { const m = missionInfo(x.name); return !!m && (m.town.includes(search) || m.kind.includes(search)); })());
+    if (search) r = r.filter(x => {
+      const m = missionInfo(x.name);
+      return plain(x.name).includes(search) || x.category.includes(search) || (!!m && (m.town.includes(search) || m.kind.includes(search)));
+    });
     return r;
-  }, [q.data, loc, search, sort]);
+  }, [q.data, mode, loc, search, sort]);
 
-  if (q.isPending) return <Skeleton lines={6} />;
-  if (q.isError && !q.data) return <ErrorCard error={q.error} onRetry={() => q.refetch()} />;
+  const modeBar = (
+    <div className="seg mode-seg" role="group" aria-label="보기 모드">
+      {MODES.map(([k, l]) => (
+        <button key={k} type="button" aria-pressed={mode === k} onClick={() => { setParam('sort', null); setParam('mode', k === 'mission' ? null : k); }}>{l}</button>
+      ))}
+    </div>
+  );
+  if (q.isPending) return <>{modeBar}<Skeleton lines={6} /></>;
+  if (q.isError && !q.data) return <>{modeBar}<ErrorCard error={q.error} onRetry={() => q.refetch()} /></>;
   const w = q.data.data.weight;
-  // 임무용 아이템을 위 묶음으로(다이어트 보기는 늘어난 순서가 목적이라 묶지 않는다). 각 묶음 안의 순서(즐겨찾기 먼저)는 그대로.
-  const missionRows = rows.filter(r => isMissionItem(r.name));
-  const normalRows = rows.filter(r => !isMissionItem(r.name));
 
+  const searchBox = (
+    <label className="search">
+      <Icon name="search" />
+      <input type="search" placeholder={mode === 'mission' ? '이름·마을·종류 검색' : '이름·카테고리 검색'} value={text} aria-label="아이템 검색"
+        onChange={e => { setText(e.target.value); setParam('q', e.target.value || null); }} />
+    </label>
+  );
+  const sortBox = (
+    <label className="inv-sort">정렬
+      <select value={sort} aria-label="정렬 순서" onChange={e => setParam('sort', e.target.value === SORTS[mode][0][0] ? null : e.target.value)}>
+        {SORTS[mode].map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+      </select>
+    </label>
+  );
+
+  if (mode === 'mission') {
+    const haveCount = rows.filter(r => r.total > 0).length;
+    return (
+      <>
+        {modeBar}
+        <div className="view-head">
+          <h2>임무용 아이템</h2>
+          <span className="sub num">보유 {fmt(haveCount)} / {fmt(rows.length)}종 · <Fresh at={q.dataUpdatedAt} /></span>
+        </div>
+        <div className="toolbar">{searchBox}{sortBox}</div>
+        {rows.length === 0 ? <div className="card muted">조건에 맞는 아이템이 없습니다.</div> : KINDS.map(k => {
+          const inKind = rows.filter(r => missionInfo(r.name)?.kind === k);
+          if (inKind.length === 0) return null;
+          return (
+            <section key={k} aria-label={k}>
+              <h3 className="group-h">{k} <span className="num muted small">(보유 {fmt(inKind.filter(r => r.total > 0).length)} / {fmt(inKind.length)}종)</span></h3>
+              {TOWNS.map(t => {
+                const list = inKind.filter(r => missionInfo(r.name)?.town === t);
+                if (list.length === 0) return null;
+                return (
+                  <div key={t}>
+                    <h4 className="town-h">{t}</h4>
+                    <ItemList rows={list} mode={mode} />
+                  </div>
+                );
+              })}
+            </section>
+          );
+        })}
+      </>
+    );
+  }
+
+  // 다이어트 보기: 다이어트 대상(별)을 먼저 모아 보이고, 나머지는 그 아래에 둔다.
+  const targets = loc === 'fav' ? [] : rows.filter(r => r.favorite);
+  const others = loc === 'fav' ? rows : rows.filter(r => !r.favorite);
   return (
     <>
+      {modeBar}
       <div className="view-head">
-        <h2>가방·창고</h2>
+        <h2>다이어트</h2>
         <span className="sub num">{w && <>{w.current.toFixed(1)} / {fmt(w.max)} · <LevelState level={w.level} /> {w.pct.toFixed(1)}% · </>}<Fresh at={q.dataUpdatedAt} /></span>
       </div>
       {w && <Gauge pct={w.pct} level={w.level} label="가방 무게" />}
       <div className="toolbar">
         <div className="seg" role="group" aria-label="보관 위치">
-          {SEGS.map(([k, l]) => (
-            <button key={k} type="button" aria-pressed={loc === k} onClick={() => setParam('loc', k === 'all' ? null : k)}>{l}</button>
+          {DIET_SEGS.map(([k, l]) => (
+            <button key={k} type="button" aria-pressed={loc === k} onClick={() => setParam('loc', k === 'bag' ? null : k)}>{l}</button>
           ))}
         </div>
-        <label className="search">
-          <Icon name="search" />
-          <input type="search" placeholder="이름·카테고리·마을 검색" value={text} aria-label="아이템 검색"
-            onChange={e => { setText(e.target.value); setParam('q', e.target.value || null); }} />
-        </label>
-        {loc !== 'diet' && (
-          <label className="inv-sort">정렬
-            <select value={sort} aria-label="정렬 순서" onChange={e => setParam('sort', e.target.value === 'count' ? null : e.target.value)}>
-              {SORTS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
-            </select>
-          </label>
-        )}
+        {searchBox}{sortBox}
       </div>
-      {loc === 'diet' && <p className="muted small m0">가방 안 잠금 해제 아이템 중 <b>이번 접속에 늘어난 순</b> → 많이 가진 순입니다.</p>}
-      {rows.length === 0 ? <div className="card muted">{loc === 'fav' ? '즐겨찾기한 아이템이 없습니다. 아이템 옆 별을 눌러 추가하세요.' : '조건에 맞는 아이템이 없습니다.'}</div> : (
+      <p className="muted small m0">게임이 아이템별 무게를 알려 주지 않아 <b>개수 순</b>으로 보여 줍니다. 버릴·팔 아이템은 별을 눌러 <b>다이어트 대상</b>으로 표시하면 맨 위에 모입니다.</p>
+      {rows.length === 0 ? <div className="card muted">{loc === 'fav' ? '다이어트 대상이 없습니다. 아이템 옆 별을 눌러 추가하세요.' : '조건에 맞는 아이템이 없습니다.'}</div> : (
         <>
-          {loc !== 'diet' && missionRows.length > 0 ? (
+          {targets.length > 0 && (
             <>
-              <h3 className="group-h">임무용 아이템 <span className="num muted small">({fmt(missionRows.length)}종)</span></h3>
-              {TOWNS.map(t => {
-                const list = missionRows.filter(r => missionInfo(r.name)?.town === t);
-                if (list.length === 0) return null;
-                return (
-                  <section key={t} aria-label={t}>
-                    <h4 className="town-h">{t} <span className="num muted small">({fmt(list.length)}종)</span></h4>
-                    <ItemList rows={list} loc={loc} />
-                  </section>
-                );
-              })}
-              {normalRows.length > 0 && (
-                <>
-                  <h3 className="group-h">일반 아이템 <span className="num muted small">({fmt(normalRows.length)}종)</span></h3>
-                  <ItemList rows={normalRows} loc={loc} />
-                </>
-              )}
+              <h3 className="group-h">다이어트 대상 <span className="num muted small">({fmt(targets.length)}종)</span></h3>
+              <ItemList rows={targets} mode={mode} />
             </>
-          ) : <ItemList rows={rows} loc={loc} />}
+          )}
+          {others.length > 0 && (
+            <>
+              {targets.length > 0 && <h3 className="group-h">그 외 <span className="num muted small">({fmt(others.length)}종)</span></h3>}
+              <ItemList rows={others} mode={mode} />
+            </>
+          )}
         </>
       )}
       <p className="faint small m0">{fmt(rows.length)}종 표시</p>
@@ -130,25 +183,29 @@ export function InventoryView() {
   );
 }
 
-/** 아이템 목록(작은 카드 격자). 카드 하나가 이름이 같은 아이템 전체이고, 위치별 개수와 총합을 보인다. */
-function ItemList({ rows, loc }: { rows: InvGroup[]; loc: string }) {
+/** 아이템 목록(작은 카드 격자). 카드 하나가 이름이 같은 아이템 전체이고, 위치별 개수와 총합을 보인다. 0개 카드는 흐리게. */
+function ItemList({ rows, mode }: { rows: InvGroup[]; mode: Mode }) {
+  const diet = mode === 'diet';
   return (
     <div className="inv-grid" role="list">
       {rows.map(r => {
         const parts = LOC_KEYS.filter(k => (r.by[k] ?? 0) > 0);
+        const info = missionInfo(r.name);
         const detail = parts.map(k => `${LOC_SHORT[k]} ${fmt(r.by[k])}`).join(', ');
         return (
-          <div className={`inv-card ${r.favorite ? 'fav' : ''}`} role="listitem" key={r.name} title={`${plain(r.name)} · ${missionInfo(r.name) ? `${missionInfo(r.name)!.town} ${missionInfo(r.name)!.kind}` : r.category} · 총 ${fmt(r.total)}개${detail ? ` (${detail})` : ''}`}>
+          <div className={`inv-card ${r.favorite && diet ? 'fav' : ''} ${r.total === 0 ? 'zero' : ''}`} role="listitem" key={r.name}
+            title={`${plain(r.name)} · ${info ? `${info.town} ${info.kind}` : r.category} · 총 ${fmt(r.total)}개${detail ? ` (${detail})` : ''}`}>
             <div className="t">
-              <button type="button" className="star" aria-pressed={r.favorite} aria-label={`${plain(r.name)} 즐겨찾기`} title={r.favorite ? '즐겨찾기 해제' : '즐겨찾기'}
-                onClick={() => void setFavorite('items', r.name, !r.favorite)}>{r.favorite ? '★' : '☆'}</button>
+              {diet && <button type="button" className="star" aria-pressed={r.favorite} aria-label={`${plain(r.name)} 다이어트 대상`} title={r.favorite ? '다이어트 대상 해제' : '다이어트 대상으로 표시'}
+                onClick={() => void setFavorite('items', r.name, !r.favorite)}>{r.favorite ? '★' : '☆'}</button>}
               {r.locked && <Icon name="lock" label="잠금" />}<span>{plain(r.name)}</span>
             </div>
             <div className="tot"><span className="num strong">{fmt(r.total)}</span>
-              {r.sessionDelta > 0 && (r.favorite || loc === 'diet') && <Pill tone="warn">+{fmt(r.sessionDelta)}</Pill>}</div>
-            {parts.length > 1 || (parts.length === 1 && loc === 'all') ? (
+              {diet && info && <span className="mis-tag" title="임무에 쓰는 아이템">임무</span>}
+              {diet && r.sessionDelta > 0 && <Pill tone="warn">+{fmt(r.sessionDelta)}</Pill>}</div>
+            {parts.length > 1 || (parts.length === 1 && !diet) ? (
               <ul className="by">{parts.map(k => <li key={k}><span>{LOC_SHORT[k]}</span><span className="num">{fmt(r.by[k])}</span></li>)}</ul>
-            ) : <div className="by one">{parts.length === 1 ? LOC_SHORT[parts[0]] : ''}</div>}
+            ) : <div className="by one">{parts.length === 1 ? LOC_SHORT[parts[0]] : '없음'}</div>}
           </div>
         );
       })}
@@ -158,6 +215,7 @@ function ItemList({ rows, loc }: { rows: InvGroup[]; loc: string }) {
 
 const byName = (a: InvGroup, b: InvGroup) => plain(a.name).localeCompare(plain(b.name), 'ko');
 const SORT_FN: Record<string, (a: InvGroup, b: InvGroup) => number> = {
+  table: () => 0,   // 안정 정렬이라 목록(마을) 순서가 그대로 남는다
   count: (a, b) => b.total - a.total || byName(a, b),
   countAsc: (a, b) => a.total - b.total || byName(a, b),
   name: byName,
@@ -178,6 +236,7 @@ export function groupItems(items: InvItem[]): InvGroup[] {
   }
   return [...m.values()];
 }
+
 
 /** 재화 묶음 (FR-DT-17): 골드·데카·M캐시 다음의 재화를 종류별로 묶는다. 분류는 이름 규칙(초안)이다. */
 export const CURRENCY_PRIORITY = ['골드', '데카', 'M캐시'];
