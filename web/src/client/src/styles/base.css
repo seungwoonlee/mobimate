@@ -343,3 +343,5 @@ button{cursor:pointer}
 .sum-table .n{text-align:right;white-space:nowrap}
 .sum-table tr.bad td{color:var(--danger);font-weight:600}
 .ok-text{color:var(--ok)} .bad-text{color:var(--danger)}
+.rc-card.pending{border-style:dashed;grid-template-rows:auto auto 2.7em}
+.rc-card.pending .rc-now{white-space:normal;font-size:11.5px}

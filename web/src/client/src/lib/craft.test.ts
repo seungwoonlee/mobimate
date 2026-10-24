@@ -1,5 +1,5 @@
 import type { InvItem } from '../api/types';
-import { RECIPES } from '../features/missionData';
+import { RECIPES, type Recipe } from '../features/missionData';
 import { buildStock, craftableNow, planTargets } from './craft';
 
 const it_ = (location: string, name: string, count: number): InvItem => ({ location, name, category: '재료', count, locked: false, sessionDelta: 0, favorite: false });
@@ -67,5 +67,23 @@ describe('planTargets', () => {
   it('부족한 재료가 위로 온다', () => {
     const p = planTargets({ '전투복 신발S': 1 }, new Map([['상급 옷감', 99]]));   // 상급 옷감 3(충분), 강철괴 2(없음)
     expect(p.lines.map(l => l.name)).toEqual(['강철괴', '상급 옷감']);
+  });
+});
+
+describe('요리 계획', () => {
+  const dish: Recipe = { town: '던바튼', name: '시험 요리', produces: 1, needs: [['사과', 4], ['설탕', 1]] };
+  it('이미 가진 요리는 목표에서 뺀다', () => {
+    const p = planTargets({ '시험 요리': 5 }, new Map([['사과', 8], ['설탕', 9]]), [dish], new Map([['시험 요리', 3]]));
+    expect(p.crafts['시험 요리']).toBe(2);   // 5개 중 3개는 이미 있어 2번만 만들면 된다
+    expect(p.lines.find(l => l.name === '사과')).toEqual({ name: '사과', need: 8, have: 8, short: 0 });
+  });
+  it('이미 가진 요리가 목표 이상이면 만들 것이 없다', () => {
+    const p = planTargets({ '시험 요리': 2 }, new Map(), [dish], new Map([['시험 요리', 3]]));
+    expect(p.totalCrafts).toBe(0);
+    expect(p.lines).toEqual([]);
+  });
+  it('필요 개수가 미확정인 레시피는 계산에서 뺀다', () => {
+    const p = planTargets({ '시험 요리': 5 }, new Map(), [{ ...dish, unverified: true }]);
+    expect(p.totalCrafts).toBe(0);
   });
 });

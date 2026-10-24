@@ -33,7 +33,13 @@ export const isMissionItem = (name: string): boolean => MISSION_INFO.has(plain(n
  * produces = 1회에 나오는 개수. needs = [재료 이름, 1회에 드는 개수].
  * 장비류는 게임이 개수를 알려 주지 않아(get_items에 장비가 없다) 만든 개수는 세지 않는다. 재료만 센다.
  */
-export interface Recipe { town: string; name: string; produces: number; needs: readonly (readonly [string, number])[] }
+export interface Recipe {
+  town: string; name: string; produces: number; needs: readonly (readonly [string, number])[];
+  /** 게임이 다른 이름으로 부를 수 있는 표기(완성품 개수를 셀 때) */
+  alias?: string;
+  /** true면 필요 개수를 아직 확정하지 못했다. 알려진 재료만 힌트로 보이고 계산에서는 뺀다. */
+  unverified?: boolean;
+}
 export const RECIPES: readonly Recipe[] = [
   { town: '티르코네일', name: '전문 캠프파이어 키트', produces: 1, needs: [['나뭇가지', 5], ['상급 통나무+', 4], ['돌멩이', 10]] },
   { town: '티르코네일', name: '마법 유탄 부품', produces: 5, needs: [['분해된 장비 부품', 50], ['연금술 부스러기', 50], ['마나 허브', 10], ['협곡의 마나석', 1]] },
@@ -49,4 +55,17 @@ export const RECIPES: readonly Recipe[] = [
   { town: '이멘마하', name: '비늘 갑옷 신발S', produces: 1, needs: [['합금강괴', 3], ['가죽+', 2]] },
   { town: '이멘마하', name: '가죽 갑옷 신발S', produces: 1, needs: [['상급 가죽', 3], ['강철괴', 2]] },
   { town: '이멘마하', name: '전투복 신발S', produces: 1, needs: [['상급 옷감', 3], ['강철괴', 2]] },
+];
+
+/**
+ * 요리 레시피 (2026-10-24). 요리는 CLI `get_craftable_items`에 제작과 같이 나오지만 "부족한 재료"만 주어 가방에 충분한 재료는 빠진다.
+ * 그래서 아래 재료·개수는 아직 확정이 아니다(unverified). 승운이 게임에서 확인해 주면 needs를 채우고 unverified를 지운다.
+ * needs에 적은 것은 CLI가 알려 준 부족 재료의 필요 개수이고, 힌트(알려진 재료)는 역조회로 찾은 이름이다.
+ */
+export const COOK_RECIPES: readonly Recipe[] = [
+  { town: '티르코네일', name: '달걀 프라이', alias: '달걀프라이', produces: 1, needs: [['달걀', 1], ['소금', 1]], unverified: true },
+  { town: '던바튼', name: '사과 주스', produces: 1, needs: [['사과', 4], ['물이 든 병', 1], ['설탕', 0], ['허브', 0]], unverified: true },
+  { town: '콜헨', name: '조개찜', produces: 1, needs: [['조개', 10], ['물이 든 병', 5], ['레몬', 0], ['허브', 0]], unverified: true },
+  { town: '반호르', name: '통감자구이', produces: 1, needs: [['감자', 0], ['설탕', 0], ['허브', 0]], unverified: true },
+  { town: '이멘마하', name: '마요네즈 고기볶음', produces: 1, needs: [['고기', 0], ['마요네즈', 0], ['양배추', 0]], unverified: true },
 ];

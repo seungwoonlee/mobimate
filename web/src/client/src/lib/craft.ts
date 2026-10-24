@@ -41,12 +41,14 @@ export interface Plan {
   shortKinds: number;
 }
 
-/** 목표 개수(퀘스트가 요구하는 만들 개수)를 다 채우려면 재료가 얼마나 드는지, 가진 것과 비교해 모자란 만큼을 구한다. */
-export function planTargets(targets: Readonly<Record<string, number>>, stock: Stock, recipes: readonly Recipe[] = RECIPES): Plan {
+/** 목표 개수(퀘스트가 요구하는 만들 개수, made = 이미 가진 완성품)를 다 채우려면 재료가 얼마나 드는지, 가진 것과 비교해 모자란 만큼을 구한다. */
+export function planTargets(targets: Readonly<Record<string, number>>, stock: Stock, recipes: readonly Recipe[] = RECIPES, made: Stock = new Map()): Plan {
   const crafts: Record<string, number> = {};
   const need = new Map<string, number>();
   for (const r of recipes) {
-    const t = Math.max(0, Math.floor(targets[r.name] ?? 0));
+    if (r.unverified) continue;   // 필요 개수를 모르면 계산하지 않는다
+    // 이미 만들어 둔 완성품(요리는 개수를 알 수 있다)은 목표에서 뺀다
+    const t = Math.max(0, Math.floor(targets[r.name] ?? 0) - (made.get(r.name) ?? 0));
     if (t === 0) continue;
     const c = Math.ceil(t / r.produces);
     crafts[r.name] = c;

@@ -156,7 +156,9 @@ test('임무 탭: 채집 모드는 채집 임무용 아이템 20종을 0개도 �
   await expect(page.locator('.inv-card').first()).toContainText('거미줄');   // 가짜 게임 가방의 임무용 아이템
   await expect(page.locator('.inv-card.zero').first()).toBeVisible();        // 없는 것은 흐리게 0개로
   await page.getByRole('button', { name: '요리', exact: true }).click();
-  await expect(page.getByText('요리는 준비 중입니다')).toBeVisible();
+  await expect(page.getByRole('heading', { name: '요리 계산' })).toBeVisible();
+  await expect(page.locator('.rc-card')).toHaveCount(5);   // 필요 개수가 미확정인 요리는 "확인 중"으로 보이고 계산에서 빠진다
+  await expect(page.locator('.rc-card.pending')).toHaveCount(5);
 });
 
 test('임무 탭 제작: 목표 개수를 넣으면 필요한 재료 합계와 모자란 만큼이 계산된다 (2026-10-24)', async ({ page }) => {
