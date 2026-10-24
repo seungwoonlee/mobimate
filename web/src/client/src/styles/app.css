@@ -566,8 +566,13 @@ button.toast { border: 0; text-align: left; cursor: pointer; }
 .rk-n{color:var(--text-1)}
 .rk-n.t-gold,.rk-n.t-orange,.rk-n.t-pink,.rk-n.t-purple{font-weight:800;font-size:1.18em;letter-spacing:.01em}
 .rk-n.t-gold{color:var(--tier-gold)}.rk-n.t-orange{color:var(--tier-orange)}.rk-n.t-pink{color:var(--tier-pink)}.rk-n.t-purple{color:var(--tier-purple)}
-.st-rk.rk-n{font-size:13px;font-weight:500}
-.st-rk.rk-n.t-gold,.st-rk.rk-n.t-orange,.st-rk.rk-n.t-pink,.st-rk.rk-n.t-purple{font-size:14px;font-weight:800}
+/* 순위는 값보다 확실히 작게(값 15px 대비 11px) — 값과 같은 등급 색은 유지 */
+.st-rk.rk-n{font-size:11px;font-weight:500}
+.st-rk.rk-n.t-gold,.st-rk.rk-n.t-orange,.st-rk.rk-n.t-pink,.st-rk.rk-n.t-purple{font-size:11px;font-weight:700}
+.st-s b.cs-t-gold{color:var(--tier-gold)}
+.st-s b.cs-t-orange{color:var(--tier-orange)}
+.st-s b.cs-t-pink{color:var(--tier-pink)}
+.st-s b.cs-t-purple{color:var(--tier-purple)}
 .g-rank{margin-top:12px}
 .rank-panel{display:grid;gap:8px;align-content:start}
 .rank-list{list-style:none;margin:0;padding:0;display:grid;gap:4px}
@@ -887,4 +892,4 @@ button.hw-cell:focus-visible { outline: 2px solid var(--accent); outline-offset:
 .cc-main .v.cs-t-pink{color:var(--tier-pink)}
 .cc-main .v.cs-t-purple{color:var(--tier-purple)}
 .cc-rk.rk-n{margin-left:6px;vertical-align:baseline;white-space:nowrap}
-.cc-rk.rk-n,.cc-rk.rk-n.t-gold,.cc-rk.rk-n.t-orange,.cc-rk.rk-n.t-pink,.cc-rk.rk-n.t-purple{font-size:12px}
+.cc-rk.rk-n,.cc-rk.rk-n.t-gold,.cc-rk.rk-n.t-orange,.cc-rk.rk-n.t-pink,.cc-rk.rk-n.t-purple{font-size:11px}
