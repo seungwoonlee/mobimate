@@ -142,11 +142,19 @@ test('가방 즐겨찾기: 별을 누르면 맨 위로 오고 즐겨찾기 보�
   const name = (await last.locator('.t span').last().textContent())!.trim();
   const star = last.getByRole('button', { name: `${name} 즐겨찾기` });
   await star.click();
-  await expect(rows.first()).toContainText(name);                      // 즐겨찾기가 맨 위
+  await expect(page.locator('.list.cols').last().locator('.row').first()).toContainText(name);   // 즐겨찾기가 자기 묶음의 맨 위(임무용 아이템 묶음이 있으면 그 아래 일반 아이템 묶음)
   await page.getByRole('button', { name: '★ 즐겨찾기' }).click();
   await expect(rows).toHaveCount(1);
   await rows.first().getByRole('button', { name: `${name} 즐겨찾기` }).click();   // 되돌려 두기 (서버 상태를 공유한다)
   await expect(page.getByText('즐겨찾기한 아이템이 없습니다')).toBeVisible();
+});
+
+test('가방: 임무용 아이템 묶음이 일반 아이템보다 위에 있다 (2026-10-24)', async ({ page }) => {
+  await page.goto('/inventory');
+  const heads = page.locator('h3.group-h');
+  await expect(heads.first()).toHaveText(/임무용 아이템/);
+  await expect(heads.nth(1)).toHaveText(/일반 아이템/);
+  await expect(page.locator('.list.cols').first().locator('.row').first()).toContainText('거미줄');   // 가짜 게임 가방의 임무용 아이템
 });
 
 test('AI 도우미 바로 가기: 한 줄에 하나, 가로 스크롤 없이 화면으로 바로 이동한다 (FR-AI-20·21)', async ({ page }) => {
