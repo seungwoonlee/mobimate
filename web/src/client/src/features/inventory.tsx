@@ -39,8 +39,8 @@ export interface InvGroup { name: string; category: string; favorite: boolean; l
 type Mode = 'mission' | 'diet';
 const MODES: [Mode, string][] = [['mission', '임무용 보기'], ['diet', '다이어트 보기']];
 const SORTS: Record<Mode, [string, string][]> = {
-  mission: [['table', '마을 목록 순'], ['count', '개수 많은 순'], ['countAsc', '개수 적은 순'], ['name', '이름순']],
-  diet: [['count', '개수 많은 순'], ['countAsc', '개수 적은 순'], ['name', '이름순'], ['category', '카테고리순'], ['delta', '이번 접속 늘어난 순']],
+  mission: [['table', '마을 목록 순'], ['count', '개수 많은 순'], ['countAsc', '개수 적은 순'], ['name', '이름순'], ['delta', '이번 접속 늘어난 순'], ['deltaAsc', '이번 접속 줄어든 순']],
+  diet: [['count', '개수 많은 순'], ['countAsc', '개수 적은 순'], ['name', '이름순'], ['category', '카테고리순'], ['delta', '이번 접속 늘어난 순'], ['deltaAsc', '이번 접속 줄어든 순']],
 };
 /** 다이어트 보기의 위치 구분. 무게가 걸리는 곳은 가방이라 가방이 기본이다. */
 const DIET_SEGS: [string, string][] = [['bag', '가방'], ['all', '전체'], ['fav', '★ 다이어트 대상'], ['account', '계정 창고'], ['character', '캐릭터 창고']];
@@ -203,7 +203,7 @@ function ItemList({ rows, mode }: { rows: InvGroup[]; mode: Mode }) {
             </div>
             <div className="tot">
               <span className="num strong">{fmt(r.total)}</span>
-              {diet && r.sessionDelta > 0 && <Pill tone="warn">+{fmt(r.sessionDelta)}</Pill>}
+              {r.sessionDelta !== 0 && <Pill tone={r.sessionDelta > 0 ? 'warn' : 'danger'} title={`이번 접속에 ${r.sessionDelta > 0 ? '늘어난' : '줄어든'} 개수`}>{r.sessionDelta > 0 ? '+' : '−'}{fmt(Math.abs(r.sessionDelta))}</Pill>}
               <span className="by">{parts.length === 0 ? '없음' : parts.map(k => `${LOC_SHORT[k]} ${fmt(r.by[k])}`).join(' · ')}</span>
             </div>
           </div>
@@ -220,19 +220,25 @@ const SORT_FN: Record<string, (a: InvGroup, b: InvGroup) => number> = {
   countAsc: (a, b) => a.total - b.total || byName(a, b),
   name: byName,
   category: (a, b) => a.category.localeCompare(b.category, 'ko') || byName(a, b),
+  deltaAsc: (a, b) => a.sessionDelta - b.sessionDelta || a.total - b.total || byName(a, b),
   delta: (a, b) => b.sessionDelta - a.sessionDelta || b.total - a.total || byName(a, b),
 };
 
 /** 이름이 같은 아이템(여러 칸·여러 위치)을 한 카드로 합친다. 잠금은 하나라도 잠겼으면 잠금, 즐겨찾기도 하나라도 있으면 즐겨찾기로 본다. */
 export function groupItems(items: InvItem[]): InvGroup[] {
   const m = new Map<string, InvGroup>();
+  const perLoc = new Map<string, Record<string, number>>();
   for (const i of items) {
     const k = plain(i.name).trim();
     const e = m.get(k);
     if (e) {
       e.total += i.count; e.by[i.location] = (e.by[i.location] ?? 0) + i.count;
-      e.locked ||= i.locked; e.favorite ||= i.favorite; e.sessionDelta = Math.max(e.sessionDelta, i.sessionDelta);
-    } else m.set(k, { name: i.name, category: i.category, favorite: i.favorite, locked: i.locked, sessionDelta: i.sessionDelta, total: i.count, by: { [i.location]: i.count } });
+      e.locked ||= i.locked; e.favorite ||= i.favorite;
+      if (!e.category) e.category = i.category;
+    } else m.set(k, { name: i.name, category: i.category, favorite: i.favorite, locked: i.locked, sessionDelta: 0, total: i.count, by: { [i.location]: i.count } });
+    // 변화량은 (위치, 이름)마다 한 값이고 같은 이름의 여러 칸이 같은 값을 들고 오므로, 위치마다 한 번만 더한다
+    const seen = (perLoc.get(k) ?? perLoc.set(k, {}).get(k)!);
+    if (!(i.location in seen)) { seen[i.location] = i.sessionDelta; m.get(k)!.sessionDelta += i.sessionDelta; }
   }
   return [...m.values()];
 }

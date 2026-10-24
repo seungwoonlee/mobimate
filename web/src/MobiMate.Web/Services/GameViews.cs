@@ -253,9 +253,12 @@ public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManag
         if (!tItems.Result.Ok) return new CliData<object>(null, tItems.Result.Failure, tItems.Result.FetchedAt);
 
         var items = tItems.Result.Value ?? new();
-        var baseline = _bagBaselines.GetOrAdd(state.CurrentKey ?? CharacterKey(tCh.Result.Value), _ =>
-            items.Where(i => IsBag(i.Location)).GroupBy(i => i.DisplayName).ToDictionary(g => g.Key, g => g.Sum(i => i.Count)));
-        var bagTotals = items.Where(i => IsBag(i.Location)).GroupBy(i => i.DisplayName).ToDictionary(g => g.Key, g => g.Sum(i => i.Count));
+        // 이번 접속의 개수 변화: 위치(가방·계정 창고·캐릭터 창고)별로 처음 본 개수와 지금 개수의 차이. 늘어나면 +, 퀘스트 등으로 줄면 −.
+        static string DeltaKey(ItemData i) => NormalizeLocation(i.Location) + "|" + i.DisplayName;
+        var totals = items.GroupBy(DeltaKey).ToDictionary(g => g.Key, g => g.Sum(i => i.Count));
+        var baseline = _bagBaselines.GetOrAdd(state.CurrentKey ?? CharacterKey(tCh.Result.Value), _ => new Dictionary<string, int>(totals));
+        // 다 써서 목록에서 사라진 아이템도 0개로 남겨 줄어든 만큼 보이게 한다(목록 전체가 비어 온 때는 읽기 실패로 보고 만들지 않는다)
+        var used = items.Count == 0 ? new() : baseline.Where(e => e.Value > 0 && !totals.ContainsKey(e.Key)).ToList();
 
         var v = tCh.Result.Value?.Vitals;
         var pct = v is { WeightMax: > 0 } ? v.WeightCurrent / v.WeightMax * 100 : 0;
@@ -266,8 +269,13 @@ public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManag
             {
                 location = NormalizeLocation(i.Location), name = i.DisplayName, category = i.CategoryName, count = i.Count, locked = i.IsLocked,
                 favorite = favorites.IsItem(i.DisplayName),
-                sessionDelta = IsBag(i.Location) ? Math.Max(0, bagTotals.GetValueOrDefault(i.DisplayName) - baseline.GetValueOrDefault(i.DisplayName)) : 0,
-            }),
+                sessionDelta = totals[DeltaKey(i)] - baseline.GetValueOrDefault(DeltaKey(i)),
+            }).Concat(used.Select(e =>
+            {
+                var cut = e.Key.IndexOf('|');
+                var name = e.Key[(cut + 1)..];
+                return new { location = e.Key[..cut], name, category = "", count = 0, locked = false, favorite = favorites.IsItem(name), sessionDelta = -e.Value };
+            })),
         }, null, tItems.Result.FetchedAt);
     }
 
