@@ -465,3 +465,63 @@ public class StationaryTests
         Assert.Equal(AutoSuspicionReason.Lying, lying!.Reason);
     }
 }
+
+/// <summary>활동량 하위 이상치(시범, 2026-10-24): 제자리 비율이 파티 중앙값보다 뚜렷이 높은 사람만 표시한다.</summary>
+public class LowActivityTests
+{
+    private static readonly DateTimeOffset T0 = new(2026, 10, 24, 12, 0, 0, TimeSpan.Zero);
+
+    /// <summary>나는 계속 달린다. movers는 각자 다른 방향으로 계속 움직이고(수동 플레이), still은 한 점에 서 있다.</summary>
+    private static AutoSuspicionTracker Run(int seconds, bool stillToggles = false, int extraStill = 0)
+    {
+        var t = new AutoSuspicionTracker();
+        for (var s = 0; s <= seconds; s++)
+        {
+            double mx = 8 * Math.Sin(s / 3.0), my = s * 4.0;
+            var me = new WorldPos(mx, my);
+            double D(double x, double y) => Math.Sqrt((x - mx) * (x - mx) + (y - my) * (y - my));
+            var list = new List<WatchedPlayer>();
+            for (var i = 0; i < 4; i++)
+            {
+                // 이동하는 사람: 사인 곡선으로 계속 달린다
+                var x = 15 * Math.Sin(s / (2.0 + i)) + i * 6; var y = my + 20 * Math.Cos(s / (3.0 + i));
+                var still = i >= 4 - extraStill;   // 뒤쪽 extraStill명도 한 점에 선다
+                if (still) { x = 5; y = 100; }
+                list.Add(new($"x|전사{i}|100|100000|", "x", $"전사{i}", 100, 100000, null, true, D(x, y)));
+            }
+            var tog = stillToggles && s >= 50;
+            list.Add(new("x|전격술사|100|100000|", "x", "전격술사", 100, 100000, null, true, D(-10, 120), Hood: tog && s % 2 == 0));   // 전투 중으로 보이지만 한 점에서 안 움직임
+            t.Observe(T0.AddSeconds(s), true, list, me);
+        }
+        return t;
+    }
+
+    [Fact]
+    public void StandingStillWhileFighting_IsFlaggedOnlyAfterEnoughObservation_AndShowsAsLowActivity()
+    {
+        Assert.DoesNotContain(Run(30).Suspects, x => x.Reason == AutoSuspicionReason.LowActivity);   // 아직 표본 부족
+        var s = Run(100).Suspects.FirstOrDefault(x => x.Player.Job == "전격술사");
+        Assert.NotNull(s);
+        Assert.Equal(AutoSuspicionReason.LowActivity, s!.Reason);
+        Assert.DoesNotContain(Run(100).Suspects, x => x.Player.Job.StartsWith("전사"));              // 계속 움직이는 사람은 아니다
+    }
+
+    [Fact]
+    public void StandingOutIsRelative_TwoStillAreBothFlagged_ButAMajorityStillIsNot()
+    {
+        // 둘이 서 있으면 둘 다 잡힌다(중앙값은 그대로 낮다)
+        var two = Run(100, extraStill: 1);
+        Assert.Contains(two.Suspects, x => x.Reason == AutoSuspicionReason.LowActivity && x.Player.Job == "전사3");
+        Assert.Contains(two.Suspects, x => x.Reason == AutoSuspicionReason.LowActivity && x.Player.Job == "전격술사");
+        // 파티의 과반(5명 중 3명)이 서 있으면 중앙값이 올라 아무도 두드러지지 않는다
+        var most = Run(100, extraStill: 2);
+        Assert.DoesNotContain(most.Suspects, x => x.Reason == AutoSuspicionReason.LowActivity);
+    }
+
+    [Fact]
+    public void ScreenToggle_ProvesAHuman_AndClearsTheCandidate()
+    {
+        var t = Run(100, stillToggles: true);
+        Assert.DoesNotContain(t.Suspects, x => x.Player.Job == "전격술사" && x.Reason == AutoSuspicionReason.LowActivity);
+    }
+}

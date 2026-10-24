@@ -28,6 +28,8 @@ public enum AutoSuspicionReason
     Far,
     /// <summary>함께 보이다가 주변(반경 30m)에서 오래 보이지 않는다(따라오지 않는다).</summary>
     Missing,
+    /// <summary>활동량 하위 이상치(시범, 2026-10-24): 최근 90초 중 제자리였던 비율이 파티의 중앙값보다 뚜렷이 높다. 자동전투·죽은 채 방치처럼 "전투 중"으로 읽혀도 스스로 움직이지 않는 사람.</summary>
+    LowActivity,
 }
 
 /// <param name="For">그 증상이 이어진 시간(1초 단위 카운터)</param>
@@ -55,6 +57,10 @@ public sealed class AutoSuspicionTracker
     /// <summary>다른 사람 <b>전원</b>이 전투 중인데 혼자 안 하는 시간(2026-10-24 승운: 10초만 돼도 사실상 오토). 대부분(75%) 기준보다 훨씬 짧다.</summary>
     public static readonly (TimeSpan Show, TimeSpan Full) IdleAllScale = (TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(60));
     public static readonly (TimeSpan Show, TimeSpan Full) PlayingScale = (TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(120));
+    /// <summary>활동량 하위 이상치 시범 기준(확인된 오토 표본 2건에서 맞춘 값이라 관찰하며 조정한다): 최근 LowWindow 동안의 제자리 판정 비율이 LowMinRatio 이상이고 파티 중앙값보다 LowMargin 이상 높으면 표시, LowFullMargin에서 가장 짙다.</summary>
+    public static readonly TimeSpan LowWindow = TimeSpan.FromSeconds(90), LowMinSpan = TimeSpan.FromSeconds(40);
+    public const double LowMinRatio = 0.5, LowMargin = 0.25, LowFullMargin = 0.45;
+    public const int LowMinGroup = 3;
     public static readonly (TimeSpan Show, TimeSpan Full) FarScale = (TimeSpan.FromSeconds(45), TimeSpan.FromSeconds(180));
     public static readonly (TimeSpan Show, TimeSpan Full) MissingScale = (TimeSpan.FromSeconds(45), TimeSpan.FromSeconds(180));
 
@@ -109,6 +115,7 @@ public sealed class AutoSuspicionTracker
         public bool QuietActive;
         public readonly List<RangeSample> Samples = new();   // 최근 표본(내 위치·거리): 삼각측량으로 제자리 판정
         public bool? Stationary;                              // true 제자리 / false 움직임 / null 모름
+        public readonly List<(double T, bool Still)> StillHist = new();   // 최근 90초의 제자리 판정(모름은 넣지 않는다)
         public bool Absent;
         public double AbsentSeconds;          // 안 보이는 카운터
 
@@ -204,7 +211,9 @@ public sealed class AutoSuspicionTracker
                 t.Samples.Add(new RangeSample(ts, me.X, me.Y, p.Distance));
                 t.Samples.RemoveAll(q => ts - q.T > SampleWindowSeconds);
                 t.Stationary = Stationary.Judge(t.Samples);
+                if (t.Stationary is { } still) { t.StillHist.Add((ts, still)); t.StillHist.RemoveAll(q => ts - q.T > LowWindow.TotalSeconds); }
             }
+            if (toggled.Contains(p.Key)) t.StillHist.Clear();   // 화면 조작은 사람 행동: 활동량 후보에서 빼고 처음부터 다시 본다
         }
 
         // 2) 무활동 시계와 증상별 카운터
@@ -238,6 +247,30 @@ public sealed class AutoSuspicionTracker
             t.Lying.Tick(idleCond && stillNow && !toggled.Contains(p.Key), dt);
             t.Playing.Tick(p.Playing && idleCond, dt);
             t.Far.Tick(others.Count(o => o.Distance <= NearMeters) >= MinOthers && p.Distance >= FarMeters, dt);
+        }
+
+        // 2.5) 활동량 하위 이상치: 제자리 비율이 파티 중앙값보다 뚜렷이 높은 사람(내 위치를 알아 삼각측량이 되는 관찰만)
+        var lowIntensity = new Dictionary<string, (double I, double Span)>();
+        if (me != null)
+        {
+            var ratios = new Dictionary<string, (double Ratio, double Span)>();
+            foreach (var p in list)
+            {
+                var h = _tracks[p.Key].StillHist;
+                if (h.Count < 2 || h[^1].T - h[0].T < LowMinSpan.TotalSeconds) continue;
+                ratios[p.Key] = ((double)h.Count(q => q.Still) / h.Count, h[^1].T - h[0].T);
+            }
+            if (ratios.Count >= LowMinGroup)
+            {
+                var sorted = ratios.Values.Select(v => v.Ratio).OrderBy(x => x).ToList();
+                var median = sorted.Count % 2 == 1 ? sorted[sorted.Count / 2] : (sorted[sorted.Count / 2 - 1] + sorted[sorted.Count / 2]) / 2;
+                foreach (var (key, v) in ratios)
+                {
+                    var margin = v.Ratio - median;
+                    if (v.Ratio < LowMinRatio || margin < LowMargin) continue;
+                    lowIntensity[key] = (0.15 + 0.85 * Math.Min(1, (margin - LowMargin) / (LowFullMargin - LowMargin)), v.Span);
+                }
+            }
         }
 
         // 3) 사라진 사람
@@ -280,6 +313,11 @@ public sealed class AutoSuspicionTracker
                 if (i <= 0) continue;
                 maxI = Math.Max(maxI, i);
                 if (best == null) best = new AutoSuspect(key, reason, count, t.Last, i);   // 후보는 확실한 순서로 늘어서 있다
+            }
+            if (lowIntensity.TryGetValue(key, out var low))
+            {
+                maxI = Math.Max(maxI, low.I);
+                best ??= new AutoSuspect(key, AutoSuspicionReason.LowActivity, TimeSpan.FromSeconds(low.Span), t.Last, low.I);   // 다른 이유가 없을 때만 이 이유로 보인다
             }
             if (best != null) best = best with { Intensity = maxI };
             if (best != null) suspects.Add(best);
