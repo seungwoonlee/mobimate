@@ -1,4 +1,4 @@
-import { isMissionItem, MISSION_ITEMS, MISSION_SLOTS, missionInfo, RECIPES, TOWNS } from './missionData';
+import { COOK_RECIPES, isMissionItem, MISSION_ITEMS, MISSION_SLOTS, missionInfo, RECIPES, TOWNS } from './missionData';
 
 // 임무용 아이템 (2026-10-24 승운): 이름이 정확히 같은 것만 임무용으로 묶는다.
 describe('임무용 아이템', () => {
@@ -37,5 +37,15 @@ describe('제작 레시피', () => {
   });
   it('마법 유탄 부품만 1회에 5개 나온다', () => {
     expect(RECIPES.filter(r => r.produces !== 1).map(r => r.name)).toEqual(['마법 유탄 부품']);
+  });
+});
+
+describe('요리 레시피', () => {
+  it('마을마다 하나씩 5종이고, 확정 전까지 모두 미확정으로 표시한다', () => {
+    expect(COOK_RECIPES.map(r => r.town)).toEqual([...TOWNS]);
+    expect(COOK_RECIPES.every(r => r.unverified)).toBe(true);
+  });
+  it('요리 이름은 임무용 아이템(완성품) 이름과 같아서 가진 개수를 셀 수 있다', () => {
+    for (const r of COOK_RECIPES) expect(isMissionItem(r.name), r.name).toBe(true);
   });
 });
