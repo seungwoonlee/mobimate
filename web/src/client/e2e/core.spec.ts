@@ -27,7 +27,7 @@ test('개요: 4대 점수·가방·숙제·어비스/레이드 추천·일반 �
     await expect(page.locator('.main .dg-list li')).toHaveCount(4);   // 영혼석 4종
     await page.getByRole('link', { name: /가방 무게/ }).click();
     await expect(page).toHaveURL(/\/inventory/);
-    await expect(page.getByRole('heading', { name: '가방·창고' })).toBeVisible();
+    await expect(page.getByRole('button', { name: '임무용 보기' })).toBeVisible();
   }
 });
 
@@ -134,27 +134,30 @@ test('생활: 채집 목표 수량 기본값은 100개 (FR-DT-22)', async ({ pag
   for (const k of ['금속', '목재', '가죽', '옷감', '약품', '식재료']) await expect(page.getByRole('heading', { name: new RegExp(`${k} 가공`) })).toBeVisible();   // 비어 있어도 여섯 종류 모두
 });
 
-test('가방 즐겨찾기: 별을 누르면 맨 위로 오고 즐겨찾기 보기에 모인다 (FR-DT-15)', async ({ page }) => {
-  await page.goto('/inventory');
-  const rows = page.locator('.list .row');
-  await expect(rows.first()).toBeVisible();
-  const last = rows.last();
+test('다이어트 보기: 별을 누르면 다이어트 대상으로 맨 위에 모이고 대상 보기에 모인다 (FR-DT-15)', async ({ page }) => {
+  await page.goto('/inventory?mode=diet');
+  const cards = page.locator('.inv-card');
+  await expect(cards.first()).toBeVisible();
+  const last = cards.last();
   const name = (await last.locator('.t span').last().textContent())!.trim();
-  const star = last.getByRole('button', { name: `${name} 즐겨찾기` });
-  await star.click();
-  await expect(page.locator('.list.cols').last().locator('.row').first()).toContainText(name);   // 즐겨찾기가 자기 묶음의 맨 위(임무용 아이템 묶음이 있으면 그 아래 일반 아이템 묶음)
-  await page.getByRole('button', { name: '★ 즐겨찾기' }).click();
-  await expect(rows).toHaveCount(1);
-  await rows.first().getByRole('button', { name: `${name} 즐겨찾기` }).click();   // 되돌려 두기 (서버 상태를 공유한다)
-  await expect(page.getByText('즐겨찾기한 아이템이 없습니다')).toBeVisible();
+  await last.getByRole('button', { name: `${name} 다이어트 대상` }).click();
+  await expect(cards.first()).toContainText(name);   // 다이어트 대상이 맨 위
+  await page.getByRole('button', { name: '★ 다이어트 대상' }).click();
+  await expect(cards).toHaveCount(1);
+  await cards.first().getByRole('button', { name: `${name} 다이어트 대상` }).click();   // 되돌려 두기 (서버 상태를 공유한다)
+  await expect(page.getByText('다이어트 대상이 없습니다')).toBeVisible();
 });
 
-test('가방: 임무용 아이템 묶음이 일반 아이템보다 위에 있다 (2026-10-24)', async ({ page }) => {
+test('가방: 임무용 보기는 임무용 아이템만, 0개도 채집·요리·제작으로 나눠 모두 보인다 (2026-10-24)', async ({ page }) => {
   await page.goto('/inventory');
   const heads = page.locator('h3.group-h');
-  await expect(heads.first()).toHaveText(/임무용 아이템/);
-  await expect(heads.nth(1)).toHaveText(/일반 아이템/);
-  await expect(page.locator('.list.cols').first().locator('.row').first()).toContainText('거미줄');   // 가짜 게임 가방의 임무용 아이템
+  await expect(heads).toHaveCount(3);
+  await expect(heads.nth(0)).toHaveText(/채집/);
+  await expect(heads.nth(1)).toHaveText(/요리/);
+  await expect(heads.nth(2)).toHaveText(/제작/);
+  await expect(page.locator('.inv-card')).toHaveCount(39);   // 가진 것과 상관없이 목록 전부
+  await expect(page.locator('.inv-card').first()).toContainText('거미줄');   // 가짜 게임 가방의 임무용 아이템
+  await expect(page.locator('.inv-card.zero').first()).toBeVisible();        // 없는 것은 흐리게 0개로
 });
 
 test('AI 도우미 바로 가기: 한 줄에 하나, 가로 스크롤 없이 화면으로 바로 이동한다 (FR-AI-20·21)', async ({ page }) => {
