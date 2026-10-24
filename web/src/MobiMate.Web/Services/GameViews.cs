@@ -339,13 +339,18 @@ public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManag
         var r = await q.Get<List<NearPcItem>>("get_near_pcs", ct);
         if (!r.Ok) return new CliData<object>(null, r.Failure, r.FetchedAt);
         var my = state.Character?.CombatScore?.Value ?? 0;
-        var ranked = NearbyRanker.Rank(r.Value, my);
+        // 정렬(2026-10-24 승운): 던전(레이드·어비스 포함)이면 전투력 높은 순, 던전이 아니면(마을 등) 가까운 순
+        var inDungeon = autoWatch.InInstance() || state.Activity?.Dungeon is { } dg && (dg.IsInside || dg.IsCleared);
+        var ranked = (inDungeon
+            ? NearbyRanker.Rank(r.Value, my).OrderByDescending(e => e.Pc.CombatScore).ThenBy(e => e.Pc.Distance)
+            : NearbyRanker.Rank(r.Value, my).OrderBy(e => e.Pc.Distance).ThenByDescending(e => e.Pc.CombatScore)).ToList();
         if (autoWatch.InInstance()) autoWatch.Observe(DateTimeOffset.UtcNow, true, r.Value);   // 화면이 읽은 값도 평소 주기에 보탠다(추가 호출 없음)
         var suspects = autoWatch.Suspects();
         var present = suspects.Where(x => x.Reason != AutoSuspicionReason.Missing).ToDictionary(x => x.Key);
         return new CliData<object>(new
         {
             count = ranked.Count,
+            inDungeon,
             myCombatScore = my,
             myRealm = state.Character?.RealmName,   // 화면은 서버가 다른 사람에게만 "직업 (서버)"로 서버를 붙인다
             // 오토 의심 표식: 상황 파악을 못 하는 듯한 사람 — 누워 있음(lying)·혼자 전투 안 함(idle)·혼자 연주(playing)·혼자 멀리(far) / 함께 보이다가 사라진 사람(missing, 목록에 없어 따로 준다).

@@ -157,7 +157,7 @@ export function CurrenciesView() {
 }
 
 /**
- * 주변 (FR-DT-06·30~34): 파티원 > 친구 > 길드원 > 그 외(서버 정렬)를 표로 보인다. 열: 관계 · 직업 · 레벨 · 전투력 · 생활력 · 매력 · 칭호 · 복장 · 상태 · 거리.
+ * 주변 (FR-DT-06·30~34): 파티원 > 친구 > 길드원 > 그 외(서버 정렬)를 표로 보인다. 열: 직업(친구·길드원 표식 포함) · 칭호 · 전투력 · 거리 · 상태 · 레벨 · 생활력 · 매력 · 복장. 던전이면 전투력 순, 아니면 가까운 순.
  * 게임은 캐릭터 이름을 주지 않아 이름 열은 없다. 친구·길드원은 색과 굵은 글씨, 나보다 강하면 전투력 숫자의 색으로만 알린다. 길드원만 보기 필터.
  */
 const mmss = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
@@ -165,8 +165,8 @@ const mmss = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, 
 function Outfit({ p }: { p: NearPlayer }) {
   const flags = [p.robe && '로브', p.hood && '후드', p.weaponHidden && '무기 숨김'].filter(Boolean).join('·');
   return (
-    <span className="nb-c nb-out" data-label="복장">
-      {p.clothes > 0 || p.colors > 0 ? <span className="num">옷 {p.clothes} · {p.colors}색</span> : <span className="faint">–</span>}
+    <span className="nb-c nb-out nb-lo" data-label="복장">
+      {p.clothes > 0 ? <span className="num">옷 {p.clothes}</span> : <span className="faint">–</span>}
       {flags && <span className="faint small">{flags}</span>}
     </span>
   );
@@ -200,21 +200,23 @@ export function NearbyView() {
       {rows.length === 0 ? <div className="card muted">주변에 표시할 플레이어가 없습니다.</div> : (
         <section className="card nb-table" aria-label="주변 플레이어">
           <div className="nb-row nb-head" aria-hidden="true">
-            <span>관계</span><span>직업</span><span>Lv</span><span>전투력</span><span>생활력</span><span>매력</span><span>칭호</span><span>복장</span><span>상태</span><span>거리</span>
+            <span>직업</span><span>칭호</span><span>전투력</span><span>거리</span><span>상태</span><span className="nb-lo">레벨</span><span className="nb-lo">생활력</span><span className="nb-lo">매력</span><span className="nb-lo">복장</span>
           </div>
           <ul className="nb-body">
             {rows.map((p, i) => (
               <li className={`nb-row pl-row ${p.relation}${p.autoSuspect ? ' auto-suspect' : ''}`} style={p.autoSuspect ? autoStyle(p.autoSuspect.intensity) : undefined} key={`${p.job}|${p.level}|${p.combatScore}|${i}`}>
-                <span className="nb-c nb-rel" data-label="관계"><span className={`pl ${p.relation}`}><span className="pl-tag" aria-label={REL_TEXT[p.relation] || undefined}>{REL_TAG[p.relation]}</span></span></span>
-                <span className={`nb-c nb-job pl ${p.relation}`} data-label="직업"><span className="pl-job"><JobIcon job={p.job} size={17} />{jobLabel(p.job, p.realm, d.myRealm)}</span></span>
-                <span className="nb-c num" data-label="Lv">{p.level}</span>
-                <span className={`nb-c num pl-cs ${p.isStronger ? 'stronger' : ''}`} data-label="전투력">{fmt(p.combatScore)}{p.isStronger && <span className="sr-only"> (나보다 강함)</span>}</span>
-                <span className="nb-c num" data-label="생활력">{p.living > 0 ? fmt(p.living) : <span className="faint">–</span>}</span>
-                <span className="nb-c num" data-label="매력">{p.attract > 0 ? fmt(p.attract) : <span className="faint">–</span>}</span>
+                <span className={`nb-c nb-job pl ${p.relation}`} data-label="직업">
+                  {REL_TAG[p.relation] && <span className="pl-tag" aria-label={REL_TEXT[p.relation]}>{REL_TAG[p.relation]}</span>}
+                  <span className="pl-job"><JobIcon job={p.job} size={22} />{jobLabel(p.job, p.realm, d.myRealm)}</span>
+                </span>
                 <span className={`nb-c nb-title pl ${p.relation}`} data-label="칭호"><span className="pl-title">{p.title || <span className="faint">–</span>}</span></span>
-                <Outfit p={p} />
+                <span className={`nb-c num pl-cs ${p.isStronger ? 'stronger' : ''}`} data-label="전투력">{fmt(p.combatScore)}{p.isStronger && <span className="sr-only"> (나보다 강함)</span>}</span>
+                <span className="nb-c num nb-dist" data-label="거리">{p.distance.toFixed(1)}m</span>
                 <Status p={p} />
-                <span className="nb-c num faint small nb-dist" data-label="거리">{p.distance.toFixed(1)}m</span>
+                <span className="nb-c nb-lo num" data-label="레벨">{p.level}</span>
+                <span className="nb-c nb-lo num" data-label="생활력">{p.living > 0 ? fmt(p.living) : '–'}</span>
+                <span className="nb-c nb-lo num" data-label="매력">{p.attract > 0 ? fmt(p.attract) : '–'}</span>
+                <Outfit p={p} />
               </li>
             ))}
           </ul>
