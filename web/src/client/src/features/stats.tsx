@@ -11,17 +11,17 @@ import { RankRefreshButton, agoText } from './rankings';
 import { useNow } from '../hooks/layout';
 
 /**
- * 스탯 탭: 모든 계정의 캐릭터를 **한 표**에 모아 비교한다(2026-10-24 승운). 계정은 이름 줄에 작게 붙이고, 머리글을 눌러 그 열 기준으로 정렬한다(기본 전투력 순).
+ * 스탯 탭: 모든 계정의 캐릭터를 **한 표**에 모아 비교한다(2026-10-24 승운). 계정은 이름 줄에 작게 붙이고, 머리글을 눌러 그 열 기준으로 정렬한다. 기본·"캐릭터" 머리글은 계정(최근 접속 순) → 계정 안에서 전투력 순.
  * 열: 점수(전투력·마도저항·생활력·매력·종합, 서버 순위 포함)·기본 스탯·공격력·방어력·체력·데코·어비스·레이드 추천. 접속하지 않은 캐릭터는 마지막으로 관찰한 값이다.
  * 칸 폭은 내용에 맞고 줄바꿈하지 않으며, 좁은 화면에서는 줄이 카드로 접혀 옆으로 스크롤하지 않는다.
  */
-type SortKey = 'combat' | 'mdef' | 'living' | 'attract' | 'total' | keyof CharStats;
+type SortKey = 'character' | 'combat' | 'mdef' | 'living' | 'attract' | 'total' | keyof CharStats;
 
 export function StatsView() {
   const chars = useCharacters();
   const rank = useRankings();
   const now = useNow(60_000);
-  const [sort, setSort] = useState<SortKey>('combat');
+  const [sort, setSort] = useState<SortKey>('character');
 
   const accounts: AccountGroup[] = chars.data?.data.accounts ?? [];
   const current = chars.data?.data.currentAccountId;
@@ -29,12 +29,16 @@ export function StatsView() {
   const ordered = [...accounts].sort((x, y) => Number(y.id === current) - Number(x.id === current));
   const views = rank.data?.data.characters ?? {};
   const total = accounts.reduce((n, a) => n + a.members.length, 0);
-  const value = (c: CharacterCard, k: SortKey): number => {
+  const value = (c: CharacterCard, k: Exclude<SortKey, 'character'>): number => {
     if (k === 'total') { const t = views[c.key] && !views[c.key].nameChanged ? views[c.key].entries.total?.score : undefined; return t ?? c.combat + c.living + c.attract; }
     if (k === 'combat' || k === 'mdef' || k === 'living' || k === 'attract') return c[k];
     return c.stats?.[k] ?? 0;
   };
-  const rows = ordered.flatMap(a => a.members.map(c => ({ c, account: a.solo ? a.name : `${a.name} 계정` }))).sort((x, y) => value(y.c, sort) - value(x.c, sort));
+  // 기본(캐릭터): 계정은 가장 최근에 접속한 순, 계정 안에서는 전투력 순. 다른 열을 누르면 계정 구분 없이 그 값 순.
+  const latest = (a: AccountGroup) => Math.max(...a.members.map(m => (m.isCurrent ? Number.MAX_SAFE_INTEGER : Date.parse(m.lastSeen) || 0)));
+  const rows = sort === 'character'
+    ? [...accounts].sort((x, y) => latest(y) - latest(x)).flatMap(a => [...a.members].sort((p, q) => q.combat - p.combat).map(c => ({ c, account: a.solo ? a.name : `${a.name} 계정` })))
+    : ordered.flatMap(a => a.members.map(c => ({ c, account: a.solo ? a.name : `${a.name} 계정` }))).sort((x, y) => value(y.c, sort) - value(x.c, sort));
   const oldest = accounts.flatMap(a => a.members).flatMap(m => Object.values(views[m.key]?.entries ?? {})).map(e => e.at).sort()[0];
 
   return (
@@ -52,7 +56,7 @@ export function StatsView() {
             <section className="card st-table" aria-label="캐릭터 스탯">
               <div className="st-grid">
                 <div className="st-row st-head">
-                  <span>캐릭터</span>
+                  <button type="button" className={`st-hb${sort === 'character' ? ' on' : ''}`} aria-pressed={sort === 'character'} aria-label="계정(최근 접속 순)·전투력 순으로 정렬" onClick={() => setSort('character')}>캐릭터{sort === 'character' ? ' ▼' : ''}</button>
                   {SORTABLE.map(([k, label]) => <button key={k} type="button" className={`st-hb${k in STAT_KEYS ? ' st-hx' : ''}${sort === k ? ' on' : ''}`} aria-pressed={sort === k} aria-label={`${label} 순으로 정렬`} onClick={() => setSort(k)}>{label}{sort === k ? ' ▼' : ''}</button>)}
                   <span>어비스·레이드 추천</span>
                 </div>
@@ -99,7 +103,7 @@ function StatRow({ c, account, view, now }: { c: CharacterCard; account: string;
 }
 
 const STAT_KEYS: Record<string, true> = { str: true, dex: true, int: true, will: true, luck: true, attack: true, defence: true, health: true, decor: true };
-const SORTABLE: [SortKey, string][] = [
+const SORTABLE: [Exclude<SortKey, 'character'>, string][] = [
   ['combat', '전투력'], ['mdef', '마도저항'], ['living', '생활력'], ['attract', '매력'], ['total', '종합'],
   ['str', '힘'], ['dex', '솜씨'], ['int', '지력'], ['will', '의지'], ['luck', '행운'], ['attack', '공격력'], ['defence', '방어력'], ['health', '체력'], ['decor', '데코'],
 ];
