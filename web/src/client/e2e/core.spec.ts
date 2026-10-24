@@ -63,12 +63,31 @@ test('숙제: 뱅가드는 일부만 했을 수 있어 누를 때마다 0 → 1 
   await expect(cell).toHaveAttribute('aria-pressed', 'false');
 });
 
+test('숙제: 소환의 결계·검은 구멍은 0~7단계를 눌러 올리고 Shift+클릭으로 한 단계 뒤로 간다 (2026-10-24)', async ({ page }) => {
+  await page.goto('/homework');
+  for (const name of ['소환의 결계', '검은 구멍']) {
+    const cell = page.locator('.hw-row.current').getByRole('button', { name: new RegExp(`^${name} `) });
+    for (let i = 0; i < 8 && !(await cell.textContent())!.includes('0/7'); i++) await cell.click();   // 0으로 맞추고 시작
+    await expect(cell).toContainText('0/7');
+    await cell.click(); await cell.click(); await cell.click();
+    await expect(cell).toContainText('3/7');
+    await expect(cell).toHaveAttribute('aria-pressed', 'false');
+    await cell.click({ modifiers: ['Shift'] });
+    await expect(cell).toContainText('2/7');
+    for (let i = 0; i < 5; i++) await cell.click();
+    await expect(cell).toContainText('7/7');
+    await expect(cell).toHaveAttribute('aria-pressed', 'true');
+    await cell.click();
+    await expect(cell).toContainText('0/7');
+  }
+});
+
 test('숙제 화면: 캐릭터마다 가로 박스 한 줄에 중요 숙제가 보이고 세로로 쌓인다 (2026-10-11)', async ({ page }) => {
   await page.goto('/homework');
   const rows = page.locator('.hw-row');
   await expect(rows.first()).toBeVisible();
   const row = rows.first();
-  for (const name of ['요일던전', '길드의뢰', '뱅가드', '카브락', '에이렐', '화이트 서큐버스', '허상의 정박지', '광기의 동굴', '흩어진 물길', '필드보스'])
+  for (const name of ['요일던전', '길드의뢰', '뱅가드', '소환의 결계', '검은 구멍', '카브락', '에이렐', '화이트 서큐버스', '허상의 정박지', '광기의 동굴', '흩어진 물길', '필드보스'])
     await expect(row.getByText(name, { exact: true })).toBeVisible();
   // 옛 화면 요소(상점·교환·인게임 미션 탭, 카드 그리드)는 없다
   await expect(page.getByRole('tab', { name: '상점·교환' })).toHaveCount(0);
