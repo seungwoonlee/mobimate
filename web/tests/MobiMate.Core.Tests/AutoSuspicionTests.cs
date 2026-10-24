@@ -26,6 +26,9 @@ public class AutoSuspicionTests
         P("전사", true, 4 + (s % 2) * 0.6), P("궁수", true, 6 - (s % 3) * 0.5), P("힐러", true, 7 + (s % 2) * 0.9),
     };
 
+    /// <summary>대부분(75%)만 싸우는 장면: 싸우는 셋 + 가만히 서 있는 한 명(도적). 도적의 입장에서는 전원 전투, 마법사의 입장에서는 4명 중 3명이 전투.</summary>
+    private static IReadOnlyList<WatchedPlayer> Mostly(int s) => Fighters(s).Append(P("도적", false, 12 + (s % 4) * 0.7)).ToList();
+
     private static AutoSuspect? Of(AutoSuspicionTracker t, string job) => t.Suspects.FirstOrDefault(x => x.Player.Job == job);
 
     [Theory]
@@ -39,21 +42,37 @@ public class AutoSuspicionTests
         Assert.Equal(expected, AutoSuspicionTracker.IntensityOf(TimeSpan.FromSeconds(seconds), TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(150)), 3);
 
     [Fact]
-    public void Idle_CountsEverySecond_ShowsFaintlyThenDarkens()
+    public void Idle_WhenAllOthersFight_ShowsAfterTenSeconds_AndIsFullAtSixty()
     {
         var t = new AutoSuspicionTracker();
         var seen = new Dictionary<int, double>();
         for (var s = 0; s <= 200; s++)
         {
-            // 이 사람은 움직인다(거리가 바뀐다) → 누워 있음이 아니라 "혼자 전투 안 함"
+            // 이 사람은 움직인다(거리가 바뀐다) → 누워 있음이 아니라 "혼자 전투 안 함". 다른 사람은 전원 전투 중.
             t.Observe(T0.AddSeconds(s), true, Fighters(s).Append(P("마법사", false, 9 + (s % 4) * 0.7)).ToList());
+            seen[s] = Of(t, "마법사")?.Intensity ?? 0;
+        }
+        Assert.Equal(0, seen[9]);                                     // 10초 전: 속으로만 관찰
+        Assert.InRange(seen[10], 0.1, 0.2);                           // 전원 전투 중인데 혼자 안 함: 10초에 옅게 켜진다
+        Assert.True(seen[30] > seen[10]);
+        Assert.Equal(1.0, seen[60]);
+        Assert.Equal(AutoSuspicionReason.Idle, Of(t, "마법사")!.Reason);
+    }
+
+    [Fact]
+    public void Idle_WhenOnlyMostOthersFight_KeepsTheLongerThirtySecondRule()
+    {
+        var t = new AutoSuspicionTracker();
+        var seen = new Dictionary<int, double>();
+        for (var s = 0; s <= 200; s++)
+        {
+            t.Observe(T0.AddSeconds(s), true, Mostly(s).Append(P("마법사", false, 9 + (s % 4) * 0.7)).ToList());
             seen[s] = Of(t, "마법사")?.Intensity ?? 0;
         }
         Assert.Equal(0, seen[29]);                                    // 29초: 카운터만 쌓인 상태
         Assert.InRange(seen[30], 0.1, 0.2);                           // 30초에 옅게 켜진다
         Assert.True(seen[60] > seen[30] && seen[100] > seen[60]);     // 점점 짙어진다
         Assert.Equal(1.0, seen[150]);
-        Assert.Equal(AutoSuspicionReason.Idle, Of(t, "마법사")!.Reason);
     }
 
     // ───── 2026-10-24 모델: 처음부터 모두 의심, 사람다운 행동이 보이면 무활동 시계를 0으로 ─────
@@ -62,13 +81,13 @@ public class AutoSuspicionTests
         new($"아이라|{job}|100|100000|", "아이라", job, 100, 100000, null, false, distance, false, robe, hood, weaponHidden, clothes);
 
     [Fact]
-    public void FirstThirtySeconds_AreObservedSilently_ThenShownOnlyIfNeverCleared()
+    public void FirstThirtySeconds_AreObservedSilently_WhenOnlyMostFight_ThenShownOnlyIfNeverCleared()
     {
         var t = new AutoSuspicionTracker();
         var hidden = true;
         for (var s = 0; s <= 40; s++)
         {
-            t.Observe(T0.AddSeconds(s), true, Fighters(s).Append(P("마법사", false, 9 + (s % 4) * 0.7)).ToList());
+            t.Observe(T0.AddSeconds(s), true, Mostly(s).Append(P("마법사", false, 9 + (s % 4) * 0.7)).ToList());
             if (s < 30 && Of(t, "마법사") != null) hidden = false;
         }
         Assert.True(hidden);                                  // 30초 전에는 깜빡이지 않는다
@@ -162,7 +181,7 @@ public class AutoSuspicionTests
         var seen = new Dictionary<int, AutoSuspect?>();
         for (var s = 0; s <= 100; s++)
         {
-            t.Observe(T0.AddSeconds(s), true, Fighters(s).Append(lying).ToList());
+            t.Observe(T0.AddSeconds(s), true, Mostly(s).Append(lying).ToList());
             seen[s] = Of(t, "마법사");
         }
         Assert.Null(seen[18]);                                        // 정지 확인(8초) 뒤부터 쌓여 20초 기준 전에는 없다
@@ -177,13 +196,13 @@ public class AutoSuspicionTests
     {
         var t = new AutoSuspicionTracker();
         var lying = P("마법사", false, 8.0);
-        var end = Run(t, T0, 60, s => Fighters(s).Append(lying).ToList());
+        var end = Run(t, T0, 60, s => Mostly(s).Append(lying).ToList());
         Assert.NotNull(Of(t, "마법사"));
 
-        t.Observe(end.AddSeconds(1), true, Fighters(61).Append(P("마법사", true, 8.0)).ToList());   // 부활해서 전투를 시작했다
+        t.Observe(end.AddSeconds(1), true, Mostly(61).Append(P("마법사", true, 8.0)).ToList());   // 부활해서 전투를 시작했다
         Assert.Null(Of(t, "마법사"));                                                                // 바로 풀린다
 
-        Run(t, end.AddSeconds(2), 15, s => Fighters(62 + s).Append(lying).ToList());                 // 다시 누워도 0부터
+        Run(t, end.AddSeconds(2), 15, s => Mostly(62 + s).Append(lying).ToList());                 // 다시 누워도 0부터
         Assert.Null(Of(t, "마법사"));
     }
 
@@ -193,11 +212,11 @@ public class AutoSuspicionTests
         var t = new AutoSuspicionTracker();
         // 모두 가만히(거리 변화 없음) 서 있고 한 명만 전투 안 함: 움직임이 없어 "누워 있음"은 모른다 → 혼자 전투 안 함(Idle) 기준을 따른다
         var still = new[] { P("전사", true, 4), P("궁수", true, 6), P("힐러", true, 7), P("마법사", false, 8) };
-        Run(t, T0, 25, _ => still);
+        Run(t, T0, 8, _ => still);
         var s0 = Of(t, "마법사");
-        Assert.Null(s0);                                              // 25초: Idle 기준(30초) 전, Lying은 판정 불가
-        Run(t, T0.AddSeconds(26), 10, _ => still);
-        Assert.Equal(AutoSuspicionReason.Idle, Of(t, "마법사")!.Reason);
+        Assert.Null(s0);                                              // 8초: 전원 전투 기준(10초) 전, Lying은 판정 불가
+        Run(t, T0.AddSeconds(9), 10, _ => still);
+        Assert.Equal(AutoSuspicionReason.Idle, Of(t, "마법사")!.Reason);   // 움직임이 없으니 누워 있음이 아니라 혼자 전투 안 함
     }
 
     [Fact]
@@ -278,11 +297,11 @@ public class AutoSuspicionTests
     {
         var t = new AutoSuspicionTracker();
         var lying = P("마법사", false, 8.0);
-        var end = Run(t, T0, 60, s => Fighters(s).Append(lying).ToList());
+        var end = Run(t, T0, 60, s => Mostly(s).Append(lying).ToList());
         Assert.NotNull(Of(t, "마법사"));
-        t.Observe(end.AddSeconds(1), false, Fighters(61).Append(lying).ToList());           // 던전 밖
+        t.Observe(end.AddSeconds(1), false, Mostly(61).Append(lying).ToList());           // 던전 밖
         Assert.Empty(t.Suspects);
-        Run(t, end.AddSeconds(2), 10, s => Fighters(62 + s).Append(lying).ToList());        // 처음부터 다시
+        Run(t, end.AddSeconds(2), 10, s => Mostly(62 + s).Append(lying).ToList());        // 처음부터 다시
         Assert.Empty(t.Suspects);
     }
 

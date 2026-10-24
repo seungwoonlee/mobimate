@@ -52,6 +52,8 @@ public sealed class AutoSuspicionTracker
     /// <summary>증상별 (표시 기준, 만점 기준). 카운터가 기준을 넘으면 켜지고 만점 기준에서 가장 짙다.</summary>
     public static readonly (TimeSpan Show, TimeSpan Full) LyingScale = (TimeSpan.FromSeconds(20), TimeSpan.FromSeconds(90));
     public static readonly (TimeSpan Show, TimeSpan Full) IdleScale = (TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(150));
+    /// <summary>다른 사람 <b>전원</b>이 전투 중인데 혼자 안 하는 시간(2026-10-24 승운: 10초만 돼도 사실상 오토). 대부분(75%) 기준보다 훨씬 짧다.</summary>
+    public static readonly (TimeSpan Show, TimeSpan Full) IdleAllScale = (TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(60));
     public static readonly (TimeSpan Show, TimeSpan Full) PlayingScale = (TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(120));
     public static readonly (TimeSpan Show, TimeSpan Full) FarScale = (TimeSpan.FromSeconds(45), TimeSpan.FromSeconds(180));
     public static readonly (TimeSpan Show, TimeSpan Full) MissingScale = (TimeSpan.FromSeconds(45), TimeSpan.FromSeconds(180));
@@ -100,6 +102,7 @@ public sealed class AutoSuspicionTracker
         public double? LastDistance;
         public double LastDelta;              // 직전 관찰 대비 거리 변화
         public readonly Counter Still = new(), Lying = new(), Playing = new(), Far = new();
+        public double QuietAllSeconds;        // 그중 다른 사람 전원이 전투 중이던 시간(같은 시계, 더 확실한 증거)
         public double QuietSeconds;           // 사람다운 행동 없이 흐른 초(다른 사람 대부분이 전투 중인 동안만 쌓는다)
         public bool QuietActive;
         public bool Absent;
@@ -205,10 +208,11 @@ public sealed class AutoSuspicionTracker
             // 사람다운 행동: 전투 중 / 화면을 만져야 바뀌는 상태 변화 / 혼자 움직임(내가 움직이면 모두의 거리가 변하므로, 가만히 있는 다른 사람이 있을 때만 인정한다)
             var movedAlone = t.LastDelta >= MovingMeters && someoneStill;
             var human = p.InCombat || toggled.Contains(p.Key) || movedAlone;
-            if (human) { t.QuietSeconds = 0; t.QuietActive = false; }
+            var allFighting = others.Count >= MinOthers && others.All(o => o.InCombat);
+            if (human) { t.QuietSeconds = 0; t.QuietAllSeconds = 0; t.QuietActive = false; }
             else if (othersFighting)
             {
-                if (t.QuietActive) t.QuietSeconds += dt;   // 처음 참이 된 관찰은 쌓지 않는다
+                if (t.QuietActive) { t.QuietSeconds += dt; if (allFighting) t.QuietAllSeconds += dt; }   // 처음 참이 된 관찰은 쌓지 않는다
                 t.QuietActive = true;
             }   // 다들 가만한 구간이면 그대로 둔다(쌓지도, 지우지도 않는다)
 
@@ -227,7 +231,7 @@ public sealed class AutoSuspicionTracker
         foreach (var (key, t) in _tracks.ToList())
         {
             if (present.Contains(key) || dup.Contains(key)) continue;
-            t.QuietSeconds = 0; t.QuietActive = false; t.Lying.Tick(false, dt); t.Playing.Tick(false, dt); t.Far.Tick(false, dt); t.Still.Tick(false, dt);
+            t.QuietSeconds = 0; t.QuietAllSeconds = 0; t.QuietActive = false; t.Lying.Tick(false, dt); t.Playing.Tick(false, dt); t.Far.Tick(false, dt); t.Still.Tick(false, dt);
             if (!t.Absent)
             {
                 if (t.LastSeen - t.FirstSeen < MinSeenBeforeMissing) { _tracks.Remove(key); continue; }   // 잠깐 스친 사람
@@ -247,17 +251,22 @@ public sealed class AutoSuspicionTracker
                 (AutoSuspicionReason.Lying, t.Lying.Seconds, LyingScale),
                 (AutoSuspicionReason.Playing, t.Playing.Seconds, PlayingScale),
                 (AutoSuspicionReason.Idle, t.QuietSeconds, IdleScale),
+                (AutoSuspicionReason.Idle, t.QuietAllSeconds, IdleAllScale),
                 (AutoSuspicionReason.Far, t.Far.Seconds, FarScale),
                 (AutoSuspicionReason.Missing, t.Absent ? t.AbsentSeconds : 0, MissingScale),
             };
+            // 표시 기준을 넘은 증상 중 더 확실한 이유를 앞세운다(누워 있음 > 혼자 연주 > 혼자 전투 안 함 > 멀리 > 안 보임). 짙기는 그중 가장 센 값.
             AutoSuspect? best = null;
+            var maxI = 0.0;
             foreach (var (reason, seconds, scale) in candidates)
             {
                 var count = TimeSpan.FromSeconds(seconds);
                 var i = IntensityOf(count, scale.Show, scale.Full);
                 if (i <= 0) continue;
-                if (best == null || i > best.Intensity) best = new AutoSuspect(key, reason, count, t.Last, i);   // 같으면 앞(더 확실한 증상)이 이긴다
+                maxI = Math.Max(maxI, i);
+                if (best == null) best = new AutoSuspect(key, reason, count, t.Last, i);   // 후보는 확실한 순서로 늘어서 있다
             }
+            if (best != null) best = best with { Intensity = maxI };
             if (best != null) suspects.Add(best);
         }
         Suspects = suspects;
