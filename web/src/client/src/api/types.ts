@@ -75,7 +75,7 @@ export interface NearPlayer {
 }
 /** 함께 보이다가 던전·레이드 안인데 주변에서 오래 보이지 않는 사람(목록에 없어 따로 온다) */
 export interface MissingPlayer { job: string; realm?: string; level: number; combatScore: number; title: string | null; seconds: number; intensity: number }
-export interface Nearby { count: number; myCombatScore: number; /** 내 서버. 서버가 다른 사람만 "직업 (서버)"로 보인다 */ myRealm?: string | null; players: NearPlayer[]; missing?: MissingPlayer[] }
+export interface Nearby { count: number; /** 던전 안이면 전투력 순, 아니면 가까운 순으로 온다 */ inDungeon?: boolean; myCombatScore: number; /** 내 서버. 서버가 다른 사람만 "직업 (서버)"로 보인다 */ myRealm?: string | null; players: NearPlayer[]; missing?: MissingPlayer[] }
 
 export type CutoffStatus = 'locked' | 'marginal' | 'near' | 'overwhelm';
 export interface CutoffContent {

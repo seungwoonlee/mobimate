@@ -109,17 +109,19 @@ test('첫 화면은 내 캐릭터 전체 현황이다 (FR-AL-01·02)', async ({ 
   await expect(card).toContainText('88,737');
 });
 
-test('주변 레이더: 친구 > 길드원 > 그 외(파티원 표시 없음), 맨 앞 표식, 클래스 - 레벨 - 전투력 - 칭호 (FR-DT-30~34)', async ({ page }) => {
+test('주변: 던전이 아니면 가까운 순, 직업 - 칭호 - 전투력 - 거리 - 상태 - 레벨·생활력·매력 순서의 표 (FR-DT-30~34)', async ({ page }) => {
   await page.goto('/nearby');
   await expect(page.getByText('마법사').filter({ visible: true }).first()).toBeVisible();
   const rows = page.locator('.pl-row');
-  await expect(rows.first()).toContainText('(친구)');
-  await expect(rows.first().locator('.pl-job')).toContainText('마법사');
-  await expect(rows.first().locator('[data-label="Lv"]')).toHaveText('72');
-  await expect(rows.first().locator('[data-label="전투력"]')).toContainText('32,100');
-  await expect(rows.first().locator('[data-label="칭호"]')).toContainText('던바튼 요리사');
+  const dist = (await rows.locator('[data-label="거리"]').allTextContents()).map(t => parseFloat(t));
+  expect(dist.length).toBeGreaterThan(1);
+  expect([...dist].sort((a, b) => a - b)).toEqual(dist);        // 가까운 순
+  const mage = rows.filter({ has: page.locator('.pl-job', { hasText: '마법사' }) }).first();
+  await expect(mage).toContainText('(친구)');                   // 친구·길드원은 직업 앞 표식
+  await expect(mage.locator('[data-label="칭호"]')).toContainText('던바튼 요리사');
+  await expect(mage.locator('[data-label="전투력"]')).toContainText('32,100');
+  await expect(mage.locator('[data-label="레벨"]')).toHaveText('72');
   const tags = await rows.locator('.pl-tag').allTextContents();
-  expect(tags.filter(t => t).join(',')).toBe('(친구),(길드원),(길드원),(길드원)');   // 표식이 있는 줄의 순서
   expect(tags.join('')).not.toContain('파티원');          // 게임 정보로는 내 파티원을 알 수 없다 (파티 없이도 파티원으로 오던 오류)
   await expect(page.locator('.pill', { hasText: '강함' })).toHaveCount(0);   // 눈에 보이는 배지는 없다
   await expect(page.getByText(/기준 ·/)).toHaveCount(0);
