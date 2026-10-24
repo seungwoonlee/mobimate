@@ -1,7 +1,7 @@
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
-import { keys, useCharacters } from '../api/queries';
+import { keys, useCharacters, useRankings } from '../api/queries';
 import { api, ApiError } from '../api/http';
-import { NameBadge } from '../components/RankBadge';
+import { NameBadge, RankText } from '../components/RankBadge';
 import type { AccountGroup, CharacterCard, CoinView, HomeworkAuto } from '../api/types';
 import { CardHead, Dialog, ErrorCard, Fresh, Icon, JobIcon, Pill, Skeleton } from '../components/ui';
 import { useNow } from '../hooks/layout';
@@ -228,6 +228,10 @@ function CharacterCardView({ c, now }: { c: CharacterCard; now: number }) {
   const [asking, setAsking] = useState(false);
   const [busy, setBusy] = useState(false);
   const name = charName(c);   // 게임이 캐릭터 이름을 주지 않아 서버·직업으로 구분한다
+  // 전투력은 딱지와 같은 기준(서버 순위 등급)으로 색을 내고, 옆에 작게 순위를 쓴다. 순위를 모르거나 1만 위 밖이면 일반 색.
+  const rankView = useRankings().data?.data.characters[c.key];
+  const entry = rankView && !rankView.nameChanged ? rankView.entries.combat : undefined;
+  const combatRank = entry && entry.rank != null ? { rank: entry.rank, tier: entry.tier } : null;
   const tone = cardTone(c);
   const seen = c.isCurrent ? '접속 중' : lastSeenText(c.lastSeen, now);
   const days = Math.floor((now - new Date(c.lastSeen).getTime()) / 86_400_000);
@@ -254,7 +258,7 @@ function CharacterCardView({ c, now }: { c: CharacterCard; now: number }) {
       />
       <div className="cc-job"><JobIcon job={c.job} size={30} /><span className="cc-jt"><span>{c.nickname && <span className="realm-chip">{c.realm}</span>}{c.job} Lv.{c.level}</span>{c.title && <span className="cc-title">“{c.title}”</span>}</span></div>
       <div className="cc-main">
-        <div><span className="lbl">전투력</span><b className={`v num ${scoreClass('combat', c.combat)}`}>{fmt(c.combat)}</b></div>
+        <div><span className="lbl">전투력</span><b className={`v num${combatRank ? ` cs-t-${combatRank.tier}` : ''}`}>{fmt(c.combat)}</b>{combatRank && <RankText rank={combatRank.rank} tier={combatRank.tier} className="cc-rk" />}</div>
         <div><span className="lbl">마도저항</span><b className={`v num ${scoreClass('mdef', c.mdef)}`}>{fmt(c.mdef)}</b></div>
       </div>
       <div className="cc-sub">

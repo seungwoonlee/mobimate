@@ -521,3 +521,13 @@ test('서버 랭킹: 랭킹 갱신 창에 북마크릿 안내만 있고 직접 �
 });
 
 test.afterEach(async ({ request }, info) => { if (info.title.startsWith('서버 랭킹:')) await clearRanking(request); });
+
+test('전체 탭 카드: 전투력 숫자가 딱지와 같은 순위 등급 색이고 옆에 작게 순위가 있다 (2026-10-24)', async ({ page, request }) => {
+  await seedRanking(request);                       // 전투력 523위 = 핑크
+  await page.goto('/');
+  const card = page.locator('.card.char.cur').first();
+  await expect(card.locator('.cc-rk')).toHaveText('523위');
+  await expect(card.locator('.cc-rk.t-pink')).toHaveCount(1);
+  await expect(card.locator('.cc-main .v.cs-t-pink').first()).toBeVisible();
+  await clearRanking(request);
+});

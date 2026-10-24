@@ -880,3 +880,11 @@ button.hw-cell:focus-visible { outline: 2px solid var(--accent); outline-offset:
 .watch-pill{margin-left:10px;padding:2px 10px;border-radius:999px;background:var(--warn-soft);color:var(--warn);font-size:12px;font-weight:700;vertical-align:middle}
 @keyframes watch-pulse{0%,100%{opacity:1}50%{opacity:.25}}
 @media (prefers-reduced-motion:reduce){.rail button.watching::after{animation:none}}
+
+/* 전체 탭 카드: 전투력 숫자를 딱지와 같은 순위 등급 색으로, 옆에 작게 순위 (2026-10-24 승운) */
+.cc-main .v.cs-t-gold{color:var(--tier-gold)}
+.cc-main .v.cs-t-orange{color:var(--tier-orange)}
+.cc-main .v.cs-t-pink{color:var(--tier-pink)}
+.cc-main .v.cs-t-purple{color:var(--tier-purple)}
+.cc-rk.rk-n{margin-left:6px;vertical-align:baseline;white-space:nowrap}
+.cc-rk.rk-n,.cc-rk.rk-n.t-gold,.cc-rk.rk-n.t-orange,.cc-rk.rk-n.t-pink,.cc-rk.rk-n.t-purple{font-size:12px}
