@@ -489,9 +489,9 @@ public class FrozenTests
     }
 
     [Fact]
-    public void AFrozenBody_ThatStillReadsAsFighting_IsFlaggedAfterSeventySeconds()
+    public void AFrozenBody_ThatStillReadsAsFighting_IsFlaggedAfterFortyFiveSeconds()
     {
-        Assert.DoesNotContain(Run(50).Suspects, x => x.Reason == AutoSuspicionReason.Frozen);                   // 아직 이르다
+        Assert.DoesNotContain(Run(35).Suspects, x => x.Reason == AutoSuspicionReason.Frozen);                   // 아직 이르다(45초 기준)
         var s = Run(130).Suspects.FirstOrDefault(x => x.Player.Job == "화염술사");
         Assert.NotNull(s);
         Assert.Equal(AutoSuspicionReason.Frozen, s!.Reason);
@@ -540,8 +540,8 @@ public class RelativeSuspicionTests
     [Fact]
     public void LateJoinerWhoAlsoStaysPut_IsFlaggedAsRelative()
     {
-        // 60초: 한 자리 고정(70초)은 아직 아니고, 늦은 합류 + 한 자리 최장이 합쳐져 상대 의심으로 보인다. 오래 이어지면 더 확실한 한 자리 고정이 앞선다.
-        var t = Run(60, joinDelay: 6, cStill: true);
+        // 50초: 한 자리 고정(45초)이 아직 안 켜진 시점에, 늦은 합류 + 한 자리 최장이 합쳐져 상대 의심으로 보인다. 오래 이어지면 더 확실한 한 자리 고정이 앞선다.
+        var t = Run(44, joinDelay: 6, cStill: true);
         var s = t.Suspects.FirstOrDefault(x => x.Player.Job == "C");
         Assert.NotNull(s);
         Assert.Equal(AutoSuspicionReason.Relative, s!.Reason);
