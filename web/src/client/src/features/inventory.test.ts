@@ -1,4 +1,5 @@
-import { isMissionItem, MISSION_ITEMS } from './inventory';
+import { groupItems, isMissionItem, MISSION_ITEMS } from './inventory';
+import type { InvItem } from '../api/types';
 
 // 임무용 아이템 묶음 (2026-10-24 승운): 이름이 정확히 같은 것만 임무용으로 묶는다.
 describe('임무용 아이템', () => {
@@ -14,5 +15,17 @@ describe('임무용 아이템', () => {
   it('이름이 정확히 같지 않으면 일반 아이템이다', () => {
     for (const n of ['옥수수가루', '밀가루', '통나무', '상급 통나무', '비늘 갑옷 신발', '론 엣지소드', '감자튀김'])
       expect(isMissionItem(n), n).toBe(false);
+  });
+});
+
+
+describe('groupItems', () => {
+  const it = (location: string, name: string, count: number): InvItem => ({ location, name, category: '재료', count, locked: false, sessionDelta: 0, favorite: false });
+  test('같은 이름을 위치별 개수와 총합으로 합친다', () => {
+    const g = groupItems([it('bag', '옥수수', 3), it('account', '옥수수', 5), it('character', '옥수수', 2), it('bag', '옥수수', 1), it('bag', '밀', 9)]);
+    const c = g.find(x => x.name === '옥수수')!;
+    expect(c.total).toBe(11);
+    expect(c.by).toEqual({ bag: 4, account: 5, character: 2 });
+    expect(g).toHaveLength(2);
   });
 });

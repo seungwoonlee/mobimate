@@ -23,7 +23,11 @@ export const MISSION_ITEMS: ReadonlySet<string> = new Set([
 ]);
 export const isMissionItem = (name: string): boolean => MISSION_ITEMS.has(plain(name).trim());
 
-const LOC: Record<string, string> = { bag: '가방', account: '계정 창고', character: '캐릭터 창고' };
+const LOC_SHORT: Record<string, string> = { bag: '가방', account: '계정창고', character: '캐릭터창고' };
+const LOC_KEYS = ['bag', 'account', 'character'] as const;
+/** 같은 이름의 아이템을 한 카드로 합친 것. 위치별 개수와 총합을 가진다. */
+export interface InvGroup { name: string; category: string; favorite: boolean; locked: boolean; sessionDelta: number; total: number; by: Record<string, number> }
+const SORTS: [string, string][] = [['count', '개수 많은 순'], ['countAsc', '개수 적은 순'], ['name', '이름순'], ['category', '카테고리순'], ['delta', '이번 접속 늘어난 순']];
 const SEGS: [string, string][] = [['all', '전체'], ['fav', '★ 즐겨찾기'], ['bag', '가방'], ['account', '계정 창고'], ['character', '캐릭터 창고'], ['diet', '⚖ 다이어트']];
 
 /**
@@ -39,19 +43,23 @@ export function InventoryView() {
   const [text, setText] = useState(params.get('q') ?? '');
   const search = useDeferredValue(text.trim());   // 입력 중 화면이 버벅이지 않게 (디바운스 대신)
 
+  const sort = params.get('sort') ?? 'count';
+
   const rows = useMemo(() => {
-    let r: InvItem[] = merge(q.data?.data.items ?? []);
+    const items = q.data?.data.items ?? [];
+    let r: InvGroup[];
     if (loc === 'diet') {
-      r = r.filter(x => x.location === 'bag' && !x.locked)
-        .sort((a, b) => Number(b.sessionDelta > 0) - Number(a.sessionDelta > 0) || b.sessionDelta - a.sessionDelta || b.count - a.count);
+      r = groupItems(items.filter(x => x.location === 'bag' && !x.locked))
+        .sort((a, b) => Number(b.sessionDelta > 0) - Number(a.sessionDelta > 0) || b.sessionDelta - a.sessionDelta || b.total - a.total);
     } else {
+      r = groupItems(LOC_KEYS.includes(loc as never) ? items.filter(x => x.location === loc) : items);
       if (loc === 'fav') r = r.filter(x => x.favorite);
-      else if (loc !== 'all') r = r.filter(x => x.location === loc);
+      r = r.sort(SORT_FN[sort] ?? SORT_FN.count);
       r = r.sort((a, b) => Number(b.favorite) - Number(a.favorite));   // 즐겨찾기가 먼저 (정렬은 안정적이라 나머지 순서는 그대로)
     }
     if (search) r = r.filter(x => plain(x.name).includes(search) || x.category.includes(search));
     return r;
-  }, [q.data, loc, search]);
+  }, [q.data, loc, search, sort]);
 
   if (q.isPending) return <Skeleton lines={6} />;
   if (q.isError && !q.data) return <ErrorCard error={q.error} onRetry={() => q.refetch()} />;
@@ -78,6 +86,13 @@ export function InventoryView() {
           <input type="search" placeholder="이름·카테고리 검색" value={text} aria-label="아이템 검색"
             onChange={e => { setText(e.target.value); setParam('q', e.target.value || null); }} />
         </label>
+        {loc !== 'diet' && (
+          <label className="inv-sort">정렬
+            <select value={sort} aria-label="정렬 순서" onChange={e => setParam('sort', e.target.value === 'count' ? null : e.target.value)}>
+              {SORTS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+            </select>
+          </label>
+        )}
       </div>
       {loc === 'diet' && <p className="muted small m0">가방 안 잠금 해제 아이템 중 <b>이번 접속에 늘어난 순</b> → 많이 가진 순입니다.</p>}
       {rows.length === 0 ? <div className="card muted">{loc === 'fav' ? '즐겨찾기한 아이템이 없습니다. 아이템 옆 별을 눌러 추가하세요.' : '조건에 맞는 아이템이 없습니다.'}</div> : (
@@ -101,36 +116,51 @@ export function InventoryView() {
   );
 }
 
-/** 아이템 목록(여러 열 카드). 한 묶음의 줄들이다. */
-function ItemList({ rows, loc }: { rows: InvItem[]; loc: string }) {
+/** 아이템 목록(작은 카드 격자). 카드 하나가 이름이 같은 아이템 전체이고, 위치별 개수와 총합을 보인다. */
+function ItemList({ rows, loc }: { rows: InvGroup[]; loc: string }) {
   return (
-    <div className="list cols" role="list">
-      {rows.map(r => (
-        <div className={`row ${r.favorite ? 'fav' : ''}`} role="listitem" key={`${r.location}|${r.name}`}>
-          <div className="t">
-            <button type="button" className="star" aria-pressed={r.favorite} aria-label={`${plain(r.name)} 즐겨찾기`} title={r.favorite ? '즐겨찾기 해제' : '즐겨찾기'}
-              onClick={() => void setFavorite('items', r.name, !r.favorite)}>{r.favorite ? '★' : '☆'}</button>
-            {r.locked && <Icon name="lock" label="잠금" />}<span>{plain(r.name)}</span>
+    <div className="inv-grid" role="list">
+      {rows.map(r => {
+        const parts = LOC_KEYS.filter(k => (r.by[k] ?? 0) > 0);
+        const detail = parts.map(k => `${LOC_SHORT[k]} ${fmt(r.by[k])}`).join(', ');
+        return (
+          <div className={`inv-card ${r.favorite ? 'fav' : ''}`} role="listitem" key={r.name} title={`${plain(r.name)} · ${r.category} · 총 ${fmt(r.total)}개${detail ? ` (${detail})` : ''}`}>
+            <div className="t">
+              <button type="button" className="star" aria-pressed={r.favorite} aria-label={`${plain(r.name)} 즐겨찾기`} title={r.favorite ? '즐겨찾기 해제' : '즐겨찾기'}
+                onClick={() => void setFavorite('items', r.name, !r.favorite)}>{r.favorite ? '★' : '☆'}</button>
+              {r.locked && <Icon name="lock" label="잠금" />}<span>{plain(r.name)}</span>
+            </div>
+            <div className="tot"><span className="num strong">{fmt(r.total)}</span>
+              {r.sessionDelta > 0 && (r.favorite || loc === 'diet') && <Pill tone="warn">+{fmt(r.sessionDelta)}</Pill>}</div>
+            {parts.length > 1 || (parts.length === 1 && loc === 'all') ? (
+              <ul className="by">{parts.map(k => <li key={k}><span>{LOC_SHORT[k]}</span><span className="num">{fmt(r.by[k])}</span></li>)}</ul>
+            ) : <div className="by one">{parts.length === 1 ? LOC_SHORT[parts[0]] : ''}</div>}
           </div>
-          <div className="r">
-            <span className="num strong">{fmt(r.count)}</span>
-            {r.sessionDelta > 0 && (r.favorite || loc === 'diet') && <Pill tone="warn">+{fmt(r.sessionDelta)} 이번 접속</Pill>}
-          </div>
-          <div className="m"><span>{r.category}</span><span className="faint">·</span><span>{LOC[r.location] ?? r.location}</span></div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
 
-/** 같은 위치의 같은 아이템(여러 칸)을 합친다. 잠금은 하나라도 잠겼으면 잠금으로 본다. */
-function merge(items: InvItem[]): InvItem[] {
-  const m = new Map<string, InvItem>();
+const byName = (a: InvGroup, b: InvGroup) => plain(a.name).localeCompare(plain(b.name), 'ko');
+const SORT_FN: Record<string, (a: InvGroup, b: InvGroup) => number> = {
+  count: (a, b) => b.total - a.total || byName(a, b),
+  countAsc: (a, b) => a.total - b.total || byName(a, b),
+  name: byName,
+  category: (a, b) => a.category.localeCompare(b.category, 'ko') || byName(a, b),
+  delta: (a, b) => b.sessionDelta - a.sessionDelta || b.total - a.total || byName(a, b),
+};
+
+/** 이름이 같은 아이템(여러 칸·여러 위치)을 한 카드로 합친다. 잠금은 하나라도 잠겼으면 잠금, 즐겨찾기도 하나라도 있으면 즐겨찾기로 본다. */
+export function groupItems(items: InvItem[]): InvGroup[] {
+  const m = new Map<string, InvGroup>();
   for (const i of items) {
-    const k = `${i.location}|${i.name}`;
+    const k = plain(i.name).trim();
     const e = m.get(k);
-    if (e) m.set(k, { ...e, count: e.count + i.count, locked: e.locked || i.locked, sessionDelta: Math.max(e.sessionDelta, i.sessionDelta) });
-    else m.set(k, { ...i });
+    if (e) {
+      e.total += i.count; e.by[i.location] = (e.by[i.location] ?? 0) + i.count;
+      e.locked ||= i.locked; e.favorite ||= i.favorite; e.sessionDelta = Math.max(e.sessionDelta, i.sessionDelta);
+    } else m.set(k, { name: i.name, category: i.category, favorite: i.favorite, locked: i.locked, sessionDelta: i.sessionDelta, total: i.count, by: { [i.location]: i.count } });
   }
   return [...m.values()];
 }
