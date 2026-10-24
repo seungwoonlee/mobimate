@@ -62,11 +62,11 @@ public sealed class AutoSuspicionTracker
     /// <summary>한 자리 고정 기준: 추정 위치가 StayRadius(m) 안에서 이어진 시간이 Show를 넘으면 표시, Full에서 가장 짙다. 정보 없는 틈이 StayGap(초)보다 길면 끊는다.
     /// 기록 6판(2026-10-24)의 정상 플레이어 최장은 약 57초(레이드 1번째의 사제·격투가 83~84초는 라벨 없음), 확인된 방치·사망은 75~139초.
     /// 승운 요청(2026-10-24): "확정이 아니라 의심이니 더 강하게" — 70초에서 45초로 내렸다(정상 판에서도 가끔 옅게 켜진다. 의심하고 있다는 것을 알려 주는 용도).</summary>
-    public static readonly (TimeSpan Show, TimeSpan Full) FrozenScale = (TimeSpan.FromSeconds(45), TimeSpan.FromSeconds(120));
+    public static readonly (TimeSpan Show, TimeSpan Full) FrozenScale = (TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(100));
     public const double StayRadius = 3.0, StayGap = 20.0;
     /// <summary>상대 의심 점수 기준(시범): 전투 시작 판정 — 전원이 가만하던 시간 QuietBeforeOnset 뒤 누군가 전투를 시작하면 시작점, OnsetWindow 동안 각자 첫 전투까지 걸린 초를 잰다.
     /// 가장 늦은 사람이 2등보다 LateGap초 이상 늦으면 "늦게 합류" 한 번. 한 자리 최장(RelStayWindow초 안)이 2등의 RelStayRatio배 이상이고 RelStayMin초 이상이면 두드러짐.</summary>
-    public const double QuietBeforeOnset = 8, OnsetWindow = 30, LateGap = 3, RelStayWindow = 120, RelStayMin = 25, RelStayRatio = 1.3, RelShow = 0.3, RelAloneShow = 0.5;
+    public const double QuietBeforeOnset = 8, OnsetWindow = 30, LateGap = 2, RelStayWindow = 120, RelStayMin = 15, RelStayRatio = 1.15, RelShow = 0.2, RelAloneShow = 0.35;
     public const int OnsetMinPlayers = 3;
     public static readonly (TimeSpan Show, TimeSpan Full) FarScale = (TimeSpan.FromSeconds(45), TimeSpan.FromSeconds(180));
     public static readonly (TimeSpan Show, TimeSpan Full) MissingScale = (TimeSpan.FromSeconds(45), TimeSpan.FromSeconds(180));
