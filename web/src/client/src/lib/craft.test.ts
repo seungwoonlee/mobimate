@@ -1,7 +1,7 @@
 import type { InvItem } from '../api/types';
 import { RECIPES, type Recipe } from '../features/missionData';
 import { buildStock, buildStockBy, craftableNow, planTargets } from './craft';
-import { PROCESSES } from '../features/missionData';
+import { COOK_RECIPES, PROCESSES } from '../features/missionData';
 
 const it_ = (location: string, name: string, count: number): InvItem => ({ location, name, category: '재료', count, locked: false, sessionDelta: 0, favorite: false });
 const recipe = (name: string) => RECIPES.find(r => r.name === name)!;
@@ -159,5 +159,39 @@ describe('상급 가죽·상급 옷감 가공', () => {
     const p = planTargets({ '전투복 신발S': 1 }, new Map([['강철괴', 2]]), RECIPES, new Map(), PROCESSES);
     expect(p.lines.find(l => l.name === '상급 양털')).toMatchObject({ need: 15 });
     expect(p.lines.find(l => l.name === '양털')).toMatchObject({ need: 8 + 4 + 10 });   // 상급 옷감 8 + 옷감+ 4 + 옷감 10
+  });
+});
+
+describe('타닌 가루(나뭇가지 분해)와 물이 든 병(빈 병)', () => {
+  const line = (p: ReturnType<typeof planTargets>, n: string) => p.lines.find(l => l.name === n);
+
+  it('타닌 가루는 나뭇가지 1개당 평균 1.5개로 센다(올림)', () => {
+    // 가죽+ 가공 1회 = 가죽 3 + 타닌 가루 4. 타닌 가루가 하나도 없으면 4/1.5 → 나뭇가지 3개 분해
+    const p = planTargets({ '크레센트 엣지소드': 1 }, new Map([['강철괴', 2], ['가죽', 99]]), RECIPES, new Map(), PROCESSES);   // 가죽+ 2 필요 → 가죽+ 1회
+    expect(line(p, '타닌 가루')).toMatchObject({ need: 4, short: 4, made: true, processCrafts: 3, verb: '분해' });
+    expect(line(p, '나뭇가지')).toMatchObject({ need: 3, short: 3 });
+    expect(line(p, '나뭇가지')?.made).toBeUndefined();
+  });
+  it('타닌 가루를 이미 가졌으면 나뭇가지는 필요 없다', () => {
+    const p = planTargets({ '크레센트 엣지소드': 1 }, new Map([['강철괴', 2], ['가죽', 99], ['타닌 가루', 4]]), RECIPES, new Map(), PROCESSES);
+    expect(line(p, '나뭇가지')).toBeUndefined();
+    expect(p.shortKinds).toBe(0);
+  });
+  it('캠프파이어 키트의 나뭇가지와 타닌 가루용 나뭇가지는 합쳐서 센다', () => {
+    const p = planTargets({ '전문 캠프파이어 키트': 1, '크레센트 엣지소드': 1 }, new Map([['강철괴', 2], ['가죽', 99], ['상급 통나무+', 9], ['돌멩이', 99]]), RECIPES, new Map(), PROCESSES);
+    expect(line(p, '나뭇가지')).toMatchObject({ need: 5 + 3 });   // 키트 5 + 분해 3
+  });
+  it('물이 든 병은 빈 병 1개당 1개다', () => {
+    const dish = COOK_RECIPES.find(r => r.name === '조개찜')!;   // 물이 든 병 5
+    const p = planTargets({ '조개찜': 1 }, new Map([['조개', 10], ['레몬', 4], ['허브', 3], ['물이 든 병', 2], ['빈 병', 64]]), [dish], new Map(), PROCESSES);
+    expect(line(p, '물이 든 병')).toMatchObject({ need: 5, have: 2, short: 3, made: true, processCrafts: 3 });
+    expect(line(p, '빈 병')).toMatchObject({ need: 3, have: 64, short: 0 });
+    expect(p.shortKinds).toBe(0);   // 빈 병이 충분하면 부족한 원재료는 없다
+  });
+  it('빈 병도 없으면 빈 병이 모자란 원재료다', () => {
+    const dish = COOK_RECIPES.find(r => r.name === '사과 주스')!;
+    const p = planTargets({ '사과 주스': 1 }, new Map([['사과', 4], ['허브', 2], ['설탕', 2]]), [dish], new Map(), PROCESSES);
+    expect(line(p, '빈 병')).toMatchObject({ need: 1, short: 1 });
+    expect(p.blocked.has('사과 주스')).toBe(true);
   });
 });

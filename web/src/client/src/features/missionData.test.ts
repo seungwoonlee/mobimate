@@ -52,9 +52,11 @@ describe('요리 레시피', () => {
 });
 
 describe('가공 레시피', () => {
-  it('12종이고 모두 1회에 3개가 나온다', () => {
-    expect(PROCESSES).toHaveLength(12);
-    expect(PROCESSES.every(p => p.produces === 3)).toBe(true);
+  it('14종이다: 시설 가공 12종은 1회에 3개, 타닌 가루(분해)와 물이 든 병(병 채우기)은 따로', () => {
+    expect(PROCESSES).toHaveLength(14);
+    expect(PROCESSES.filter(p => p.produces === 3)).toHaveLength(12);
+    expect(PROCESSES.find(p => p.name === '타닌 가루')).toMatchObject({ produces: 1.5, needs: [['나뭇가지', 1]], verb: '분해' });
+    expect(PROCESSES.find(p => p.name === '물이 든 병')).toMatchObject({ produces: 1, needs: [['빈 병', 1]] });
   });
   it('제작 재료의 2차 재료(강철괴·합금강괴·가죽+·목재+·옷감+·상급 목재·상급 가죽·상급 옷감)는 모두 가공법이 있다', () => {
     const names = new Set(PROCESSES.map(p => p.name));
