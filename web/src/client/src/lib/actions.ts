@@ -141,7 +141,7 @@ export async function setHomework(id: string, body: { completed?: boolean; count
         if (c.id !== id) return c;
         if (stepCount !== undefined) {   // 횟수로 지정한 숙제: 목표 횟수 전에는 미완료(남은 횟수만 줄어든다)
           const done = stepCount >= steps!;
-          return { ...c, count: done ? c.goal : 0, isDone: done, status: done ? 'manualDone' as const : 'pending' as const, suggestion: null, remaining: done ? null : steps! - stepCount };
+          return { ...c, count: c.goal === steps ? stepCount : done ? c.goal : 0, isDone: done, status: done ? 'manualDone' as const : 'pending' as const, suggestion: null, remaining: done ? null : steps! - stepCount };
         }
         const count = body.count ?? (body.completed ? c.goal : body.completed === false ? 0 : c.count);
         const done = body.count !== undefined ? count >= c.goal : !!body.completed;

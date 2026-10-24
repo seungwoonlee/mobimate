@@ -6,6 +6,7 @@ import type { AccountGroup, CharacterCard, CoinView, HomeworkAuto } from '../api
 import { CardHead, Dialog, ErrorCard, Fresh, Icon, JobIcon, Pill, Skeleton } from '../components/ui';
 import { useNow } from '../hooks/layout';
 import { finishClock, fmt } from '../lib/format';
+import { TABLE_ONLY_IDS } from '../lib/homeworkSteps';
 import { queryClient } from '../lib/queryClient';
 import { scoreClass } from '../lib/score';
 import { useDevice } from '../state/device';
@@ -206,7 +207,7 @@ export function withFieldBossChip(list: HomeworkAuto[], boss: CharacterCard['fie
     { id: FIELD_BOSS_CHIP, title: '필드보스', period: 'weekly', state: boss.state, evidence, remaining: null, category: 'fieldBoss' }];
 }
 function HwRows({ list }: { list: HomeworkAuto[] }) {
-  const [top, raids, abyss] = splitHwRows(list);
+  const [top, raids, abyss] = splitHwRows(list.filter(h => !TABLE_ONLY_IDS.has(h.id)));   // 단계 카운터는 숙제 화면 칸에서만 본다
   return (
     <div className="cc-hw-rows" aria-label="자동 판정 숙제">
       {top.length > 0 && <div className="cc-hw">{top.map(h => <HwChip key={h.id} h={h} />)}</div>}

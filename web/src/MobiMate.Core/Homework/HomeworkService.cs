@@ -274,7 +274,8 @@ public sealed class HomeworkService
             TryLoad(out var file);
             var lastDaily = KstClock.LastDailyReset(now);
             var lastWeekly = KstClock.LastWeeklyReset(now);
-            var defs = _catalog.Items.Where(d => d.Active && d.AutoCheck && d.Share == HomeworkShare.Character).ToList();
+            // 단계 카운터(소환의 결계·검은 구멍 주간)는 자동 판정은 없지만 숙제 화면 칸에 단계가 보여야 해서 함께 준다(전체 탭 카드의 칩에서는 화면이 뺀다).
+            var defs = _catalog.Items.Where(d => d.Active && (d.AutoCheck || d.EffectiveMode == HomeworkMode.ManualStepCounter) && d.Share == HomeworkShare.Character).ToList();
             var result = new Dictionary<string, IReadOnlyList<HomeworkAutoStatus>>(StringComparer.OrdinalIgnoreCase);
             foreach (var key in characterKeys)
             {
@@ -287,6 +288,7 @@ public sealed class HomeworkService
                     var st = fresh ? ledger!.Items.GetValueOrDefault(def.Id) : null;
                     string state;
                     if (st?.Completed == true) state = "done";
+                    else if (def.EffectiveMode == HomeworkMode.ManualStepCounter) state = st is { Count: > 0 } ? "todo" : "unknown";   // 1단계 이상 눌러 둔 것만 "확인된 미완료"
                     else if (def.EffectiveMode == HomeworkMode.QuestVanish) state = fresh && (ledger!.QuestSightings?.GetValueOrDefault(def.Id) >= cycleStart || st?.Evidence != null) ? "todo" : "unknown";
                     else if (def.EffectiveMode == HomeworkMode.QuestSuffix) state = st?.Evidence != null ? "todo" : "unknown";
                     // 레이드·어비스·필드 보스는 "아직 안 깼다"를 CLI로 확인할 길이 없다(게임의 "남은 클리어 전리품"은 CLI에 없음, 2026-10-22).
@@ -295,7 +297,9 @@ public sealed class HomeworkService
                     else if (!string.IsNullOrWhiteSpace(def.TokenCurrency)) state = fresh && ledger!.RaidTokensObservedUtc >= cycleStart ? "todo" : "unknown";
                     else state = "unknown";
                     var guess = state != "done" && st?.Suggestion is { Code: "missionCleared" };
-                    list.Add(new HomeworkAutoStatus(def.Id, def.CardLabel ?? def.Title, def.Period == HomeworkPeriod.Daily ? "daily" : "weekly", state, st?.Evidence, state == "todo" ? st?.RemainingCount : null, def.Category, guess));
+                    list.Add(new HomeworkAutoStatus(def.Id, def.CardLabel ?? def.Title, def.Period == HomeworkPeriod.Daily ? "daily" : "weekly", state, st?.Evidence,
+                        def.EffectiveMode == HomeworkMode.ManualStepCounter ? (state == "todo" ? def.Goal - st!.Count : null) : state == "todo" ? st?.RemainingCount : null,   // 단계 카운터: 남은 단계 = 목표 − 지금 단계
+                        def.Category, guess));
                 }
                 result[key] = list;
             }

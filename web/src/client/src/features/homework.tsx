@@ -1,10 +1,10 @@
-import { useState, type CSSProperties } from 'react';
+import { useState, type CSSProperties, type MouseEvent } from 'react';
 import { useCharacters, useHomework } from '../api/queries';
 import type { AccountGroup, CharacterCard, HomeworkAuto } from '../api/types';
 import { Dialog, ErrorCard, Fresh, Icon, JobIcon, Pill, Skeleton } from '../components/ui';
 import { useNow } from '../hooks/layout';
 import { setHomework } from '../lib/actions';
-import { nextStep, STEP_GOALS, stepOf } from '../lib/homeworkSteps';
+import { nextStep, prevStep, STEP_GOALS, stepOf } from '../lib/homeworkSteps';
 import { until } from '../lib/format';
 import { charName } from './characters';
 
@@ -14,7 +14,7 @@ import { charName } from './characters';
  * 칸을 누르면 미완료 ↔ 완료를 수동으로 바꾼다(캐릭터마다, 자동 판정이 놓친 경우). 접속 안 한 캐릭터는 마지막으로 본 값에 수동 체크가 겹친다.
  */
 export const HW_GROUPS: { title: string; cells: { id: string; label: string }[] }[] = [
-  { title: '일일·주간', cells: [{ id: 'daily_day_dungeon', label: '요일던전' }, { id: 'weekly_guild_regular', label: '길드의뢰' }, { id: 'weekly_vanguard_breach', label: '뱅가드' }] },
+  { title: '일일·주간', cells: [{ id: 'daily_day_dungeon', label: '요일던전' }, { id: 'weekly_guild_regular', label: '길드의뢰' }, { id: 'weekly_vanguard_breach', label: '뱅가드' }, { id: 'weekly_barrier_1_7', label: '소환의 결계' }, { id: 'weekly_black_hole_1_7', label: '검은 구멍' }] },
   { title: '레이드', cells: [{ id: 'raid_cavrak', label: '카브락' }, { id: 'raid_airel', label: '에이렐' }, { id: 'raid_white_succubus', label: '화이트 서큐버스' }] },
   { title: '어비스', cells: [{ id: 'abyss_illusory_anchorage', label: '허상의 정박지' }, { id: 'abyss_madness_cave', label: '광기의 동굴' }, { id: 'abyss_scattered_waterway', label: '흩어진 물길' }] },
 ];
@@ -81,6 +81,7 @@ export function HomeworkView() {
           </section>
           <p className="faint small m0">
             칸을 누르면 <b>미완료 ↔ 완료</b>가 바뀝니다(수동 체크).<br />
+            횟수 칸(뱅가드 3회, 소환의 결계·검은 구멍 7단계)은 누를 때마다 <b>0 → 1 → 2 → … → 완료 → 0</b>으로 돕니다. 한 단계 뒤로는 Shift+클릭이나 우클릭입니다.<br />
             <span className="hw-legend done">✓ 완료</span> <span className="hw-legend todo">○ 미완료(이번 주기에 확인)</span> <span className="hw-legend unknown">· 미확인(아직 확인 전, 미완료로 봅니다)</span> ·
             지금 접속한 캐릭터만 실시간이고, 다른 캐릭터는 마지막으로 접속했을 때 본 값입니다.
           </p>
@@ -143,8 +144,11 @@ function CellView({ x, c, onBoss }: { x: Cell; c: CharacterCard; onBoss: (c: Cha
   const text = stepped ? `${x.step}/${x.steps}` : guess ? '클리어 추정' : x.left != null ? `남은 ${x.left}회` : STATE_TEXT[x.state];
   const label = `${x.label} ${text}${x.note ? ` (${x.note})` : ''}`;
   const characterKey = c.isCurrent ? undefined : c.key;
-  const onClick = () => {
-    if (stepped) { void setHomework(x.toggleId!, { count: nextStep(x.step!, x.steps!), characterKey }); return; }   // 일부만 했을 수 있어 0→1→2→3(완료)→0
+  const onClick = (e: MouseEvent<HTMLButtonElement>) => {
+    if (stepped) {   // 일부만 했을 수 있어 0→1→2→…→목표(완료)→0. Shift를 누르고 누르면 한 단계 뒤로
+      void setHomework(x.toggleId!, { count: e.shiftKey ? prevStep(x.step!) : nextStep(x.step!, x.steps!), characterKey });
+      return;
+    }
     if (!x.boss) { void setHomework(x.toggleId!, { completed: !done, characterKey }); return; }
     if (!done) { onBoss(c); return; }
     // 완료 → 미완료: 넘긴 보스의 체크를 거둔다 (이름을 모르면 여섯 모두)
@@ -152,7 +156,7 @@ function CellView({ x, c, onBoss }: { x: Cell; c: CharacterCard; onBoss: (c: Cha
     for (const b of cleared.length ? cleared : BOSSES) void setHomework(b.id, { completed: false, characterKey });
   };
   return (
-    <button type="button" className={`hw-cell ${x.state}${guess ? ' guess' : ''} btn-cell`} aria-pressed={done} aria-label={`${label} — 눌러서 ${stepped ? `${nextStep(x.step!, x.steps!)}/${x.steps}회로` : done ? '미완료로' : '완료로'} 바꾸기`} onClick={onClick}>
+    <button type="button" className={`hw-cell ${x.state}${guess ? ' guess' : ''} btn-cell`} aria-pressed={done} onContextMenu={stepped ? (e => { e.preventDefault(); void setHomework(x.toggleId!, { count: prevStep(x.step!), characterKey }); }) : undefined} aria-label={`${label} — 눌러서 ${stepped ? `${nextStep(x.step!, x.steps!)}/${x.steps}회로` : done ? '미완료로' : '완료로'} 바꾸기`} onClick={onClick}>
       <span className="hw-cell-name">{x.label}</span>
       <span className="hw-cell-state">{done ? <Icon name="check" size={13} /> : x.state === 'todo' ? '○' : '·'} {x.note && done ? x.note : text}</span>
     </button>
