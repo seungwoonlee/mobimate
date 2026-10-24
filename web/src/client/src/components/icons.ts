@@ -1,5 +1,6 @@
 // 인라인 SVG 선 아이콘 (상세설계 §4.6: 이모지 대신 OS와 무관하게 같은 모양). 모양은 시안 design/mockup.html과 같다.
 export const ICONS: Record<string, string> = {
+  'flag': '<path d="M5 21V4"/><path d="M5 4h12l-2.5 4L17 12H5"/>',
   'home': '<rect x="3" y="3" width="7" height="9" rx="1.6"/><rect x="14" y="3" width="7" height="5" rx="1.6"/><rect x="14" y="12" width="7" height="9" rx="1.6"/><rect x="3" y="16" width="7" height="5" rx="1.6"/>',
   'stats': '<path d="M5 20V11M12 20V4M19 20v-6"/>',
   'bag': '<path d="M5 8h14l-1.2 12H6.2L5 8z"/><path d="M9 8V6.5a3 3 0 0 1 6 0V8"/>',

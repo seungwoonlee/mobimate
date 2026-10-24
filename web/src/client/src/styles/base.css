@@ -70,7 +70,7 @@ button{cursor:pointer}
 
 /* 하단 탭 */
 .tabs{grid-area:tabs;display:none;background:var(--bg-1);border-top:1px solid var(--line);padding:4px 6px calc(4px + env(safe-area-inset-bottom,0px))}
-.app[data-size="compact"]:not([data-posture="tabletop"]) .tabs{display:grid;grid-template-columns:repeat(6,1fr)}
+.app[data-size="compact"]:not([data-posture="tabletop"]) .tabs{display:grid;grid-template-columns:repeat(7,1fr)}
 .tabs button{border:0;background:transparent;display:grid;justify-items:center;gap:2px;padding:6px 0;border-radius:12px;color:var(--text-2);font-size:11.5px;font-weight:500;min-height:52px}
 .tabs button .ic{width:22px;height:22px}
 .tabs button[aria-current="page"]{color:var(--accent)}
@@ -311,3 +311,35 @@ button{cursor:pointer}
 @media (max-width:480px){.qr-wrap{grid-template-columns:1fr;justify-items:center;text-align:center}}
 .app.no-anim .dock{transition:none}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* 임무 탭 · 제작 계산기 (2026-10-24). 레시피 카드는 폭을 고정하고(옆으로 늘이지 않는다) 창 크기에 따라 열 수가 바뀐다 */
+.craft-layout{display:grid;gap:12px;grid-template-columns:minmax(0,1fr);align-items:start}
+@container main (min-width:900px){.craft-layout{grid-template-columns:minmax(0,1fr) 300px}.craft-sum{position:sticky;top:8px}}
+.rc-grid{display:grid;grid-template-columns:repeat(auto-fill,232px);gap:6px;justify-content:start}
+.rc-card{width:232px;min-width:0;padding:5px 8px;border:1px solid var(--line);border-radius:10px;background:var(--bg-2);display:grid;gap:2px;align-content:start;grid-template-rows:auto auto 2.7em}
+.rc-card.ok{border-color:var(--ok)}
+.rc-card.blocked{border-color:var(--danger)}
+.rc-t{display:flex;align-items:center;gap:4px;min-width:0;font-weight:600;font-size:13px}
+.rc-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1 1 auto}
+.rc-x{flex:none;font-size:10.5px;color:var(--text-2);white-space:nowrap}
+.rc-t .pill{flex:none;padding:0 5px;font-size:10.5px;line-height:15px}
+.rc-row{display:flex;align-items:center;justify-content:space-between;gap:6px}
+.rc-now{font-size:12px;color:var(--text-2);line-height:1.25;white-space:nowrap}
+.rc-now b{color:var(--text-1);font-size:14px}
+.rc-need{display:flex;flex-wrap:wrap;gap:2px 8px;align-content:start;font-size:11px;color:var(--text-2);line-height:1.3}
+.rc-m i{font-style:normal;color:var(--text-3);margin-left:2px}
+.rc-m.bad,.rc-m.bad i{color:var(--danger)}
+.rc-goal{display:flex;align-items:center;gap:4px;white-space:nowrap}
+.goal{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--bg-1,var(--bg-2))}
+.goal button{border:0;background:transparent;width:26px;height:26px;font-size:15px;font-weight:600;color:var(--text-2)}
+.goal button:hover:not(:disabled){background:var(--bg-3)}
+.goal button:disabled{opacity:.35}
+.goal input{width:42px;height:26px;border:0;border-inline:1px solid var(--line);background:transparent;text-align:center;font-size:14px;font-weight:600;color:var(--text-1);-moz-appearance:textfield}
+.goal input::-webkit-outer-spin-button,.goal input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.craft-sum{display:grid;gap:8px;align-content:start}
+.sum-table{border-collapse:collapse;width:100%;font-size:12.5px}
+.sum-table th{font-weight:500;color:var(--text-3);text-align:left;padding:2px 6px 2px 0;border-bottom:1px solid var(--line)}
+.sum-table td{padding:3px 6px 3px 0;border-bottom:1px solid var(--line)}
+.sum-table .n{text-align:right;white-space:nowrap}
+.sum-table tr.bad td{color:var(--danger);font-weight:600}
+.ok-text{color:var(--ok)} .bad-text{color:var(--danger)}

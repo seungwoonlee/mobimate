@@ -22,8 +22,8 @@ import { Dock } from './Dock';
 import { PairDialog } from '../features/pairing';
 import { useSession } from '../api/queries';
 
-/** 하단 탭(Compact)에 둘 화면 (전체·숙제·캐릭·가방·생활 + 채팅) */
-const TAB_ROUTES: RouteName[] = ['characters', 'homework', 'overview', 'inventory', 'life'];
+/** 하단 탭(Compact)에 둘 화면 (전체·숙제·캐릭·가방·임무·생활 + 채팅) */
+const TAB_ROUTES: RouteName[] = ['characters', 'homework', 'overview', 'inventory', 'mission', 'life'];
 
 export function AppShell({ children }: { children: ReactNode }) {
   const layout = useLayout();

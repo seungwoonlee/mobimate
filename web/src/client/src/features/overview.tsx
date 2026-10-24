@@ -62,7 +62,7 @@ function Alerts({ d }: { d: OverviewData }) {
   const dailyLeft = d.homework.daily.total - d.homework.daily.done;
   const chips = [
     w && w.pct >= 95 && (
-      <button key="w" type="button" className={`chip ${w.level}`} onClick={() => go('inventory', { mode: 'diet' })}><Icon name="scale" />가방 {w.pct.toFixed(1)}% · 다이어트</button>
+      <button key="w" type="button" className={`chip ${w.level}`} onClick={() => go('inventory')}><Icon name="scale" />가방 {w.pct.toFixed(1)}% · 다이어트</button>
     ),
     ready.length > 0 && (
       <button key="c" type="button" className="chip ok" disabled={collecting} onClick={() => collectAll(ready.map(x => x.name))} data-needs-conn><Icon name="inbox" />수거 가능 {ready.length}건</button>

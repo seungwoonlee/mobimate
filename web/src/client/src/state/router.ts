@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 
 /** 화면 경로 (상세설계 §4.2). 도크는 경로가 아니라 UI 상태다. */
-export type RouteName = 'characters' | 'overview' | 'stats' | 'homework' | 'inventory' | 'currencies' | 'life' | 'nearby' | 'settings';
+export type RouteName = 'characters' | 'overview' | 'stats' | 'homework' | 'inventory' | 'mission' | 'currencies' | 'life' | 'nearby' | 'settings';
 
 export const ROUTES: { name: RouteName; path: string; label: string; icon: string; key?: string }[] = [
   { name: 'characters', path: '/', label: '전체', icon: 'users', key: '1' },   // 첫 화면: 내 캐릭터 전체 현황 (FR-AL-01)
@@ -9,6 +9,7 @@ export const ROUTES: { name: RouteName; path: string; label: string; icon: strin
   { name: 'overview', path: '/overview', label: '캐릭', icon: 'home', key: '3' },   // 옛 이름 "개요"
   { name: 'stats', path: '/stats', label: '스탯', icon: 'stats', key: '4' },
   { name: 'inventory', path: '/inventory', label: '가방', icon: 'bag', key: '5' },
+  { name: 'mission', path: '/mission', label: '임무', icon: 'flag', key: '9' },   // 채집·요리·제작 임무 준비 (2026-10-24)
   { name: 'currencies', path: '/currencies', label: '재화', icon: 'coins', key: '6' },
   { name: 'life', path: '/life', label: '생활', icon: 'leaf', key: '7' },
   { name: 'nearby', path: '/nearby', label: '주변', icon: 'radar', key: '8' },
