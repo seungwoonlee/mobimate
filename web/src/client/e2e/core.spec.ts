@@ -199,7 +199,7 @@ test('임무 탭: 채집 모드는 채집 임무용 아이템 20종을 0개도 �
   await expect(page.locator('.rc-card')).toHaveCount(5);
   await expect(page.locator('.rc-card.pending')).toHaveCount(0);   // 레시피 확정(2026-10-24)
   await page.getByLabel('조개찜 목표 개수').fill('500');   // 가진 재료를 넉넉히 넘는 목표 → 반드시 모자란다
-  await expect(page.locator('.craft-sum').getByText(/모자란 재료 \d+종/)).toBeVisible();
+  await expect(page.locator('.craft-sum').getByText(/모자란 (원)?재료 \d+종/)).toBeVisible();
   await page.getByRole('button', { name: '목표 모두 지우기' }).click();
 });
 
@@ -210,7 +210,7 @@ test('임무 탭 제작: 목표 개수를 넣으면 필요한 재료 합계와 �
   const goal = page.getByLabel('크레센트 엣지소드 목표 개수');
   await goal.fill('500');   // 재료를 넉넉히 넘는 목표 → 반드시 모자란다
   const sum = page.locator('.craft-sum');
-  await expect(sum.getByText(/모자란 재료 \d+종/)).toBeVisible();
+  await expect(sum.getByText(/모자란 (원)?재료 \d+종/)).toBeVisible();
   await expect(sum.locator('tr.bad').first()).toBeVisible();
   await expect(page.locator('.rc-card.blocked')).toHaveCount(1);
   await page.getByRole('button', { name: '목표 모두 지우기' }).click();

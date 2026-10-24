@@ -1,4 +1,4 @@
-import { COOK_RECIPES, isMissionItem, MISSION_ITEMS, MISSION_SLOTS, missionInfo, RECIPES, TOWNS } from './missionData';
+import { COOK_RECIPES, isMissionItem, MISSION_ITEMS, MISSION_SLOTS, missionInfo, PROCESSES, RECIPES, TOWNS } from './missionData';
 
 // 임무용 아이템 (2026-10-24 승운): 이름이 정확히 같은 것만 임무용으로 묶는다.
 describe('임무용 아이템', () => {
@@ -48,5 +48,24 @@ describe('요리 레시피', () => {
   });
   it('요리 이름은 임무용 아이템(완성품) 이름과 같아서 가진 개수를 셀 수 있다', () => {
     for (const r of COOK_RECIPES) expect(isMissionItem(r.name), r.name).toBe(true);
+  });
+});
+
+describe('가공 레시피', () => {
+  it('10종이고 모두 1회에 3개가 나온다', () => {
+    expect(PROCESSES).toHaveLength(10);
+    expect(PROCESSES.every(p => p.produces === 3)).toBe(true);
+  });
+  it('제작 재료의 2차 재료(강철괴·합금강괴·가죽+·목재+·옷감+·상급 목재)는 모두 가공법이 있다', () => {
+    const names = new Set(PROCESSES.map(p => p.name));
+    for (const n of ['강철괴', '합금강괴', '가죽+', '목재+', '옷감+', '상급 목재']) expect(names.has(n), n).toBe(true);
+  });
+  it('가공 재료가 서로를 부르는 순환이 없다', () => {
+    const by = new Map(PROCESSES.map(p => [p.name, p]));
+    const visit = (n: string, path: string[]): void => {
+      expect(path.includes(n), path.join('>') + '>' + n).toBe(false);
+      for (const [m] of by.get(n)?.needs ?? []) visit(m, [...path, n]);
+    };
+    for (const p of PROCESSES) visit(p.name, []);
   });
 });
