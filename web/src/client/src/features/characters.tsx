@@ -31,16 +31,10 @@ export function waitText(minutes: number): string {
 }
 
 /**
- * 가득 차는 시점 안내: 다가오는 오전 6시 전에 차면 남은 시간("3시간 20분 뒤"), 그 뒤면 현실 시각("오늘 08:10에", "내일 03:10에").
- * 6시 전이면 그 사이 깨어 있으므로 남은 시간이 직관적이고, 그 뒤는 몇 시에 접속해야 하는지가 바로 보인다.
+ * 가득 차는 시점 안내(2026-10-24 승운): 남은 시간이 아니라 현실 시각으로 알린다 — "오늘 오후 08:10에" / "내일 오전 03:10에" / "10/12 오후 08:00에".
+ * 몇 시에 접속해야 하는지가 바로 보인다.
  */
-export const FILL_CUTOFF_HOUR = 6;
 export function fillText(minutes: number, nowMs: number): string {
-  const now = new Date(nowMs);
-  const cutoff = new Date(now.getFullYear(), now.getMonth(), now.getDate(), FILL_CUTOFF_HOUR);
-  if (cutoff.getTime() <= nowMs) cutoff.setDate(cutoff.getDate() + 1);   // 이미 6시가 지났으면 다음 날 6시
-  const fillMs = nowMs + Math.max(0, minutes) * 60_000;
-  if (fillMs < cutoff.getTime()) return `${waitText(minutes)} 뒤`;
   const clock = finishClock(nowMs, Math.max(0, minutes) * 60);
   return `${/^(오전|오후) /.test(clock) ? '오늘 ' : ''}${clock}에`;
 }
