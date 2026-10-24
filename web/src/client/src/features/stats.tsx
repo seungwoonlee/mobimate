@@ -1,4 +1,5 @@
 import { useCharacters, useCutoffs, useRankings } from '../api/queries';
+import { useState } from 'react';
 import type { AccountGroup, CharStats, CharacterCard, RankEntryView, RankKindKey, RankView } from '../api/types';
 import { ErrorCard, JobIcon, Pill, Skeleton } from '../components/ui';
 import { NameBadge, RankText } from '../components/RankBadge';
@@ -10,14 +11,17 @@ import { RankRefreshButton, agoText } from './rankings';
 import { useNow } from '../hooks/layout';
 
 /**
- * 스탯 탭 (2026-10-23 재구성): 지금 캐릭터 하나가 아니라 **같은 계정의 모든 캐릭터**의 점수를 한 표에 보여 준다.
- * 캐릭터마다 한 줄 — 전투력·마도저항·생활력·매력·종합과 각 서버 순위, 어비스·레이드 추천. 지금 접속한 캐릭터의 상세(데코·체력·만복도·다음 단계 가이드)는 표 아래에 작게 둔다.
- * 접속하지 않은 캐릭터는 마지막으로 관찰한 값이다. 좁은 화면에서는 줄이 카드로 접혀 옆으로 스크롤하지 않는다.
+ * 스탯 탭: 모든 계정의 캐릭터를 **한 표**에 모아 비교한다(2026-10-24 승운). 계정은 이름 줄에 작게 붙이고, 머리글을 눌러 그 열 기준으로 정렬한다(기본 전투력 순).
+ * 열: 점수(전투력·마도저항·생활력·매력·종합, 서버 순위 포함)·기본 스탯·공격력·방어력·체력·데코·어비스·레이드 추천. 접속하지 않은 캐릭터는 마지막으로 관찰한 값이다.
+ * 칸 폭은 내용에 맞고 줄바꿈하지 않으며, 좁은 화면에서는 줄이 카드로 접혀 옆으로 스크롤하지 않는다.
  */
+type SortKey = 'combat' | 'mdef' | 'living' | 'attract' | 'total' | keyof CharStats;
+
 export function StatsView() {
   const chars = useCharacters();
   const rank = useRankings();
   const now = useNow(60_000);
+  const [sort, setSort] = useState<SortKey>('combat');
 
   const accounts: AccountGroup[] = chars.data?.data.accounts ?? [];
   const current = chars.data?.data.currentAccountId;
@@ -25,6 +29,12 @@ export function StatsView() {
   const ordered = [...accounts].sort((x, y) => Number(y.id === current) - Number(x.id === current));
   const views = rank.data?.data.characters ?? {};
   const total = accounts.reduce((n, a) => n + a.members.length, 0);
+  const value = (c: CharacterCard, k: SortKey): number => {
+    if (k === 'total') { const t = views[c.key] && !views[c.key].nameChanged ? views[c.key].entries.total?.score : undefined; return t ?? c.combat + c.living + c.attract; }
+    if (k === 'combat' || k === 'mdef' || k === 'living' || k === 'attract') return c[k];
+    return c.stats?.[k] ?? 0;
+  };
+  const rows = ordered.flatMap(a => a.members.map(c => ({ c, account: a.solo ? a.name : `${a.name} 계정` }))).sort((x, y) => value(y.c, sort) - value(x.c, sort));
   const oldest = accounts.flatMap(a => a.members).flatMap(m => Object.values(views[m.key]?.entries ?? {})).map(e => e.at).sort()[0];
 
   return (
@@ -39,19 +49,18 @@ export function StatsView() {
         : accounts.length === 0 ? <div className="card muted">아직 확인한 캐릭터가 없습니다. 게임에 접속하면 여기에 모입니다.</div>
         : (
           <>
-            {ordered.map(account => (
-              <section key={account.id} className="card st-table" aria-label={`${account.name} 계정 캐릭터 스탯`}>
-                <h3 className="st-acct">{account.solo ? account.name : `${account.name} 계정`}{account.id === current && <Pill tone="ok">접속 중</Pill>} <span className="num muted small">{account.members.length}명</span></h3>
-                <div className="st-row st-head" aria-hidden="true">
-                  <span>캐릭터</span><span>전투력</span><span>마도저항</span><span>생활력</span><span>매력</span><span>종합</span>
-                  {DETAIL.map(([k, label]) => <span key={k} className="st-hx">{label === '최대 체력' ? '체력' : label}</span>)}
+            <section className="card st-table" aria-label="캐릭터 스탯">
+              <div className="st-grid">
+                <div className="st-row st-head">
+                  <span>캐릭터</span>
+                  {SORTABLE.map(([k, label]) => <button key={k} type="button" className={`st-hb${k in STAT_KEYS ? ' st-hx' : ''}${sort === k ? ' on' : ''}`} aria-pressed={sort === k} aria-label={`${label} 순으로 정렬`} onClick={() => setSort(k)}>{label}{sort === k ? ' ▼' : ''}</button>)}
                   <span>어비스·레이드 추천</span>
                 </div>
                 <ul className="st-body">
-                  {account.members.map(m => <StatRow key={m.key} c={m} view={views[m.key]} now={now} />)}
+                  {rows.map(({ c, account }) => <StatRow key={c.key} c={c} account={account} view={views[c.key]} now={now} />)}
                 </ul>
-              </section>
-            ))}
+              </div>
+            </section>
             <p className="faint small m0 st-note">
               접속 중이 아닌 캐릭터는 마지막으로 본 값이고, 스탯은 그 캐릭터로 한 번 접속해야 채워져요. 서버 순위는 {oldest ? `${agoText(oldest, now)} 값` : '아직 가져오지 않았어요'}
               {oldest ? '' : ' (랭킹 갱신으로 가져오세요)'} · 종합 = 전투력 + 생활력 + 매력
@@ -66,7 +75,7 @@ export function StatsView() {
 
 const KIND_KEY: Record<'combat' | 'living' | 'attract' | 'total', RankKindKey> = { combat: 'combat', living: 'living', attract: 'attract', total: 'total' };
 
-function StatRow({ c, view, now }: { c: CharacterCard; view: RankView | undefined; now: number }) {
+function StatRow({ c, account, view, now }: { c: CharacterCard; account: string; view: RankView | undefined; now: number }) {
   const name = charName(c);
   const e = (k: keyof typeof KIND_KEY): RankEntryView | undefined => (view && !view.nameChanged ? view.entries[KIND_KEY[k]] : undefined);
   return (
@@ -75,7 +84,7 @@ function StatRow({ c, view, now }: { c: CharacterCard; view: RankView | undefine
         <JobIcon job={c.job} size={22} />
         <span className="st-name">
           <span className="st-n">{name}<NameBadge badge={c.rankBadge} />{c.isCurrent && <Pill tone="ok">접속 중</Pill>}</span>
-          <span className="small muted">{c.job} Lv.{c.level}{c.isCurrent ? '' : ` · ${agoText(c.lastSeen, now)}`}</span>
+          <span className="small muted">{account} · {c.job} Lv.{c.level}{c.isCurrent ? '' : ` · ${agoText(c.lastSeen, now)}`}</span>
         </span>
       </span>
       <Score label="전투력" value={c.combat} kind="combat" rank={e('combat')} />
@@ -89,6 +98,11 @@ function StatRow({ c, view, now }: { c: CharacterCard; view: RankView | undefine
   );
 }
 
+const STAT_KEYS: Record<string, true> = { str: true, dex: true, int: true, will: true, luck: true, attack: true, defence: true, health: true, decor: true };
+const SORTABLE: [SortKey, string][] = [
+  ['combat', '전투력'], ['mdef', '마도저항'], ['living', '생활력'], ['attract', '매력'], ['total', '종합'],
+  ['str', '힘'], ['dex', '솜씨'], ['int', '지력'], ['will', '의지'], ['luck', '행운'], ['attack', '공격력'], ['defence', '방어력'], ['health', '체력'], ['decor', '데코'],
+];
 const DETAIL: [keyof CharStats, string][] = [
   ['str', '힘'], ['dex', '솜씨'], ['int', '지력'], ['will', '의지'], ['luck', '행운'],
   ['attack', '공격력'], ['defence', '방어력'], ['health', '최대 체력'], ['decor', '데코'],

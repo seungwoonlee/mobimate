@@ -66,7 +66,15 @@ export function HomeworkView() {
         <div className="card muted">아직 확인한 캐릭터가 없습니다. 게임에 접속하면 여기에 모입니다.</div>
       ) : (
         <>
-          {accounts.map(a => <AccountBoard key={a.id} a={a} onBoss={setBossFor} showName={accounts.length > 1} />)}
+          <section className="card hw-table" aria-label="캐릭터별 숙제">
+            <div className="hw-all" style={{ '--hwcols': orderedCells(cellsOf(accounts[0].members[0])).length } as CSSProperties}>
+              <div className="hw-row hw-head" aria-hidden="true">
+                <span>캐릭터</span>
+                {orderedCells(cellsOf(accounts[0].members[0])).map(x => <span key={x.key}>{x.label}</span>)}
+              </div>
+              {accounts.map(a => <AccountBoard key={a.id} a={a} onBoss={setBossFor} showName={accounts.length > 1} />)}
+            </div>
+          </section>
           <p className="faint small m0">
             칸을 누르면 <b>미완료 ↔ 완료</b>가 바뀝니다(수동 체크).<br />
             <span className="hw-legend done">✓ 완료</span> <span className="hw-legend todo">○ 미완료(이번 주기에 확인)</span> <span className="hw-legend unknown">· 미확인(아직 확인 전, 미완료로 봅니다)</span> ·
@@ -96,15 +104,20 @@ function AccountBoard({ a, onBoss, showName }: { a: AccountGroup; onBoss: (c: Ch
   );
 }
 
+/** 칸 순서: 묶음(요일던전·길드의뢰·뱅가드 …) 순서대로, 필드 보스는 맨 끝 */
+function orderedCells(cells: Cell[]): Cell[] {
+  return [...HW_GROUPS.flatMap(g => cells.filter(x => g.cells.some(y => y.id === x.key))), ...cells.filter(x => x.boss)];
+}
+
 function CharacterRow({ c, onBoss }: { c: CharacterCard; onBoss: (c: CharacterCard) => void }) {
   const cells = cellsOf(c);
   const done = cells.filter(x => x.state === 'done').length;
   const all = done === cells.length;
   const name = charName(c);
   return (
-    <div className={`card hw-row ${all ? 'all-done' : ''} ${c.isCurrent ? 'current' : ''}`} role="group" aria-label={`${name} 숙제 ${done}/${cells.length} 완료`}>
+    <div className={`hw-row ${all ? 'all-done' : ''} ${c.isCurrent ? 'current' : ''}`} role="group" aria-label={`${name} 숙제 ${done}/${cells.length} 완료`}>
       <div className="hw-who">
-        <JobIcon job={c.job} size={34} />
+        <JobIcon job={c.job} size={22} />
         <span className="hw-who-t">
           <span className="hw-who-name">{name}{c.isCurrent && <Pill tone="ok">접속 중</Pill>}</span>
           <span className="small muted">{c.job} Lv.{c.level}</span>
@@ -112,14 +125,7 @@ function CharacterRow({ c, onBoss }: { c: CharacterCard; onBoss: (c: CharacterCa
         <span className={`hw-count num ${all ? 'ok' : ''}`} aria-hidden="true">{done}/{cells.length}</span>
       </div>
       <div className="hw-cells">
-        {HW_GROUPS.map(g => (
-          <div className="hw-cg" key={g.title} style={{ '--n': g.cells.length } as CSSProperties}>
-            {cells.filter(x => g.cells.some(y => y.id === x.key)).map(x => <CellView key={x.key} x={x} c={c} onBoss={onBoss} />)}
-          </div>
-        ))}
-        <div className="hw-cg" style={{ '--n': 1 } as CSSProperties}>
-          {cells.filter(x => x.boss).map(x => <CellView key={x.key} x={x} c={c} onBoss={onBoss} />)}
-        </div>
+        {orderedCells(cells).map(x => <CellView key={x.key} x={x} c={c} onBoss={onBoss} />)}
       </div>
     </div>
   );
