@@ -28,8 +28,8 @@ public enum AutoSuspicionReason
     Far,
     /// <summary>함께 보이다가 주변(반경 30m)에서 오래 보이지 않는다(따라오지 않는다).</summary>
     Missing,
-    /// <summary>활동량 하위 이상치(시범, 2026-10-24): 최근 90초 중 제자리였던 비율이 파티의 중앙값보다 뚜렷이 높다. 자동전투·죽은 채 방치처럼 "전투 중"으로 읽혀도 스스로 움직이지 않는 사람.</summary>
-    LowActivity,
+    /// <summary>한 자리에 오래 고정(2026-10-24 승운: 죽으면 위치가 확실히 고정이다 — 죽어도 "전투 중"으로 읽히는 경우에도 위치로 잡는다). 삼각측량 위치가 3m 안에서 이어진 시간.</summary>
+    Frozen,
 }
 
 /// <param name="For">그 증상이 이어진 시간(1초 단위 카운터)</param>
@@ -57,10 +57,10 @@ public sealed class AutoSuspicionTracker
     /// <summary>다른 사람 <b>전원</b>이 전투 중인데 혼자 안 하는 시간(2026-10-24 승운: 10초만 돼도 사실상 오토). 대부분(75%) 기준보다 훨씬 짧다.</summary>
     public static readonly (TimeSpan Show, TimeSpan Full) IdleAllScale = (TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(60));
     public static readonly (TimeSpan Show, TimeSpan Full) PlayingScale = (TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(120));
-    /// <summary>활동량 하위 이상치 시범 기준(확인된 오토 표본 2건에서 맞춘 값이라 관찰하며 조정한다): 최근 LowWindow 동안의 제자리 판정 비율이 LowMinRatio 이상이고 파티 중앙값보다 LowMargin 이상 높으면 표시, LowFullMargin에서 가장 짙다.</summary>
-    public static readonly TimeSpan LowWindow = TimeSpan.FromSeconds(90), LowMinSpan = TimeSpan.FromSeconds(40);
-    public const double LowMinRatio = 0.5, LowMargin = 0.25, LowFullMargin = 0.45;
-    public const int LowMinGroup = 3;
+    /// <summary>한 자리 고정 기준: 추정 위치가 StayRadius(m) 안에서 이어진 시간이 Show를 넘으면 표시, Full에서 가장 짙다. 정보 없는 틈이 StayGap(초)보다 길면 끊는다.
+    /// 기록 6판(2026-10-24)의 정상 플레이어 최장은 약 57초(레이드 1번째의 사제·격투가 83~84초는 라벨 없음), 확인된 방치·사망은 75~139초.</summary>
+    public static readonly (TimeSpan Show, TimeSpan Full) FrozenScale = (TimeSpan.FromSeconds(70), TimeSpan.FromSeconds(150));
+    public const double StayRadius = 3.0, StayGap = 20.0;
     public static readonly (TimeSpan Show, TimeSpan Full) FarScale = (TimeSpan.FromSeconds(45), TimeSpan.FromSeconds(180));
     public static readonly (TimeSpan Show, TimeSpan Full) MissingScale = (TimeSpan.FromSeconds(45), TimeSpan.FromSeconds(180));
 
@@ -115,7 +115,9 @@ public sealed class AutoSuspicionTracker
         public bool QuietActive;
         public readonly List<RangeSample> Samples = new();   // 최근 표본(내 위치·거리): 삼각측량으로 제자리 판정
         public bool? Stationary;                              // true 제자리 / false 움직임 / null 모름
-        public readonly List<(double T, bool Still)> StillHist = new();   // 최근 90초의 제자리 판정(모름은 넣지 않는다)
+        public (double X, double Y)? StayAnchor;              // 고정으로 보는 위치(삼각측량)
+        public double? StayStart, StayLast;                   // 그 자리에 머문 구간(초)
+        public double StaySeconds => StayStart is { } a && StayLast is { } b ? b - a : 0;
         public bool Absent;
         public double AbsentSeconds;          // 안 보이는 카운터
 
@@ -132,6 +134,9 @@ public sealed class AutoSuspicionTracker
     /// 아무 조건도 없으면 false라 평소의 읽기 주기만 쓴다(게임 CLI를 계속 두드리지 않으려는 목적).
     /// </summary>
     public bool NeedsFastSampling => _tracks.Values.Any(t => t.Counting);
+
+    /// <summary>그 사람이 지금 같은 자리에 머문 시간(초). 모르면 0. 기준을 맞출 때 쓴다.</summary>
+    public double StaySecondsOf(string key) => _tracks.TryGetValue(key, out var t) ? t.StaySeconds : 0;
 
     /// <summary>지금 의심 중인 사람들(카운터가 표시 기준을 넘은 사람).</summary>
     public IReadOnlyList<AutoSuspect> Suspects { get; private set; } = Array.Empty<AutoSuspect>();
@@ -163,6 +168,23 @@ public sealed class AutoSuspicionTracker
             _tracks[p.Key] = t;
             present.Add(match);   // 같은 옛 추적을 두 번 쓰지 않게
         }
+    }
+
+    /// <summary>한 자리 고정 구간 갱신: 삼각측량 위치가 같은 자리(3m)에 이어지면 머문 시간이 늘고, 움직임이 확인되거나 정보 없는 틈이 길면 끊긴다.</summary>
+    private static void UpdateStay(Track t, Stationary.Result an, double ts)
+    {
+        if (an.Still == false) { t.StayAnchor = null; t.StayStart = null; t.StayLast = null; return; }
+        if (an.Still == true)
+        {
+            if (an.X is { } x && an.Y is { } y)
+            {
+                if (t.StayAnchor is not { } a || Math.Sqrt((x - a.X) * (x - a.X) + (y - a.Y) * (y - a.Y)) > StayRadius)
+                { t.StayAnchor = (x, y); t.StayStart = t.Samples.Count > 0 ? t.Samples[0].T : ts; }
+                t.StayLast = ts;
+            }
+            else if (t.StayAnchor != null) t.StayLast = ts;   // 내가 제자리인데 거리가 그대로: 같은 자리에 있다는 확인
+        }
+        if (t.StayLast is { } last && ts - last > StayGap) { t.StayAnchor = null; t.StayStart = null; t.StayLast = null; }
     }
 
     public void Reset()
@@ -210,10 +232,11 @@ public sealed class AutoSuspicionTracker
                 var ts = now.ToUnixTimeMilliseconds() / 1000.0;
                 t.Samples.Add(new RangeSample(ts, me.X, me.Y, p.Distance));
                 t.Samples.RemoveAll(q => ts - q.T > SampleWindowSeconds);
-                t.Stationary = Stationary.Judge(t.Samples);
-                if (t.Stationary is { } still) { t.StillHist.Add((ts, still)); t.StillHist.RemoveAll(q => ts - q.T > LowWindow.TotalSeconds); }
+                var an = Stationary.Analyze(t.Samples);
+                t.Stationary = an.Still;
+                UpdateStay(t, an, ts);
             }
-            if (toggled.Contains(p.Key)) t.StillHist.Clear();   // 화면 조작은 사람 행동: 활동량 후보에서 빼고 처음부터 다시 본다
+            if (toggled.Contains(p.Key)) { t.StayAnchor = null; t.StayStart = null; t.StayLast = null; }   // 화면 조작은 사람 행동: 고정 구간을 끊는다   // 화면 조작은 사람 행동: 활동량 후보에서 빼고 처음부터 다시 본다
         }
 
         // 2) 무활동 시계와 증상별 카운터
@@ -224,11 +247,11 @@ public sealed class AutoSuspicionTracker
             // 다른 사람 대부분(75% 이상, 최소 2명)이 전투 중일 때만 "다들 하는데 혼자 안 한다"를 말할 수 있다. 보스 대기·전환처럼 모두 가만한 때는 시계를 멈춘다.
             var othersFighting = others.Count >= MinOthers && others.Count(o => o.InCombat) >= Math.Max(MinOthers, (int)Math.Ceiling(others.Count * 0.75));
             var sceneMoving = others.Any(o => _tracks[o.Key].LastDelta >= MovingMeters);
-            var someoneStill = others.Any(o => _tracks[o.Key].LastDelta < StillMeters);
 
             // 사람다운 행동: 전투 중 / 화면을 만져야 바뀌는 상태 변화 / 혼자 움직임(내가 움직이면 모두의 거리가 변하므로, 가만히 있는 다른 사람이 있을 때만 인정한다)
-            var movedAlone = me != null ? t.Stationary == false : t.LastDelta >= MovingMeters && someoneStill;   // 내 위치를 알면 삼각측량 결과, 모르면 거리 변화로 어림
-            var human = p.InCombat || toggled.Contains(p.Key) || movedAlone;
+            // 움직임은 사람다운 행동으로 치지 않는다(2026-10-24 승운: 자동전투도 목표를 향해 움직인다. 실측: 오토 화염술사가 44초 비전투로 걸어 다녀도 풀려 버렸다).
+            // 확실한 것만 푼다: 전투 중이거나, 화면을 직접 만져야 바뀌는 상태가 바뀐 경우.
+            var human = p.InCombat || toggled.Contains(p.Key);
             var allFighting = others.Count >= MinOthers && others.All(o => o.InCombat);
             if (human) { t.QuietSeconds = 0; t.QuietAllSeconds = 0; t.QuietActive = false; }
             else if (othersFighting)
@@ -249,36 +272,12 @@ public sealed class AutoSuspicionTracker
             t.Far.Tick(others.Count(o => o.Distance <= NearMeters) >= MinOthers && p.Distance >= FarMeters, dt);
         }
 
-        // 2.5) 활동량 하위 이상치: 제자리 비율이 파티 중앙값보다 뚜렷이 높은 사람(내 위치를 알아 삼각측량이 되는 관찰만)
-        var lowIntensity = new Dictionary<string, (double I, double Span)>();
-        if (me != null)
-        {
-            var ratios = new Dictionary<string, (double Ratio, double Span)>();
-            foreach (var p in list)
-            {
-                var h = _tracks[p.Key].StillHist;
-                if (h.Count < 2 || h[^1].T - h[0].T < LowMinSpan.TotalSeconds) continue;
-                ratios[p.Key] = ((double)h.Count(q => q.Still) / h.Count, h[^1].T - h[0].T);
-            }
-            if (ratios.Count >= LowMinGroup)
-            {
-                var sorted = ratios.Values.Select(v => v.Ratio).OrderBy(x => x).ToList();
-                var median = sorted.Count % 2 == 1 ? sorted[sorted.Count / 2] : (sorted[sorted.Count / 2 - 1] + sorted[sorted.Count / 2]) / 2;
-                foreach (var (key, v) in ratios)
-                {
-                    var margin = v.Ratio - median;
-                    if (v.Ratio < LowMinRatio || margin < LowMargin) continue;
-                    lowIntensity[key] = (0.15 + 0.85 * Math.Min(1, (margin - LowMargin) / (LowFullMargin - LowMargin)), v.Span);
-                }
-            }
-        }
-
         // 3) 사라진 사람
         var present = list.Select(p => p.Key).ToHashSet();
         foreach (var (key, t) in _tracks.ToList())
         {
             if (present.Contains(key) || dup.Contains(key)) continue;
-            t.Samples.Clear(); t.Stationary = null;
+            t.Samples.Clear(); t.Stationary = null; t.StayAnchor = null; t.StayStart = null; t.StayLast = null;
             t.QuietSeconds = 0; t.QuietAllSeconds = 0; t.QuietActive = false; t.Lying.Tick(false, dt); t.Playing.Tick(false, dt); t.Far.Tick(false, dt); t.Still.Tick(false, dt);
             if (!t.Absent)
             {
@@ -300,6 +299,7 @@ public sealed class AutoSuspicionTracker
                 (AutoSuspicionReason.Playing, t.Playing.Seconds, PlayingScale),
                 (AutoSuspicionReason.Idle, t.QuietSeconds, IdleScale),
                 (AutoSuspicionReason.Idle, t.QuietAllSeconds, IdleAllScale),
+                (AutoSuspicionReason.Frozen, t.StaySeconds, FrozenScale),
                 (AutoSuspicionReason.Far, t.Far.Seconds, FarScale),
                 (AutoSuspicionReason.Missing, t.Absent ? t.AbsentSeconds : 0, MissingScale),
             };
@@ -313,11 +313,6 @@ public sealed class AutoSuspicionTracker
                 if (i <= 0) continue;
                 maxI = Math.Max(maxI, i);
                 if (best == null) best = new AutoSuspect(key, reason, count, t.Last, i);   // 후보는 확실한 순서로 늘어서 있다
-            }
-            if (lowIntensity.TryGetValue(key, out var low))
-            {
-                maxI = Math.Max(maxI, low.I);
-                best ??= new AutoSuspect(key, AutoSuspicionReason.LowActivity, TimeSpan.FromSeconds(low.Span), t.Last, low.I);   // 다른 이유가 없을 때만 이 이유로 보인다
             }
             if (best != null) best = best with { Intensity = maxI };
             if (best != null) suspects.Add(best);

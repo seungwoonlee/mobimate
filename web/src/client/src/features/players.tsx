@@ -24,7 +24,7 @@ export function autoLevel(intensity: number): { label: string; dots: string } {
 }
 
 /** 오토 의심 배지(2026-10-22): 글자와 단계 점으로 알리고, 이유·시간은 설명으로 둔다. 짙을수록 점이 채워진다. */
-export type AutoReason = 'lying' | 'idle' | 'playing' | 'far' | 'missing' | 'lowactivity';
+export type AutoReason = 'lying' | 'idle' | 'playing' | 'far' | 'missing' | 'frozen';
 
 /** 이유별 설명(시간은 "N분째"). 모르는 이유는 일반 문구로 보인다. */
 function autoWhy(reason: string, t: string): string {
@@ -33,7 +33,7 @@ function autoWhy(reason: string, t: string): string {
     case 'idle': return `던전·레이드 안에서 다른 사람 대부분이 싸우는데 ${t} 이 사람만 전투·조작·이동이 보이지 않아요`;
     case 'playing': return `다른 사람이 싸우는데 ${t} 혼자 연주하고 있어요`;
     case 'far': return `다른 사람들은 모여 있는데 ${t} 혼자 멀리 떨어져 있어요`;
-    case 'lowactivity': return `최근 ${t} 파티의 다른 사람보다 훨씬 오래 제자리에 있었어요 (전투 중으로 보여도 스스로 움직이지 않는 모습, 시범 기준)`;
+    case 'frozen': return `${t} 한 자리에서 움직이지 않았어요 (죽은 채 부활을 안 눌렀거나 자동전투가 멈춘 모습. 전투 중으로 읽혀도 위치로 판단, 시범 기준)`;
     default: return `함께 보이다가 던전·레이드 안에서 ${t} 주변에 보이지 않아요`;
   }
 }

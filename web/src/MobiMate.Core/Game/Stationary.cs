@@ -26,10 +26,18 @@ public static class Stationary
     /// <summary>내가 가만히 있을 때: 거리 변화 폭이 이 값(m) 미만이면 제자리, 이상이면 움직임.</summary>
     public const double FixedRange = 0.3;
 
+    /// <summary>판정 결과. Pos는 삼각측량으로 맞춘 그 사람의 위치(내가 충분히 움직여 믿을 만할 때만).</summary>
+    public readonly record struct Result(bool? Still, double? X = null, double? Y = null);
+
     /// <returns>true = 제자리, false = 움직임, null = 모름(표본·정보 부족)</returns>
-    public static bool? Judge(IReadOnlyList<RangeSample> s)
+    public static bool? Judge(IReadOnlyList<RangeSample> s) => Analyze(s).Still;
+
+    /// <summary>내가 이 값(m)보다 덜 움직이면 "내가 제자리"로 보고 거리 변화만 본다. 그 이상 10m 미만은 거리 변화가 내 움직임 탓일 수 있어 판단을 보류한다.</summary>
+    public const double MyStillSpan = 1.0;
+
+    public static Result Analyze(IReadOnlyList<RangeSample> s)
     {
-        if (s.Count < MinSamples || s[^1].T - s[0].T < MinSeconds) return null;
+        if (s.Count < MinSamples || s[^1].T - s[0].T < MinSeconds) return new Result(null);
         double minX = double.MaxValue, maxX = double.MinValue, minY = double.MaxValue, maxY = double.MinValue, minD = double.MaxValue, maxD = double.MinValue;
         foreach (var p in s)
         {
@@ -37,23 +45,27 @@ public static class Stationary
             minD = Math.Min(minD, p.D); maxD = Math.Max(maxD, p.D);
         }
         var mySpan = (maxX - minX) + (maxY - minY);
-        if (mySpan < MinMySpan)
+        if (mySpan < MyStillSpan)
         {
             // 내가 제자리: 거리가 그대로면 상대도 제자리, 변하면 움직임(내가 움직인 게 아니므로)
-            return maxD - minD < FixedRange ? true : (maxD - minD >= FixedRange * 2 ? false : null);
+            return new Result(maxD - minD < FixedRange ? true : (maxD - minD >= FixedRange * 2 ? false : null));
         }
-        var rms = FitRms(s);
-        return rms < StillRms ? true : rms >= MovingRms ? false : null;
+        if (mySpan < MinMySpan) return new Result(null);   // 조금 움직인 때: 거리 변화가 내 탓인지 알 수 없다(2026-10-24: 오판 수정)
+        var (rms, fx, fy) = Fit(s);
+        return rms < StillRms ? new Result(true, fx, fy) : rms >= MovingRms ? new Result(false) : new Result(null);
     }
 
     /// <summary>한 점에 가만히 있다는 가정으로 맞춘 잔차의 제곱평균제곱근(m). 여러 시작점에서 풀어 가장 좋은 해를 쓴다.</summary>
-    public static double FitRms(IReadOnlyList<RangeSample> s)
+    public static double FitRms(IReadOnlyList<RangeSample> s) => Fit(s).Rms;
+
+    /// <summary>잔차와 맞춘 위치.</summary>
+    public static (double Rms, double X, double Y) Fit(IReadOnlyList<RangeSample> s)
     {
         var n = s.Count;
         double cx = 0, cy = 0, dm = 0;
         foreach (var p in s) { cx += p.Mx; cy += p.My; dm += p.D; }
         cx /= n; cy /= n; dm /= n;
-        var best = double.MaxValue;
+        var best = double.MaxValue; double bx = cx, by = cy;
         for (var k = 0; k < 8; k++)
         {
             var ang = k * Math.PI / 4;
@@ -75,9 +87,9 @@ public static class Stationary
                 if (nc < cost) { x = nx; y = ny; cost = nc; lambda = Math.Max(1e-9, lambda / 3); if (Math.Abs(sx) + Math.Abs(sy) < 1e-6) break; }
                 else lambda *= 4;
             }
-            best = Math.Min(best, cost);
+            if (cost < best) { best = cost; bx = x; by = y; }
         }
-        return Math.Sqrt(best / n);
+        return (Math.Sqrt(best / n), bx, by);
     }
 
     private static double Cost(IReadOnlyList<RangeSample> s, double x, double y)
