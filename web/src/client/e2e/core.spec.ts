@@ -148,14 +148,13 @@ test('다이어트 보기: 별을 누르면 다이어트 대상으로 맨 위에
   await expect(page.getByText('다이어트 대상이 없습니다')).toBeVisible();
 });
 
-test('가방: 임무용 보기는 임무용 아이템만, 0개도 채집·요리·제작으로 나눠 모두 보인다 (2026-10-24)', async ({ page }) => {
+test('가방: 임무용 보기는 임무용 아이템만, 0개도 채집·요리로 나눠 모두 보인다 (2026-10-24)', async ({ page }) => {
   await page.goto('/inventory');
   const heads = page.locator('h3.group-h');
-  await expect(heads).toHaveCount(3);
+  await expect(heads).toHaveCount(2);
   await expect(heads.nth(0)).toHaveText(/채집/);
   await expect(heads.nth(1)).toHaveText(/요리/);
-  await expect(heads.nth(2)).toHaveText(/제작/);
-  await expect(page.locator('.inv-card')).toHaveCount(39);   // 가진 것과 상관없이 목록 전부
+  await expect(page.locator('.inv-card')).toHaveCount(25);   // 가진 것과 상관없이 목록 전부
   await expect(page.locator('.inv-card').first()).toContainText('거미줄');   // 가짜 게임 가방의 임무용 아이템
   await expect(page.locator('.inv-card.zero').first()).toBeVisible();        // 없는 것은 흐리게 0개로
 });
