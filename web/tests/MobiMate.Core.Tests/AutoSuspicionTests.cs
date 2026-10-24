@@ -56,6 +56,79 @@ public class AutoSuspicionTests
         Assert.Equal(AutoSuspicionReason.Idle, Of(t, "마법사")!.Reason);
     }
 
+    // ───── 2026-10-24 모델: 처음부터 모두 의심, 사람다운 행동이 보이면 무활동 시계를 0으로 ─────
+
+    private static WatchedPlayer Q(string job, double distance, bool robe = false, bool hood = false, bool weaponHidden = false, int clothes = 5) =>
+        new($"아이라|{job}|100|100000|", "아이라", job, 100, 100000, null, false, distance, false, robe, hood, weaponHidden, clothes);
+
+    [Fact]
+    public void FirstThirtySeconds_AreObservedSilently_ThenShownOnlyIfNeverCleared()
+    {
+        var t = new AutoSuspicionTracker();
+        var hidden = true;
+        for (var s = 0; s <= 40; s++)
+        {
+            t.Observe(T0.AddSeconds(s), true, Fighters(s).Append(P("마법사", false, 9 + (s % 4) * 0.7)).ToList());
+            if (s < 30 && Of(t, "마법사") != null) hidden = false;
+        }
+        Assert.True(hidden);                                  // 30초 전에는 깜빡이지 않는다
+        Assert.NotNull(Of(t, "마법사"));                      // 30초가 지나도 벗겨지지 않으면 표시
+    }
+
+    [Fact]
+    public void ToggleOfAppearanceOrInstrument_ProvesAHumanAndClearsAtOnce()
+    {
+        var t = new AutoSuspicionTracker();
+        for (var s = 0; s <= 50; s++)
+            t.Observe(T0.AddSeconds(s), true, Fighters(s).Append(Q("마법사", 9 + (s % 4) * 0.7)).ToList());
+        Assert.NotNull(Of(t, "마법사"));                      // 50초째 의심 중
+        t.Observe(T0.AddSeconds(51), true, Fighters(51).Append(Q("마법사", 9, hood: true)).ToList());   // 후드를 썼다 = 사람이 만졌다
+        Assert.Null(Of(t, "마법사"));
+        Assert.Equal(0, Of(t, "마법사")?.For.TotalSeconds ?? 0);
+    }
+
+    [Fact]
+    public void MovingAlone_ClearsOnlyWhileAnotherPlayerStaysStill()
+    {
+        // 다른 사람 하나가 가만히 있으니 내가 움직이는 게 아니다 → 거리가 변하는 사람은 직접 움직인 것
+        var t = new AutoSuspicionTracker();
+        var still = P("전사", true, 4);
+        for (var s = 0; s <= 50; s++)
+            t.Observe(T0.AddSeconds(s), true, new[] { still, P("궁수", true, 6), P("힐러", true, 7), Q("마법사", 9 + (s % 4) * 0.7) });
+        Assert.Null(Of(t, "마법사"));
+        // 모두의 거리가 같이 변하면(내가 움직임) 움직임은 증거가 아니다 → 의심이 유지된다
+        var t2 = new AutoSuspicionTracker();
+        for (var s = 0; s <= 50; s++)
+            t2.Observe(T0.AddSeconds(s), true, Fighters(s).Append(Q("마법사", 9 + (s % 4) * 0.7)).ToList());
+        Assert.NotNull(Of(t2, "마법사"));
+    }
+
+    [Fact]
+    public void WhenEveryoneIsQuiet_TheClockStopsInsteadOfCountingOrClearing()
+    {
+        var t = new AutoSuspicionTracker();
+        // 40초: 다들 싸우는데 마법사만 안 한다 → 의심
+        for (var s = 0; s <= 40; s++)
+            t.Observe(T0.AddSeconds(s), true, Fighters(s).Append(Q("마법사", 9 + (s % 4) * 0.7)).ToList());
+        var before = Of(t, "마법사")!.For.TotalSeconds;
+        // 이후 60초: 모두 전투를 멈춘 대기 구간 → 시계는 멈춘다(늘지도 줄지도 않는다)
+        for (var s = 41; s <= 100; s++)
+            t.Observe(T0.AddSeconds(s), true, new[] { P("전사", false, 4 + (s % 2) * 0.6), P("궁수", false, 6 - (s % 3) * 0.5), P("힐러", false, 7 + (s % 2) * 0.9), Q("마법사", 9 + (s % 4) * 0.7) });
+        Assert.Equal(before, Of(t, "마법사")!.For.TotalSeconds, 0);
+    }
+
+    [Fact]
+    public void ClearedPlayer_BecomesSuspectAgainAfterAnotherQuietStretch()
+    {
+        var t = new AutoSuspicionTracker();
+        for (var s = 0; s <= 40; s++) t.Observe(T0.AddSeconds(s), true, Fighters(s).Append(Q("마법사", 9 + (s % 4) * 0.7)).ToList());
+        Assert.NotNull(Of(t, "마법사"));
+        t.Observe(T0.AddSeconds(41), true, Fighters(41).Append(new WatchedPlayer("아이라|마법사|100|100000|", "아이라", "마법사", 100, 100000, null, true, 9)).ToList());   // 한 번 싸웠다 → 풀림
+        Assert.Null(Of(t, "마법사"));
+        for (var s = 42; s <= 100; s++) t.Observe(T0.AddSeconds(s), true, Fighters(s).Append(Q("마법사", 9 + (s % 4) * 0.7)).ToList());
+        Assert.NotNull(Of(t, "마법사"));                      // 이후 다시 오래 가만히 있으면 새로 의심
+    }
+
     [Fact]
     public void NeedsFastSampling_OnlyWhileSomeConditionIsCounting()
     {

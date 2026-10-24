@@ -26,7 +26,7 @@ export function autoLevel(intensity: number): { label: string; dots: string } {
 /** 오토 의심 배지(2026-10-22): 글자와 단계 점으로 알리고, 이유·시간은 설명으로 둔다. 짙을수록 점이 채워진다. */
 export function AutoBadge({ reason, seconds, intensity }: { reason: 'idle' | 'missing'; seconds: number; intensity: number }) {
   const t = seconds >= 60 ? `${Math.floor(seconds / 60)}분째` : `${seconds}초째`;
-  const why = reason === 'idle' ? `던전·레이드 안에서 다른 사람은 모두 전투 중인데 ${t} 혼자 전투하지 않아요` : `함께 보이다가 던전·레이드 안에서 ${t} 주변에 보이지 않아요`;
+  const why = reason === 'idle' ? `던전·레이드 안에서 다른 사람 대부분이 싸우는데 ${t} 이 사람만 전투·조작·이동이 보이지 않아요` : `함께 보이다가 던전·레이드 안에서 ${t} 주변에 보이지 않아요`;
   const lv = autoLevel(intensity);
   return <span className="auto-badge" title={`${why} (${lv.label})`} aria-label={`오토 의심 ${lv.label}: ${why}`}>오토 의심 <span className="auto-dots" aria-hidden="true">{lv.dots}</span></span>;
 }

@@ -1,13 +1,18 @@
 namespace MobiMate;
 
 /// <summary>주변 플레이어 한 명의 관찰값. 게임이 이름을 주지 않아 서버·직업·레벨·전투력·칭호로 구분한다.</summary>
-public sealed record WatchedPlayer(string Key, string Realm, string Job, int Level, long CombatScore, string? Title, bool InCombat, double Distance = 0, bool Playing = false)
+public sealed record WatchedPlayer(string Key, string Realm, string Job, int Level, long CombatScore, string? Title, bool InCombat, double Distance = 0, bool Playing = false,
+    bool Robe = false, bool Hood = false, bool WeaponHidden = false, int Clothes = 0)
 {
     /// <summary>같은 사람을 이어서 알아보는 표식. 둘 이상이 같으면 구분할 수 없어 판정에서 뺀다.</summary>
     public static string KeyOf(NearPcItem p) => $"{p.RealmName}|{p.JobName}|{p.Level}|{p.CombatScore}|{p.Title}";
 
     public static WatchedPlayer From(NearPcItem p) =>
-        new(KeyOf(p), p.RealmName, p.JobName, p.Level, p.CombatScore, p.Title, p.IsInCombat, p.Distance, p.Performance?.IsPlaying == true);
+        new(KeyOf(p), p.RealmName, p.JobName, p.Level, p.CombatScore, p.Title, p.IsInCombat, p.Distance, p.Performance?.IsPlaying == true,
+            p.IsRobeWeared, p.IsHoodOn, p.IsWeaponHidden, p.ClothesCount);
+
+    /// <summary>화면을 직접 만져야 바뀌는 상태(로브·후드·무기 숨김·연주·옷)가 지난 관찰과 달라졌는가 — 사람이 조작했다는 가장 확실한 증거.</summary>
+    public bool ToggledSince(WatchedPlayer before) => Robe != before.Robe || Hood != before.Hood || WeaponHidden != before.WeaponHidden || Playing != before.Playing || Clothes != before.Clothes;
 }
 
 /// <summary>상황 파악을 못 하는 듯한 증상. 한 사람이 여럿에 걸리면 가장 짙은 것 하나를 보인다.</summary>
@@ -30,7 +35,10 @@ public enum AutoSuspicionReason
 public sealed record AutoSuspect(string Key, AutoSuspicionReason Reason, TimeSpan For, WatchedPlayer Player, double Intensity);
 
 /// <summary>
-/// 오토 의심 표식(순수, 2026-10-22 승운 요청). 던전·레이드 안에서 주변 플레이어를 넣으면 증상별로 초 단위 카운터를 쌓는다(흐른 시간만큼 더하므로 간격이 바뀌어도 초가 맞다).
+/// 오토(방치) 의심 표식(순수, 2026-10-22 승운 요청, 2026-10-24 모델 변경).
+/// <b>모델 변경</b>: 처음 보인 순간부터 모두 의심으로 보고, 사람다운 행동(전투·상태 조작·혼자 움직임)이 보이면 "무활동 초"를 0으로 되돌린다.
+/// 무활동이 표시 기준(기본 30초, 관찰로 조정)을 넘어서야 표시하므로 초반 30초는 속으로만 관찰한다. 다른 사람 대부분이 전투 중인 때만 초를 센다(대기·전환 구간은 멈춘다).
+/// 아래는 옛 설명이다. 던전·레이드 안에서 주변 플레이어를 넣으면 증상별로 초 단위 카운터를 쌓는다(흐른 시간만큼 더하므로 간격이 바뀌어도 초가 맞다).
 /// 평소에는 기존 읽기 주기(캐릭터 감시 틱·화면의 주변 조회)로 넣다가, 어느 증상의 조건이 시작되면(<see cref="NeedsFastSampling"/>) 그때부터 1초마다 넣어 정확히 센다.
 /// 오토는 화면을 보지 않아 상황 파악을 못 하므로 다른 멤버가 함께 움직이고 싸우는 동안 이런 모습이 길게 이어진다:
 /// ① 누워 있음(<see cref="AutoSuspicionReason.Lying"/>): 부활을 직접 눌러야 하는데 혼자 전투하지 않고 거리도 변하지 않는다 — 가장 확실해 기준이 짧다.
@@ -91,12 +99,14 @@ public sealed class AutoSuspicionTracker
         public DateTimeOffset LastSeen;
         public double? LastDistance;
         public double LastDelta;              // 직전 관찰 대비 거리 변화
-        public readonly Counter Still = new(), Idle = new(), Lying = new(), Playing = new(), Far = new();
+        public readonly Counter Still = new(), Lying = new(), Playing = new(), Far = new();
+        public double QuietSeconds;           // 사람다운 행동 없이 흐른 초(다른 사람 대부분이 전투 중인 동안만 쌓는다)
+        public bool QuietActive;
         public bool Absent;
         public double AbsentSeconds;          // 안 보이는 카운터
 
         /// <summary>어느 증상이든 조건이 시작되어 카운터가 도는 중이다.</summary>
-        public bool Counting => Idle.Active || Lying.Active || Playing.Active || Far.Active || Absent;
+        public bool Counting => QuietActive || Lying.Active || Playing.Active || Far.Active || Absent;
     }
 
     private readonly Dictionary<string, Track> _tracks = new();
@@ -170,9 +180,11 @@ public sealed class AutoSuspicionTracker
         if (_tracks.Values.Count(t => !t.Absent) >= 2 && list.Count >= 2 && !list.Any(p => _tracks.ContainsKey(p.Key))) _tracks.Clear();
 
         // 1) 거리 변화(움직임)부터 갱신한다: 정지 판정은 "다른 사람은 움직이는데 이 사람만 그대로"라서 모두의 변화가 필요하다
+        var toggled = new HashSet<string>();
         foreach (var p in list)
         {
             if (!_tracks.TryGetValue(p.Key, out var t)) _tracks[p.Key] = t = new Track { FirstSeen = now };
+            else if (!t.Absent && t.Last != null && p.ToggledSince(t.Last)) toggled.Add(p.Key);
             if (t.Absent) { t.Absent = false; t.AbsentSeconds = 0; t.FirstSeen = now; t.LastDistance = null; }   // 돌아왔다: 바로 풀린다
             t.LastDelta = t.LastDistance is { } d0 ? Math.Abs(p.Distance - d0) : 0;
             t.LastDistance = p.Distance;
@@ -180,22 +192,33 @@ public sealed class AutoSuspicionTracker
             t.LastSeen = now;
         }
 
-        // 2) 증상별 카운터
+        // 2) 무활동 시계와 증상별 카운터
         foreach (var p in list)
         {
             var t = _tracks[p.Key];
             var others = list.Where(o => o.Key != p.Key).ToList();
-            var othersAllFighting = others.Count >= MinOthers && others.All(o => o.InCombat);
+            // 다른 사람 대부분(75% 이상, 최소 2명)이 전투 중일 때만 "다들 하는데 혼자 안 한다"를 말할 수 있다. 보스 대기·전환처럼 모두 가만한 때는 시계를 멈춘다.
+            var othersFighting = others.Count >= MinOthers && others.Count(o => o.InCombat) >= Math.Max(MinOthers, (int)Math.Ceiling(others.Count * 0.75));
             var sceneMoving = others.Any(o => _tracks[o.Key].LastDelta >= MovingMeters);
+            var someoneStill = others.Any(o => _tracks[o.Key].LastDelta < StillMeters);
 
-            var idleCond = !p.InCombat && othersAllFighting;
+            // 사람다운 행동: 전투 중 / 화면을 만져야 바뀌는 상태 변화 / 혼자 움직임(내가 움직이면 모두의 거리가 변하므로, 가만히 있는 다른 사람이 있을 때만 인정한다)
+            var movedAlone = t.LastDelta >= MovingMeters && someoneStill;
+            var human = p.InCombat || toggled.Contains(p.Key) || movedAlone;
+            if (human) { t.QuietSeconds = 0; t.QuietActive = false; }
+            else if (othersFighting)
+            {
+                if (t.QuietActive) t.QuietSeconds += dt;   // 처음 참이 된 관찰은 쌓지 않는다
+                t.QuietActive = true;
+            }   // 다들 가만한 구간이면 그대로 둔다(쌓지도, 지우지도 않는다)
+
+            var idleCond = !p.InCombat && othersFighting;
             // 정지: 다른 사람이 움직이는 동안 이 사람의 거리가 그대로. 아무도 안 움직이면 알 수 없으니 그대로 둔다.
             if (t.LastDelta >= StillMeters) t.Still.Tick(false, dt);
             else if (sceneMoving) t.Still.Tick(true, dt);
 
-            t.Idle.Tick(idleCond, dt);
-            t.Lying.Tick(idleCond && t.Still.Seconds >= StaticNeeded.TotalSeconds, dt);
-            t.Playing.Tick(p.Playing && !p.InCombat && othersAllFighting, dt);
+            t.Lying.Tick(idleCond && t.Still.Seconds >= StaticNeeded.TotalSeconds && !toggled.Contains(p.Key), dt);
+            t.Playing.Tick(p.Playing && idleCond, dt);
             t.Far.Tick(others.Count(o => o.Distance <= NearMeters) >= MinOthers && p.Distance >= FarMeters, dt);
         }
 
@@ -204,7 +227,7 @@ public sealed class AutoSuspicionTracker
         foreach (var (key, t) in _tracks.ToList())
         {
             if (present.Contains(key) || dup.Contains(key)) continue;
-            t.Idle.Tick(false, dt); t.Lying.Tick(false, dt); t.Playing.Tick(false, dt); t.Far.Tick(false, dt); t.Still.Tick(false, dt);
+            t.QuietSeconds = 0; t.QuietActive = false; t.Lying.Tick(false, dt); t.Playing.Tick(false, dt); t.Far.Tick(false, dt); t.Still.Tick(false, dt);
             if (!t.Absent)
             {
                 if (t.LastSeen - t.FirstSeen < MinSeenBeforeMissing) { _tracks.Remove(key); continue; }   // 잠깐 스친 사람
@@ -223,7 +246,7 @@ public sealed class AutoSuspicionTracker
             {
                 (AutoSuspicionReason.Lying, t.Lying.Seconds, LyingScale),
                 (AutoSuspicionReason.Playing, t.Playing.Seconds, PlayingScale),
-                (AutoSuspicionReason.Idle, t.Idle.Seconds, IdleScale),
+                (AutoSuspicionReason.Idle, t.QuietSeconds, IdleScale),
                 (AutoSuspicionReason.Far, t.Far.Seconds, FarScale),
                 (AutoSuspicionReason.Missing, t.Absent ? t.AbsentSeconds : 0, MissingScale),
             };
