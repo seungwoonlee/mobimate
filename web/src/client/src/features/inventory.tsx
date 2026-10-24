@@ -7,6 +7,22 @@ import { fmt, plain } from '../lib/format';
 import { useRouter } from '../state/router';
 import { AutoBadge, autoStyle, jobLabel, MissingLine, REL_TAG, REL_TEXT } from './players';
 
+/**
+ * 임무용 아이템(2026-10-24 승운): 임무에 쓰이는 채집물·요리·도구·장비. 가방·창고 목록에서 일반 아이템보다 위의 별도 묶음으로 먼저 보인다.
+ * 이름이 정확히 같은 것만 묶는다(유니티 색 태그는 떼고 비교). 목록은 승운이 준 것이고, 새로 필요한 아이템은 여기에 더한다.
+ */
+export const MISSION_ITEMS: ReadonlySet<string> = new Set([
+  // 채집물
+  '옥수수', '콩', '파스닙', '밀', '거미줄', '우유', '쌀', '감자', '양파', '끈적 풀', '상급 통나무+', '쑥쑥 버섯',
+  // 요리
+  '조개찜', '통감자구이', '달걀프라이', '사과 주스', '마요네즈 고기볶음',
+  // 도구·재료
+  '전문 캠프파이어 키트', '마법 유탄 부품',
+  // 장비
+  '비늘 갑옷 신발S', '론 엣지소드S',
+]);
+export const isMissionItem = (name: string): boolean => MISSION_ITEMS.has(plain(name).trim());
+
 const LOC: Record<string, string> = { bag: '가방', account: '계정 창고', character: '캐릭터 창고' };
 const SEGS: [string, string][] = [['all', '전체'], ['fav', '★ 즐겨찾기'], ['bag', '가방'], ['account', '계정 창고'], ['character', '캐릭터 창고'], ['diet', '⚖ 다이어트']];
 
@@ -40,6 +56,9 @@ export function InventoryView() {
   if (q.isPending) return <Skeleton lines={6} />;
   if (q.isError && !q.data) return <ErrorCard error={q.error} onRetry={() => q.refetch()} />;
   const w = q.data.data.weight;
+  // 임무용 아이템을 위 묶음으로(다이어트 보기는 늘어난 순서가 목적이라 묶지 않는다). 각 묶음 안의 순서(즐겨찾기 먼저)는 그대로.
+  const missionRows = rows.filter(r => isMissionItem(r.name));
+  const normalRows = rows.filter(r => !isMissionItem(r.name));
 
   return (
     <>
@@ -62,25 +81,45 @@ export function InventoryView() {
       </div>
       {loc === 'diet' && <p className="muted small m0">가방 안 잠금 해제 아이템 중 <b>이번 접속에 늘어난 순</b> → 많이 가진 순입니다.</p>}
       {rows.length === 0 ? <div className="card muted">{loc === 'fav' ? '즐겨찾기한 아이템이 없습니다. 아이템 옆 별을 눌러 추가하세요.' : '조건에 맞는 아이템이 없습니다.'}</div> : (
-        <div className="list cols" role="list">
-          {rows.map(r => (
-            <div className={`row ${r.favorite ? 'fav' : ''}`} role="listitem" key={`${r.location}|${r.name}`}>
-              <div className="t">
-                <button type="button" className="star" aria-pressed={r.favorite} aria-label={`${plain(r.name)} 즐겨찾기`} title={r.favorite ? '즐겨찾기 해제' : '즐겨찾기'}
-                  onClick={() => void setFavorite('items', r.name, !r.favorite)}>{r.favorite ? '★' : '☆'}</button>
-                {r.locked && <Icon name="lock" label="잠금" />}<span>{plain(r.name)}</span>
-              </div>
-              <div className="r">
-                <span className="num strong">{fmt(r.count)}</span>
-                {r.sessionDelta > 0 && (r.favorite || loc === 'diet') && <Pill tone="warn">+{fmt(r.sessionDelta)} 이번 접속</Pill>}
-              </div>
-              <div className="m"><span>{r.category}</span><span className="faint">·</span><span>{LOC[r.location] ?? r.location}</span></div>
-            </div>
-          ))}
-        </div>
+        <>
+          {loc !== 'diet' && missionRows.length > 0 ? (
+            <>
+              <h3 className="group-h">임무용 아이템 <span className="num muted small">({fmt(missionRows.length)}종)</span></h3>
+              <ItemList rows={missionRows} loc={loc} />
+              {normalRows.length > 0 && (
+                <>
+                  <h3 className="group-h">일반 아이템 <span className="num muted small">({fmt(normalRows.length)}종)</span></h3>
+                  <ItemList rows={normalRows} loc={loc} />
+                </>
+              )}
+            </>
+          ) : <ItemList rows={rows} loc={loc} />}
+        </>
       )}
       <p className="faint small m0">{fmt(rows.length)}종 표시</p>
     </>
+  );
+}
+
+/** 아이템 목록(여러 열 카드). 한 묶음의 줄들이다. */
+function ItemList({ rows, loc }: { rows: InvItem[]; loc: string }) {
+  return (
+    <div className="list cols" role="list">
+      {rows.map(r => (
+        <div className={`row ${r.favorite ? 'fav' : ''}`} role="listitem" key={`${r.location}|${r.name}`}>
+          <div className="t">
+            <button type="button" className="star" aria-pressed={r.favorite} aria-label={`${plain(r.name)} 즐겨찾기`} title={r.favorite ? '즐겨찾기 해제' : '즐겨찾기'}
+              onClick={() => void setFavorite('items', r.name, !r.favorite)}>{r.favorite ? '★' : '☆'}</button>
+            {r.locked && <Icon name="lock" label="잠금" />}<span>{plain(r.name)}</span>
+          </div>
+          <div className="r">
+            <span className="num strong">{fmt(r.count)}</span>
+            {r.sessionDelta > 0 && (r.favorite || loc === 'diet') && <Pill tone="warn">+{fmt(r.sessionDelta)} 이번 접속</Pill>}
+          </div>
+          <div className="m"><span>{r.category}</span><span className="faint">·</span><span>{LOC[r.location] ?? r.location}</span></div>
+        </div>
+      ))}
+    </div>
   );
 }
 
