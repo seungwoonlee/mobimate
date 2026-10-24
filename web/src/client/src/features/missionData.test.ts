@@ -52,13 +52,13 @@ describe('요리 레시피', () => {
 });
 
 describe('가공 레시피', () => {
-  it('10종이고 모두 1회에 3개가 나온다', () => {
-    expect(PROCESSES).toHaveLength(10);
+  it('12종이고 모두 1회에 3개가 나온다', () => {
+    expect(PROCESSES).toHaveLength(12);
     expect(PROCESSES.every(p => p.produces === 3)).toBe(true);
   });
-  it('제작 재료의 2차 재료(강철괴·합금강괴·가죽+·목재+·옷감+·상급 목재)는 모두 가공법이 있다', () => {
+  it('제작 재료의 2차 재료(강철괴·합금강괴·가죽+·목재+·옷감+·상급 목재·상급 가죽·상급 옷감)는 모두 가공법이 있다', () => {
     const names = new Set(PROCESSES.map(p => p.name));
-    for (const n of ['강철괴', '합금강괴', '가죽+', '목재+', '옷감+', '상급 목재']) expect(names.has(n), n).toBe(true);
+    for (const n of ['강철괴', '합금강괴', '가죽+', '목재+', '옷감+', '상급 목재', '상급 가죽', '상급 옷감']) expect(names.has(n), n).toBe(true);
   });
   it('가공 재료가 서로를 부르는 순환이 없다', () => {
     const by = new Map(PROCESSES.map(p => [p.name, p]));
