@@ -504,7 +504,7 @@ test('스탯 탭: 계정의 캐릭터 표에 점수·서버 순위·추천이 �
   await expect(row.locator('.rank-badge.pink')).toHaveText('Ⅱ');
   await expect(row.locator('.rk-n.t-pink')).toHaveCount(2);   // 전투력 523위·종합 612위: 순위 숫자 자체가 핑크
   await expect(row.locator('.rk-n.t-purple')).toHaveCount(2); // 생활력·매력 순위 숫자는 보라
-  await expect(table).toContainText('종합 = 전투력 + 생활력 + 매력');
+  await expect(page.locator('.st-note')).toContainText('종합 = 전투력 + 생활력 + 매력');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1)).toBe(true);   // 옆 스크롤 없음
 });
 
