@@ -15,6 +15,9 @@ public sealed class AutoWatch
     private bool _inInstance;
     private DateTimeOffset _instanceAt = DateTimeOffset.MinValue;
     private string? _space;
+    private readonly AutoWatchRecorder? _recorder;
+
+    public AutoWatch(AutoWatchRecorder? recorder = null) => _recorder = recorder;
 
     /// <summary>
     /// 감시가 던전·레이드 안인지 알린다(4초마다). space는 지금 맵 이름.
@@ -43,7 +46,12 @@ public sealed class AutoWatch
     /// <param name="me">거리를 읽은 때의 내 위치(없으면 거리 변화로만 어림한다)</param>
     public void Observe(DateTimeOffset now, bool inInstance, IEnumerable<NearPcItem>? players, WorldPos? me = null)
     {
-        lock (_lock) _tracker.Observe(now, inInstance, (players ?? Enumerable.Empty<NearPcItem>()).Select(WatchedPlayer.From).ToList(), me);
+        var list = (players ?? Enumerable.Empty<NearPcItem>()).ToList();
+        lock (_lock)
+        {
+            _tracker.Observe(now, inInstance, list.Select(WatchedPlayer.From).ToList(), me);
+            if (inInstance) _recorder?.Record(now, _space, me, list, _tracker.Suspects);   // 판이 끝난 뒤 기준을 다시 돌려 볼 수 있게 늘 남긴다
+        }
     }
 
     public void Reset() { lock (_lock) _tracker.Reset(); }
