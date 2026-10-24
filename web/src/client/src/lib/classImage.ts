@@ -15,7 +15,7 @@ function load(kind: string) {
   const img = new Image();
   img.onload = () => { status.set(kind, 'ok'); notify(); };
   img.onerror = () => { status.set(kind, 'no'); notify(); };
-  img.src = `/api/class-image/${kind}`;
+  img.src = `/api/class-image/${kind}?v=main`;
 }
 
 export function useClassImage(id: string | null): State {

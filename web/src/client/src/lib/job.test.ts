@@ -46,6 +46,6 @@ describe('직업별 이미지', () => {
   });
 
   it('전신 이미지는 자르지 않고 그대로 보여 준다', () => {
-    expect(figureStyle('thief_3')).toEqual({ backgroundImage: 'url(/api/class-image/thief_3)' });
+    expect(figureStyle('thief_3')).toEqual({ backgroundImage: 'url(/api/class-image/thief_3?v=main)' });
   });
 });

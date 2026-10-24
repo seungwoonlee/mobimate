@@ -40,4 +40,4 @@ const IMAGE_ID = new Map(Object.entries(CLASS_IMAGE_BY_NAME).map(([k, v]) => [no
 export const classImageId = (job: string | null | undefined): string | null => (job ? IMAGE_ID.get(norm(job)) ?? null : null);
 
 /** 카드 그림(가로로 긴 932×378)의 인물이 있는 부분을 정사각형 칸에 맞춰 보여 주는 배경 스타일. */
-export const figureStyle = (id: string) => ({ backgroundImage: `url(/api/class-image/${id})` });
+export const figureStyle = (id: string) => ({ backgroundImage: `url(/api/class-image/${id}?v=main)` });
