@@ -47,8 +47,8 @@ export interface PlanLine {
   name: string; need: number; have: number; short: number;
   /** 가공으로 만드는 2차 재료면 true. 모자란 만큼 가공해야 하고, 그 원재료는 아래 줄들에 합쳐진다. */
   made?: boolean;
-  /** (made일 때) 가공 횟수와 걸리는 분 */
-  processCrafts?: number; minutes?: number;
+  /** (made일 때) 가공 횟수와 걸리는 분, 화면에 쓸 동사(가공·분해)와 보충 설명 */
+  processCrafts?: number; minutes?: number; verb?: string; note?: string;
 }
 export interface Plan {
   /** 제작 횟수(목표 개수를 1회 생산량으로 올림한 값). 목표가 0인 레시피는 없다. */
@@ -112,7 +112,7 @@ export function planTargets(targets: Readonly<Record<string, number>>, stock: St
     const have = stock.get(name) ?? 0;
     const line: PlanLine = { name, need: n, have, short: Math.max(0, n - have) };
     const p = byName.get(name);
-    if (p) { line.made = true; line.processCrafts = processCrafts.get(name) ?? 0; line.minutes = (processCrafts.get(name) ?? 0) * p.minutes; }
+    if (p) { line.made = true; line.processCrafts = processCrafts.get(name) ?? 0; line.minutes = (processCrafts.get(name) ?? 0) * p.minutes; if (p.verb) line.verb = p.verb; if (p.note) line.note = p.note; }
     return line;
   }).sort((a, b) => Number(b.short > 0) - Number(a.short > 0) || b.short - a.short || a.name.localeCompare(b.name, 'ko'));
   // 구해야 할 것 = 가공할 수 없는 재료(원재료)가 모자란 것. 가공으로 채울 수 있는 2차 재료의 부족은 원재료 줄로 옮겨 갔다.

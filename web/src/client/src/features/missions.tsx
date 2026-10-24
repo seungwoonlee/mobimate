@@ -156,7 +156,7 @@ function RecipePane({ items, at, recipes, kind }: { items: InvItem[]; at: number
       <td>
         <div className="sum-n">{l.name}</div>
         <div className="sum-w faint">{whereText(where.get(l.name))}</div>
-        {l.made && l.processCrafts! > 0 && <div className="sum-p">가공 {fmt(l.processCrafts!)}회 · {minutesText(l.minutes!)}</div>}
+        {l.made && l.processCrafts! > 0 && <div className="sum-p" title={l.note}>{l.verb ?? '가공'} {fmt(l.processCrafts!)}회{l.minutes! > 0 && <> · {minutesText(l.minutes!)}</>}{l.verb === '분해' && <> · 평균값</>}</div>}
       </td>
       <td className="n num">{fmt(l.need)}</td><td className="n num">{fmt(l.have)}</td>
       <td className="n num">{l.short > 0 ? fmt(l.short) : '✓'}</td>
@@ -245,7 +245,7 @@ function RecipePane({ items, at, recipes, kind }: { items: InvItem[]; at: number
           ) : (
             <>
               <p className="small m0 num">
-                {kind} {fmt(plan.totalCrafts)}회{plan.totalProcess > 0 && <> · 가공 {fmt(plan.totalProcess)}회</>} · {plan.shortKinds > 0 ? <b className="bad-text">모자란 원재료 {fmt(plan.shortKinds)}종</b> : <b className="ok-text">재료 충분</b>}
+                {kind} {fmt(plan.totalCrafts)}회{plan.totalProcess > 0 && <> · 가공·분해 {fmt(plan.totalProcess)}회</>} · {plan.shortKinds > 0 ? <b className="bad-text">모자란 원재료 {fmt(plan.shortKinds)}종</b> : <b className="ok-text">재료 충분</b>}
               </p>
               {madeLines.length > 0 && (
                 <>
@@ -263,7 +263,7 @@ function RecipePane({ items, at, recipes, kind }: { items: InvItem[]; at: number
               </table>
             </>
           )}
-          <p className="faint small m0">보유는 {bagOnly ? '가방' : '가방·계정 창고·캐릭터 창고'}의 합이고, 아래 작은 글씨는 가진 곳입니다. 창고 재료를 쓰면 이동 비용(분해된 장비 부품)이 듭니다.{cook && ' 이미 가진 요리는 목표에서 뺍니다.'} 가공은 한 번에 3개가 나오며, 가공법을 모르는 재료는 원재료로 셉니다.</p>
+          <p className="faint small m0">보유는 {bagOnly ? '가방' : '가방·계정 창고·캐릭터 창고'}의 합이고, 아래 작은 글씨는 가진 곳입니다. 창고 재료를 쓰면 이동 비용(분해된 장비 부품)이 듭니다.{cook && ' 이미 가진 요리는 목표에서 뺍니다.'} 시설 가공은 한 번에 3개가 나오고, 타닌 가루는 나뭇가지 분해(평균 1.5개)로, 물이 든 병은 빈 병 1개로 만듭니다. 만드는 법을 모르는 재료는 원재료로 셉니다.</p>
         </aside>
       </div>
     </>

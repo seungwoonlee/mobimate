@@ -71,10 +71,17 @@ export const COOK_RECIPES: readonly Recipe[] = [
 
 /**
  * 가공 레시피 (2026-10-25 승운이 가공 화면에서 확인, docs/MISSION_CRAFT_RECIPES.md). 제작 재료(강철괴·목재+ 같은 2차 재료)를 만드는 법이다.
- * 한 번 가공하면 3개가 나온다. 모자란 2차 재료는 이 레시피로 원재료까지 풀어서 계산한다.
+ * 시설 가공은 한 번에 3개가 나온다. 모자란 2차 재료는 이 레시피로 원재료까지 풀어서 계산한다.
+ * 타닌 가루(나뭇가지 분해)와 물이 든 병(빈 병)은 시설 가공이 아니라 시간이 들지 않는 것으로 센다(승운 2026-10-25).
  * 가공법을 모르는 재료는 원재료처럼 센다.
  */
-export interface Process { name: string; produces: number; needs: readonly (readonly [string, number])[]; facility: string; minutes: number }
+export interface Process {
+  name: string; produces: number; needs: readonly (readonly [string, number])[]; facility: string; minutes: number;
+  /** 화면에 쓰는 동사(기본 "가공"). 분해처럼 시설 가공이 아닌 것에 쓴다. */
+  verb?: string;
+  /** 평균값 등 보충 설명(툴팁) */
+  note?: string;
+}
 export const PROCESSES: readonly Process[] = [
   { name: '합금강괴', produces: 3, needs: [['강철괴', 3], ['동 광석', 15], ['석탄', 8]], facility: '금속 가공 시설 Lv.2', minutes: 100 },
   { name: '강철괴', produces: 3, needs: [['철괴', 3], ['석탄', 4]], facility: '금속 가공 시설 Lv.1', minutes: 10 },
@@ -88,4 +95,8 @@ export const PROCESSES: readonly Process[] = [
   { name: '상급 옷감', produces: 3, needs: [['옷감+', 3], ['상급 양털', 15], ['양털', 8]], facility: '옷감 가공 시설 Lv.2', minutes: 100 },
   { name: '옷감+', produces: 3, needs: [['옷감', 3], ['양털', 4]], facility: '옷감 가공 시설 Lv.1', minutes: 12 },
   { name: '옷감', produces: 3, needs: [['양털', 10]], facility: '옷감 가공 시설 Lv.1', minutes: 1.5 },
+  // 나뭇가지를 분해하면 한 개당 평균 1.5개가 나온다(평균이라 실제는 오르내린다). 1회 = 나뭇가지 1개 분해.
+  { name: '타닌 가루', produces: 1.5, needs: [['나뭇가지', 1]], facility: '분해', minutes: 0, verb: '분해', note: '나뭇가지 1개를 분해하면 평균 1.5개 (평균값이라 실제는 오르내립니다)' },
+  // 빈 병 1개가 물이 든 병 1개가 된다.
+  { name: '물이 든 병', produces: 1, needs: [['빈 병', 1]], facility: '물 채우기', minutes: 0, note: '빈 병 1개 → 물이 든 병 1개' },
 ];
