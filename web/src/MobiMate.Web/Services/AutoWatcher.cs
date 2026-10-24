@@ -35,8 +35,9 @@ public sealed class AutoWatcher(GameQueries q, StatusMonitor status, MobiMateOpt
     internal async Task TickAsync(DateTimeOffset now, CancellationToken ct)
     {
         if (!ShouldRead(status.State == GameConnection.Connected, auto.InInstance(now), auto.NeedsFast())) return;
-        q.Invalidate("get_near_pcs");   // 캐시를 쓰지 않고 새로 읽는다
+        q.Invalidate("get_current_environment"); q.Invalidate("get_near_pcs");   // 캐시를 쓰지 않고 새로 읽는다
+        var env = await q.Get<EnvironmentInfo>("get_current_environment", ct);   // 거리와 가까운 시각의 내 위치(삼각측량용)
         var near = await q.Get<List<NearPcItem>>("get_near_pcs", ct);
-        if (near.Ok && near.Value != null) auto.Observe(now, true, near.Value);
+        if (near.Ok && near.Value != null) auto.Observe(now, true, near.Value, env.Ok ? env.Value?.WorldPosition : null);
     }
 }

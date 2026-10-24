@@ -40,9 +40,10 @@ public sealed class AutoWatch
     }
 
     /// <param name="inInstance">던전·레이드 안인가. 밖이면 쌓아 둔 것을 지운다.</param>
-    public void Observe(DateTimeOffset now, bool inInstance, IEnumerable<NearPcItem>? players)
+    /// <param name="me">거리를 읽은 때의 내 위치(없으면 거리 변화로만 어림한다)</param>
+    public void Observe(DateTimeOffset now, bool inInstance, IEnumerable<NearPcItem>? players, WorldPos? me = null)
     {
-        lock (_lock) _tracker.Observe(now, inInstance, (players ?? Enumerable.Empty<NearPcItem>()).Select(WatchedPlayer.From).ToList());
+        lock (_lock) _tracker.Observe(now, inInstance, (players ?? Enumerable.Empty<NearPcItem>()).Select(WatchedPlayer.From).ToList(), me);
     }
 
     public void Reset() { lock (_lock) _tracker.Reset(); }

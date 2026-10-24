@@ -133,7 +133,8 @@ public record EnvironmentInfo(
     [property: JsonPropertyName("ChannelDisplayName")] string? ChannelName,
     [property: JsonPropertyName("Weather")] string? Weather,
     [property: JsonPropertyName("ErinnNow")] string? ErinnNow,
-    [property: JsonPropertyName("GameSpaceDisplayName")] string? GameSpaceDisplayName = null
+    [property: JsonPropertyName("GameSpaceDisplayName")] string? GameSpaceDisplayName = null,
+    [property: JsonPropertyName("WorldPosition")] WorldPos? WorldPosition = null
 );
 
 // 4. 재화 (get_currencies)

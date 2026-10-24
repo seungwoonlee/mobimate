@@ -394,3 +394,74 @@ public class AutoSuspicionTests
         Assert.Contains(t.Suspects, x => x.Reason == AutoSuspicionReason.Missing && x.Player.Job == "힐러");
     }
 }
+
+/// <summary>제자리 판정(삼각측량, 2026-10-24 시범): 내가 움직여도 정지한 사람은 한 점으로 맞고, 움직이는 사람은 안 맞는다.</summary>
+public class StationaryTests
+{
+    private static List<RangeSample> Walk(Func<int, (double X, double Y)> target, int seconds = 15, double speed = 5)
+    {
+        // 내가 직선과 곡선으로 움직인다: x는 ±8 진동, y는 속도만큼 전진
+        var list = new List<RangeSample>();
+        for (var s = 0; s <= seconds; s++)
+        {
+            double mx = 8 * Math.Sin(s / 3.0), my = s * speed;
+            var (tx, ty) = target(s);
+            list.Add(new RangeSample(s, mx, my, Math.Sqrt((tx - mx) * (tx - mx) + (ty - my) * (ty - my))));
+        }
+        return list;
+    }
+
+    [Fact]
+    public void AStationaryPlayer_IsRecognised_EvenWhileIMove()
+        => Assert.True(Stationary.Judge(Walk(_ => (12, 40))));
+
+    [Fact]
+    public void AMovingPlayer_IsNotStationary()
+        => Assert.False(Stationary.Judge(Walk(s => (12 + s * 2.0, 40 + Math.Sin(s) * 6))));
+
+    [Fact]
+    public void AFollower_WhoMovesWithMe_IsNotStationary()
+        => Assert.False(Stationary.Judge(Walk(s => (6, s * 5.0 + 4))));   // 나와 같이 움직이면 거리는 일정해도 정지가 아니다
+
+    [Fact]
+    public void WhenIDoNotMove_ConstantDistanceMeansStillAndChangingMeansMoving()
+    {
+        var still = Enumerable.Range(0, 12).Select(s => new RangeSample(s, 0, 0, 7.0)).ToList();
+        var moving = Enumerable.Range(0, 12).Select(s => new RangeSample(s, 0, 0, 7.0 + s * 0.5)).ToList();
+        Assert.True(Stationary.Judge(still));
+        Assert.False(Stationary.Judge(moving));
+    }
+
+    [Fact]
+    public void TooFewOrTooShortSamples_AreUnknown()
+    {
+        Assert.Null(Stationary.Judge(Walk(_ => (12, 40), seconds: 4)));
+        Assert.Null(Stationary.Judge(Walk(_ => (12, 40), seconds: 10).Where((_, i) => i % 5 == 0).ToList()));   // 표본 3개
+    }
+
+    [Fact]
+    public void AStationary_NonFighting_Player_WhileOthersFight_IsLying_EvenWhileIMove()
+    {
+        var t = new AutoSuspicionTracker();
+        var T0 = new DateTimeOffset(2026, 10, 24, 12, 0, 0, TimeSpan.Zero);
+        // 나는 계속 달린다. 전투 중인 셋은 나와 함께 움직이고(거리 일정), 누운 사람은 한 점에 있다.
+        for (var s = 0; s <= 80; s++)
+        {
+            double mx = 8 * Math.Sin(s / 3.0), my = s * 4.0;
+            var me = new WorldPos(mx, my);
+            double Dist(double x, double y) => Math.Sqrt((x - mx) * (x - mx) + (y - my) * (y - my));
+            var list = new List<WatchedPlayer>
+            {
+                new("아이라|전사|100|100000|", "아이라", "전사", 100, 100000, null, true, 4 + (s % 2) * 0.6),
+                new("아이라|궁수|100|100000|", "아이라", "궁수", 100, 100000, null, true, 6 - (s % 3) * 0.5),
+                new("아이라|힐러|100|100000|", "아이라", "힐러", 100, 100000, null, true, 7 + (s % 2) * 0.9),
+                new("아이라|마법사|100|100000|", "아이라", "마법사", 100, 100000, null, false, Dist(10, 150)),   // 누워 있음: 한 점
+                new("아이라|도적|100|100000|", "아이라", "도적", 100, 100000, null, false, 12 + (s % 4) * 0.7),  // 전원 전투가 아니게 해 10초 규칙과 섞이지 않게
+            };
+            t.Observe(T0.AddSeconds(s), true, list, me);
+        }
+        var lying = t.Suspects.FirstOrDefault(x => x.Player.Job == "마법사");
+        Assert.NotNull(lying);
+        Assert.Equal(AutoSuspicionReason.Lying, lying!.Reason);
+    }
+}

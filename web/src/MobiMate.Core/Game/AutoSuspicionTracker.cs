@@ -71,6 +71,8 @@ public sealed class AutoSuspicionTracker
     /// <summary>"안 보임"으로 남겨 두는 최대 시간. 이보다 오래 안 보이면 떠난 것으로 보고 지운다.</summary>
     public static readonly TimeSpan ForgetAfter = TimeSpan.FromMinutes(30);
     public const int MinOthers = 2;
+    /// <summary>제자리 판정에 쓰는 최근 표본 기간(초). 평소 4초 간격에서도 표본이 모이도록 넉넉하게 둔다.</summary>
+    public const double SampleWindowSeconds = 15;
 
     /// <summary>카운터가 <paramref name="count"/>일 때의 짙기: 표시 기준 이전은 0, 기준에서 약하게(0.15) 시작해 만점 기준에서 1.</summary>
     public static double IntensityOf(TimeSpan count, TimeSpan showFrom, TimeSpan full)
@@ -105,6 +107,8 @@ public sealed class AutoSuspicionTracker
         public double QuietAllSeconds;        // 그중 다른 사람 전원이 전투 중이던 시간(같은 시계, 더 확실한 증거)
         public double QuietSeconds;           // 사람다운 행동 없이 흐른 초(다른 사람 대부분이 전투 중인 동안만 쌓는다)
         public bool QuietActive;
+        public readonly List<RangeSample> Samples = new();   // 최근 표본(내 위치·거리): 삼각측량으로 제자리 판정
+        public bool? Stationary;                              // true 제자리 / false 움직임 / null 모름
         public bool Absent;
         public double AbsentSeconds;          // 안 보이는 카운터
 
@@ -163,7 +167,8 @@ public sealed class AutoSuspicionTracker
     }
 
     /// <param name="inInstance">던전·레이드 안인가. 밖이면 처음부터 다시 한다.</param>
-    public void Observe(DateTimeOffset now, bool inInstance, IReadOnlyList<WatchedPlayer> players)
+    /// <param name="me">이 관찰과 같은 때의 내 위치. 있으면 삼각측량으로 제자리 여부를 판정한다(없으면 거리 변화만으로 어림한다).</param>
+    public void Observe(DateTimeOffset now, bool inInstance, IReadOnlyList<WatchedPlayer> players, WorldPos? me = null)
     {
         if (!inInstance) { Reset(); return; }
         if (_lastObserved is { } same && now <= same) return;   // 여러 곳(감시·화면)이 넣으므로 같은 시각이거나 거꾸로 온 관찰은 무시한다
@@ -193,6 +198,13 @@ public sealed class AutoSuspicionTracker
             t.LastDistance = p.Distance;
             t.Last = p;
             t.LastSeen = now;
+            if (me != null && p.Distance > 0.01)
+            {
+                var ts = now.ToUnixTimeMilliseconds() / 1000.0;
+                t.Samples.Add(new RangeSample(ts, me.X, me.Y, p.Distance));
+                t.Samples.RemoveAll(q => ts - q.T > SampleWindowSeconds);
+                t.Stationary = Stationary.Judge(t.Samples);
+            }
         }
 
         // 2) 무활동 시계와 증상별 카운터
@@ -206,7 +218,7 @@ public sealed class AutoSuspicionTracker
             var someoneStill = others.Any(o => _tracks[o.Key].LastDelta < StillMeters);
 
             // 사람다운 행동: 전투 중 / 화면을 만져야 바뀌는 상태 변화 / 혼자 움직임(내가 움직이면 모두의 거리가 변하므로, 가만히 있는 다른 사람이 있을 때만 인정한다)
-            var movedAlone = t.LastDelta >= MovingMeters && someoneStill;
+            var movedAlone = me != null ? t.Stationary == false : t.LastDelta >= MovingMeters && someoneStill;   // 내 위치를 알면 삼각측량 결과, 모르면 거리 변화로 어림
             var human = p.InCombat || toggled.Contains(p.Key) || movedAlone;
             var allFighting = others.Count >= MinOthers && others.All(o => o.InCombat);
             if (human) { t.QuietSeconds = 0; t.QuietAllSeconds = 0; t.QuietActive = false; }
@@ -221,7 +233,9 @@ public sealed class AutoSuspicionTracker
             if (t.LastDelta >= StillMeters) t.Still.Tick(false, dt);
             else if (sceneMoving) t.Still.Tick(true, dt);
 
-            t.Lying.Tick(idleCond && t.Still.Seconds >= StaticNeeded.TotalSeconds && !toggled.Contains(p.Key), dt);
+            // 누워 있음 = 제자리 + 전투 안 함 + 다른 사람은 전투 중. 내 위치를 알면 삼각측량(내가 움직여도 맞다), 모르면 "다른 사람은 움직이는데 이 사람 거리만 그대로"로 어림한다.
+            var stillNow = me != null ? t.Stationary == true : t.Still.Seconds >= StaticNeeded.TotalSeconds;
+            t.Lying.Tick(idleCond && stillNow && !toggled.Contains(p.Key), dt);
             t.Playing.Tick(p.Playing && idleCond, dt);
             t.Far.Tick(others.Count(o => o.Distance <= NearMeters) >= MinOthers && p.Distance >= FarMeters, dt);
         }
@@ -231,6 +245,7 @@ public sealed class AutoSuspicionTracker
         foreach (var (key, t) in _tracks.ToList())
         {
             if (present.Contains(key) || dup.Contains(key)) continue;
+            t.Samples.Clear(); t.Stationary = null;
             t.QuietSeconds = 0; t.QuietAllSeconds = 0; t.QuietActive = false; t.Lying.Tick(false, dt); t.Playing.Tick(false, dt); t.Far.Tick(false, dt); t.Still.Tick(false, dt);
             if (!t.Absent)
             {
