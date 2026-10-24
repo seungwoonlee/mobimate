@@ -1,5 +1,5 @@
 import { useDeferredValue, useMemo, useState } from 'react';
-import { useCurrencies, useInventory, useNearby } from '../api/queries';
+import { useCurrencies, useHeader, useInventory, useNearby } from '../api/queries';
 import type { Currency, InvItem, NearPlayer } from '../api/types';
 import { Delta, ErrorCard, Fresh, Gauge, Icon, JobIcon, LevelState, Pill, Skeleton } from '../components/ui';
 import { setFavorite } from '../lib/actions';
@@ -175,6 +175,7 @@ function Status({ p }: { p: NearPlayer }) {
 
 export function NearbyView() {
   const q = useNearby();
+  const watching = useHeader().data?.data.autoWatching === true;   // 레이드·어비스 안: 탭 이름 "파티"
   const [guildOnly, setGuildOnly] = useState(false);
   if (q.isPending) return <Skeleton lines={5} />;
   if (q.isError && !q.data) return <ErrorCard error={q.error} onRetry={() => q.refetch()} />;
@@ -183,7 +184,7 @@ export function NearbyView() {
   return (
     <>
       <div className="view-head">
-        <h2>주변 <span className="num muted">({d.count}명)</span></h2>
+        <h2>{watching ? '파티' : '주변'} <span className="num muted">({d.count}명)</span>{watching && <span className="watch-pill" title="레이드·어비스 안이라 오토 의심을 보는 중이에요">오토 의심 감시 중</span>}</h2>
         <span className="sub"><Fresh at={q.dataUpdatedAt} /> <button type="button" className="chip" aria-pressed={guildOnly} onClick={() => setGuildOnly(v => !v)}>길드원만</button></span>
       </div>
       {rows.length === 0 ? <div className="card muted">주변에 표시할 플레이어가 없습니다.</div> : (

@@ -30,6 +30,8 @@ public enum AutoSuspicionReason
     Missing,
     /// <summary>한 자리에 오래 고정(2026-10-24 승운: 죽으면 위치가 확실히 고정이다 — 죽어도 "전투 중"으로 읽히는 경우에도 위치로 잡는다). 삼각측량 위치가 3m 안에서 이어진 시간.</summary>
     Frozen,
+    /// <summary>상대 의심 점수(시범, 2026-10-24): 파티 안에서 뒤처지는 모습 — 전투가 시작될 때 가장 늦게 합류하는 일이 반복되거나, 한 자리 최장 시간이 파티에서 두드러진다. 확정이 아니라 의심 단계다.</summary>
+    Relative,
 }
 
 /// <param name="For">그 증상이 이어진 시간(1초 단위 카운터)</param>
@@ -61,6 +63,10 @@ public sealed class AutoSuspicionTracker
     /// 기록 6판(2026-10-24)의 정상 플레이어 최장은 약 57초(레이드 1번째의 사제·격투가 83~84초는 라벨 없음), 확인된 방치·사망은 75~139초.</summary>
     public static readonly (TimeSpan Show, TimeSpan Full) FrozenScale = (TimeSpan.FromSeconds(70), TimeSpan.FromSeconds(150));
     public const double StayRadius = 3.0, StayGap = 20.0;
+    /// <summary>상대 의심 점수 기준(시범): 전투 시작 판정 — 전원이 가만하던 시간 QuietBeforeOnset 뒤 누군가 전투를 시작하면 시작점, OnsetWindow 동안 각자 첫 전투까지 걸린 초를 잰다.
+    /// 가장 늦은 사람이 2등보다 LateGap초 이상 늦으면 "늦게 합류" 한 번. 한 자리 최장(RelStayWindow초 안)이 2등의 RelStayRatio배 이상이고 RelStayMin초 이상이면 두드러짐.</summary>
+    public const double QuietBeforeOnset = 8, OnsetWindow = 30, LateGap = 3, RelStayWindow = 120, RelStayMin = 25, RelStayRatio = 1.3, RelShow = 0.3;
+    public const int OnsetMinPlayers = 3;
     public static readonly (TimeSpan Show, TimeSpan Full) FarScale = (TimeSpan.FromSeconds(45), TimeSpan.FromSeconds(180));
     public static readonly (TimeSpan Show, TimeSpan Full) MissingScale = (TimeSpan.FromSeconds(45), TimeSpan.FromSeconds(180));
 
@@ -117,6 +123,10 @@ public sealed class AutoSuspicionTracker
         public bool? Stationary;                              // true 제자리 / false 움직임 / null 모름
         public (double X, double Y)? StayAnchor;              // 고정으로 보는 위치(삼각측량)
         public double? StayStart, StayLast;                   // 그 자리에 머문 구간(초)
+        public readonly List<(double T, double Weight)> LateEvents = new();   // 전투 시작 때 가장 늦게 합류한 일(가중치 0..1)
+        public int OnsetsSeen;                                                // 그 사람이 함께 있었던 전투 시작 횟수
+        public readonly List<(double T, double Stay)> StayHist = new();       // 최근 한 자리 머문 시간 기록(상대 비교용)
+        public double StayMax => StayHist.Count == 0 ? 0 : StayHist.Max(q => q.Stay);
         public double StaySeconds => StayStart is { } a && StayLast is { } b ? b - a : 0;
         public bool Absent;
         public double AbsentSeconds;          // 안 보이는 카운터
@@ -124,6 +134,16 @@ public sealed class AutoSuspicionTracker
         /// <summary>어느 증상이든 조건이 시작되어 카운터가 도는 중이다.</summary>
         public bool Counting => QuietActive || Lying.Active || Playing.Active || Far.Active || Absent;
     }
+
+    private sealed class Onset
+    {
+        public double Start;
+        public readonly HashSet<string> Present = new();
+        public readonly Dictionary<string, double> First = new();
+    }
+
+    private double _groupQuiet;
+    private Onset? _onset;
 
     private readonly Dictionary<string, Track> _tracks = new();
     private DateTimeOffset? _lastObserved;
@@ -170,6 +190,43 @@ public sealed class AutoSuspicionTracker
         }
     }
 
+    /// <summary>
+    /// 전투 시작점 추적: 보이는 사람이 OnsetMinPlayers명 이상이고 전원이 QuietBeforeOnset초 가만하다가 누군가 전투를 시작하면 시작점이다.
+    /// OnsetWindow초 동안 각자 처음 전투한 때를 재고, 끝나면 가장 늦은 사람이 2등보다 LateGap초 이상 늦으면 그 사람에게 "늦게 합류" 한 번을 준다.
+    /// </summary>
+    private void TrackOnsets(DateTimeOffset now, double dt, List<WatchedPlayer> list)
+    {
+        var ts = now.ToUnixTimeMilliseconds() / 1000.0;
+        var fighting = list.Count(p => p.InCombat);
+        if (_onset is { } on)
+        {
+            foreach (var p in list) if (p.InCombat && on.Present.Contains(p.Key) && !on.First.ContainsKey(p.Key)) on.First[p.Key] = ts - on.Start;
+            if (ts - on.Start >= OnsetWindow) FinishOnset(on, ts);
+        }
+        else if (fighting == 0) _groupQuiet += dt;
+        else
+        {
+            if (_groupQuiet >= QuietBeforeOnset && list.Count >= OnsetMinPlayers)
+            {
+                var n = new Onset { Start = ts };
+                foreach (var p in list) { n.Present.Add(p.Key); if (p.InCombat) n.First[p.Key] = 0; }
+                _onset = n;
+            }
+            _groupQuiet = 0;
+        }
+    }
+
+    private void FinishOnset(Onset o, double ts)
+    {
+        _onset = null; _groupQuiet = 0;
+        if (o.Present.Count < OnsetMinPlayers) return;
+        var lags = o.Present.Select(k => (Key: k, Lag: o.First.TryGetValue(k, out var f) ? f : OnsetWindow)).OrderByDescending(x => x.Lag).ToList();
+        foreach (var k in o.Present) if (_tracks.TryGetValue(k, out var t)) t.OnsetsSeen++;
+        var top = lags[0]; var second = lags[1].Lag;
+        if (top.Lag >= LateGap && top.Lag - second >= LateGap && _tracks.TryGetValue(top.Key, out var tt))
+            tt.LateEvents.Add((ts, Math.Min(1, (top.Lag - second) / 10)));
+    }
+
     /// <summary>한 자리 고정 구간 갱신: 삼각측량 위치가 같은 자리(3m)에 이어지면 머문 시간이 늘고, 움직임이 확인되거나 정보 없는 틈이 길면 끊긴다.</summary>
     private static void UpdateStay(Track t, Stationary.Result an, double ts)
     {
@@ -190,6 +247,7 @@ public sealed class AutoSuspicionTracker
     public void Reset()
     {
         _tracks.Clear();
+        _groupQuiet = 0; _onset = null;
         _lastObserved = null;
         _visible = 0;
         Suspects = Array.Empty<AutoSuspect>();
@@ -235,6 +293,7 @@ public sealed class AutoSuspicionTracker
                 var an = Stationary.Analyze(t.Samples);
                 t.Stationary = an.Still;
                 UpdateStay(t, an, ts);
+                t.StayHist.Add((ts, t.StaySeconds)); t.StayHist.RemoveAll(q => ts - q.T > RelStayWindow);
             }
             if (toggled.Contains(p.Key)) { t.StayAnchor = null; t.StayStart = null; t.StayLast = null; }   // 화면 조작은 사람 행동: 고정 구간을 끊는다   // 화면 조작은 사람 행동: 활동량 후보에서 빼고 처음부터 다시 본다
         }
@@ -270,6 +329,33 @@ public sealed class AutoSuspicionTracker
             t.Lying.Tick(idleCond && stillNow && !toggled.Contains(p.Key), dt);
             t.Playing.Tick(p.Playing && idleCond, dt);
             t.Far.Tick(others.Count(o => o.Distance <= NearMeters) >= MinOthers && p.Distance >= FarMeters, dt);
+        }
+
+        // 2.6) 전투 시작 때 합류 지연(가장 늦게 합류한 사람) 기록
+        TrackOnsets(now, dt, list);
+
+        // 2.7) 상대 의심 점수: 합류 지연이 반복되거나, 한 자리 최장 시간이 파티에서 두드러지는 사람
+        var relative = new Dictionary<string, double>();
+        if (me != null && list.Count >= OnsetMinPlayers)
+        {
+            var ranked = list.Select(p => (p.Key, Stay: _tracks[p.Key].StayMax)).OrderByDescending(x => x.Stay).ToList();
+            var second = ranked.Count > 1 ? ranked[1].Stay : 0;
+            foreach (var p in list)
+            {
+                var t = _tracks[p.Key];
+                double late = 0, stay = 0;
+                if (t.OnsetsSeen >= 2)
+                {
+                    var ratio = (double)t.LateEvents.Count / t.OnsetsSeen;
+                    if (ratio >= 0.5) late = 0.25 + 0.5 * Math.Min(1, (ratio - 0.5) / 0.5);
+                }
+                else if (t.OnsetsSeen == 1 && t.LateEvents.Count == 1) late = 0.15;
+                if (ranked[0].Key == p.Key && ranked[0].Stay >= RelStayMin && ranked[0].Stay >= RelStayRatio * Math.Max(second, 1))
+                    stay = 0.3 + 0.5 * Math.Min(1, (ranked[0].Stay / Math.Max(second, 1) - RelStayRatio) / 0.7);
+                // 한 신호만으로는 정상 판에서도 늘 누군가 두드러져 오탐이 많았다(기록 10판): 늦게 합류한 적이 있고 한 자리 최장도 두드러질 때만 합쳐서 본다
+                var score = late + stay;
+                if (late > 0 && stay > 0 && score >= RelShow) relative[p.Key] = Math.Min(1, score);
+            }
         }
 
         // 3) 사라진 사람
@@ -313,6 +399,11 @@ public sealed class AutoSuspicionTracker
                 if (i <= 0) continue;
                 maxI = Math.Max(maxI, i);
                 if (best == null) best = new AutoSuspect(key, reason, count, t.Last, i);   // 후보는 확실한 순서로 늘어서 있다
+            }
+            if (relative.TryGetValue(key, out var relI))
+            {
+                maxI = Math.Max(maxI, relI);
+                best ??= new AutoSuspect(key, AutoSuspicionReason.Relative, TimeSpan.Zero, t.Last, relI);   // 다른 이유가 없을 때만 이 이유로 보인다
             }
             if (best != null) best = best with { Intensity = maxI };
             if (best != null) suspects.Add(best);

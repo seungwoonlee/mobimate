@@ -218,6 +218,7 @@ public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManag
                 living = ScoreReading.OrLast(ch.LivingScore?.Value, lastRec?.LivingScore), attract = ScoreReading.OrLast(ch.AttractivenessScore?.Value, lastRec?.AttractivenessScore),
             },
             rankBadge = rankings.NameBadgeOf(key),   // 인게임 딱지 예측(색 = 가장 높은 등급, 숫자 = 그 등급에 든 분류 수). 못 받으면 null
+            autoWatching = autoWatch.InInstance(),   // 레이드·어비스 안이라 오토 의심을 보는 중: 화면이 "주변" 탭을 "파티"로 바꾸고 색을 달리한다
             inProgress = InProgressOf(homework.Catalog, env),
             activity = new { text = GameStateCache.DescribeActivity(act), inCombat = act?.IsInCombat ?? false, canStop = act?.CanStop() ?? false },
             location = new
