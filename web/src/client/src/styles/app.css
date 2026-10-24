@@ -872,3 +872,11 @@ button.hw-cell:focus-visible { outline: 2px solid var(--accent); outline-offset:
   .st-rec{grid-column:1 / -1;flex-direction:row;flex-wrap:wrap;gap:4px 14px;align-items:baseline}
   .st-rec::before{margin-right:2px}
 }
+
+/* 오토 의심 감시 중: "주변" 탭이 "파티"로 바뀌고 색이 달라진다(2026-10-24 승운) */
+.rail button.watching{background:var(--warn-soft);color:var(--warn);position:relative}
+.rail button.watching::after{content:"";position:absolute;top:6px;right:10px;width:7px;height:7px;border-radius:50%;background:var(--warn);animation:watch-pulse 1.6s ease-in-out infinite}
+.rail button.watching[aria-current="page"]{background:var(--warn-soft);color:var(--warn);outline:1px solid var(--warn)}
+.watch-pill{margin-left:10px;padding:2px 10px;border-radius:999px;background:var(--warn-soft);color:var(--warn);font-size:12px;font-weight:700;vertical-align:middle}
+@keyframes watch-pulse{0%,100%{opacity:1}50%{opacity:.25}}
+@media (prefers-reduced-motion:reduce){.rail button.watching::after{animation:none}}

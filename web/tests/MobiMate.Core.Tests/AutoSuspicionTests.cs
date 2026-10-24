@@ -510,3 +510,50 @@ public class FrozenTests
         Assert.Null(Stationary.Judge(samples));
     }
 }
+
+/// <summary>상대 의심 점수(시범, 2026-10-24): 전투 시작 때 가장 늦게 합류하고 + 한 자리 최장도 두드러지는 사람. 한 신호만으로는 표시하지 않는다.</summary>
+public class RelativeSuspicionTests
+{
+    private static readonly DateTimeOffset T0 = new(2026, 10, 24, 12, 0, 0, TimeSpan.Zero);
+
+    /// <summary>0~9초 가만, 10초에 A·B가 전투 시작, C는 joinDelay초 늦게 합류. A·B는 계속 움직이고 C는 cStill이면 한 점에 있다.</summary>
+    private static AutoSuspicionTracker Run(int seconds, double joinDelay, bool cStill)
+    {
+        var t = new AutoSuspicionTracker();
+        for (var s = 0; s <= seconds; s++)
+        {
+            double mx = 8 * Math.Sin(s / 3.0), my = s * 4.0;
+            var me = new WorldPos(mx, my);
+            double D(double x, double y) => Math.Sqrt((x - mx) * (x - mx) + (y - my) * (y - my));
+            var fighting = s >= 10;
+            var list = new List<WatchedPlayer>
+            {
+                new("x|A|100|1|", "x", "A", 100, 1, null, fighting, D(15 * Math.Sin(s / 2.0), my + 20 * Math.Cos(s / 3.0))),
+                new("x|B|100|2|", "x", "B", 100, 2, null, fighting, D(15 * Math.Sin(s / 3.0) + 6, my + 20 * Math.Cos(s / 4.0))),
+                new("x|C|100|3|", "x", "C", 100, 3, null, s >= 10 + joinDelay, cStill ? D(5, 150) : D(15 * Math.Sin(s / 4.0) - 6, my + 20 * Math.Cos(s / 5.0))),
+            };
+            t.Observe(T0.AddSeconds(s), true, list, me);
+        }
+        return t;
+    }
+
+    [Fact]
+    public void LateJoinerWhoAlsoStaysPut_IsFlaggedAsRelative()
+    {
+        // 60초: 한 자리 고정(70초)은 아직 아니고, 늦은 합류 + 한 자리 최장이 합쳐져 상대 의심으로 보인다. 오래 이어지면 더 확실한 한 자리 고정이 앞선다.
+        var t = Run(60, joinDelay: 6, cStill: true);
+        var s = t.Suspects.FirstOrDefault(x => x.Player.Job == "C");
+        Assert.NotNull(s);
+        Assert.Equal(AutoSuspicionReason.Relative, s!.Reason);
+        Assert.Null(t.Suspects.FirstOrDefault(x => x.Player.Job == "A"));
+        Assert.Equal(AutoSuspicionReason.Frozen, Run(130, joinDelay: 6, cStill: true).Suspects.First(x => x.Player.Job == "C").Reason);
+    }
+
+    [Fact]
+    public void LateButMoving_IsNotFlagged_BecauseOneSignalIsNotEnough()
+        => Assert.DoesNotContain(Run(60, joinDelay: 6, cStill: false).Suspects, x => x.Reason == AutoSuspicionReason.Relative);
+
+    [Fact]
+    public void StayingPutButJoiningOnTime_IsNotFlaggedAsRelative()
+        => Assert.DoesNotContain(Run(60, joinDelay: 0, cStill: true).Suspects, x => x.Reason == AutoSuspicionReason.Relative);
+}

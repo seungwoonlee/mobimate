@@ -250,11 +250,12 @@ function TopBar({ compact, actions, showActions }: { compact: boolean; actions: 
 function NavRail({ onChat, chatOpen, canToggle, actions, showActions }: { onChat: () => void; chatOpen: boolean; canToggle: boolean; actions: Actions; showActions: boolean }) {
   const cur = useRouter(s => s.loc.name);
   const go = useRouter(s => s.go);
+  const watching = useHeader().data?.data.autoWatching === true;   // 오토 의심 감시 중이면 "주변" 탭이 "파티"로 바뀐다
   return (
     <nav className="rail" aria-label="화면">
       {ROUTES.filter(r => r.name !== 'settings').map(r => (
-        <button key={r.name} type="button" onClick={() => go(r.name)} aria-current={cur === r.name ? 'page' : undefined} title={r.key ? `${r.label} (${r.key})` : r.label}>
-          <Icon name={r.icon} />{r.label}
+        <button key={r.name} type="button" className={r.name === 'nearby' && watching ? 'watching' : undefined} onClick={() => go(r.name)} aria-current={cur === r.name ? 'page' : undefined} title={r.name === 'nearby' && watching ? '파티 (오토 의심을 보는 중)' : r.key ? `${r.label} (${r.key})` : r.label}>
+          <Icon name={r.icon} />{r.name === 'nearby' && watching ? '파티' : r.label}
         </button>
       ))}
       <span className="sp" />
