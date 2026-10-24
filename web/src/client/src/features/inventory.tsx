@@ -32,7 +32,7 @@ export const MISSION_ITEMS: ReadonlySet<string> = new Set(MISSION_INFO.keys());
 export const missionInfo = (name: string): MissionInfo | undefined => MISSION_INFO.get(plain(name).trim());
 export const isMissionItem = (name: string): boolean => MISSION_INFO.has(plain(name).trim());
 
-const LOC_SHORT: Record<string, string> = { bag: '가방', account: '계정창고', character: '캐릭터창고' };
+const LOC_SHORT: Record<string, string> = { bag: '가방', account: '계정', character: '캐릭터' };
 const LOC_KEYS = ['bag', 'account', 'character'] as const;
 /** 같은 이름의 아이템을 한 카드로 합친 것. 위치별 개수와 총합을 가진다. */
 export interface InvGroup { name: string; category: string; favorite: boolean; locked: boolean; sessionDelta: number; total: number; by: Record<string, number> }
@@ -199,13 +199,13 @@ function ItemList({ rows, mode }: { rows: InvGroup[]; mode: Mode }) {
               {diet && <button type="button" className="star" aria-pressed={r.favorite} aria-label={`${plain(r.name)} 다이어트 대상`} title={r.favorite ? '다이어트 대상 해제' : '다이어트 대상으로 표시'}
                 onClick={() => void setFavorite('items', r.name, !r.favorite)}>{r.favorite ? '★' : '☆'}</button>}
               {r.locked && <Icon name="lock" label="잠금" />}<span>{plain(r.name)}</span>
-            </div>
-            <div className="tot"><span className="num strong">{fmt(r.total)}</span>
               {diet && info && <span className="mis-tag" title="임무에 쓰는 아이템">임무</span>}
-              {diet && r.sessionDelta > 0 && <Pill tone="warn">+{fmt(r.sessionDelta)}</Pill>}</div>
-            {parts.length > 1 || (parts.length === 1 && !diet) ? (
-              <ul className="by">{parts.map(k => <li key={k}><span>{LOC_SHORT[k]}</span><span className="num">{fmt(r.by[k])}</span></li>)}</ul>
-            ) : <div className="by one">{parts.length === 1 ? LOC_SHORT[parts[0]] : '없음'}</div>}
+            </div>
+            <div className="tot">
+              <span className="num strong">{fmt(r.total)}</span>
+              {diet && r.sessionDelta > 0 && <Pill tone="warn">+{fmt(r.sessionDelta)}</Pill>}
+              <span className="by">{parts.length === 0 ? '없음' : parts.map(k => `${LOC_SHORT[k]} ${fmt(r.by[k])}`).join(' · ')}</span>
+            </div>
           </div>
         );
       })}
