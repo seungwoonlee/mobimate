@@ -4,6 +4,7 @@ import type { AccountGroup, CharacterCard, HomeworkAuto } from '../api/types';
 import { Dialog, ErrorCard, Fresh, Icon, JobIcon, Pill, Skeleton } from '../components/ui';
 import { useNow } from '../hooks/layout';
 import { setHomework } from '../lib/actions';
+import { nextStep, STEP_GOALS, stepOf } from '../lib/homeworkSteps';
 import { until } from '../lib/format';
 import { charName } from './characters';
 
@@ -20,14 +21,17 @@ export const HW_GROUPS: { title: string; cells: { id: string; label: string }[] 
 
 type State = 'done' | 'todo' | 'unknown';
 
-interface Cell { key: string; label: string; state: State; note?: string; /** 클리어 추정(미션 카운터는 올랐는데 어느 항목인지 모름): 눌러서 확인 */ guess?: boolean; /** 남은 횟수 (뱅가드, 미완료일 때) */ left?: number; toggleId?: string; boss?: boolean }
+interface Cell { key: string; label: string; state: State; note?: string; /** 클리어 추정(미션 카운터는 올랐는데 어느 항목인지 모름): 눌러서 확인 */ guess?: boolean; /** 남은 횟수 (뱅가드, 미완료일 때) */ left?: number; /** 여러 번 해야 끝나는 숙제의 목표 횟수와 지금 횟수: 누를 때마다 0→1→…→목표→0 */ steps?: number; step?: number; toggleId?: string; boss?: boolean }
 
 /** 한 캐릭터의 칸들: 일반 숙제 8개 + 필드 보스 1개 */
 export function cellsOf(c: Pick<CharacterCard, 'homework' | 'fieldBoss'>): Cell[] {
   const byId = new Map<string, HomeworkAuto>(c.homework.map(h => [h.id, h]));
   const cells: Cell[] = HW_GROUPS.flatMap(g => g.cells.map(x => {
     const h = byId.get(x.id);
-    return { key: x.id, label: x.label, state: h?.state ?? 'unknown', left: h?.state === 'todo' && h.remaining != null ? h.remaining : undefined, guess: h?.guess, toggleId: x.id } as Cell;
+    const state = h?.state ?? 'unknown';
+    const steps = STEP_GOALS[x.id];
+    const left = state === 'todo' && h?.remaining != null ? h.remaining : undefined;
+    return { key: x.id, label: x.label, state, left, guess: h?.guess, toggleId: x.id, steps, step: steps ? stepOf(steps, state === 'done', left) : undefined } as Cell;
   }));
   cells.push({ key: 'field_boss', label: '필드보스', state: c.fieldBoss.state, note: c.fieldBoss.item ?? undefined, guess: c.fieldBoss.guess, boss: true });
   return cells;
@@ -135,10 +139,12 @@ function CharacterRow({ c, onBoss }: { c: CharacterCard; onBoss: (c: CharacterCa
 function CellView({ x, c, onBoss }: { x: Cell; c: CharacterCard; onBoss: (c: CharacterCard) => void }) {
   const done = x.state === 'done';
   const guess = !!x.guess && !done;   // 미션 카운터는 올랐는데 어느 항목인지 못 가렸다
-  const text = guess ? '클리어 추정' : x.left != null ? `남은 ${x.left}회` : STATE_TEXT[x.state];
+  const stepped = x.steps != null && x.step != null;
+  const text = stepped ? `${x.step}/${x.steps}` : guess ? '클리어 추정' : x.left != null ? `남은 ${x.left}회` : STATE_TEXT[x.state];
   const label = `${x.label} ${text}${x.note ? ` (${x.note})` : ''}`;
   const characterKey = c.isCurrent ? undefined : c.key;
   const onClick = () => {
+    if (stepped) { void setHomework(x.toggleId!, { count: nextStep(x.step!, x.steps!), characterKey }); return; }   // 일부만 했을 수 있어 0→1→2→3(완료)→0
     if (!x.boss) { void setHomework(x.toggleId!, { completed: !done, characterKey }); return; }
     if (!done) { onBoss(c); return; }
     // 완료 → 미완료: 넘긴 보스의 체크를 거둔다 (이름을 모르면 여섯 모두)
@@ -146,7 +152,7 @@ function CellView({ x, c, onBoss }: { x: Cell; c: CharacterCard; onBoss: (c: Cha
     for (const b of cleared.length ? cleared : BOSSES) void setHomework(b.id, { completed: false, characterKey });
   };
   return (
-    <button type="button" className={`hw-cell ${x.state}${guess ? ' guess' : ''} btn-cell`} aria-pressed={done} aria-label={`${label} — 눌러서 ${done ? '미완료로' : '완료로'} 바꾸기`} onClick={onClick}>
+    <button type="button" className={`hw-cell ${x.state}${guess ? ' guess' : ''} btn-cell`} aria-pressed={done} aria-label={`${label} — 눌러서 ${stepped ? `${nextStep(x.step!, x.steps!)}/${x.steps}회로` : done ? '미완료로' : '완료로'} 바꾸기`} onClick={onClick}>
       <span className="hw-cell-name">{x.label}</span>
       <span className="hw-cell-state">{done ? <Icon name="check" size={13} /> : x.state === 'todo' ? '○' : '·'} {x.note && done ? x.note : text}</span>
     </button>

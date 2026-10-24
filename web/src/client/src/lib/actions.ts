@@ -3,6 +3,7 @@ import { keys } from '../api/queries';
 import { queryClient } from './queryClient';
 import { isOffline, useUi } from '../state/ui';
 import { runExclusive } from './busy';
+import { STEP_GOALS } from './homeworkSteps';
 import type { Characters, Envelope, HomeworkBoard, Inventory, Life } from '../api/types';
 
 const toast = (m: string, l?: 'ok' | 'warn' | 'danger' | 'info') => useUi.getState().toast(m, l);
@@ -109,7 +110,9 @@ export async function setHomework(id: string, body: { completed?: boolean; count
   const updatedAt = queryClient.getQueryState(keys.homework)?.dataUpdatedAt;
   homeworkInFlight++;
   // 캐릭터별 숙제 현황(숙제 화면)도 바로 바꿔 보인다
-  if (body.completed !== undefined) {
+  const steps = STEP_GOALS[id];   // 여러 번 해야 끝나는 숙제(뱅가드 3회): 횟수로 지정하고, 목표 횟수에 닿아야 완료다
+  const stepCount = steps && body.count !== undefined ? Math.min(steps, Math.max(0, body.count)) : undefined;
+  if (body.completed !== undefined || stepCount !== undefined) {
     queryClient.setQueryData<Envelope<Characters>>(keys.characters, old => old && {
       ...old,
       data: {
@@ -117,7 +120,14 @@ export async function setHomework(id: string, body: { completed?: boolean; count
         accounts: old.data.accounts.map(a => ({
           ...a,
           members: a.members.map(m => (body.characterKey ? m.key === body.characterKey : m.isCurrent)
-            ? { ...m, homework: m.homework.map(h => h.id === id ? { ...h, state: body.completed ? 'done' as const : 'todo' as const } : h) }
+            ? {
+              ...m,
+              homework: m.homework.map(h => {
+                if (h.id !== id) return h;
+                if (stepCount !== undefined) return { ...h, state: stepCount >= steps! ? 'done' as const : 'todo' as const, remaining: stepCount >= steps! ? null : steps! - stepCount };
+                return { ...h, state: body.completed ? 'done' as const : 'todo' as const, remaining: steps ? (body.completed ? null : steps) : h.remaining };
+              }),
+            }
             : m),
         })),
       },
@@ -129,6 +139,10 @@ export async function setHomework(id: string, body: { completed?: boolean; count
       ...old.data,
       cards: old.data.cards.map(c => {
         if (c.id !== id) return c;
+        if (stepCount !== undefined) {   // 횟수로 지정한 숙제: 목표 횟수 전에는 미완료(남은 횟수만 줄어든다)
+          const done = stepCount >= steps!;
+          return { ...c, count: done ? c.goal : 0, isDone: done, status: done ? 'manualDone' as const : 'pending' as const, suggestion: null, remaining: done ? null : steps! - stepCount };
+        }
         const count = body.count ?? (body.completed ? c.goal : body.completed === false ? 0 : c.count);
         const done = body.count !== undefined ? count >= c.goal : !!body.completed;
         return { ...c, count, isDone: done, status: done ? 'manualDone' as const : 'pending' as const, suggestion: null };

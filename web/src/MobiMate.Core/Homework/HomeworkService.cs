@@ -142,6 +142,31 @@ public sealed class HomeworkService
             var ledger = def.Share == HomeworkShare.Account ? file.Account : character;
             var st = ledger.Items.GetValueOrDefault(def.Id) ?? new HomeworkItemState();
 
+            if (def.RunGoal > 0 && def.Share == HomeworkShare.Character)
+            {
+                // 여러 번 깨는 콘텐츠(뱅가드 3회): 횟수(0~RunGoal)를 손으로 맞춘다. 횟수를 주면 그 값으로, 완료/미완료만 주면 끝/0으로 본다.
+                // 일부만 한 상태(횟수 < 목표)는 수동 고정(ManualOverride)을 걸지 않는다: 이어서 자동 판정이 횟수를 세게 하려는 것이다
+                // (퀘스트가 보이면 게임의 N/M이, 전용 지역 보상이 들어오면 +1이 이 값에서 이어진다).
+                var run = count.HasValue ? Math.Clamp(count.Value, 0, def.RunGoal) : completed == true ? def.RunGoal : 0;
+                var runDone = run >= def.RunGoal;
+                // 목표에 닿은 수동 완료는 횟수를 남기지 않는다(퀘스트가 다시 보이면 게임의 N/M이 이긴다: 수동 완료는 퀘스트가 보이면 취소되는 기존 규칙 그대로)
+                if (runDone) character.RunCounts?.Remove(def.Id);
+                else (character.RunCounts ??= new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase))[def.Id] = run;
+                st.Count = runDone ? def.Goal : 0;
+                st.Goal = def.Goal;
+                st.Completed = runDone;
+                st.CompletedAtUtc = runDone ? now : null;
+                st.Auto = false;
+                st.Suggestion = null;
+                st.RemainingCount = runDone ? null : def.RunGoal - run;
+                st.Evidence = $"수동 설정: 이번 주 {run}/{def.RunGoal}";   // 미완료 확인으로도 쓰인다(전체 탭 카드가 "남은 N회"를 보인다)
+                st.ManualOverride = runDone;
+                st.ManualAtUtc = now;
+                ledger.Items[def.Id] = st;
+                SaveOrThrow(file);
+                return new HomeworkChange(characterKey, new[] { def.Id }, HomeworkChangeReason.Manual);
+            }
+
             var newCount = count.HasValue ? Math.Clamp(count.Value, 0, def.Goal) : completed == true ? def.Goal : 0;
             var done = count.HasValue ? newCount >= def.Goal : completed == true;
 

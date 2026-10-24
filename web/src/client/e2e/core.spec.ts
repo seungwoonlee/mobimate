@@ -43,6 +43,26 @@ test('숙제: 지금 접속한 캐릭터의 칸을 누르면 수동 완료, 다�
   await expect(cell).toHaveAttribute('aria-pressed', 'false');
 });
 
+test('숙제: 뱅가드는 일부만 했을 수 있어 누를 때마다 0 → 1 → 2 → 3(완료) → 0으로 돈다 (2026-10-24)', async ({ page }) => {
+  await page.goto('/homework');
+  const cell = page.locator('.hw-row.current').getByRole('button', { name: /^뱅가드 / });
+  const reset = async () => { for (let i = 0; i < 4 && !(await cell.textContent())!.includes('0/3'); i++) await cell.click(); };
+  await reset();
+  await expect(cell).toContainText('0/3');
+  await expect(cell).toHaveAttribute('aria-pressed', 'false');
+  await cell.click();
+  await expect(cell).toContainText('1/3');
+  await expect(cell).toHaveAttribute('aria-pressed', 'false');
+  await cell.click();
+  await expect(cell).toContainText('2/3');
+  await cell.click();
+  await expect(cell).toContainText('3/3');
+  await expect(cell).toHaveAttribute('aria-pressed', 'true');
+  await cell.click();
+  await expect(cell).toContainText('0/3');
+  await expect(cell).toHaveAttribute('aria-pressed', 'false');
+});
+
 test('숙제 화면: 캐릭터마다 가로 박스 한 줄에 중요 숙제가 보이고 세로로 쌓인다 (2026-10-11)', async ({ page }) => {
   await page.goto('/homework');
   const rows = page.locator('.hw-row');
