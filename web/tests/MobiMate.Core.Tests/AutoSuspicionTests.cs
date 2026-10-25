@@ -262,7 +262,7 @@ public class AutoSuspicionTests
         Assert.True(seen[60] > 0);                                                          // 기준(45초)을 넘으면 켜진다
         Assert.True(seen[120] > seen[60]);
         Assert.Equal(1.0, seen[200]);
-        Assert.Equal(AutoSuspicionReason.Missing, Of(t, "도적")!.Reason);
+        Assert.True(Of(t, "도적")!.Reason is AutoSuspicionReason.Missing or AutoSuspicionReason.Deserter);   // 4인 이하 파티가 싸우는 중이면 탈주(2026-10-25), 아니면 안 보임
 
         t.Observe(end.AddSeconds(201), true, Fighters(221).Append(ghost).ToList());          // 돌아왔다
         Assert.Null(Of(t, "도적"));
@@ -387,7 +387,7 @@ public class AutoSuspicionTests
         var t = new AutoSuspicionTracker();
         var now = Run(t, T0, 30, s => Fighters(s));
         now = Run(t, now.AddSeconds(1), 120, s => Fighters(s).Take(2).ToList());   // 힐러가 사라졌다, 나머지 둘은 그대로
-        Assert.Contains(t.Suspects, x => x.Reason == AutoSuspicionReason.Missing && x.Player.Job == "힐러");
+        Assert.Contains(t.Suspects, x => x.Reason is AutoSuspicionReason.Missing or AutoSuspicionReason.Deserter && x.Player.Job == "힐러");   // 작은 파티가 싸우는 중이라 탈주로 보인다(2026-10-25)
     }
 }
 
@@ -556,4 +556,75 @@ public class RelativeSuspicionTests
     [Fact]
     public void StayingPutButJoiningOnTime_IsNotFlaggedAsRelative()
         => Assert.DoesNotContain(Run(60, joinDelay: 0, cStill: true).Suspects, x => x.Reason == AutoSuspicionReason.Relative);
+}
+
+/// <summary>탈주(2026-10-25 승운): 4인 이하 파티가 싸우는 도중 함께 있던 사람이 완전히 나가 버리면 "탈주". 판이 끝나 다 같이 나가는 것이나 큰 파티(레이드)는 해당 없다.</summary>
+public class DeserterTests
+{
+    private static readonly DateTimeOffset T0 = new(2026, 10, 25, 12, 0, 0, TimeSpan.Zero);
+    private static WatchedPlayer P(string job, bool fight, double dist) => new($"x|{job}|100|1|", "x", job, 100, 1, null, fight, dist);
+
+    /// <summary>0~leaveAt초는 나(관찰자) 외에 others명이 함께 보이고(전원 전투 중), leaveAt초 이후 A만 안 보인다.</summary>
+    private static AutoSuspicionTracker Run(int seconds, int leaveAt, string[] names, bool othersFight = true, int fightUntil = int.MaxValue)
+    {
+        var t = new AutoSuspicionTracker();
+        for (var s = 0; s <= seconds; s++)
+        {
+            var fight = othersFight && s < fightUntil;
+            var list = names.Where((n, i) => n != "A" || s < leaveAt).Select((n, i) => P(n, fight, 4 + i + Math.Sin(s / 2.0))).ToList();
+            t.Observe(T0.AddSeconds(s), true, list);
+        }
+        return t;
+    }
+
+    [Fact]
+    public void AMemberWhoLeavesWhileThePartyFights_IsADeserterAfterTwentyFiveSeconds()
+    {
+        var names = new[] { "A", "B", "C" };   // 나 포함 4인 파티
+        Assert.DoesNotContain(Run(40 + 20, 40, names).Suspects, x => x.Reason == AutoSuspicionReason.Deserter);   // 아직 20초
+        var s = Run(40 + 40, 40, names).Suspects.FirstOrDefault(x => x.Player.Job == "A");
+        Assert.NotNull(s);
+        Assert.Equal(AutoSuspicionReason.Deserter, s!.Reason);
+        Assert.True(s.Intensity > 0);
+        Assert.DoesNotContain(Run(40 + 40, 40, names).Suspects, x => x.Player.Job is "B" or "C");
+    }
+
+    [Fact]
+    public void WhenTheWholePartyStopsFighting_NobodyBecomesADeserter()
+    {
+        // 판이 끝나(전투 종료) 사람들이 하나둘 나가는 것은 탈주가 아니다
+        var s = Run(40 + 80, 40, new[] { "A", "B", "C" }, fightUntil: 42);
+        Assert.DoesNotContain(s.Suspects, x => x.Reason == AutoSuspicionReason.Deserter);
+    }
+
+    [Fact]
+    public void ABigParty_IsNotJudgedAsDeserters()
+    {
+        var names = new[] { "A", "B", "C", "D", "E", "F" };   // 레이드: 한 번에 5명 넘게 보인다
+        Assert.DoesNotContain(Run(40 + 80, 40, names).Suspects, x => x.Reason == AutoSuspicionReason.Deserter);
+    }
+
+    [Fact]
+    public void SomeoneJustPassingBy_IsNotADeserter()
+    {
+        // 20초도 함께 있지 않았던 사람은 파티원이 아니다
+        var t = new AutoSuspicionTracker();
+        for (var s = 0; s <= 80; s++)
+        {
+            var list = new List<WatchedPlayer> { P("B", true, 5), P("C", true, 6) };
+            if (s >= 20 && s < 30) list.Add(P("A", true, 7));
+            t.Observe(T0.AddSeconds(s), true, list);
+        }
+        Assert.DoesNotContain(t.Suspects, x => x.Player.Job == "A" && x.Reason == AutoSuspicionReason.Deserter);
+    }
+
+    [Fact]
+    public void ADeserterWhoComesBack_IsClearedAtOnce()
+    {
+        var t = Run(40 + 40, 40, new[] { "A", "B", "C" });
+        Assert.Contains(t.Suspects, x => x.Reason == AutoSuspicionReason.Deserter);
+        var s = 81;
+        t.Observe(T0.AddSeconds(s), true, new List<WatchedPlayer> { P("A", true, 4), P("B", true, 5), P("C", true, 6) });
+        Assert.DoesNotContain(t.Suspects, x => x.Reason == AutoSuspicionReason.Deserter);
+    }
 }

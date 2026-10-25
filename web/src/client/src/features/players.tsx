@@ -24,7 +24,7 @@ export function autoLevel(intensity: number): { label: string; dots: string } {
 }
 
 /** 오토 의심 배지(2026-10-22): 글자와 단계 점으로 알리고, 이유·시간은 설명으로 둔다. 짙을수록 점이 채워진다. */
-export type AutoReason = 'lying' | 'idle' | 'playing' | 'far' | 'missing' | 'frozen' | 'relative';
+export type AutoReason = 'lying' | 'idle' | 'playing' | 'far' | 'missing' | 'deserter' | 'frozen' | 'relative';
 
 /** 이유별 설명(시간은 "N분째"). 모르는 이유는 일반 문구로 보인다. */
 function autoWhy(reason: string, t: string): string {
@@ -33,6 +33,7 @@ function autoWhy(reason: string, t: string): string {
     case 'idle': return `던전·레이드 안에서 다른 사람 대부분이 싸우는데 ${t} 이 사람만 전투·조작·이동이 보이지 않아요`;
     case 'playing': return `다른 사람이 싸우는데 ${t} 혼자 연주하고 있어요`;
     case 'far': return `다른 사람들은 모여 있는데 ${t} 혼자 멀리 떨어져 있어요`;
+    case 'deserter': return `4인 파티가 싸우는 도중 ${t} 안 보여요: 완전히 나가 버린 것 같아요 (탈주 의심)`;
     case 'relative': return `전투가 시작될 때 가장 늦게 합류하고 한 자리에 오래 머무는 모습이에요 (파티 다른 사람과 비교한 의심, 확정 아님, 시범 기준)`;
     case 'frozen': return `${t} 한 자리에서 움직이지 않았어요 (죽은 채 부활을 안 눌렀거나 자동전투가 멈춘 모습. 전투 중으로 읽혀도 위치로 판단, 시범 기준)`;
     default: return `함께 보이다가 던전·레이드 안에서 ${t} 주변에 보이지 않아요`;
@@ -43,7 +44,8 @@ export function AutoBadge({ reason, seconds, intensity }: { reason: AutoReason |
   const t = seconds >= 60 ? `${Math.floor(seconds / 60)}분째` : `${seconds}초째`;
   const why = autoWhy(reason, t);
   const lv = autoLevel(intensity);
-  return <span className="auto-badge" title={`${why} (${lv.label})`} aria-label={`오토 의심 ${lv.label}: ${why}`}>오토 의심 <span className="auto-dots" aria-hidden="true">{lv.dots}</span></span>;
+  const head = reason === 'deserter' ? '탈주 의심' : '오토 의심';
+  return <span className="auto-badge" title={`${why} (${lv.label})`} aria-label={`${head} ${lv.label}: ${why}`}>{head} <span className="auto-dots" aria-hidden="true">{lv.dots}</span></span>;
 }
 
 /** 한동안 함께 보이다가 사라진 사람 한 줄 (목록에 없어 직업·레벨·전투력만 안다) */
@@ -57,8 +59,8 @@ export function MissingLine({ m, myRealm }: { m: MissingPlayer; myRealm?: string
     <span className="pl pl-missing">
       <JobIcon job={m.job} size={17} />
       <span className="pl-who">
-        <span className="pl-job">{jobLabel(m.job, m.realm, myRealm)}<AutoBadge reason="missing" seconds={m.seconds} intensity={m.intensity} /></span>
-        <span className="pl-sub small"><span className="num">Lv.{m.level}</span> · <span className="num">{fmt(m.combatScore)}</span><span className="pl-combat"> · 안 보임</span></span>
+        <span className="pl-job">{jobLabel(m.job, m.realm, myRealm)}<AutoBadge reason={m.reason ?? 'missing'} seconds={m.seconds} intensity={m.intensity} /></span>
+        <span className="pl-sub small"><span className="num">Lv.{m.level}</span> · <span className="num">{fmt(m.combatScore)}</span><span className="pl-combat"> · {m.reason === 'deserter' ? '탈주' : '안 보임'}</span></span>
       </span>
     </span>
   );

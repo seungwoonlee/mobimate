@@ -355,7 +355,8 @@ public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManag
             : NearbyRanker.Rank(r.Value, my).OrderBy(e => e.Pc.Distance).ThenByDescending(e => e.Pc.CombatScore)).ToList();
         if (autoWatch.InInstance()) autoWatch.Observe(DateTimeOffset.UtcNow, true, r.Value);   // 화면이 읽은 값도 평소 주기에 보탠다(추가 호출 없음)
         var suspects = autoWatch.Suspects();
-        var present = suspects.Where(x => x.Reason != AutoSuspicionReason.Missing).ToDictionary(x => x.Key);
+        var absent = (Func<AutoSuspect, bool>)(x => x.Reason is AutoSuspicionReason.Missing or AutoSuspicionReason.Deserter);   // 안 보이는 사람(탈주 포함)은 목록에 없어 따로 보인다
+        var present = suspects.Where(x => !absent(x)).ToDictionary(x => x.Key);
         return new CliData<object>(new
         {
             count = ranked.Count,
@@ -364,8 +365,9 @@ public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManag
             myRealm = state.Character?.RealmName,   // 화면은 서버가 다른 사람에게만 "직업 (서버)"로 서버를 붙인다
             // 오토 의심 표식: 상황 파악을 못 하는 듯한 사람 — 누워 있음(lying)·혼자 전투 안 함(idle)·혼자 연주(playing)·혼자 멀리(far) / 함께 보이다가 사라진 사람(missing, 목록에 없어 따로 준다).
             // seconds = 조건이 이어진 초 카운터, intensity = 짙기 0..1 (기준을 넘으면 켜지고 점점 짙어진다. 풀리면 목록에서 바로 빠진다)
-            missing = suspects.Where(x => x.Reason == AutoSuspicionReason.Missing).Select(x => new
+            missing = suspects.Where(absent).Select(x => new
             {
+                reason = x.Reason.ToString().ToLowerInvariant(),   // missing(안 보임) / deserter(탈주)
                 job = x.Player.Job, realm = x.Player.Realm, level = x.Player.Level, combatScore = x.Player.CombatScore, title = x.Player.Title, seconds = (int)x.For.TotalSeconds, intensity = Math.Round(x.Intensity, 2),
             }),
             players = ranked.Select(e => new
