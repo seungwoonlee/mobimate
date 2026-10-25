@@ -187,27 +187,42 @@ public class AutoSuspicionTests
     }
 
     [Fact]
-    public void AfterTheCauseResolves_TheSuspicionLingersAndFadesInsteadOfClearingAtOnce()
+    public void AfterTheCauseResolves_TheSuspicionLingersForFifteenMinutes_AndNeverBelowTheFloor()
     {
-        // 의심 잔상(2026-10-25): 걸렸던 사람이 전투를 시작해도 바로 풀지 않고 LingerSeconds 동안 짙기만 줄여 남긴다. 그 뒤 풀린다.
+        // 의심 잔상(2026-10-25 승운 "너무 쉽게 해제한다"): 한 번 걸린 사람은 전투를 시작해도 15분 동안 남고, 짙기는 바닥 밑으로 내려가지 않는다. 그 뒤에야 풀린다.
         var t = new AutoSuspicionTracker();
         var lying = P("마법사", false, 8.0);
         var end = Run(t, T0, 60, s => Mostly(s).Append(lying).ToList());
         var before = Of(t, "마법사");
         Assert.NotNull(before);
+        Assert.True(before!.Intensity >= 0.99);                                                      // 확정까지 갔다
 
         t.Observe(end.AddSeconds(1), true, Mostly(61).Append(P("마법사", true, 8.0)).ToList());   // 부활해서 전투를 시작했다
         var lingering = Of(t, "마법사");
-        Assert.NotNull(lingering);                                                                  // 잔상으로 남는다
-        Assert.Equal(before!.Reason, lingering!.Reason);
-        Assert.True(lingering.Intensity <= before.Intensity && lingering.Intensity >= AutoSuspicionTracker.LingerFloor);
+        Assert.NotNull(lingering);
+        Assert.Equal(before.Reason, lingering!.Reason);
 
-        var mid = Run(t, end.AddSeconds(2), 60, s => Mostly(62 + s).Append(P("마법사", true, 8.0)).ToList());   // 한참 전투해도(60초) 아직 남는다
-        Assert.NotNull(Of(t, "마법사"));
-        Assert.True(Of(t, "마법사")!.Intensity < lingering.Intensity);                                    // 서서히 옅어진다
+        var mid = Run(t, end.AddSeconds(2), 600, s => Mostly(62 + s).Append(P("마법사", true, 8.0)).ToList());   // 10분 내내 전투해도
+        var later = Of(t, "마법사");
+        Assert.NotNull(later);                                                                          // 아직 남는다
+        Assert.True(later!.Intensity >= AutoSuspicionTracker.LingerConfirmedFloor);                    // 확정까지 갔던 사람은 "매우 유력" 아래로 내려가지 않는다
 
-        Run(t, mid.AddSeconds(1), 80, s => Mostly(130 + s).Append(P("마법사", true, 8.0)).ToList());       // 잔상 시간(120초)이 지나면 풀린다
+        Run(t, mid.AddSeconds(1), 400, s => Mostly(700 + s).Append(P("마법사", true, 8.0)).ToList());     // 15분이 지나면 풀린다
         Assert.Null(Of(t, "마법사"));
+    }
+
+    [Fact]
+    public void AMildSuspicion_LingersAboveTheLowerFloor()
+    {
+        // 확정까지 가지 않은 의심(한 자리 고정 등)도 쉽게 풀리지 않고 바닥(LingerFloor)까지만 옅어진다
+        var t = new AutoSuspicionTracker();
+        var end = Run(t, T0, 100, s => Fighters(s).Append(P("도적", true, 25 + (s % 2) * 0.5)).ToList());   // 멀리(Far) 90초 이상 → 만점 가까이
+        Assert.NotNull(Of(t, "도적"));
+        var cur = end;
+        cur = Run(t, cur.AddSeconds(1), 400, s => Fighters(101 + s).Append(P("도적", true, 10)).ToList());   // 따라왔다, 400초 전투
+        var s2 = Of(t, "도적");
+        Assert.NotNull(s2);
+        Assert.True(s2!.Intensity >= AutoSuspicionTracker.LingerFloor);
     }
 
     [Fact]
@@ -269,7 +284,7 @@ public class AutoSuspicionTests
     }
 
     [Fact]
-    public void FarFromTheGroup_WhileOthersStayClose_IsSuspected_AndClearsWhenTheyCatchUp()
+    public void FarFromTheGroup_WhileOthersStayClose_IsSuspected_AndStaysEvenAfterTheyCatchUp()
     {
         var t = new AutoSuspicionTracker();
         // 모두 가까이(≤12m)인데 이 사람만 25m 밖. 전투 상태는 같다(전투 중)이라 Far만 걸린다
@@ -278,7 +293,7 @@ public class AutoSuspicionTests
         Assert.Equal(AutoSuspicionReason.Far, s0.Reason);
         Assert.True(s0.Intensity > 0.3);
         t.Observe(end.AddSeconds(1), true, Fighters(91).Append(P("도적", true, 10)).ToList());   // 따라왔다
-        Assert.Null(Of(t, "도적"));
+        Assert.Equal(AutoSuspicionReason.Far, Of(t, "도적")!.Reason);                          // 한 번 걸린 사람은 쉽게 풀어 주지 않는다(2026-10-25 승운)
     }
 
     [Fact]
