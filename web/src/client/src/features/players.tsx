@@ -20,7 +20,7 @@ export function autoStyle(intensity: number): React.CSSProperties {
 
 /** 짙기 단계 이름 (색만으로 알리지 않는다): 의심 → 유력 → 매우 유력 */
 export function autoLevel(intensity: number): { label: string; dots: string } {
-  return intensity >= 0.67 ? { label: '매우 유력', dots: '●●●' } : intensity >= 0.34 ? { label: '유력', dots: '●●○' } : { label: '의심', dots: '●○○' };
+  return intensity >= 0.99 ? { label: '확정', dots: '●●●' } : intensity >= 0.67 ? { label: '매우 유력', dots: '●●●' } : intensity >= 0.34 ? { label: '유력', dots: '●●○' } : { label: '의심', dots: '●○○' };
 }
 
 /** 오토 의심 배지(2026-10-22): 글자와 단계 점으로 알리고, 이유·시간은 설명으로 둔다. 짙을수록 점이 채워진다. */
@@ -44,7 +44,8 @@ export function AutoBadge({ reason, seconds, intensity }: { reason: AutoReason |
   const t = seconds >= 60 ? `${Math.floor(seconds / 60)}분째` : `${seconds}초째`;
   const why = autoWhy(reason, t);
   const lv = autoLevel(intensity);
-  const head = reason === 'deserter' ? '탈주 의심' : '오토 의심';
+  // 혼자 전투 안 함·누워 있음·혼자 연주가 가장 짙은 단계(8초 등)에 닿으면 "확정"으로 보인다(2026-10-25 승운). 나머지는 확정이 아니라 의심이다.
+  const head = reason === 'deserter' ? '탈주 의심' : intensity >= 0.99 && (reason === 'idle' || reason === 'lying' || reason === 'playing') ? '오토 확정' : '오토 의심';
   return <span className="auto-badge" title={`${why} (${lv.label})`} aria-label={`${head} ${lv.label}: ${why}`}>{head} <span className="auto-dots" aria-hidden="true">{lv.dots}</span></span>;
 }
 
