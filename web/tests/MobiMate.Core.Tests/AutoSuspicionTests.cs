@@ -180,11 +180,10 @@ public class AutoSuspicionTests
             t.Observe(T0.AddSeconds(s), true, Mostly(s).Append(lying).ToList());
             seen[s] = Of(t, "마법사");
         }
-        Assert.NotEqual(AutoSuspicionReason.Lying, seen[12]?.Reason);  // 정지 확인(8초) 뒤부터 쌓여 18초 전에는 누워 있음이 아니다(12초는 혼자 전투 안 함 10초 기준으로 켜진다)
+        Assert.NotEqual(AutoSuspicionReason.Lying, seen[9]?.Reason);  // 정지 확인(8초) 전에는 누워 있음이 아니다
         Assert.NotNull(seen[30]);
         Assert.Equal(AutoSuspicionReason.Lying, seen[30]!.Reason);   // 혼자 전투 안 함보다 확실한 "누워 있음"으로 본다
-        Assert.True(seen[30]!.Intensity < seen[100]!.Intensity);      // 점점 짙어진다
-        Assert.True(seen[100]!.Intensity >= 0.99);                   // 정지 확인(8초) 뒤부터 45초 쌓이면 만점
+        Assert.True(seen[100]!.Intensity >= 0.99);                   // 5초 의심·8초 확정(2026-10-25 승운): 정지 확인 뒤 8초면 만점
     }
 
     [Fact]
@@ -290,9 +289,9 @@ public class AutoSuspicionTests
         var end = Run(t, T0, 20, s => Fighters(s).Append(ghost).ToList());                  // 20초 함께 보였다
         var seen = new Dictionary<int, double>();
         for (var s = 1; s <= 200; s++) { t.Observe(end.AddSeconds(s), true, Fighters(20 + s)); seen[s] = Of(t, "도적")?.Intensity ?? 0; }
-        Assert.Equal(0, seen[40]);                                                          // 안 보인 지 얼마 안 됨
-        Assert.True(seen[60] > 0);                                                          // 기준(45초)을 넘으면 켜진다
-        Assert.True(seen[120] > seen[60]);
+        Assert.Equal(0, seen[5]);                                                           // 안 보인 지 얼마 안 됨
+        Assert.True(seen[30] > 0);                                                          // 기준(탈주 10초·안 보임 22초)을 넘으면 켜진다
+        Assert.True(seen[60] >= seen[30]);
         Assert.Equal(1.0, seen[200]);
         Assert.True(Of(t, "도적")!.Reason is AutoSuspicionReason.Missing or AutoSuspicionReason.Deserter);   // 4인 이하 파티가 싸우는 중이면 탈주(2026-10-25), 아니면 안 보임
 
@@ -521,9 +520,9 @@ public class FrozenTests
     }
 
     [Fact]
-    public void AFrozenBody_ThatStillReadsAsFighting_IsFlaggedAfterThirtySeconds()
+    public void AFrozenBody_ThatStillReadsAsFighting_IsFlaggedAfterFifteenSeconds()
     {
-        Assert.DoesNotContain(Run(25).Suspects, x => x.Reason == AutoSuspicionReason.Frozen);                   // 아직 이르다(30초 기준, 2026-10-25 승운 요청으로 45초에서 낮춤)
+        Assert.DoesNotContain(Run(10).Suspects, x => x.Reason == AutoSuspicionReason.Frozen);                   // 아직 이르다(15초 기준, 2026-10-25 승운 요청으로 45초에서 낮춤: 오탐은 감수)
         var s = Run(130).Suspects.FirstOrDefault(x => x.Player.Job == "화염술사");
         Assert.NotNull(s);
         Assert.Equal(AutoSuspicionReason.Frozen, s!.Reason);
@@ -572,11 +571,11 @@ public class RelativeSuspicionTests
     [Fact]
     public void LateJoinerWhoAlsoStaysPut_IsFlaggedAsRelative()
     {
-        // 28초: 한 자리 고정(30초)이 아직 안 켜진 시점에, 늦은 합류 + 한 자리 최장이 합쳐져 상대 의심으로 보인다. 오래 이어지면 더 확실한 한 자리 고정이 앞선다.
+        // 28초: 늦은 합류 + 한 자리 최장이 합쳐진 상대 의심(한 자리 고정 15초 기준이 먼저 켜져도 같은 사람을 가리킨다). 늦은 합류 + 한 자리 최장이 합쳐져 상대 의심으로 보인다. 오래 이어지면 더 확실한 한 자리 고정이 앞선다.
         var t = Run(28, joinDelay: 6, cStill: true);
         var s = t.Suspects.FirstOrDefault(x => x.Player.Job == "C");
         Assert.NotNull(s);
-        Assert.Equal(AutoSuspicionReason.Relative, s!.Reason);
+        Assert.True(s!.Reason is AutoSuspicionReason.Relative or AutoSuspicionReason.Frozen);
         Assert.Null(t.Suspects.FirstOrDefault(x => x.Player.Job == "A"));
         Assert.Equal(AutoSuspicionReason.Frozen, Run(130, joinDelay: 6, cStill: true).Suspects.First(x => x.Player.Job == "C").Reason);
     }
