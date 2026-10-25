@@ -28,6 +28,8 @@ public enum AutoSuspicionReason
     Far,
     /// <summary>함께 보이다가 주변(반경 30m)에서 오래 보이지 않는다(따라오지 않는다).</summary>
     Missing,
+    /// <summary>탈주(2026-10-25 승운): 4인 이하 파티(어비스)에서 싸우는 도중 함께 있던 사람이 완전히 나가 버렸다. 파티 다른 사람이 아직 싸우는 동안 이 사람만 계속 안 보인다. 안 보임(Missing)보다 기준이 짧다.</summary>
+    Deserter,
     /// <summary>한 자리에 오래 고정(2026-10-24 승운: 죽으면 위치가 확실히 고정이다 — 죽어도 "전투 중"으로 읽히는 경우에도 위치로 잡는다). 삼각측량 위치가 3m 안에서 이어진 시간.</summary>
     Frozen,
     /// <summary>상대 의심 점수(시범, 2026-10-24): 파티 안에서 뒤처지는 모습 — 전투가 시작될 때 가장 늦게 합류하는 일이 반복되거나, 한 자리 최장 시간이 파티에서 두드러진다. 확정이 아니라 의심 단계다.</summary>
@@ -70,6 +72,11 @@ public sealed class AutoSuspicionTracker
     public const int OnsetMinPlayers = 3;
     public static readonly (TimeSpan Show, TimeSpan Full) FarScale = (TimeSpan.FromSeconds(45), TimeSpan.FromSeconds(180));
     public static readonly (TimeSpan Show, TimeSpan Full) MissingScale = (TimeSpan.FromSeconds(45), TimeSpan.FromSeconds(180));
+    /// <summary>탈주 기준: 4인 파티(한 번에 보이는 다른 사람이 DeserterMaxOthers명 이하)에서 다른 사람이 FightRecent초 안에 싸운 동안 DeserterMinSeen초 이상 함께 있던 사람이 안 보인 시간.
+    /// 기록(2026-10-25 광기의 동굴): 빙결술사가 중간에 나가 안 보임 147초로 잡혔다. 파티가 싸우는 중에만 센다(판이 끝나 다 같이 나가는 것은 탈주가 아니다).</summary>
+    public static readonly (TimeSpan Show, TimeSpan Full) DeserterScale = (TimeSpan.FromSeconds(25), TimeSpan.FromSeconds(90));
+    public const int DeserterMaxOthers = 3;
+    public const double DeserterMinSeen = 20, FightRecent = 15, PartyWindow = 60;
 
     /// <summary>"누워 있음"으로 보는 정지 시간: 다른 사람의 거리는 변하는데 이 사람의 거리가 이만큼 계속 그대로여야 한다.</summary>
     public static readonly TimeSpan StaticNeeded = TimeSpan.FromSeconds(8);
@@ -131,6 +138,7 @@ public sealed class AutoSuspicionTracker
         public double StaySeconds => StayStart is { } a && StayLast is { } b ? b - a : 0;
         public bool Absent;
         public double AbsentSeconds;          // 안 보이는 카운터
+        public double DeserterSeconds;        // 파티가 싸우는 동안 안 보인 초(탈주)
 
         /// <summary>어느 증상이든 조건이 시작되어 카운터가 도는 중이다.</summary>
         public bool Counting => QuietActive || Lying.Active || Playing.Active || Far.Active || Absent;
@@ -149,6 +157,8 @@ public sealed class AutoSuspicionTracker
     private readonly Dictionary<string, Track> _tracks = new();
     private DateTimeOffset? _lastObserved;
     private int _visible;
+    private readonly List<(DateTimeOffset At, int Count)> _recentCounts = new();   // 최근 PartyWindow초 동안 한 번에 보인 사람 수(4인 파티인지 가린다)
+    private DateTimeOffset? _lastFightAt;                                          // 보이는 사람 중 누가 마지막으로 전투 중이던 때
 
     /// <summary>
     /// 누군가의 증상 조건이 시작되어 카운터가 도는 중이면 true — 그때부터 호출자가 1초 간격으로 관찰해 초 단위로 센다.
@@ -251,6 +261,7 @@ public sealed class AutoSuspicionTracker
         _groupQuiet = 0; _onset = null;
         _lastObserved = null;
         _visible = 0;
+        _recentCounts.Clear(); _lastFightAt = null;
         Suspects = Array.Empty<AutoSuspect>();
     }
 
@@ -269,6 +280,8 @@ public sealed class AutoSuspicionTracker
         var list = players.Where(p => !dup.Contains(p.Key)).ToList();
         foreach (var k in dup) _tracks.Remove(k);
         _visible = list.Count;
+        _recentCounts.Add((now, list.Count)); _recentCounts.RemoveAll(c => (now - c.At).TotalSeconds > PartyWindow);
+        if (list.Any(p => p.InCombat)) _lastFightAt = now;
         Rekey(list);
 
         // 파티가 통째로 바뀌었다(다른 방·다시 들어옴): 어비스 파티는 나 포함 4명이라 한 번에 보이는 사람은 최대 3명이다.
@@ -281,7 +294,7 @@ public sealed class AutoSuspicionTracker
         {
             if (!_tracks.TryGetValue(p.Key, out var t)) _tracks[p.Key] = t = new Track { FirstSeen = now };
             else if (!t.Absent && t.Last != null && p.ToggledSince(t.Last)) toggled.Add(p.Key);
-            if (t.Absent) { t.Absent = false; t.AbsentSeconds = 0; t.FirstSeen = now; t.LastDistance = null; }   // 돌아왔다: 바로 풀린다
+            if (t.Absent) { t.Absent = false; t.AbsentSeconds = 0; t.DeserterSeconds = 0; t.FirstSeen = now; t.LastDistance = null; }   // 돌아왔다: 바로 풀린다
             t.LastDelta = t.LastDistance is { } d0 ? Math.Abs(p.Distance - d0) : 0;
             t.LastDistance = p.Distance;
             t.Last = p;
@@ -373,6 +386,9 @@ public sealed class AutoSuspicionTracker
                 t.AbsentSeconds = 0;
             }
             else if (_visible >= MinOthers) t.AbsentSeconds += dt;   // 다른 사람이 충분히 보이는 동안만 쌓는다
+            // 탈주: 4인 이하 파티에서 다른 사람이 아직 싸우는 동안 오래 함께 있던 사람이 안 보인다(다른 사람이 둘 이상 보일 때만 센다: 안 보임과 같은 조건)
+            if (t.Absent && _visible >= MinOthers && _recentCounts.Max(c => c.Count) <= DeserterMaxOthers && _lastFightAt is { } lf && (now - lf).TotalSeconds <= FightRecent
+                && (t.LastSeen - t.FirstSeen).TotalSeconds >= DeserterMinSeen) t.DeserterSeconds += dt;
             if (t.AbsentSeconds > ForgetAfter.TotalSeconds) _tracks.Remove(key);
         }
 
@@ -388,6 +404,7 @@ public sealed class AutoSuspicionTracker
                 (AutoSuspicionReason.Idle, t.QuietAllSeconds, IdleAllScale),
                 (AutoSuspicionReason.Frozen, t.StaySeconds, FrozenScale),
                 (AutoSuspicionReason.Far, t.Far.Seconds, FarScale),
+                (AutoSuspicionReason.Deserter, t.Absent ? t.DeserterSeconds : 0, DeserterScale),
                 (AutoSuspicionReason.Missing, t.Absent ? t.AbsentSeconds : 0, MissingScale),
             };
             // 표시 기준을 넘은 증상 중 더 확실한 이유를 앞세운다(누워 있음 > 혼자 연주 > 혼자 전투 안 함 > 멀리 > 안 보임). 짙기는 그중 가장 센 값.

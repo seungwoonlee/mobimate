@@ -23,7 +23,7 @@ public class AutoWatchTests
         // 다른 어비스로 옮겼고, 새 방에는 나 말고 한 명만 보인다(전부 새 얼굴이 2명 미만이라 파티 교체 규칙은 아직 작동하지 않는다)
         var solo = new[] { ("마법사", 95000L) };
         for (var s = 41; s <= 200; s++) { w.SetInstance(true, T0.AddSeconds(s), "광기의 동굴"); w.Observe(T0.AddSeconds(s), true, Party(s, solo)); }
-        Assert.DoesNotContain(w.Suspects(), x => x.Reason == AutoSuspicionReason.Missing);
+        Assert.DoesNotContain(w.Suspects(), x => x.Reason is AutoSuspicionReason.Missing or AutoSuspicionReason.Deserter);
     }
 
     [Fact]
@@ -33,7 +33,7 @@ public class AutoWatchTests
         var all = new[] { ("전사", 100000L), ("궁수", 110000L), ("힐러", 90000L) };
         for (var s = 0; s <= 40; s++) { w.SetInstance(true, T0.AddSeconds(s), "허상의 정박지"); w.Observe(T0.AddSeconds(s), true, Party(s, all)); }
         for (var s = 41; s <= 160; s++) { w.SetInstance(true, T0.AddSeconds(s), "허상의 정박지"); w.Observe(T0.AddSeconds(s), true, Party(s, all.Take(2).ToArray())); }
-        Assert.Contains(w.Suspects(), x => x.Reason == AutoSuspicionReason.Missing && x.Player.Job == "힐러");
+        Assert.Contains(w.Suspects(), x => x.Reason is AutoSuspicionReason.Missing or AutoSuspicionReason.Deserter && x.Player.Job == "힐러");
     }
 
     [Fact]
@@ -47,6 +47,6 @@ public class AutoWatchTests
             w.SetInstance(true, T0.AddSeconds(s), s % 5 == 0 ? "" : "허상의 정박지");   // 가끔 로딩으로 이름이 빈다
             w.Observe(T0.AddSeconds(s), true, Party(s, all.Take(2).ToArray()));
         }
-        Assert.Contains(w.Suspects(), x => x.Reason == AutoSuspicionReason.Missing && x.Player.Job == "힐러");   // 초기화되지 않았다
+        Assert.Contains(w.Suspects(), x => x.Reason is AutoSuspicionReason.Missing or AutoSuspicionReason.Deserter && x.Player.Job == "힐러");   // 초기화되지 않았다
     }
 }
