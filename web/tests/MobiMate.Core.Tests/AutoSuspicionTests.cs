@@ -188,17 +188,49 @@ public class AutoSuspicionTests
     }
 
     [Fact]
-    public void ResolvingFactor_ClearsImmediately_AndTheCounterStartsOver()
+    public void AfterTheCauseResolves_TheSuspicionLingersAndFadesInsteadOfClearingAtOnce()
     {
+        // 의심 잔상(2026-10-25): 걸렸던 사람이 전투를 시작해도 바로 풀지 않고 LingerSeconds 동안 짙기만 줄여 남긴다. 그 뒤 풀린다.
+        var t = new AutoSuspicionTracker();
+        var lying = P("마법사", false, 8.0);
+        var end = Run(t, T0, 60, s => Mostly(s).Append(lying).ToList());
+        var before = Of(t, "마법사");
+        Assert.NotNull(before);
+
+        t.Observe(end.AddSeconds(1), true, Mostly(61).Append(P("마법사", true, 8.0)).ToList());   // 부활해서 전투를 시작했다
+        var lingering = Of(t, "마법사");
+        Assert.NotNull(lingering);                                                                  // 잔상으로 남는다
+        Assert.Equal(before!.Reason, lingering!.Reason);
+        Assert.True(lingering.Intensity <= before.Intensity && lingering.Intensity >= AutoSuspicionTracker.LingerFloor);
+
+        var mid = Run(t, end.AddSeconds(2), 60, s => Mostly(62 + s).Append(P("마법사", true, 8.0)).ToList());   // 한참 전투해도(60초) 아직 남는다
+        Assert.NotNull(Of(t, "마법사"));
+        Assert.True(Of(t, "마법사")!.Intensity < lingering.Intensity);                                    // 서서히 옅어진다
+
+        Run(t, mid.AddSeconds(1), 80, s => Mostly(130 + s).Append(P("마법사", true, 8.0)).ToList());       // 잔상 시간(120초)이 지나면 풀린다
+        Assert.Null(Of(t, "마법사"));
+    }
+
+    [Fact]
+    public void AllFightingButOne_ForTenSeconds_ThenHeFights_StaysFlaggedForAWhile()
+    {
+        // 검술사 사례(2026-10-25 레이드): 전원이 싸우는데 혼자 10초 넘게 안 하다가 자동전투가 시작되면 바로 풀리던 것
+        var t = new AutoSuspicionTracker();
+        var end = Run(t, T0, 16, s => Fighters(s).Append(P("검술사", false, 8.0)).ToList());
+        Assert.NotNull(Of(t, "검술사"));
+        t.Observe(end.AddSeconds(1), true, Fighters(17).Append(P("검술사", true, 8.0)).ToList());
+        Assert.NotNull(Of(t, "검술사"));
+    }
+
+    [Fact]
+    public void AScreenToggle_ClearsTheLingeringSuspicion()
+    {
+        // 화면을 직접 만져야 바뀌는 상태(로브·후드·무기 숨김)가 바뀌면 사람이 조작한 것이라 잔상도 지운다
         var t = new AutoSuspicionTracker();
         var lying = P("마법사", false, 8.0);
         var end = Run(t, T0, 60, s => Mostly(s).Append(lying).ToList());
         Assert.NotNull(Of(t, "마법사"));
-
-        t.Observe(end.AddSeconds(1), true, Mostly(61).Append(P("마법사", true, 8.0)).ToList());   // 부활해서 전투를 시작했다
-        Assert.Null(Of(t, "마법사"));                                                                // 바로 풀린다
-
-        Run(t, end.AddSeconds(2), 15, s => Mostly(62 + s).Append(lying).ToList());                 // 다시 누워도 0부터
+        t.Observe(end.AddSeconds(1), true, Mostly(61).Append(lying with { Robe = !lying.Robe }).ToList());   // 로브를 벗었다
         Assert.Null(Of(t, "마법사"));
     }
 

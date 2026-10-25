@@ -76,6 +76,10 @@ public sealed class AutoSuspicionTracker
     /// 기록(2026-10-25 광기의 동굴): 빙결술사가 중간에 나가 안 보임 147초로 잡혔다. 파티가 싸우는 중에만 센다(판이 끝나 다 같이 나가는 것은 탈주가 아니다).</summary>
     public static readonly (TimeSpan Show, TimeSpan Full) DeserterScale = (TimeSpan.FromSeconds(25), TimeSpan.FromSeconds(90));
     public const int DeserterMaxOthers = 3;
+    /// <summary>의심 잔상(2026-10-25 승운: 검술사 오토를 10초 만에 잡았다가 본인이 전투를 시작하자 바로 풀어 버렸다): 혼자 전투 안 함·누워 있음·혼자 연주로 한 번 걸린 사람은
+    /// 조건이 풀려도(전투를 시작해도) LingerSeconds 동안 표시를 남기고 짙기만 서서히 줄인다(절반까지, 바닥 LingerFloor). 오토는 전투를 안 하다가 자동전투가 시작되면 곧잘 풀리기 때문이다.
+    /// 화면을 직접 만져야 바뀌는 상태 변화(로브·후드·무기 숨김·연주·옷)가 보이면 사람이 조작한 것이라 잔상을 지운다. 한 자리 고정·멀리·상대 의심에는 잔상이 없다.</summary>
+    public const double LingerSeconds = 120, LingerFloor = 0.12;
     public const double DeserterMinSeen = 20, FightRecent = 15, PartyWindow = 60;
 
     /// <summary>"누워 있음"으로 보는 정지 시간: 다른 사람의 거리는 변하는데 이 사람의 거리가 이만큼 계속 그대로여야 한다.</summary>
@@ -139,6 +143,7 @@ public sealed class AutoSuspicionTracker
         public bool Absent;
         public double AbsentSeconds;          // 안 보이는 카운터
         public double DeserterSeconds;        // 파티가 싸우는 동안 안 보인 초(탈주)
+        public (AutoSuspicionReason Reason, double Seconds, double Intensity, DateTimeOffset At)? Linger;   // 마지막으로 걸렸던 때의 의심(풀린 뒤에도 잠시 남긴다)
 
         /// <summary>어느 증상이든 조건이 시작되어 카운터가 도는 중이다.</summary>
         public bool Counting => QuietActive || Lying.Active || Playing.Active || Far.Active || Absent;
@@ -309,7 +314,7 @@ public sealed class AutoSuspicionTracker
                 UpdateStay(t, an, ts);
                 t.StayHist.Add((ts, t.StaySeconds)); t.StayHist.RemoveAll(q => ts - q.T > RelStayWindow);
             }
-            if (toggled.Contains(p.Key)) { t.StayAnchor = null; t.StayStart = null; t.StayLast = null; }   // 화면 조작은 사람 행동: 고정 구간을 끊는다   // 화면 조작은 사람 행동: 활동량 후보에서 빼고 처음부터 다시 본다
+            if (toggled.Contains(p.Key)) { t.StayAnchor = null; t.StayStart = null; t.StayLast = null; t.Linger = null; }   // 화면 조작은 사람 행동: 고정 구간을 끊는다   // 화면 조작은 사람 행동: 활동량 후보에서 빼고 처음부터 다시 본다
         }
 
         // 2) 무활동 시계와 증상별 카운터
@@ -424,6 +429,15 @@ public sealed class AutoSuspicionTracker
                 best ??= new AutoSuspect(key, AutoSuspicionReason.Relative, TimeSpan.Zero, t.Last, relI);   // 다른 이유가 없을 때만 이 이유로 보인다
             }
             if (best != null) best = best with { Intensity = maxI };
+            // 의심 잔상: 걸렸던 사람이 조건이 풀렸어도 한동안 표시를 남긴다
+            if (best != null && best.Reason is AutoSuspicionReason.Idle or AutoSuspicionReason.Lying or AutoSuspicionReason.Playing)
+                t.Linger = (best.Reason, best.For.TotalSeconds, best.Intensity, now);
+            else if (best == null && t.Linger is { } lg && !t.Absent && (now - lg.At).TotalSeconds <= LingerSeconds)
+            {
+                var k = (now - lg.At).TotalSeconds / LingerSeconds;
+                best = new AutoSuspect(key, lg.Reason, TimeSpan.FromSeconds(lg.Seconds), t.Last, Math.Max(LingerFloor, lg.Intensity * (1 - 0.5 * k)));
+            }
+            else if (best == null) t.Linger = null;
             if (best != null) suspects.Add(best);
         }
         Suspects = suspects;
