@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    오토 의심 기준 점검 도구(수동 실행, 2026-10-25). 앱이 판 안에서 늘 남기는 관찰 기록(watch-날짜.jsonl)과 사람이 확인한 정답(labels.jsonl)을 모아 두고,
+    지금 코드의 기준(AutoSuspicionTracker)으로 다시 돌려 오토는 몇 명 잡고 정상은 몇 명 오탐하는지 센다.
+    실행: 저장소 루트에서 dotnet run 의 project 옵션에 web/tools/AutoReplay 를 준다(README 참고). 코퍼스 폴더를 인자로 줄 수도 있고 기본은 이 도구 옆의 corpus 폴더다.
+    기준(상수)을 바꾼 뒤 다시 돌리면 같은 데이터로 비교할 수 있다. 솔루션(sln)에는 넣지 않는다.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>MobiMate.AutoReplay</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\MobiMate.Core\MobiMate.Core.csproj" />
+  </ItemGroup>
+
+</Project>
