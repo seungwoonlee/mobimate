@@ -56,11 +56,11 @@ public sealed record AutoSuspect(string Key, AutoSuspicionReason Reason, TimeSpa
 public sealed class AutoSuspicionTracker
 {
     /// <summary>증상별 (표시 기준, 만점 기준). 카운터가 기준을 넘으면 켜지고 만점 기준에서 가장 짙다.</summary>
-    public static readonly (TimeSpan Show, TimeSpan Full) LyingScale = (TimeSpan.FromSeconds(20), TimeSpan.FromSeconds(90));
-    public static readonly (TimeSpan Show, TimeSpan Full) IdleScale = (TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(150));
+    public static readonly (TimeSpan Show, TimeSpan Full) LyingScale = (TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(45));
+    public static readonly (TimeSpan Show, TimeSpan Full) IdleScale = (TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(75));
     /// <summary>다른 사람 <b>전원</b>이 전투 중인데 혼자 안 하는 시간(2026-10-24 승운: 10초만 돼도 사실상 오토). 대부분(75%) 기준보다 훨씬 짧다.</summary>
-    public static readonly (TimeSpan Show, TimeSpan Full) IdleAllScale = (TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(60));
-    public static readonly (TimeSpan Show, TimeSpan Full) PlayingScale = (TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(120));
+    public static readonly (TimeSpan Show, TimeSpan Full) IdleAllScale = (TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(8));
+    public static readonly (TimeSpan Show, TimeSpan Full) PlayingScale = (TimeSpan.FromSeconds(15), TimeSpan.FromSeconds(60));
     /// <summary>한 자리 고정 기준: 추정 위치가 StayRadius(m) 안에서 이어진 시간이 Show를 넘으면 표시, Full에서 가장 짙다. 정보 없는 틈이 StayGap(초)보다 길면 끊는다.
     /// 기록 6판(2026-10-24)의 정상 플레이어 최장은 약 57초(레이드 1번째의 사제·격투가 83~84초는 라벨 없음), 확인된 방치·사망은 75~139초.
     /// 승운 요청(2026-10-24): "확정이 아니라 의심이니 더 강하게" — 70초에서 45초로 내렸다(정상 판에서도 가끔 옅게 켜진다. 의심하고 있다는 것을 알려 주는 용도).</summary>
@@ -74,13 +74,13 @@ public sealed class AutoSuspicionTracker
     public static readonly (TimeSpan Show, TimeSpan Full) MissingScale = (TimeSpan.FromSeconds(45), TimeSpan.FromSeconds(180));
     /// <summary>탈주 기준: 4인 파티(한 번에 보이는 다른 사람이 DeserterMaxOthers명 이하)에서 다른 사람이 FightRecent초 안에 싸운 동안 DeserterMinSeen초 이상 함께 있던 사람이 안 보인 시간.
     /// 기록(2026-10-25 광기의 동굴): 빙결술사가 중간에 나가 안 보임 147초로 잡혔다. 파티가 싸우는 중에만 센다(판이 끝나 다 같이 나가는 것은 탈주가 아니다).</summary>
-    public static readonly (TimeSpan Show, TimeSpan Full) DeserterScale = (TimeSpan.FromSeconds(25), TimeSpan.FromSeconds(90));
+    public static readonly (TimeSpan Show, TimeSpan Full) DeserterScale = (TimeSpan.FromSeconds(12), TimeSpan.FromSeconds(45));
     public const int DeserterMaxOthers = 3;
     /// <summary>의심 잔상(2026-10-25 승운: 검술사 오토를 10초 만에 잡았다가 본인이 전투를 시작하자 바로 풀어 버렸다): 혼자 전투 안 함·누워 있음·혼자 연주로 한 번 걸린 사람은
     /// 조건이 풀려도(전투를 시작해도) LingerSeconds 동안 표시를 남기고 짙기만 서서히 줄인다(절반까지, 바닥 LingerFloor). 오토는 전투를 안 하다가 자동전투가 시작되면 곧잘 풀리기 때문이다.
     /// 화면을 직접 만져야 바뀌는 상태 변화(로브·후드·무기 숨김·연주·옷)가 보이면 사람이 조작한 것이라 잔상을 지운다. 한 자리 고정·멀리·상대 의심에는 잔상이 없다.</summary>
     public const double LingerSeconds = 120, LingerFloor = 0.12;
-    public const double DeserterMinSeen = 20, FightRecent = 15, PartyWindow = 60;
+    public const double DeserterMinSeen = 20, FightRecent = 8, PartyWindow = 60;
 
     /// <summary>"누워 있음"으로 보는 정지 시간: 다른 사람의 거리는 변하는데 이 사람의 거리가 이만큼 계속 그대로여야 한다.</summary>
     public static readonly TimeSpan StaticNeeded = TimeSpan.FromSeconds(8);
