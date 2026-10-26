@@ -40,6 +40,9 @@ public static class CharacterIdentity
     public static bool IsVariantOf(string key, string baseKey) => key == baseKey || key.StartsWith(baseKey + "#", StringComparison.Ordinal);
 
     /// <summary>비어 있는 다음 이름: 기본 이름이 비었으면 기본 이름, 아니면 #2, #3 …</summary>
+    /// <summary>"서버_직업" = 1, "서버_직업#3" = 3 (같은 서버·직업 안에서 몇 번째로 만들어진 기록인가)</summary>
+    public static int VariantOf(string key) => key.LastIndexOf('#') is var i && i >= 0 && int.TryParse(key[(i + 1)..], out var n) ? n : 1;
+
     public static string NextKey(string baseKey, IEnumerable<string> existing)
     {
         var set = new HashSet<string>(existing, StringComparer.Ordinal);
@@ -75,6 +78,7 @@ public static class CharacterIdentity
             .OrderByDescending(s => s.SamePair)
             .ThenBy(s => r.Level - s.C.Level)
             .ThenBy(s => Math.Abs(r.Combat - s.C.Combat))
+            .ThenBy(s => VariantOf(s.C.Key))                                  // 똑같이 가깝다면 먼저 만들어진 기록(기본·#2…)을 따른다: 갈라져 새로 생긴 쪽이 더 최근이라고 이기면 안 된다
             .ThenByDescending(s => s.C.LastSeen)
             .First().C.Key;
     }
