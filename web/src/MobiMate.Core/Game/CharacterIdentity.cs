@@ -19,12 +19,17 @@ public sealed record Wallet(long Deca, long MCash, long Gold);
 ///    생활력이 기록보다 크게(<see cref="LivingDropMaxRatio"/> 초과) 줄었을 때만 그 기록의 캐릭터가 아니라고 본다. 매력은 판정에 쓰지 않는다.
 /// 2. 데카·M캐시가 기록과 다르면 다른 계정(= 다른 캐릭터)으로 먼저 본다. 단, 같은 캐릭터가 데카를 썼을 수도 있으므로
 ///    레벨이 거의 그대로(+2 이내)이고 전투력도 비슷하면(85~120%) 같은 캐릭터로 본다.
+///    레벨이 오른 캐릭터(2026-10-26 울랄라힐러 85→91): 한동안 접속하지 않은 사이 레벨이 올라 데카·M캐시도 달라졌어도 같은 캐릭터일 수 있다.
+///    레벨이 올라간 만큼(레벨당 3%) 전투력 상한을 넓혀(+10레벨까지) 같은 캐릭터로 본다.
 /// 3. 남은 후보 중 데카·M캐시가 같은 것 → 레벨이 가까운 것 → 전투력이 가까운 것 → 최근에 본 것 순으로 고른다.
 /// 4. 후보가 없으면 "서버_직업#2"처럼 새 캐릭터로 만든다. 잘못 합쳐지거나 나뉜 것은 카드에서 직접 분리·삭제한다.
 /// </summary>
 public static class CharacterIdentity
 {
     public const int SpendDriftLevels = 2;
+    /// <summary>레벨이 오른 같은 캐릭터로 보는 최대 레벨 증가와, 레벨당 전투력 상한 증가율(기본 120%에 더한다).</summary>
+    public const int LevelUpDriftMaxLevels = 10;
+    public const double LevelUpCombatPerLevel = 0.03;
     /// <summary>생활력이 기록보다 이 비율을 넘어 줄면(10% 초과) 다른 캐릭터로 본다. 그 안쪽의 하락은 같은 캐릭터의 변동이다.</summary>
     public const double LivingDropMaxRatio = 0.10;
     public const double SpendDriftMinRatio = 0.85, SpendDriftMaxRatio = 1.20;
@@ -57,8 +62,10 @@ public static class CharacterIdentity
             var same = readingPair && candPair && r.Deca == c.Deca && r.MCash == c.MCash;
             if (readingPair && candPair && !same)                            // 데카·M캐시가 다르면 다른 계정으로 먼저 본다
             {
-                var drift = r.Level - c.Level <= SpendDriftLevels && c.Combat > 0
-                    && r.Combat >= c.Combat * SpendDriftMinRatio && r.Combat <= c.Combat * SpendDriftMaxRatio;
+                var gained = r.Level - c.Level;
+                var drift = gained <= LevelUpDriftMaxLevels && c.Combat > 0
+                    && r.Combat >= c.Combat * SpendDriftMinRatio
+                    && r.Combat <= c.Combat * (SpendDriftMaxRatio + Math.Max(0, gained - SpendDriftLevels) * LevelUpCombatPerLevel);
                 if (!drift) continue;                                         // 데카를 쓴 같은 캐릭터가 아니라면 다른 캐릭터
             }
             scored.Add((c, same));
