@@ -313,6 +313,7 @@ function AssignDialog({ data, onClose }: { data: AccountGroup[]; onClose: () => 
   const [busy, setBusy] = useState(false);
   const [splitAsk, setSplitAsk] = useState(false);
   const [delAsk, setDelAsk] = useState<string | null>(null);
+  const [mergeFor, setMergeFor] = useState<{ from: string; into: string } | null>(null);   // 같은 캐릭터가 둘로 갈라졌을 때 합치기
   const chars = data.flatMap(a => a.members.map(m => ({ ...m, account: a.id })));
   const options = data.map(a => ({ id: a.id, label: a.solo ? `${a.name} (혼자)` : `${a.name} 계정` }));
 
@@ -323,6 +324,19 @@ function AssignDialog({ data, onClose }: { data: AccountGroup[]; onClose: () => 
       await queryClient.invalidateQueries({ queryKey: keys.characters });
     } catch (e) {
       toast(e instanceof ApiError ? e.message : '계정을 바꾸지 못했습니다', 'warn');
+    } finally { setBusy(false); }
+  };
+
+  // 같은 캐릭터가 둘로 갈라졌을 때(레벨이 오르고 데카·M캐시가 달라져 새 캐릭터로 기록된 경우): from의 기록·숙제를 into로 옮기고 from은 없앤다
+  const merge = async (from: string, into: string) => {
+    setBusy(true);
+    try {
+      await api.post('/api/characters/merge', { from, into });
+      setMergeFor(null);
+      toast('두 기록을 합쳤습니다', 'ok');
+      await queryClient.invalidateQueries({ queryKey: keys.characters });
+    } catch (e) {
+      toast(e instanceof ApiError ? e.message : '합치지 못했습니다', 'warn');
     } finally { setBusy(false); }
   };
 
@@ -368,6 +382,24 @@ function AssignDialog({ data, onClose }: { data: AccountGroup[]; onClose: () => 
             {c.isCurrent && (splitAsk
               ? <span className="del-confirm"><button type="button" className="btn" disabled={busy} onClick={() => setSplitAsk(false)}>아니오</button><button type="button" className="btn danger" disabled={busy} onClick={() => void split(c.key)}>예, 나눕니다</button></span>
               : <button type="button" className="btn" disabled={busy} title="다른 계정의 같은 서버·직업 캐릭터가 이 카드에 합쳐져 있을 때" onClick={() => setSplitAsk(true)}>다른 캐릭터로 나누기</button>)}
+          {(() => {
+            const same = chars.filter(o => o.key !== c.key && o.realm === c.realm && o.job === c.job);   // 서버·직업이 같은 기록끼리만 합칠 수 있다
+            if (same.length === 0) return null;
+            if (mergeFor?.from !== c.key) {
+              return <button type="button" className="btn" disabled={busy} title="같은 캐릭터가 둘로 갈라져 기록됐을 때(레벨이 오른 뒤 새 캐릭터로 잡힌 경우)" onClick={() => setMergeFor({ from: c.key, into: same[0].key })}>같은 캐릭터면 합치기</button>;
+            }
+            return (
+              <span className="del-confirm">
+                <span className="small">이 기록을</span>
+                <select value={mergeFor.into} disabled={busy} aria-label="합칠 대상" onChange={e => setMergeFor({ from: c.key, into: e.target.value })}>
+                  {same.map(o => <option key={o.key} value={o.key}>{o.nickname ?? `${o.realm}${o.variant > 1 ? ` #${o.variant}` : ''}`} · {o.job} Lv.{o.level} ({fmt(o.combat)})</option>)}
+                </select>
+                <span className="small">에 합칩니다(이 기록은 없어집니다)</span>
+                <button type="button" className="btn" disabled={busy} onClick={() => setMergeFor(null)}>아니오</button>
+                <button type="button" className="btn danger" disabled={busy} onClick={() => void merge(c.key, mergeFor.into)}>예, 합칩니다</button>
+              </span>
+            );
+          })()}
           {!c.isCurrent && (delAsk === c.key
               ? <span className="del-confirm"><span className="small">지울까요?</span><button type="button" className="btn" disabled={busy} onClick={() => setDelAsk(null)}>아니오</button><button type="button" className="btn danger" disabled={busy} onClick={() => void remove(c.key)}>예, 삭제</button></span>
               : <button type="button" className="btn danger-text" disabled={busy} aria-label={`${c.nickname ?? c.realm}${c.variant > 1 ? ` #${c.variant}` : ''} 삭제`} title="잘못 기록된 캐릭터를 목록에서 지웁니다" onClick={() => setDelAsk(c.key)}>삭제</button>)}

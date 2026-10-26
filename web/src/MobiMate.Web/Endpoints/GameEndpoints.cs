@@ -11,6 +11,7 @@ public sealed record CollectRequest(string? DisplayName);
 public sealed record HomeworkSetRequest(bool? Completed, int? Count, string? CharacterKey = null);
 public sealed record HomeworkResetRequest(string? Scope);
 public sealed record NicknameRequest(string? Nickname);
+public sealed record MergeCharactersRequest(string? From, string? Into);
 public sealed record FavoriteRequest(string? Name, bool? Favorite);
 public sealed record MembershipRequest(string? Character, int? Days);
 public sealed record AssignRequest(string? Character, string? Account);
@@ -20,6 +21,9 @@ public sealed record SplitRequest(string? Key);
 /// <summary>게임 조회·조작·숙제 API (요구사양서 §7).</summary>
 public static class GameEndpoints
 {
+    /// <summary>"서버_직업#2" → "서버_직업" (같은 서버·직업인지 가린다)</summary>
+    private static string BaseOf(string key) { var i = key.IndexOf('#'); return i < 0 ? key : key[..i]; }
+
     public static void Map(WebApplication app)
     {
         var api = app.MapGroup("/api");
@@ -95,6 +99,24 @@ public static class GameEndpoints
             state.SetCurrentKey(created);
             hub.Broadcast("state.changed", new { keys = new[] { "accounts", "header" } });
             return ApiResults.Ok(new { key = created });
+        });
+        // 같은 캐릭터가 둘로 갈라진 기록(예: 레벨이 올라 "아이라_힐러#3"이 새로 생긴 것)을 하나로 합친다. from의 기록·숙제·계정 배정이 into로 옮겨지고 from은 없어진다.
+        // 서버·직업이 같은 기록끼리만 합칠 수 있다. 접속 중인 캐릭터가 from이면 합친 뒤 into로 이어 간다.
+        api.MapPost("/characters/merge", (MergeCharactersRequest req, GameViews v, GameStateCache state, CharacterMerger merger, HomeworkWatcher hw, SnapshotManager snapshots, AccountStore accounts, SseHub hub) =>
+        {
+            if (string.IsNullOrWhiteSpace(req.From) || string.IsNullOrWhiteSpace(req.Into)) return ApiResults.Error(400, "VALIDATION", "합칠 캐릭터와 대상이 필요합니다.");
+            if (req.From == req.Into) return ApiResults.Error(400, "VALIDATION", "같은 캐릭터끼리는 합칠 수 없습니다.");
+            if (!v.IsKnownCharacter(req.From) || !v.IsKnownCharacter(req.Into)) return ApiResults.Error(404, "NOT_FOUND", "기록에 없는 캐릭터입니다.");
+            if (BaseOf(req.From) != BaseOf(req.Into)) return ApiResults.Error(409, "CONFLICT", "서버와 직업이 같은 기록끼리만 합칠 수 있습니다.");
+            var wasCurrent = v.IsCurrentCharacter(req.From);
+            var r = merger.Merge(req.From, req.Into);
+            if (!r.Ok) return ApiResults.Error(409, "CONFLICT", r.Message);
+            // 파일이 바뀌었으니 각 저장소가 다시 읽는다(10초 폴링을 기다리지 않는다)
+            hw.Service.RefreshExternal(); snapshots.RefreshExternal(); accounts.RefreshExternal();
+            if (wasCurrent) state.SetCurrentKey(req.Into);
+            hub.Broadcast("state.changed", new { keys = new[] { "accounts", "header", "profile" } });
+            hub.Broadcast("homework.changed", new { characterKey = req.Into, ids = Array.Empty<string>(), reason = "merge" });
+            return ApiResults.Ok(new { from = req.From, into = req.Into, r.Message, r.HistoryRecords, r.HomeworkItems });
         });
         // 필요 없는 캐릭터 기록 삭제. 접속 중인 캐릭터는 곧바로 다시 기록되므로 지울 수 없다.
         api.MapDelete("/characters", (string? key, GameViews v, SseHub hub) =>

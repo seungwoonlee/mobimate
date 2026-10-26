@@ -36,6 +36,22 @@ public class CharacterIdentityTests
     public void SpendingDeca_OnTheSameCharacter_IsNotASplit() =>
         Assert.Equal(Base, CharacterIdentity.Resolve(Base, new[] { Cand(Base, 100, 5000, 90000, 10285, 5619) }, Read(100, 5000, 91000, 8000, 5619)));   // 데카를 썼다: 레벨·전투력은 그대로
 
+    // 2026-10-26 실제 사례: 울랄라힐러(아이라 서버 힐러). 한동안 접속하지 않은 사이 레벨이 85→91로 오르고 데카·M캐시도 달라졌는데
+    // 레벨이 +2를 넘어 새 캐릭터("아이라_힐러#3")로 갈라졌다. 전투력 38,209→41,926(+9.7%)이라 같은 캐릭터다.
+    private const string Healer = "아이라_힐러";
+
+    [Fact]
+    public void LevelUpWithChangedDeca_OnTheSameCharacter_IsNotASplit() =>
+        Assert.Equal(Healer, CharacterIdentity.Resolve(Healer, new[] { Cand(Healer, 85, 1200, 38209, 5000, 3000), Cand(Healer + "#2", 100, 9000, 115297, 90000, 12000) }, Read(91, 1210, 41926, 5200, 3100)));
+
+    [Fact]
+    public void LevelUp_WithAHugeCombatJump_IsStillAnotherCharacter() =>
+        Assert.Equal(Healer + "#2", CharacterIdentity.Resolve(Healer, new[] { Cand(Healer, 85, 1200, 38209, 5000, 3000) }, Read(91, 1210, 120000, 5200, 3100)));   // 전투력이 3배면 다른 캐릭터
+
+    [Fact]
+    public void TooManyLevelsApart_IsAnotherCharacter() =>
+        Assert.Equal(Healer + "#2", CharacterIdentity.Resolve(Healer, new[] { Cand(Healer, 80, 1200, 38209, 5000, 3000) }, Read(95, 1210, 52000, 5200, 3100)));   // 15레벨 차이는 넘는다
+
     // 2026-10-12 실제 사례: 아이라 서버 전사. 생활력이 1.1% 줄고 데카가 달라졌지만 같은 캐릭터였다
     private const string Warrior = "아이라_전사";
 
