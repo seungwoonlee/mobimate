@@ -45,6 +45,22 @@ public class CharacterIdentityTests
         Assert.Equal(Healer, CharacterIdentity.Resolve(Healer, new[] { Cand(Healer, 85, 1200, 38209, 5000, 3000), Cand(Healer + "#2", 100, 9000, 115297, 90000, 12000) }, Read(91, 1210, 41926, 5200, 3100)));
 
     [Fact]
+    public void TwoEquallyCloseRecords_PreferTheOlderOne_NotTheMostRecentlySeen()
+    {
+        // 갈라진 기록(#3)이 방금 만들어져 LastSeen이 더 최근이어도, 똑같이 가까우면 원래 기록(기본)을 따른다 (합친 뒤 #3이 되살아나지 않게)
+        var older = new IdentityCandidate(Healer, 91, 1449, 41926, 4193, 0, T.AddHours(-2));
+        var split = new IdentityCandidate(Healer + "#3", 91, 1449, 41926, 4193, 0, T.AddMinutes(-1));
+        Assert.Equal(Healer, CharacterIdentity.Resolve(Healer, new[] { older, split }, Read(91, 1449, 41926, 4193, 0)));
+    }
+
+    [Fact]
+    public void VariantNumber_IsParsedFromTheKey()
+    {
+        Assert.Equal(1, CharacterIdentity.VariantOf("아이라_힐러"));
+        Assert.Equal(3, CharacterIdentity.VariantOf("아이라_힐러#3"));
+    }
+
+    [Fact]
     public void LevelUp_WithAHugeCombatJump_IsStillAnotherCharacter() =>
         Assert.Equal(Healer + "#2", CharacterIdentity.Resolve(Healer, new[] { Cand(Healer, 85, 1200, 38209, 5000, 3000) }, Read(91, 1210, 120000, 5200, 3100)));   // 전투력이 3배면 다른 캐릭터
 
