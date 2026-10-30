@@ -18,10 +18,10 @@ public sealed record GatherJob(string JobId, string Item, int? Count, string Dev
     public int Target => Count ?? GameActions.BatchSize;
     public int Batches => (Target + GameActions.BatchSize - 1) / GameActions.BatchSize;
 
-    /// <summary>이 작업 뒤에 이어서 채집할 항목 이름(순서대로). 큐가 아닌 단일 채집이면 비어 있다.</summary>
-    public string[] Queued { get; set; } = [];
+    /// <summary>이 작업 뒤에 이어서 채집할 항목(순서대로, 항목마다 목표 개수). 큐가 아닌 단일 채집이면 비어 있다.</summary>
+    public (string Item, int Count)[] Queued { get; set; } = [];
 
-    public object Snapshot() => new { jobId = JobId, state = State, item = Item, gained = Gained, target = Target, batch = Batch, batches = Batches, message = Message, queued = Queued };
+    public object Snapshot() => new { jobId = JobId, state = State, item = Item, gained = Gained, target = Target, batch = Batch, batches = Batches, message = Message, queued = Queued.Select(x => new { item = x.Item, count = x.Count }).ToArray() };
 }
 
 public enum StartGatherResult { Started, Conflict, UnknownItem, CliMissing }
@@ -80,7 +80,7 @@ public sealed class GameActions(GameQueries q, SseHub hub, HomeworkWatcher homew
     }
 
     private GatherJob NewJob(string item, int count, string deviceId) =>
-        new(Guid.NewGuid().ToString("N")[..10], item, count > 0 ? count : null, deviceId, DateTimeOffset.UtcNow) { Queued = _pending.Select(x => x.Item).ToArray() };
+        new(Guid.NewGuid().ToString("N")[..10], item, count > 0 ? count : null, deviceId, DateTimeOffset.UtcNow) { Queued = _pending.ToArray() };
 
     private async Task RunQueueAsync(GatherJob job)
     {

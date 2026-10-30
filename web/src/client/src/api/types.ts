@@ -64,7 +64,7 @@ export interface GatherJob {
   jobId: string; item: string;
   state: 'running' | 'completed' | 'stopped' | 'failed' | 'started';
   gained: number; target: number; batch: number; batches: number; message: string | null;
-  /** 이 작업 뒤에 이어서 채집할 재료 이름(순서대로) */ queued?: string[];
+  /** 이 작업 뒤에 이어서 채집할 재료와 목표 개수(순서대로) */ queued?: { item: string; count: number }[];
 }
 export interface Life { works: Work[] | null; gatherables: Gatherable[] | null }
 
