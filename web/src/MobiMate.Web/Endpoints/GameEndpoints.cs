@@ -265,7 +265,7 @@ public static class GameEndpoints
             var (result, job) = await a.StartQueueAsync(items.Select(i => (i.DisplayName!.Trim(), i.Count!.Value)).ToList(), ClientId.Of(ctx), ct);
             return result switch
             {
-                StartGatherResult.Started => ApiResults.Accepted(new { jobId = job!.JobId, item = job.Item, count = job.Count, target = job.Target, batches = job.Batches, queued = job.Queued }),
+                StartGatherResult.Started => ApiResults.Accepted(new { jobId = job!.JobId, item = job.Item, count = job.Count, target = job.Target, batches = job.Batches, queued = job.Queued.Select(x => new { item = x.Item, count = x.Count }) }),
                 StartGatherResult.Conflict => ApiResults.Error(409, "CONFLICT", $"이미 '{job!.Item}' 채집이 진행 중입니다."),
                 StartGatherResult.CliMissing => ApiResults.Error(503, "CLI_MISSING", "게임 CLI를 찾을 수 없습니다."),
                 _ => ApiResults.Error(400, "VALIDATION", "채집할 수 없는 아이템이 있습니다."),

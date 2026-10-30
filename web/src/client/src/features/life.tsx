@@ -1,9 +1,9 @@
 import { useDeferredValue, useEffect, useState } from 'react';
 import { useLife } from '../api/queries';
-import type { Gatherable, Work } from '../api/types';
+import type { Gatherable, GatherJob, Work } from '../api/types';
 import { CardHead, Dialog, ErrorCard, Fresh, Icon, Pill, Skeleton } from '../components/ui';
 import { useNow } from '../hooks/layout';
-import { collect, collectAll, setFavorite, startGatherQueue } from '../lib/actions';
+import { collect, collectAll, setFavorite, startGatherQueue, stopAction } from '../lib/actions';
 import { useBusy } from '../lib/busy';
 import { finishClock, fmt, plain, remaining } from '../lib/format';
 export { finishClock };
@@ -149,6 +149,8 @@ function GatherHelper({ items }: { items: Gatherable[] }) {
   const busy = useBusy('gather');   // 훅은 항상 같은 순서로 호출해야 하므로 ||로 잇지 않는다
   const jobRunning = useUi(s => s.gatherJob?.state === 'running');
   const gathering = busy || jobRunning;
+  const job = useUi(s => s.gatherJob);
+  const setJob = useUi(s => s.setGatherJob);
   const [cat, setCat] = useState<(typeof CATS)[number]>('전체');
   const [text, setText] = useState('');
   const search = useDeferredValue(text.trim());
@@ -206,6 +208,8 @@ function GatherHelper({ items }: { items: Gatherable[] }) {
           채집 시작{todo.length > 0 ? ` (${todo.length})` : ''}
         </button>
       </div>
+      {/* 채집 현황: 지금 캐는 재료와 진행, 이어서 채집할 순서. 카드를 고르느라 화면을 내려도 여기서 바로 보인다. */}
+      {job && <GatherStatus job={job} onClose={() => setJob(null)} />}
       {/* 검색창을 분류 칩 줄 맨 앞에 둔다 (v1.1.0, FR-DT-05) */}
       <div className="toolbar gx-bar">
         <label className="search grow-0">
@@ -220,14 +224,18 @@ function GatherHelper({ items }: { items: Gatherable[] }) {
         <div className="gx-list">
           {rows.map(g => {
             const order = picked.indexOf(g.name);
+            const live = job?.state === 'running' && job.item === g.name;
+            const waiting = job?.state === 'running' && job.queued?.some(x => x.item === g.name);
             return (
-              <div className={`gx-card ${g.favorite ? 'fav' : ''} ${order >= 0 ? 'sel' : ''} ${g.toolOk ? '' : 'no-tool'}`} key={g.name}>
+              <div className={`gx-card ${g.favorite ? 'fav' : ''} ${order >= 0 ? 'sel' : ''} ${live ? 'live' : ''} ${g.toolOk ? '' : 'no-tool'}`} key={g.name}>
                 <button type="button" className="star" aria-pressed={g.favorite} aria-label={`${plain(g.name)} 즐겨찾기`} title={g.favorite ? '즐겨찾기 해제' : '즐겨찾기'}
                   onClick={() => void setFavorite('gather', g.name, !g.favorite)}>{g.favorite ? '★' : '☆'}</button>
                 <button type="button" className="pick" aria-pressed={order >= 0} disabled={!g.toolOk} title={g.toolOk ? undefined : '도구 없음'} onClick={() => toggle(g.name)}>
                   <span className="n">{plain(g.name)}</span>
                   <b className="num have" aria-label={`보유 ${fmt(g.inBag)}`}>{fmt(g.inBag)}</b>
                   {order >= 0 && <i className="ord num" aria-hidden="true">{order + 1}</i>}
+                  {live && <Pill tone="ok">채집 중</Pill>}
+                  {waiting && <Pill>대기</Pill>}
                 </button>
               </div>
             );
@@ -255,6 +263,36 @@ function GatherHelper({ items }: { items: Gatherable[] }) {
           </p>
         </Dialog>
       )}
+    </div>
+  );
+}
+
+/** 채집 현황 줄: 진행 중이면 재료·진행 바·정지, 끝나면 결과와 닫기. 뒤에 이어질 재료는 순서대로 칩으로 보인다. */
+function GatherStatus({ job, onClose }: { job: GatherJob; onClose: () => void }) {
+  const running = job.state === 'running';
+  const pct = job.target > 0 ? Math.min(100, Math.round((job.gained / job.target) * 100)) : 0;
+  const label = running ? '채집 중' : job.state === 'completed' ? '채집 완료' : job.state === 'started' ? '자동 채집 시작' : job.state === 'stopped' ? '채집 멈춤' : '채집 실패';
+  const queued = job.queued ?? [];
+  return (
+    <div className={`gx-status ${job.state}`} role="status" aria-live="polite">
+      <div className="gx-now">
+        <span className="gx-tag">{label}</span>
+        <b className="n">{plain(job.item)}</b>
+        {job.state !== 'started' && <span className="num">{fmt(job.gained)} / {fmt(job.target)}개{job.batches > 1 && ` · ${Math.max(job.batch, 1)}/${job.batches}회`}</span>}
+        {running
+          ? <button type="button" className="btn danger" onClick={stopAction}>정지</button>
+          : <button type="button" className="btn" onClick={onClose}>닫기</button>}
+      </div>
+      {job.state !== 'started' && <div className="gb-bar" role="progressbar" aria-label="채집 진행률" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct}><i style={{ width: `${pct}%` }} /></div>}
+      {queued.length > 0 && (
+        <div className="gx-next">
+          <span className="muted small">이어서</span>
+          {queued.map((x, i) => (
+            <span className="gx-chip" key={x.item}><b className="o num">{i + 1}</b><span className="n">{plain(x.item)}</span><span className="num">{fmt(x.count)}개</span></span>
+          ))}
+        </div>
+      )}
+      {!running && job.message && <p className="gb-msg">{job.message}</p>}
     </div>
   );
 }

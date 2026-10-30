@@ -908,3 +908,17 @@ button.hw-cell:focus-visible { outline: 2px solid var(--accent); outline-offset:
 .cc-main .v.cs-t-purple{color:var(--tier-purple)}
 .cc-rk.rk-n{margin-left:6px;vertical-align:baseline;white-space:nowrap}
 .cc-rk.rk-n,.cc-rk.rk-n.t-gold,.cc-rk.rk-n.t-orange,.cc-rk.rk-n.t-pink,.cc-rk.rk-n.t-purple{font-size:11px}
+.gx-status { margin: 0 0 8px; padding: 8px 10px; border: 1px solid var(--accent); border-radius: 10px; background: var(--bg-inset); }
+.gx-status.completed { border-color: var(--ok); }
+.gx-status.failed { border-color: var(--danger); }
+.gx-status.stopped { border-color: var(--warn); }
+.gx-now { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.gx-now .btn { margin-left: auto; min-height: 32px; padding: 2px 14px; }
+.app[data-touch="true"] .gx-now .btn { min-height: 44px; }
+.gx-tag { padding: 1px 8px; border-radius: 999px; background: var(--accent); color: var(--on-accent); font-size: 12px; font-weight: 600; }
+.gx-status .gb-bar { height: 6px; margin-top: 6px; border-radius: 3px; background: rgba(127,127,127,.25); overflow: hidden; }
+.gx-status .gb-bar > i { display: block; height: 100%; background: var(--accent); transition: width .4s ease; }
+.gx-next { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 8px; }
+.gx-status .gb-msg { margin: 6px 0 0; font-size: .875rem; opacity: .85; }
+.gx-card.live { border-color: var(--ok); box-shadow: inset 0 0 0 1px var(--ok); }
+.gx-card .pill { flex: none; font-size: 10.5px; padding: 0 6px; }

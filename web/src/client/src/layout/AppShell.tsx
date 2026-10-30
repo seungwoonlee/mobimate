@@ -153,7 +153,7 @@ export function GatherBanner() {
           : <button type="button" className="btn" onClick={() => set(null)}>닫기</button>}
       </div>
       {job.state !== 'started' && <div className="gb-bar" role="progressbar" aria-label="채집 진행률" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct}><i style={{ width: `${pct}%` }} /></div>}
-      {running && job.queued && job.queued.length > 0 && <p className="gb-msg">다음: {job.queued.join(' → ')}</p>}
+      {running && job.queued && job.queued.length > 0 && <p className="gb-msg">다음: {job.queued.map(x => x.item).join(' → ')}</p>}
       {!running && job.message && <p className="gb-msg">{job.message}</p>}
     </div>
   );

@@ -285,6 +285,8 @@ test('생활: 카드를 고르면 채집 순서에 쌓이고, 채집 시작은 �
   await expect(dlg).toContainText('정령의 날개');
   await dlg.getByRole('button', { name: '채집 시작' }).click();
   await expect(toast(page, /순서대로/)).toBeVisible();
+  await expect(page.locator('.gx-status')).toBeVisible();   // 채집 현황이 도우미 안에 바로 보인다
+  await expect(page.locator('.gx-status')).toContainText(/채집/);
 });
 
 test('직업별 아이콘이 레이더 줄에 붙는다', async ({ page }) => {
