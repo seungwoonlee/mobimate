@@ -3,7 +3,7 @@ import { useLife } from '../api/queries';
 import type { Gatherable, Work } from '../api/types';
 import { CardHead, Dialog, ErrorCard, Fresh, Icon, Pill, Skeleton } from '../components/ui';
 import { useNow } from '../hooks/layout';
-import { collect, collectAll, setFavorite, startGather } from '../lib/actions';
+import { collect, collectAll, setFavorite, startGatherQueue } from '../lib/actions';
 import { useBusy } from '../lib/busy';
 import { finishClock, fmt, plain, remaining } from '../lib/format';
 export { finishClock };
@@ -141,7 +141,10 @@ function Works({ works, at }: { works: Work[]; at: number }) {
   );
 }
 
-/** 채집 도우미: 즐겨찾기가 맨 위, 줄마다 보유량을 먼저 보여 준다. 목표 수량 기본값은 100개 (FR-DT-21·22). */
+/**
+ * 채집 도우미: 카드에서 재료를 고르면 맨 윗줄 "채집 순서"에 쌓이고, [채집 시작]을 누르면 서버가 순서대로 목표 수량(기본 100개)까지
+ * 부족한 만큼 채운다(자리를 비워도 이어서 진행). 카드는 한 줄(★ 이름 보유량)이고 즐겨찾기가 먼저, 그다음 보유량 순이다 (FR-DT-21·22).
+ */
 function GatherHelper({ items }: { items: Gatherable[] }) {
   const busy = useBusy('gather');   // 훅은 항상 같은 순서로 호출해야 하므로 ||로 잇지 않는다
   const jobRunning = useUi(s => s.gatherJob?.state === 'running');
@@ -150,17 +153,27 @@ function GatherHelper({ items }: { items: Gatherable[] }) {
   const [text, setText] = useState('');
   const search = useDeferredValue(text.trim());
   const [target, setTarget] = useState(DEFAULT_GATHER_TARGET);
-  const [confirm, setConfirm] = useState<{ name: string; need: number } | null>(null);
+  const [picked, setPicked] = useState<string[]>([]);   // 고른 순서 = 채집 순서
+  const [confirm, setConfirm] = useState(false);
   const wanted = useRouter(s => s.loc.params.get('gather'));
   const setParam = useRouter(s => s.setParam);
 
-  // 빠른 실행(Ctrl+K)에서 채집 재료를 고르면 이 화면으로 와서 바로 확인 창을 연다 (FR-AC-04)
+  // 빠른 실행(Ctrl+K)에서 채집 재료를 고르면 이 화면으로 와서 그 재료 하나로 바로 확인 창을 연다 (FR-AC-04)
   useEffect(() => {
     if (!wanted) return;
     const g = items.find(x => x.name === wanted);
-    if (g && g.toolOk) setConfirm({ name: g.name, need: Math.max(1, target - g.inBag) });
+    if (g && g.toolOk) { setPicked([g.name]); setConfirm(true); }
     setParam('gather', null);
   }, [wanted]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const byName = new Map(items.map(g => [g.name, g]));
+  const queue = picked.flatMap(name => {
+    const g = byName.get(name);
+    return g ? [{ name, need: Math.max(0, target - g.inBag) }] : [];
+  });
+  const todo = queue.filter(x => x.need > 0);
+  const wings = todo.reduce((n, x) => n + gatherBatches(x.need) * WINGS_PER_BATCH, 0);
+  const toggle = (name: string) => setPicked(p => (p.includes(name) ? p.filter(x => x !== name) : [...p, name]));
 
   const rows = items
     .filter(g => cat === '전체' || gatherCategory(g.name) === cat)
@@ -170,6 +183,29 @@ function GatherHelper({ items }: { items: Gatherable[] }) {
   return (
     <div className="card">
       <CardHead icon="leaf" title="스마트 채집 도우미" right={<span className="faint small">100개마다 정령의 날개 5개</span>} />
+      {/* 맨 윗줄: 고른 재료(채집 순서)와 부족한 개수, 목표 수량, 채집 시작 */}
+      <div className="gx-queue">
+        <div className="gx-chips" aria-label="채집 순서">
+          {queue.length === 0 ? <span className="muted small">아래 카드에서 채집할 재료를 고르면 순서대로 쌓입니다.</span> : queue.map((x, i) => (
+            <span className={`gx-chip ${x.need === 0 ? 'done' : ''}`} key={x.name}>
+              <b className="o num">{i + 1}</b>
+              <span className="n">{plain(x.name)}</span>
+              <span className={`num ${x.need > 0 ? 'warn-text' : 'muted'}`}>{x.need > 0 ? `부족 ${fmt(x.need)}` : '충분'}</span>
+              <button type="button" className="x" aria-label={`${plain(x.name)} 빼기`} onClick={() => toggle(x.name)}>×</button>
+            </span>
+          ))}
+        </div>
+        <span className="muted small">목표 수량</span>
+        <div className="stepper">
+          <button type="button" onClick={() => setTarget(t => Math.max(GATHER_BATCH, t - GATHER_BATCH))} aria-label="100 줄이기">-100</button>
+          <span className="v num" aria-live="polite">{target}</span>
+          <button type="button" onClick={() => setTarget(t => Math.min(MAX_GATHER_TARGET, t + GATHER_BATCH))} aria-label="100 늘리기">+100</button>
+        </div>
+        {queue.length > 0 && <button type="button" className="btn" onClick={() => setPicked([])}>비우기</button>}
+        <button type="button" className="btn primary gx-go" disabled={todo.length === 0 || gathering} onClick={() => setConfirm(true)} data-needs-conn>
+          채집 시작{todo.length > 0 ? ` (${todo.length})` : ''}
+        </button>
+      </div>
       {/* 검색창을 분류 칩 줄 맨 앞에 둔다 (v1.1.0, FR-DT-05) */}
       <div className="toolbar gx-bar">
         <label className="search grow-0">
@@ -179,39 +215,43 @@ function GatherHelper({ items }: { items: Gatherable[] }) {
         <div className="seg" role="group" aria-label="분류">
           {CATS.map(c => <button key={c} type="button" aria-pressed={cat === c} onClick={() => setCat(c)}>{c}</button>)}
         </div>
-        <span className="muted small">목표 수량</span>
-        <div className="stepper">
-          <button type="button" onClick={() => setTarget(t => Math.max(GATHER_BATCH, t - GATHER_BATCH))} aria-label="100 줄이기">-100</button>
-          <span className="v num" aria-live="polite">{target}</span>
-          <button type="button" onClick={() => setTarget(t => Math.min(MAX_GATHER_TARGET, t + GATHER_BATCH))} aria-label="100 늘리기">+100</button>
-        </div>
       </div>
       {rows.length === 0 ? <p className="muted">조건에 맞는 채집물이 없습니다.</p> : (
         <div className="gx-list">
-          {rows.map(g => (
-            <div className={`gx-card ${g.favorite ? 'fav' : ''} ${g.toolOk ? '' : 'no-tool'}`} key={g.name} title={g.toolOk ? undefined : '도구 없음'}>
-              <button type="button" className="star" aria-pressed={g.favorite} aria-label={`${plain(g.name)} 즐겨찾기`} title={g.favorite ? '즐겨찾기 해제' : '즐겨찾기'}
-                onClick={() => void setFavorite('gather', g.name, !g.favorite)}>{g.favorite ? '★' : '☆'}</button>
-              <span className="n">{plain(g.name)}</span>
-              <b className="num have" aria-label={`보유 ${fmt(g.inBag)}`}>{fmt(g.inBag)}</b>
-            </div>
-          ))}
+          {rows.map(g => {
+            const order = picked.indexOf(g.name);
+            return (
+              <div className={`gx-card ${g.favorite ? 'fav' : ''} ${order >= 0 ? 'sel' : ''} ${g.toolOk ? '' : 'no-tool'}`} key={g.name}>
+                <button type="button" className="star" aria-pressed={g.favorite} aria-label={`${plain(g.name)} 즐겨찾기`} title={g.favorite ? '즐겨찾기 해제' : '즐겨찾기'}
+                  onClick={() => void setFavorite('gather', g.name, !g.favorite)}>{g.favorite ? '★' : '☆'}</button>
+                <button type="button" className="pick" aria-pressed={order >= 0} disabled={!g.toolOk} title={g.toolOk ? undefined : '도구 없음'} onClick={() => toggle(g.name)}>
+                  <span className="n">{plain(g.name)}</span>
+                  <b className="num have" aria-label={`보유 ${fmt(g.inBag)}`}>{fmt(g.inBag)}</b>
+                  {order >= 0 && <i className="ord num" aria-hidden="true">{order + 1}</i>}
+                </button>
+              </div>
+            );
+          })}
         </div>
       )}
       {confirm && (
         <Dialog
-          title={`${plain(confirm.name)} 채집`}
-          onClose={() => setConfirm(null)}
+          title="채집 시작"
+          onClose={() => setConfirm(false)}
           actions={<>
-            <button type="button" className="btn" onClick={() => setConfirm(null)}>취소</button>
-            <button type="button" className="btn primary" disabled={gathering} onClick={() => { void startGather(confirm.name, confirm.need); setConfirm(null); }}>채집 시작</button>
+            <button type="button" className="btn" onClick={() => setConfirm(false)}>취소</button>
+            <button type="button" className="btn primary" disabled={gathering || todo.length === 0}
+              onClick={() => { void startGatherQueue(todo.map(x => ({ name: x.name, count: x.need }))); setConfirm(false); setPicked([]); }}>채집 시작</button>
           </>}
         >
-          <p>목표 {fmt(target)}개 · 부족한 <b>{fmt(confirm.need)}개</b>를 채집합니다.</p>
+          <p>목표 {fmt(target)}개까지 부족한 만큼, 아래 순서대로 채집합니다.</p>
+          <ol className="gx-confirm">
+            {todo.map(x => <li key={x.name}>{plain(x.name)} <b className="num">{fmt(x.need)}개</b></li>)}
+          </ol>
           <p className="warn-text">
-            정령의 날개 {fmt(gatherBatches(confirm.need) * WINGS_PER_BATCH)}개를 씁니다 ({gatherBatches(confirm.need)}회 × {WINGS_PER_BATCH}개).
-            {gatherBatches(confirm.need) > 1 && <> 게임은 한 번에 {GATHER_BATCH}개씩만 캐므로, 끝나면 자리를 비워도 알아서 이어서 채집합니다. 100개 단위라 목표보다 조금 더 캘 수 있습니다.</>}
-            {' '}채집 중에도 긴급 정지와 다른 조회는 그대로 쓸 수 있습니다.
+            정령의 날개 {fmt(wings)}개를 씁니다.
+            {' '}게임은 한 번에 {GATHER_BATCH}개씩만 캐므로, 끝나면 자리를 비워도 알아서 이어서 채집하고 다음 재료로 넘어갑니다. 100개 단위라 목표보다 조금 더 캘 수 있습니다.
+            {' '}도중에 실패하거나 정지하면 남은 재료는 취소됩니다. 채집 중에도 긴급 정지와 다른 조회는 그대로 쓸 수 있습니다.
           </p>
         </Dialog>
       )}

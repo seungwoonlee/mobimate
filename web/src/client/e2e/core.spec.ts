@@ -267,8 +267,24 @@ test('빠른 실행: 채집 재료를 고르면 채집 확인 창이 열린다',
   await expect(page.getByRole('option', { name: /채집: 사과/ })).toBeVisible();   // 채집 목록을 받은 뒤에 고른다
   await page.keyboard.press('Enter');
   await expect(page).toHaveURL(/\/life/);
-  await expect(page.getByRole('dialog', { name: '사과 채집' })).toBeVisible();
+  await expect(page.getByRole('dialog', { name: '채집 시작' })).toBeVisible();
   await page.getByRole('button', { name: '취소' }).click();
+});
+
+test('생활: 카드를 고르면 채집 순서에 쌓이고, 채집 시작은 확인 창을 거쳐 큐로 시작한다', async ({ page }) => {
+  await page.goto('/life');
+  const list = page.locator('.gx-list');
+  await expect(list.locator('.gx-card').first()).toBeVisible();
+  await expect(page.getByRole('button', { name: /^채집 시작/ })).toBeDisabled();   // 고른 재료가 없으면 못 누른다
+  await list.locator('.pick:not(:disabled)').nth(0).click();
+  await list.locator('.pick:not(:disabled)').nth(1).click();
+  await expect(page.locator('.gx-chip')).toHaveCount(2);
+  await expect(page.locator('.gx-chip').first()).toContainText('부족');
+  await page.getByRole('button', { name: /^채집 시작 \(/ }).click();
+  const dlg = page.getByRole('dialog', { name: '채집 시작' });
+  await expect(dlg).toContainText('정령의 날개');
+  await dlg.getByRole('button', { name: '채집 시작' }).click();
+  await expect(toast(page, /순서대로/)).toBeVisible();
 });
 
 test('직업별 아이콘이 레이더 줄에 붙는다', async ({ page }) => {

@@ -76,6 +76,21 @@ async function startGatherOnce(name: string, count: number | null): Promise<bool
   }
 }
 
+/** 채집 큐 시작: 고른 재료를 순서대로 목표 수량(count)만큼 채집한다. 서버가 이어서 진행하고 결과는 SSE "gather"로 온다. */
+export async function startGatherQueue(items: { name: string; count: number }[]): Promise<boolean> {
+  return (await runExclusive('gather', async () => {
+    if (blockedOffline()) return false;
+    try {
+      await api.post('/api/actions/gather/queue', { items: items.map(i => ({ displayName: i.name, count: i.count })) });
+      toast(items.length > 1 ? `채집을 시작했습니다 · ${items.length}종을 순서대로` : `${items[0]?.name} 채집을 시작했습니다 · 목표 ${items[0]?.count}개`, 'info');
+      return true;
+    } catch (e) {
+      toast(`채집을 시작하지 못했습니다: ${msg(e)}`, 'warn');
+      return false;
+    }
+  })) ?? false;
+}
+
 /**
  * 즐겨찾기 켜기·끄기 (FR-DT-15·21): 가방 아이템 / 채집물. 이름 기준이라 같은 이름은 모두 바뀐다.
  * 화면은 먼저 바꾸고(낙관적 갱신) 서버 저장이 실패하면 되돌린다.
