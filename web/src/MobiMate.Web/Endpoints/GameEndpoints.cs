@@ -6,6 +6,7 @@ using MobiMate.Web.Services;
 namespace MobiMate.Web.Endpoints;
 
 public sealed record GatherRequest(string? DisplayName, int? Count);
+public sealed record GatherQueueRequest(List<GatherRequest>? Items);
 public sealed record CollectRequest(string? DisplayName);
 /// <summary>CharacterKey가 없으면 지금 접속한 캐릭터. 있으면 알려진 다른 캐릭터의 숙제를 수동으로 고친다(숙제 화면의 캐릭터별 칸).</summary>
 public sealed record HomeworkSetRequest(bool? Completed, int? Count, string? CharacterKey = null);
@@ -251,6 +252,23 @@ public static class GameEndpoints
                 StartGatherResult.Conflict => ApiResults.Error(409, "CONFLICT", $"이미 '{job!.Item}' 채집이 진행 중입니다."),
                 StartGatherResult.CliMissing => ApiResults.Error(503, "CLI_MISSING", "게임 CLI를 찾을 수 없습니다."),
                 _ => ApiResults.Error(400, "VALIDATION", $"채집할 수 없는 아이템입니다: {req.DisplayName}"),
+            };
+        });
+
+        // 채집 큐: 선택한 항목을 순서대로 목표 수량만큼 채운다. 자리를 비워도 서버가 이어서 진행한다.
+        api.MapPost("/actions/gather/queue", async (HttpContext ctx, GatherQueueRequest req, GameActions a, CancellationToken ct) =>
+        {
+            var items = req.Items;
+            if (items is not { Count: > 0 and <= 20 }) return ApiResults.Error(400, "VALIDATION", "채집할 항목을 1~20개 보내 주세요.");
+            if (items.Any(i => string.IsNullOrWhiteSpace(i.DisplayName) || i.Count is null or <= 0 or > GameActions.MaxTarget))
+                return ApiResults.Error(400, "VALIDATION", $"항목마다 displayName과 count(1~{GameActions.MaxTarget})가 필요합니다.");
+            var (result, job) = await a.StartQueueAsync(items.Select(i => (i.DisplayName!.Trim(), i.Count!.Value)).ToList(), ClientId.Of(ctx), ct);
+            return result switch
+            {
+                StartGatherResult.Started => ApiResults.Accepted(new { jobId = job!.JobId, item = job.Item, count = job.Count, target = job.Target, batches = job.Batches, queued = job.Queued }),
+                StartGatherResult.Conflict => ApiResults.Error(409, "CONFLICT", $"이미 '{job!.Item}' 채집이 진행 중입니다."),
+                StartGatherResult.CliMissing => ApiResults.Error(503, "CLI_MISSING", "게임 CLI를 찾을 수 없습니다."),
+                _ => ApiResults.Error(400, "VALIDATION", "채집할 수 없는 아이템이 있습니다."),
             };
         });
 

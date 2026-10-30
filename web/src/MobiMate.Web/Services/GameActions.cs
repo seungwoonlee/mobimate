@@ -18,7 +18,10 @@ public sealed record GatherJob(string JobId, string Item, int? Count, string Dev
     public int Target => Count ?? GameActions.BatchSize;
     public int Batches => (Target + GameActions.BatchSize - 1) / GameActions.BatchSize;
 
-    public object Snapshot() => new { jobId = JobId, state = State, item = Item, gained = Gained, target = Target, batch = Batch, batches = Batches, message = Message };
+    /// <summary>이 작업 뒤에 이어서 채집할 항목 이름(순서대로). 큐가 아닌 단일 채집이면 비어 있다.</summary>
+    public string[] Queued { get; set; } = [];
+
+    public object Snapshot() => new { jobId = JobId, state = State, item = Item, gained = Gained, target = Target, batch = Batch, batches = Batches, message = Message, queued = Queued };
 }
 
 public enum StartGatherResult { Started, Conflict, UnknownItem, CliMissing }
@@ -42,6 +45,8 @@ public sealed class GameActions(GameQueries q, SseHub hub, HomeworkWatcher homew
     private readonly object _lock = new();
     private GatherJob? _current;
     private GatherJob? _last;
+    /// <summary>현재 작업이 정상 완료되면 이어서 채집할 항목. 실패·정지하면 비운다.</summary>
+    private readonly Queue<(string Item, int Count)> _pending = new();
 
     public GatherJob? Current { get { lock (_lock) return _current is { State: "running" } ? _current : null; } }
 
@@ -49,19 +54,52 @@ public sealed class GameActions(GameQueries q, SseHub hub, HomeworkWatcher homew
     public object? Snapshot() { lock (_lock) return (_current ?? _last)?.Snapshot(); }
 
     public async Task<(StartGatherResult Result, GatherJob? Job)> StartGatherAsync(string item, int? count, string deviceId, CancellationToken ct)
+        => await StartQueueAsync([(item, count ?? 0)], deviceId, ct);
+
+    /// <summary>
+    /// 채집 큐: 첫 항목부터 차례로 목표 수량만큼 채집하고, 하나가 정상 완료되면 다음 항목으로 넘어간다.
+    /// 중간에 실패·정지하면 남은 항목은 취소한다(사람이 풀어야 하는 문제일 가능성이 높다).
+    /// </summary>
+    public async Task<(StartGatherResult Result, GatherJob? Job)> StartQueueAsync(IReadOnlyList<(string Item, int Count)> items, string deviceId, CancellationToken ct)
     {
         if (!q.Cli.IsAvailable) return (StartGatherResult.CliMissing, null);
         var list = await q.Get<GatherableResponse>("get_gatherable_items", ct);
-        if (list.Value?.Items?.Any(g => g.DisplayName == item) != true) return (StartGatherResult.UnknownItem, null);
+        foreach (var (item, _) in items)
+            if (list.Value?.Items?.Any(g => g.DisplayName == item) != true) return (StartGatherResult.UnknownItem, null);
 
         GatherJob job;
         lock (_lock)
         {
-            if (_current is { State: "running" }) return (StartGatherResult.Conflict, _current);
-            job = _current = new GatherJob(Guid.NewGuid().ToString("N")[..10], item, count is > 0 ? count : null, deviceId, DateTimeOffset.UtcNow);
+            if (_current is { State: "running" } || (_pending.Count > 0 && _current != null)) return (StartGatherResult.Conflict, _current);
+            _pending.Clear();
+            foreach (var x in items.Skip(1)) _pending.Enqueue(x);
+            job = _current = NewJob(items[0].Item, items[0].Count, deviceId);
         }
-        _ = Task.Run(() => RunGatherAsync(job));
+        _ = Task.Run(() => RunQueueAsync(job));
         return (StartGatherResult.Started, job);
+    }
+
+    private GatherJob NewJob(string item, int count, string deviceId) =>
+        new(Guid.NewGuid().ToString("N")[..10], item, count > 0 ? count : null, deviceId, DateTimeOffset.UtcNow) { Queued = _pending.Select(x => x.Item).ToArray() };
+
+    private async Task RunQueueAsync(GatherJob job)
+    {
+        while (true)
+        {
+            await RunGatherAsync(job);
+            GatherJob? next = null;
+            lock (_lock)
+            {
+                if (job.State == "completed" && _pending.Count > 0)
+                {
+                    var (item, count) = _pending.Dequeue();
+                    next = _current = NewJob(item, count, job.DeviceId);
+                }
+                else _pending.Clear();
+            }
+            if (next == null) return;
+            job = next;
+        }
     }
 
     private async Task RunGatherAsync(GatherJob job)
@@ -163,7 +201,7 @@ public sealed class GameActions(GameQueries q, SseHub hub, HomeworkWatcher homew
     public async Task<CliResult> StopAsync(CancellationToken ct)
     {
         // 100개 단위 반복 중이면 지금 배치만 끊는 게 아니라 다음 배치도 시작하지 않아야 한다.
-        lock (_lock) { if (_current is { State: "running" } job) job.StopRequested = true; }
+        lock (_lock) { _pending.Clear(); if (_current is { State: "running" } job) { job.StopRequested = true; job.Queued = []; } }
         var r = await q.Cli.RunAsync(new CliCommand("stop_action"), ct);
         q.Invalidate("get_activity");
         // 정지가 배치와 배치 사이(막 시작하려는 순간)에 끼면 stop_action이 멈출 대상을 못 찾는다. 잠시 뒤에도 같은 작업이 돌고 있으면 한 번 더 보낸다.

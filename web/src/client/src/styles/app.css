@@ -635,14 +635,29 @@ button.toast { border: 0; text-align: left; cursor: pointer; }
 
 /* 스마트 채집 도우미: 목표 수량은 한 줄, 채집물은 여러 칸으로 촘촘하게 */
 .gx-bar { margin: 8px 0; }
-.gx-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 6px; }
-.gx-card { position: relative; display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 14px 4px 5px; border: 1px solid var(--line); border-radius: 8px; min-width: 0; }
+.gx-queue { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px; margin: 4px 0 8px; border: 1px solid var(--line); border-radius: 10px; background: var(--accent-soft); }
+.gx-chips { display: flex; flex-wrap: wrap; gap: 6px; flex: 1 1 220px; min-width: 0; }
+.gx-chip { display: inline-flex; align-items: center; gap: 5px; padding: 2px 4px 2px 6px; border: 1px solid var(--line); border-radius: 999px; background: var(--bg-2); font-size: 12.5px; white-space: nowrap; }
+.gx-chip .o { display: inline-grid; place-items: center; min-width: 18px; height: 18px; border-radius: 50%; background: var(--accent); color: var(--on-accent); font-size: 11px; }
+.gx-chip.done { opacity: .6; }
+.gx-chip .x { min-width: 22px; min-height: 22px; padding: 0; border: 0; background: none; cursor: pointer; color: var(--text-2); }
+.app[data-touch="true"] .gx-chip .x { min-width: 32px; min-height: 32px; }
+.gx-go { min-height: 36px; padding: 2px 18px; }
+.app[data-touch="true"] .gx-go { min-height: 44px; }
+.gx-confirm { margin: 4px 0 8px; padding-left: 20px; }
+.gx-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(148px, 1fr)); gap: 4px; }
+.gx-card { position: relative; display: flex; align-items: center; min-width: 0; border: 1px solid var(--line); border-radius: 6px; }
 .gx-card.fav { background: var(--gold-soft); }
+.gx-card.sel { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
 .gx-card.no-tool { opacity: .5; }
-.gx-card .n { max-width: 100%; font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.gx-card .have { font-size: 15px; }
-.gx-card .star { position: absolute; top: 0; left: 0; min-width: 28px; min-height: 28px; padding: 0; line-height: 1; }
-.app[data-touch="true"] .gx-card .star { min-width: 36px; min-height: 36px; }
+.gx-card .star { flex: none; min-width: 26px; min-height: 28px; padding: 0; line-height: 1; }
+.gx-card .pick { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; padding: 3px 6px 3px 0; border: 0; background: none; font: inherit; color: inherit; cursor: pointer; text-align: left; }
+.gx-card .pick:disabled { cursor: not-allowed; }
+.gx-card .n { flex: 1; min-width: 0; font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gx-card .have { font-size: 13px; }
+.gx-card .ord { display: inline-grid; place-items: center; min-width: 16px; height: 16px; border-radius: 50%; background: var(--accent); color: var(--on-accent); font-size: 10px; font-style: normal; }
+.app[data-touch="true"] .gx-card .star, .app[data-touch="true"] .gx-card .pick { min-height: 40px; }
+.app[data-touch="true"] .gx-card .star { min-width: 36px; }
 
 /* 숙제: 캐릭터마다 가로로 긴 박스 한 줄 (2026-10-11 개편) */
 .hw-resets { display: flex; gap: 6px 16px; flex-wrap: wrap; }

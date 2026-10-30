@@ -202,6 +202,59 @@ public class ApiTests
     }
 
     [Fact]
+    public async Task GatherQueue_RunsItemsInOrder_ThenStops()
+    {
+        using var host = new TestHost();
+        var c = await host.LocalAsync();
+        var sse = await c.GetAsync("/api/events", HttpCompletionOption.ResponseHeadersRead);
+        using var reader = new StreamReader(await sse.Content.ReadAsStreamAsync());
+
+        var r = await c.PostAsJsonAsync("/api/actions/gather/queue", new { items = new[] { new { displayName = "사과", count = 100 }, new { displayName = "철광석", count = 100 } } });
+        Assert.Equal(HttpStatusCode.Accepted, r.StatusCode);
+
+        var first = await WaitGatherEnd(reader, TimeSpan.FromSeconds(30));
+        Assert.Equal("사과", first.GetProperty("item").GetString());
+        Assert.Equal("completed", first.GetProperty("state").GetString());
+        var second = await WaitGatherEnd(reader, TimeSpan.FromSeconds(30));
+        Assert.Equal("철광석", second.GetProperty("item").GetString());
+        Assert.Equal("completed", second.GetProperty("state").GetString());
+        Assert.Equal(2, GatherCalls(host));
+    }
+
+    [Fact]
+    public async Task GatherQueue_FailureCancelsRemainingItems()
+    {
+        using var host = new TestHost();
+        var script = Path.Combine(host.StorageDir, "gather.script");
+        File.WriteAllText(script, "{\"error\":\"overweight\",\"message\":\"full\",\"gained\":10,\"target\":100}\n");
+        Environment.SetEnvironmentVariable("FAKECLI_GATHER_SCRIPT", script);
+        try
+        {
+            var c = await host.LocalAsync();
+            var sse = await c.GetAsync("/api/events", HttpCompletionOption.ResponseHeadersRead);
+            using var reader = new StreamReader(await sse.Content.ReadAsStreamAsync());
+            await c.PostAsJsonAsync("/api/actions/gather/queue", new { items = new[] { new { displayName = "사과", count = 100 }, new { displayName = "철광석", count = 100 } } });
+
+            var end = await WaitGatherEnd(reader, TimeSpan.FromSeconds(30));
+            Assert.Equal("failed", end.GetProperty("state").GetString());
+            await Task.Delay(500);
+            Assert.Equal(1, GatherCalls(host));   // 철광석은 시작하지 않는다
+        }
+        finally { Environment.SetEnvironmentVariable("FAKECLI_GATHER_SCRIPT", null); }
+    }
+
+    [Fact]
+    public async Task GatherQueue_RejectsEmptyAndUnknownItems()
+    {
+        using var host = new TestHost();
+        var c = await host.LocalAsync();
+        Assert.Equal(HttpStatusCode.BadRequest, (await c.PostAsJsonAsync("/api/actions/gather/queue", new { items = Array.Empty<object>() })).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await c.PostAsJsonAsync("/api/actions/gather/queue", new { items = new[] { new { displayName = "사과", count = 0 } } })).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await c.PostAsJsonAsync("/api/actions/gather/queue", new { items = new[] { new { displayName = "없는것", count = 10 } } })).StatusCode);
+        Assert.Equal(0, GatherCalls(host));
+    }
+
+    [Fact]
     public async Task Gather_StopsOnGameError_WithoutCallingAgain_AndKeepsGained()
     {
         using var host = new TestHost();
