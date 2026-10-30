@@ -635,14 +635,14 @@ button.toast { border: 0; text-align: left; cursor: pointer; }
 
 /* 스마트 채집 도우미: 목표 수량은 한 줄, 채집물은 여러 칸으로 촘촘하게 */
 .gx-bar { margin: 8px 0; }
-.gx-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 0 12px; }
-.gx-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; gap: 8px; padding: 4px 6px; border-top: 1px solid var(--line); }
-.gx-row.fav { background: var(--gold-soft); }
-.gx-row .n { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.gx-row .m { display: flex; gap: 8px; font-size: 12.5px; color: var(--text-2); white-space: nowrap; }
-.gx-row .btn { min-height: 30px; padding: 2px 14px; }
-.app[data-touch="true"] .gx-row .btn { min-height: 44px; }
-.gx-row .pill.danger { color: color-mix(in srgb, var(--danger) 65%, var(--text-1)); }   /* 작은 글씨라 대비를 높인다 (axe 4.5:1) */
+.gx-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 6px; }
+.gx-card { position: relative; display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 14px 4px 5px; border: 1px solid var(--line); border-radius: 8px; min-width: 0; }
+.gx-card.fav { background: var(--gold-soft); }
+.gx-card.no-tool { opacity: .5; }
+.gx-card .n { max-width: 100%; font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gx-card .have { font-size: 15px; }
+.gx-card .star { position: absolute; top: 0; left: 0; min-width: 28px; min-height: 28px; padding: 0; line-height: 1; }
+.app[data-touch="true"] .gx-card .star { min-width: 36px; min-height: 36px; }
 
 /* 숙제: 캐릭터마다 가로로 긴 박스 한 줄 (2026-10-11 개편) */
 .hw-resets { display: flex; gap: 6px 16px; flex-wrap: wrap; }

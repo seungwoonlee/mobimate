@@ -188,23 +188,14 @@ function GatherHelper({ items }: { items: Gatherable[] }) {
       </div>
       {rows.length === 0 ? <p className="muted">조건에 맞는 채집물이 없습니다.</p> : (
         <div className="gx-list">
-          {rows.map(g => {
-            const need = Math.max(0, target - g.inBag);
-            return (
-              <div className={`gx-row ${g.favorite ? 'fav' : ''}`} key={g.name}>
-                <button type="button" className="star" aria-pressed={g.favorite} aria-label={`${plain(g.name)} 즐겨찾기`} title={g.favorite ? '즐겨찾기 해제' : '즐겨찾기'}
-                  onClick={() => void setFavorite('gather', g.name, !g.favorite)}>{g.favorite ? '★' : '☆'}</button>
-                <span className="n">{plain(g.name)}</span>
-                <span className="m">
-                  <span className="have">보유 <b className="num">{fmt(g.inBag)}</b></span>
-                  {need > 0 && <span className="num warn-text">부족 {fmt(need)}</span>}
-                </span>
-                {!g.toolOk ? <Pill tone="danger">도구 없음</Pill>
-                  : need === 0 ? <Pill tone="ok">목표 달성</Pill>
-                  : <button type="button" className="btn primary" onClick={() => setConfirm({ name: g.name, need })} data-needs-conn>채집</button>}
-              </div>
-            );
-          })}
+          {rows.map(g => (
+            <div className={`gx-card ${g.favorite ? 'fav' : ''} ${g.toolOk ? '' : 'no-tool'}`} key={g.name} title={g.toolOk ? undefined : '도구 없음'}>
+              <button type="button" className="star" aria-pressed={g.favorite} aria-label={`${plain(g.name)} 즐겨찾기`} title={g.favorite ? '즐겨찾기 해제' : '즐겨찾기'}
+                onClick={() => void setFavorite('gather', g.name, !g.favorite)}>{g.favorite ? '★' : '☆'}</button>
+              <span className="n">{plain(g.name)}</span>
+              <b className="num have" aria-label={`보유 ${fmt(g.inBag)}`}>{fmt(g.inBag)}</b>
+            </div>
+          ))}
         </div>
       )}
       {confirm && (
