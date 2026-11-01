@@ -82,7 +82,7 @@ test('숙제: 소환의 결계·검은 구멍은 0~7단계를 눌러 올리고 S
   }
 });
 
-test('숙제: 나이트메어 드릴은 1~30구역을 눌러 올리고, 랭킹 두 칸은 -에서 눌러 순위를 입력한다 (2026-11-02)', async ({ page }) => {
+test('숙제: 나이트메어 드릴은 1~30구역을 눌러 올리고, 드릴 랭킹은 -에서 눌러 순위를 입력한다 (2026-11-02)', async ({ page }) => {
   await page.goto('/homework');
   const row = page.locator('.hw-row.current');
   const drill = row.getByRole('button', { name: /^나이트메어 드릴 / });
@@ -95,7 +95,7 @@ test('숙제: 나이트메어 드릴은 1~30구역을 눌러 올리고, 랭킹 �
   await drill.click({ modifiers: ['Shift'] });
   await expect(drill).toContainText('0구역');
 
-  for (const [name, rank] of [['드릴 랭킹 1', '12'], ['드릴 랭킹 2', '3456']]) {
+  for (const [name, rank] of [['드릴 랭킹', '12']]) {
     const cell = row.getByRole('button', { name: new RegExp(`^${name} `) });
     await expect(cell).toContainText('-');
     await cell.click();
@@ -106,7 +106,7 @@ test('숙제: 나이트메어 드릴은 1~30구역을 눌러 올리고, 랭킹 �
     await expect(row.getByRole('button', { name: new RegExp(`^${name} `) })).toHaveClass(/done/);
   }
   // 다시 눌러 비우면 -로 돌아간다 (서버 상태를 공유하므로 되돌려 둔다)
-  for (const name of ['드릴 랭킹 1', '드릴 랭킹 2']) {
+  for (const name of ['드릴 랭킹']) {
     await row.getByRole('button', { name: new RegExp(`^${name} `) }).click();
     const input = row.getByRole('spinbutton', { name: `${name} 순위 입력` });
     await input.fill('');

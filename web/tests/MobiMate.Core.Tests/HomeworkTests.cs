@@ -26,9 +26,9 @@ public class HomeworkTests : IDisposable
     // ── TST-10 카탈로그 ──
 
     [Fact]
-    public void Catalog_Has31Items_AndPassesValidation()
+    public void Catalog_Has30Items_AndPassesValidation()
     {
-        Assert.Equal(31, _catalog.Items.Count);
+        Assert.Equal(30, _catalog.Items.Count);
         Assert.Empty(_catalog.Validate());
         Assert.Equal(6, _catalog.Items.Count(i => i.Pool == "field_boss_weekly"));
     }
