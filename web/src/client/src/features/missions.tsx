@@ -87,7 +87,7 @@ function GatherPane({ items, at }: { items: InvItem[]; at: number }) {
         return (
           <section key={t} aria-label={t}>
             <h4 className="town-h">{t}</h4>
-            <ItemList rows={list} />
+            <ItemList rows={list} tall />
           </section>
         );
       })}

@@ -95,9 +95,9 @@ export function InventoryView() {
 
 
 /** 아이템 목록(작은 카드 격자). 카드 하나가 이름이 같은 아이템 전체이고, 위치별 개수와 총합을 보인다. 0개 카드는 흐리게. */
-export function ItemList({ rows, diet = false }: { rows: InvGroup[]; diet?: boolean }) {
+export function ItemList({ rows, diet = false, tall = false }: { rows: InvGroup[]; diet?: boolean; tall?: boolean }) {
   return (
-    <div className="inv-grid" role="list">
+    <div className={`inv-grid ${tall ? 'tall' : ''}`} role="list">
       {rows.map(r => {
         const parts = LOC_KEYS.filter(k => (r.by[k] ?? 0) > 0);
         const info = missionInfo(r.name);
@@ -114,8 +114,9 @@ export function ItemList({ rows, diet = false }: { rows: InvGroup[]; diet?: bool
             <div className="tot">
               <span className="num strong">{fmt(r.total)}</span>
               {r.sessionDelta !== 0 && <Pill tone={r.sessionDelta > 0 ? 'warn' : 'danger'} title={`이번 접속에 ${r.sessionDelta > 0 ? '늘어난' : '줄어든'} 개수`}>{r.sessionDelta > 0 ? '+' : '−'}{fmt(Math.abs(r.sessionDelta))}</Pill>}
-              <span className="by">{parts.length === 0 ? '없음' : parts.map(k => `${LOC_SHORT[k]} ${fmt(r.by[k])}`).join(' · ')}</span>
+              {!tall && <span className="by">{parts.length === 0 ? '없음' : parts.map(k => `${LOC_SHORT[k]} ${fmt(r.by[k])}`).join(' · ')}</span>}
             </div>
+            {tall && <div className="by">{parts.length === 0 ? '없음' : parts.map(k => `${LOC_SHORT[k]} ${fmt(r.by[k])}`).join(' · ')}</div>}
           </div>
         );
       })}
