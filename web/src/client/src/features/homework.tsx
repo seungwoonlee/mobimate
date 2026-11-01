@@ -14,7 +14,7 @@ import { charName } from './characters';
  * 칸을 누르면 미완료 ↔ 완료를 수동으로 바꾼다(캐릭터마다, 자동 판정이 놓친 경우). 접속 안 한 캐릭터는 마지막으로 본 값에 수동 체크가 겹친다.
  */
 export const HW_GROUPS: { title: string; cells: { id: string; label: string }[] }[] = [
-  { title: '일일·주간', cells: [{ id: 'daily_day_dungeon', label: '요일던전' }, { id: 'weekly_guild_regular', label: '길드의뢰' }, { id: 'weekly_vanguard_breach', label: '뱅가드' }, { id: 'weekly_barrier_1_7', label: '소환의 결계' }, { id: 'weekly_black_hole_1_7', label: '검은 구멍' }, { id: 'weekly_nightmare_drill', label: '나이트메어 드릴' }, { id: 'weekly_nightmare_rank_1', label: '드릴 랭킹 1' }, { id: 'weekly_nightmare_rank_2', label: '드릴 랭킹 2' }] },
+  { title: '일일·주간', cells: [{ id: 'daily_day_dungeon', label: '요일던전' }, { id: 'weekly_guild_regular', label: '길드의뢰' }, { id: 'weekly_vanguard_breach', label: '뱅가드' }, { id: 'weekly_barrier_1_7', label: '소환의 결계' }, { id: 'weekly_black_hole_1_7', label: '검은 구멍' }, { id: 'weekly_nightmare_drill', label: '나이트메어 드릴' }, { id: 'weekly_nightmare_rank', label: '드릴 랭킹' }] },
   { title: '레이드', cells: [{ id: 'raid_cavrak', label: '카브락' }, { id: 'raid_airel', label: '에이렐' }, { id: 'raid_white_succubus', label: '화이트 서큐버스' }] },
   { title: '어비스', cells: [{ id: 'abyss_illusory_anchorage', label: '허상의 정박지' }, { id: 'abyss_madness_cave', label: '광기의 동굴' }, { id: 'abyss_scattered_waterway', label: '흩어진 물길' }] },
 ];
@@ -185,7 +185,7 @@ function BossDialog({ c, onClose }: { c: CharacterCard; onClose: () => void }) {
 }
 
 /**
- * 손으로 입력하는 수치 칸(드릴 랭킹 1·2): 처음엔 `-`이고, 누르면 그 자리에서 순위를 입력한다.
+ * 손으로 입력하는 수치 칸(드릴 랭킹): 처음엔 `-`이고, 누르면 그 자리에서 순위를 입력한다.
  * Enter나 다른 곳을 누르면 저장해 `✓ N위`(완료)로 보이고, 비우거나 0이면 다시 `-`이다. Esc는 입력을 버린다.
  */
 function ValueCell({ x, c }: { x: Cell; c: CharacterCard }) {
