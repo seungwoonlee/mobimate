@@ -189,6 +189,17 @@ button{cursor:pointer}
 .inv-card .tot{display:flex;align-items:baseline;gap:5px;font-size:14px;min-width:0}
 .inv-card .tot>*{flex:none}
 .inv-card .by{flex:0 1 auto;min-width:0;font-size:10.5px;font-weight:400;color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.inv-grid.tall{grid-template-columns:repeat(auto-fill,168px)}
+.inv-grid.tall .inv-card{width:168px;padding:6px 10px;gap:2px}
+.inv-grid.tall .inv-card .t{font-size:14px}
+.inv-grid.tall .inv-card .tot{font-size:20px}
+.inv-grid.tall .inv-card .by{font-size:12px}
+.inv-pick{all:unset;box-sizing:border-box;display:grid;gap:inherit;width:100%;min-width:0;cursor:pointer}
+.inv-pick:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:8px}
+.inv-card.sel{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.gp{display:grid;gap:8px;margin-bottom:8px}
+.gp-table .goal{justify-content:flex-end}
+.gp-act{display:flex;flex-wrap:wrap;gap:8px}
 .row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 12px;align-items:center;padding:10px 14px;border-top:1px solid var(--line)}
 .row:first-child{border-top:0}
 .row .t{font-weight:600;display:flex;align-items:center;gap:6px;min-width:0}

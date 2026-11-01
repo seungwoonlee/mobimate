@@ -1,7 +1,9 @@
 import { useDeferredValue, useMemo, useState } from 'react';
-import { useInventory } from '../api/queries';
+import { useInventory, useLife } from '../api/queries';
 import type { InvItem } from '../api/types';
-import { ErrorCard, Fresh, Icon, Pill, Skeleton } from '../components/ui';
+import { Dialog, ErrorCard, Fresh, Icon, Pill, Skeleton } from '../components/ui';
+import { startGatherQueue } from '../lib/actions';
+import { gatherBatches, WINGS_PER_BATCH } from './life';
 import { buildStock, buildStockBy, craftableNow, planTargets, type PlanLine, type Where } from '../lib/craft';
 import { fmt, plain } from '../lib/format';
 import { useRouter } from '../state/router';
@@ -53,14 +55,26 @@ function GatherPane({ items, at }: { items: InvItem[]; at: number }) {
   const rawSort = params.get('sort');
   const sort = GATHER_SORTS.some(([k]) => k === rawSort) ? rawSort! : 'table';
 
-  const rows = useMemo(() => {
+  const all = useMemo(() => {
     const have = new Map(groupItems(items.filter(x => isMissionItem(x.name)).map(x => ({ ...x, name: missionInfo(x.name)!.canon }))).map(g => [g.name, g]));
-    let r: InvGroup[] = MISSION_SLOTS.filter(s => s.kind === '채집')
-      .map(s => have.get(s.name) ?? { name: s.name, category: '', favorite: false, locked: false, sessionDelta: 0, total: 0, by: {} });
-    r = r.sort(SORT_FN[sort] ?? SORT_FN.table);
+    return MISSION_SLOTS.filter(s => s.kind === '채집')
+      .map(s => have.get(s.name) ?? { name: s.name, category: '', favorite: false, locked: false, sessionDelta: 0, total: 0, by: {} } as InvGroup);
+  }, [items]);
+  const rows = useMemo(() => {
+    let r: InvGroup[] = [...all].sort(SORT_FN[sort] ?? SORT_FN.table);
     if (search) r = r.filter(x => plain(x.name).includes(search) || (missionInfo(x.name)?.town.includes(search) ?? false));
     return r;
-  }, [items, search, sort]);
+  }, [all, search, sort]);
+
+  // 준비 계획: 카드를 눌러 고르고 목표 개수를 넣으면 창고에서 꺼낼 것과 더 채집할 것을 계산한다 (2026-11-01)
+  const [plan, setPlan] = useState(loadPlan);
+  const picked = useMemo(() => new Set(Object.keys(plan)), [plan]);
+  const savePlan = (next: Record<string, number>) => { setPlan(next); try { localStorage.setItem(PLAN_KEY, JSON.stringify(next)); } catch { /* 저장이 막혀도 이번 접속에서는 동작한다 */ } };
+  const pick = (name: string) => {
+    const next = { ...plan };
+    if (name in next) delete next[name]; else next[name] = DEFAULT_PLAN_TARGET;
+    savePlan(next);
+  };
 
   const haveCount = rows.filter(r => r.total > 0).length;
   return (
@@ -81,17 +95,110 @@ function GatherPane({ items, at }: { items: InvItem[]; at: number }) {
           </select>
         </label>
       </div>
+      <GatherPlan all={all} plan={plan} onChange={savePlan} />
       {rows.length === 0 ? <div className="card muted">조건에 맞는 아이템이 없습니다.</div> : TOWNS.map(t => {
         const list = rows.filter(r => missionInfo(r.name)?.town === t);
         if (list.length === 0) return null;
         return (
           <section key={t} aria-label={t}>
             <h4 className="town-h">{t}</h4>
-            <ItemList rows={list} />
+            <ItemList rows={list} tall picked={picked} onPick={pick} />
           </section>
         );
       })}
     </>
+  );
+}
+
+
+const PLAN_KEY = 'mobimate.gatherPlan';
+const DEFAULT_PLAN_TARGET = 10;
+function loadPlan(): Record<string, number> {
+  try {
+    const v = JSON.parse(localStorage.getItem(PLAN_KEY) ?? '{}') as Record<string, unknown>;
+    return Object.fromEntries(Object.entries(v).filter(([, n]) => typeof n === 'number' && n > 0)) as Record<string, number>;
+  } catch { return {}; }
+}
+
+/** 한 재료의 준비 계산: 가방에서 모자란 만큼을 계정 창고 → 캐릭터 창고 순으로 꺼내고, 그래도 모자라면 채집한다. */
+export function planItem(target: number, by: Record<string, number>): { bag: number; fromAccount: number; fromCharacter: number; gather: number } {
+  const bag = by.bag ?? 0;
+  const need = Math.max(0, target - bag);
+  const fromAccount = Math.min(need, by.account ?? 0);
+  const fromCharacter = Math.min(need - fromAccount, by.character ?? 0);
+  return { bag, fromAccount, fromCharacter, gather: need - fromAccount - fromCharacter };
+}
+
+/**
+ * 채집 임무 준비 계획: 고른 재료마다 목표 개수를 넣으면 "창고에서 꺼낼 개수(계정 먼저)"와 "더 채집할 개수"를 보여 준다.
+ * 게임 CLI에는 창고에서 꺼내는 명령이 없어 꺼내기는 게임에서 직접 해야 하고, 부족한 만큼의 채집은 [채집 시작]으로 큐에 넣는다.
+ */
+function GatherPlan({ all, plan, onChange }: { all: InvGroup[]; plan: Record<string, number>; onChange: (p: Record<string, number>) => void }) {
+  const life = useLife();
+  const gatherables = life.data?.data.gatherables ?? null;
+  const [confirm, setConfirm] = useState(false);
+  const squash = (n: string) => plain(n).replace(/\s/g, '');
+  const canGather = (name: string) => gatherables?.find(g => squash(g.name) === squash(name));
+  const lines = all.filter(r => r.name in plan).map(r => ({ r, target: plan[r.name], ...planItem(plan[r.name], r.by) }));
+  const withdraw = lines.filter(l => l.fromAccount + l.fromCharacter > 0);
+  const toGather = lines.filter(l => l.gather > 0).map(l => ({ ...l, g: canGather(l.r.name) }));
+  const runnable = toGather.filter(l => l.g?.toolOk);
+  const wings = runnable.reduce((n, l) => n + gatherBatches(l.gather) * WINGS_PER_BATCH, 0);
+  const setTarget = (name: string, n: number) => {
+    const next = { ...plan };
+    if (n > 0) next[name] = Math.min(9999, Math.floor(n)); else delete next[name];
+    onChange(next);
+  };
+  return (
+    <div className="card gp">
+      <h3 className="m0">임무 준비 계획</h3>
+      {lines.length === 0 ? <p className="muted small m0">아래 카드에서 임무에 필요한 재료를 고르고 목표 개수를 넣으면, 창고에서 꺼낼 개수(계정 창고 먼저)와 더 채집해야 할 개수를 계산합니다.</p> : (
+        <>
+          <table className="sum-table gp-table">
+            <thead><tr><th>재료</th><th className="n">목표</th><th className="n">가방</th><th className="n">창고에서 꺼내기</th><th className="n">더 채집</th><th /></tr></thead>
+            <tbody>
+              {lines.map(l => (
+                <tr key={l.r.name} className={l.gather > 0 ? 'bad' : ''}>
+                  <td>{plain(l.r.name)}</td>
+                  <td className="n">
+                    <div className="goal">
+                      <button type="button" aria-label={`${plain(l.r.name)} 목표 줄이기`} onClick={() => setTarget(l.r.name, l.target - 1)}>−</button>
+                      <input type="number" inputMode="numeric" min={0} max={9999} aria-label={`${plain(l.r.name)} 목표 개수`} value={l.target} onChange={e => setTarget(l.r.name, Number(e.target.value))} />
+                      <button type="button" aria-label={`${plain(l.r.name)} 목표 늘리기`} onClick={() => setTarget(l.r.name, l.target + 1)}>+</button>
+                    </div>
+                  </td>
+                  <td className="n num">{fmt(l.bag)}</td>
+                  <td className="n num">
+                    {l.fromAccount + l.fromCharacter === 0 ? '—' : <>{l.fromAccount > 0 && <span>계정 {fmt(l.fromAccount)}</span>}{l.fromAccount > 0 && l.fromCharacter > 0 && ' · '}{l.fromCharacter > 0 && <span>캐릭터 {fmt(l.fromCharacter)}</span>}</>}
+                  </td>
+                  <td className="n num">{l.gather > 0 ? <b className="bad-text">{fmt(l.gather)}{!canGather(l.r.name) && ' (채집 불가)'}</b> : '✓'}</td>
+                  <td className="n"><button type="button" className="btn" aria-label={`${plain(l.r.name)} 계획에서 빼기`} onClick={() => setTarget(l.r.name, 0)}>×</button></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p className="small m0 num">
+            창고에서 꺼낼 재료 {fmt(withdraw.length)}종 · 더 채집할 재료 {fmt(toGather.length)}종{runnable.length > 0 && <> · 정령의 날개 {fmt(wings)}개</>}
+          </p>
+          <div className="gp-act">
+            <button type="button" className="btn primary" disabled={runnable.length === 0} onClick={() => setConfirm(true)} data-needs-conn>부족분 채집 시작{runnable.length > 0 ? ` (${runnable.length})` : ''}</button>
+            <button type="button" className="btn" onClick={() => onChange({})}>계획 비우기</button>
+          </div>
+          <p className="faint small m0">게임 CLI에는 창고에서 꺼내는 기능이 없어서, 꺼내기는 게임에서 직접 해야 합니다. 창고 재료를 가방으로 옮길 때는 이동 비용이 듭니다.</p>
+        </>
+      )}
+      {confirm && (
+        <Dialog title="부족분 채집 시작" onClose={() => setConfirm(false)}
+          actions={<>
+            <button type="button" className="btn" onClick={() => setConfirm(false)}>취소</button>
+            <button type="button" className="btn primary" onClick={() => { void startGatherQueue(runnable.map(l => ({ name: l.g!.name, count: l.gather }))); setConfirm(false); }}>채집 시작</button>
+          </>}>
+          <p>창고에서 꺼낸 뒤에도 모자란 만큼만, 아래 순서대로 채집합니다.</p>
+          <ol className="gx-confirm">{runnable.map(l => <li key={l.r.name}>{plain(l.r.name)} <b className="num">{fmt(l.gather)}개</b></li>)}</ol>
+          <p className="warn-text">정령의 날개 {fmt(wings)}개를 씁니다. 창고에서 먼저 꺼내지 않고 시작하면 그만큼 더 채집하게 됩니다. 도중에 실패하거나 정지하면 남은 재료는 취소됩니다.</p>
+        </Dialog>
+      )}
+    </div>
   );
 }
 
