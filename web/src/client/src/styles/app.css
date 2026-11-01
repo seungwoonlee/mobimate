@@ -922,3 +922,5 @@ button.hw-cell:focus-visible { outline: 2px solid var(--accent); outline-offset:
 .gx-status .gb-msg { margin: 6px 0 0; font-size: .875rem; opacity: .85; }
 .gx-card.live { border-color: var(--ok); box-shadow: inset 0 0 0 1px var(--ok); }
 .gx-card .pill { flex: none; font-size: 10.5px; padding: 0 6px; }
+.hw-cell.value-cell .hw-cell-state input { width: 64px; min-height: 26px; padding: 0 4px; border: 1px solid var(--accent); border-radius: 6px; background: var(--bg-2); color: var(--text-1); font: inherit; font-variant-numeric: tabular-nums; text-align: right; }
+.app[data-touch="true"] .hw-cell.value-cell .hw-cell-state input { min-height: 36px; }
