@@ -33,6 +33,12 @@ public sealed class HomeworkDefinition
     public string Subtitle { get; init; } = "";
     public string Icon { get; init; } = "";
     public int Goal { get; init; } = 1;
+
+    /// <summary>
+    /// 시즌제 항목(나이트메어 드릴·랭킹): 일일·주간 리셋으로 지우지 않고, 사람이 직접 되돌린다(시즌이 언제 끝나는지 모른다, 승운 2026-11-02).
+    /// 숙제 카드·진행 통계에는 넣지 않고(끝나지 않는 숙제가 되므로) 숙제 화면의 칸에서만 본다. 전체 초기화에도 남는다.
+    /// </summary>
+    public bool SeasonReset { get; init; }
     public string? Reward { get; init; }
     public string? Pool { get; init; }
     public List<string> MissionTitles { get; init; } = new();

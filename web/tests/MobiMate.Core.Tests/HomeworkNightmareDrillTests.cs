@@ -65,22 +65,39 @@ public class HomeworkNightmareDrillTests : IDisposable
     }
 
     [Fact]
-    public void TheRankIsNotInTheBoardCardsOrProgress_ButTheDrillIs()
+    public void TheRankAndTheDrillAreNotInTheBoardCardsOrProgress()
     {
         var svc = NewService();
         svc.Set(Main, Rank, count: 5);
         var board = svc.GetBoard(Main);
         Assert.DoesNotContain(board.Cards, c => c.Id == Rank);
-        Assert.Contains(board.Cards, c => c.Id == Drill);
+        Assert.DoesNotContain(board.Cards, c => c.Id == Drill);   // 시즌제라 끝나지 않는 주간 숙제가 되지 않게 카드에서 뺀다
         Assert.Equal(0, board.Weekly.Done);   // 랭킹을 넣어도 진행 통계는 오르지 않는다
     }
 
     [Fact]
-    public void TheRankResetsWithTheWeeklyReset()
+    public void BothAreSeasonal_SoTheWeeklyResetDoesNotClearThem()
     {
-        NewService().Set(Main, Rank, count: 9);
-        _now += TimeSpan.FromDays(7);
-        Assert.Equal("unknown", Auto(NewService(), Rank).State);
+        var svc = NewService();
+        svc.Set(Main, Rank, count: 9);
+        svc.Set(Main, Drill, count: 12);
+        _now += TimeSpan.FromDays(21);   // 주간 리셋을 여러 번 지나도
+        svc.GetBoard(Main);              // 리셋을 적용하는 읽기
+        Assert.Equal(9, Auto(NewService(), Rank).Value);
+        Assert.Equal(18, Auto(NewService(), Drill).Remaining);
+    }
+
+    [Fact]
+    public void TheFullResetKeepsTheSeasonalOnes()
+    {
+        var svc = NewService();
+        svc.Set(Main, Rank, count: 9);
+        svc.Set(Main, Drill, count: 12);
+        svc.Set(Main, "weekly_barrier_1_7", count: 3);
+        svc.ResetAll(Main, includeAccount: false);
+        Assert.Equal(9, Auto(svc, Rank).Value);
+        Assert.Equal(18, Auto(svc, Drill).Remaining);
+        Assert.Equal("unknown", Auto(svc, "weekly_barrier_1_7").State);   // 주기 체크는 지워진다
     }
 
     [Fact]
