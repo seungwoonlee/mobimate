@@ -13,6 +13,7 @@ public enum HomeworkMode
 {
     Manual,              // 수동 체크만 (진행 신호는 붙을 수 있음)
     ManualStepCounter,   // 수동 단계 카운터 0~goal
+    ManualValue,         // 수동 입력 수치(나이트메어 드릴 랭킹 등): 1 이상이면 입력됨(완료 표시). 진행 통계·카드 목록에는 넣지 않는다
     DirectMission,       // 지정한 미션 제목과 정확히 일치하는 미션의 진행도 (FR-HW-04 ①)
     MissionTotal,        // 일일·주간 미션 전체 완료 개수
     QuestAllObjectives,  // 지정한 퀘스트의 모든 목표 완료 (FR-HW-04 ②)

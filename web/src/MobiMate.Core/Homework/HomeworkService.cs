@@ -19,7 +19,7 @@ public sealed record HomeworkCard(
 
 /// <summary>캐릭터 카드에 보여 줄 자동 판정 숙제 한 줄. State: done / todo / unknown.</summary>
 /// <param name="Guess">"클리어 추정": 주간 미션 카운터는 올랐는데 어느 항목인지 못 가렸다(눌러서 확인). 완료가 아닐 때만 true.</param>
-public sealed record HomeworkAutoStatus(string Id, string Title, string Period, string State, string? Evidence, int? Remaining = null, string Category = "", bool Guess = false);
+public sealed record HomeworkAutoStatus(string Id, string Title, string Period, string State, string? Evidence, int? Remaining = null, string Category = "", bool Guess = false, int? Value = null);
 
 /// <summary>공유 풀(필드 보스 택1)의 캐릭터별 현황. State: done / todo / unknown, Item = 넘긴 보스 이름(완료일 때).</summary>
 public sealed record HomeworkPoolStatus(string State, string? Item, bool Guess = false);
@@ -142,6 +142,28 @@ public sealed class HomeworkService
             var ledger = def.Share == HomeworkShare.Account ? file.Account : character;
             var st = ledger.Items.GetValueOrDefault(def.Id) ?? new HomeworkItemState();
 
+            if (def.EffectiveMode == HomeworkMode.ManualValue)
+            {
+                // 수치 입력(랭킹 등): count가 값이다. 1 이상이면 입력된 것(완료 표시), 0이면 지운다(-).
+                var value = count.HasValue ? Math.Clamp(count.Value, 0, def.Goal) : completed == true ? 1 : 0;
+                if (value == 0) ledger.Items.Remove(def.Id);
+                else
+                {
+                    st.Count = value;
+                    st.Goal = def.Goal;
+                    st.Completed = true;
+                    st.CompletedAtUtc = now;
+                    st.Auto = false;
+                    st.Evidence = $"수동 입력: {value}";
+                    st.Suggestion = null;
+                    st.ManualOverride = true;
+                    st.ManualAtUtc = now;
+                    ledger.Items[def.Id] = st;
+                }
+                SaveOrThrow(file);
+                return new HomeworkChange(characterKey, new[] { def.Id }, HomeworkChangeReason.Manual);
+            }
+
             if (def.RunGoal > 0 && def.Share == HomeworkShare.Character)
             {
                 // 여러 번 깨는 콘텐츠(뱅가드 3회): 횟수(0~RunGoal)를 손으로 맞춘다. 횟수를 주면 그 값으로, 완료/미완료만 주면 끝/0으로 본다.
@@ -248,7 +270,7 @@ public sealed class HomeworkService
             }
 
             var signals = _signals.GetValueOrDefault(characterKey);
-            var all = _catalog.Items.Where(d => d.Active).Select(def => ToCard(def, file, character, signals, now)).ToList();
+            var all = _catalog.Items.Where(d => d.Active && d.EffectiveMode != HomeworkMode.ManualValue).Select(def => ToCard(def, file, character, signals, now)).ToList();   // 수치 입력 항목(랭킹)은 숙제 카드·진행 통계에 넣지 않는다
 
             var order = _catalog.Items.Select((d, i) => (d.Id, i)).ToDictionary(x => x.Id, x => x.i);
             var cards = all
@@ -275,7 +297,7 @@ public sealed class HomeworkService
             var lastDaily = KstClock.LastDailyReset(now);
             var lastWeekly = KstClock.LastWeeklyReset(now);
             // 단계 카운터(소환의 결계·검은 구멍 주간)는 자동 판정은 없지만 숙제 화면 칸에 단계가 보여야 해서 함께 준다(전체 탭 카드의 칩에서는 화면이 뺀다).
-            var defs = _catalog.Items.Where(d => d.Active && (d.AutoCheck || d.EffectiveMode == HomeworkMode.ManualStepCounter) && d.Share == HomeworkShare.Character).ToList();
+            var defs = _catalog.Items.Where(d => d.Active && (d.AutoCheck || d.EffectiveMode is HomeworkMode.ManualStepCounter or HomeworkMode.ManualValue) && d.Share == HomeworkShare.Character).ToList();
             var result = new Dictionary<string, IReadOnlyList<HomeworkAutoStatus>>(StringComparer.OrdinalIgnoreCase);
             foreach (var key in characterKeys)
             {
@@ -288,6 +310,7 @@ public sealed class HomeworkService
                     var st = fresh ? ledger!.Items.GetValueOrDefault(def.Id) : null;
                     string state;
                     if (st?.Completed == true) state = "done";
+                    else if (def.EffectiveMode == HomeworkMode.ManualValue) state = "unknown";   // 입력 전: 값이 없다(-)
                     else if (def.EffectiveMode == HomeworkMode.ManualStepCounter) state = st is { Count: > 0 } ? "todo" : "unknown";   // 1단계 이상 눌러 둔 것만 "확인된 미완료"
                     else if (def.EffectiveMode == HomeworkMode.QuestVanish) state = fresh && (ledger!.QuestSightings?.GetValueOrDefault(def.Id) >= cycleStart || st?.Evidence != null) ? "todo" : "unknown";
                     else if (def.EffectiveMode == HomeworkMode.QuestSuffix) state = st?.Evidence != null ? "todo" : "unknown";
@@ -299,7 +322,7 @@ public sealed class HomeworkService
                     var guess = state != "done" && st?.Suggestion is { Code: "missionCleared" };
                     list.Add(new HomeworkAutoStatus(def.Id, def.CardLabel ?? def.Title, def.Period == HomeworkPeriod.Daily ? "daily" : "weekly", state, st?.Evidence,
                         def.EffectiveMode == HomeworkMode.ManualStepCounter ? (state == "todo" ? def.Goal - st!.Count : null) : state == "todo" ? st?.RemainingCount : null,   // 단계 카운터: 남은 단계 = 목표 − 지금 단계
-                        def.Category, guess));
+                        def.Category, guess, def.EffectiveMode == HomeworkMode.ManualValue && st?.Completed == true ? st.Count : null));
                 }
                 result[key] = list;
             }

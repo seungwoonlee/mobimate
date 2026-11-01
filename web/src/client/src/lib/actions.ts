@@ -3,7 +3,7 @@ import { keys } from '../api/queries';
 import { queryClient } from './queryClient';
 import { isOffline, useUi } from '../state/ui';
 import { runExclusive } from './busy';
-import { STEP_GOALS } from './homeworkSteps';
+import { STEP_GOALS, VALUE_UNITS, MAX_VALUE } from './homeworkSteps';
 import type { Characters, Envelope, HomeworkBoard, Inventory, Life } from '../api/types';
 
 const toast = (m: string, l?: 'ok' | 'warn' | 'danger' | 'info') => useUi.getState().toast(m, l);
@@ -127,7 +127,8 @@ export async function setHomework(id: string, body: { completed?: boolean; count
   // 캐릭터별 숙제 현황(숙제 화면)도 바로 바꿔 보인다
   const steps = STEP_GOALS[id];   // 여러 번 해야 끝나는 숙제(뱅가드 3회): 횟수로 지정하고, 목표 횟수에 닿아야 완료다
   const stepCount = steps && body.count !== undefined ? Math.min(steps, Math.max(0, body.count)) : undefined;
-  if (body.completed !== undefined || stepCount !== undefined) {
+  const valued = id in VALUE_UNITS && body.count !== undefined ? Math.min(MAX_VALUE, Math.max(0, Math.floor(body.count))) : undefined;   // 수치 입력 칸(랭킹)
+  if (body.completed !== undefined || stepCount !== undefined || valued !== undefined) {
     queryClient.setQueryData<Envelope<Characters>>(keys.characters, old => old && {
       ...old,
       data: {
@@ -139,6 +140,7 @@ export async function setHomework(id: string, body: { completed?: boolean; count
               ...m,
               homework: m.homework.map(h => {
                 if (h.id !== id) return h;
+                if (valued !== undefined) return { ...h, state: valued > 0 ? 'done' as const : 'unknown' as const, value: valued > 0 ? valued : null };
                 if (stepCount !== undefined) return { ...h, state: stepCount >= steps! ? 'done' as const : 'todo' as const, remaining: stepCount >= steps! ? null : steps! - stepCount };
                 return { ...h, state: body.completed ? 'done' as const : 'todo' as const, remaining: steps ? (body.completed ? null : steps) : h.remaining };
               }),
