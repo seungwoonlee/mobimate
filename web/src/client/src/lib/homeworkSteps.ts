@@ -25,3 +25,7 @@ export const nextStep = (cur: number, goal: number): number => (cur + 1) % (goal
 
 /** 한 단계 뒤로(Shift·우클릭): 0 아래로는 내려가지 않는다. 잘못 눌러 한 바퀴 돌지 않게 한다. */
 export const prevStep = (cur: number): number => Math.max(0, cur - 1);
+
+/** 시즌제 칸(주간 리셋으로 지우지 않는다): 칸 설명에 "시즌 리셋 : 기한 모름"을 붙인다 */
+export const SEASON_NOTE = '시즌 리셋 : 기한 모름';
+export const SEASON_IDS: ReadonlySet<string> = new Set(['weekly_nightmare_drill', 'weekly_nightmare_rank']);

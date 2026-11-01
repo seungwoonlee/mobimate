@@ -330,7 +330,7 @@ public class HomeworkTests : IDisposable
         var svc = NewService();
         var before = svc.GetBoard(Main);
         Assert.Equal(_catalog.Items.Count(i => i.Active && i.Period == HomeworkPeriod.Daily), before.Daily.Total);
-        Assert.Equal(_catalog.Items.Count(i => i.Active && i.Period == HomeworkPeriod.Weekly && i.Pool == null && i.EffectiveMode != HomeworkMode.ManualValue) + 1, before.Weekly.Total);   // 수치 입력(랭킹)은 진행 통계에 넣지 않는다
+        Assert.Equal(_catalog.Items.Count(i => i.Active && i.Period == HomeworkPeriod.Weekly && i.Pool == null && i.EffectiveMode != HomeworkMode.ManualValue && !i.SeasonReset) + 1, before.Weekly.Total);   // 수치 입력(랭킹)은 진행 통계에 넣지 않는다
 
         svc.Set(Main, "fieldboss_peri", completed: true);
         Assert.Equal(1, svc.GetBoard(Main).Weekly.Done);

@@ -219,8 +219,10 @@ public sealed class HomeworkService
         {
             var file = LoadOrThrow();
             var (character, _, _) = Prepare(file, characterKey, _now());
-            var ids = character.Items.Keys.ToList();
-            character.Items.Clear();
+            // 시즌제 항목(나이트메어 드릴·랭킹)은 이번 주기 체크가 아니므로 남긴다
+            var season = _catalog.Items.Where(d => d.SeasonReset).Select(d => d.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var ids = character.Items.Keys.Where(k => !season.Contains(k)).ToList();
+            foreach (var k in ids) character.Items.Remove(k);
             character.AlteringDoneCounts = null;
             character.AlteringObservedUtc = null;
             if (includeAccount)
@@ -270,7 +272,7 @@ public sealed class HomeworkService
             }
 
             var signals = _signals.GetValueOrDefault(characterKey);
-            var all = _catalog.Items.Where(d => d.Active && d.EffectiveMode != HomeworkMode.ManualValue).Select(def => ToCard(def, file, character, signals, now)).ToList();   // 수치 입력 항목(랭킹)은 숙제 카드·진행 통계에 넣지 않는다
+            var all = _catalog.Items.Where(d => d.Active && d.EffectiveMode != HomeworkMode.ManualValue && !d.SeasonReset).Select(def => ToCard(def, file, character, signals, now)).ToList();   // 수치 입력(랭킹)·시즌제(드릴) 항목은 숙제 카드·진행 통계에 넣지 않는다
 
             var order = _catalog.Items.Select((d, i) => (d.Id, i)).ToDictionary(x => x.Id, x => x.i);
             var cards = all
@@ -306,7 +308,7 @@ public sealed class HomeworkService
                 foreach (var def in defs)
                 {
                     var cycleStart = def.Period == HomeworkPeriod.Daily ? lastDaily : lastWeekly;
-                    var fresh = ledger != null && (def.Period == HomeworkPeriod.Daily ? ledger.LastDailyResetUtc : ledger.LastWeeklyResetUtc) >= cycleStart;
+                    var fresh = ledger != null && (def.SeasonReset || (def.Period == HomeworkPeriod.Daily ? ledger.LastDailyResetUtc : ledger.LastWeeklyResetUtc) >= cycleStart);   // 시즌제는 주기 리셋이 없다
                     var st = fresh ? ledger!.Items.GetValueOrDefault(def.Id) : null;
                     string state;
                     if (st?.Completed == true) state = "done";
