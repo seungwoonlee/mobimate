@@ -619,3 +619,20 @@ test('전체 탭 카드: 전투력 숫자가 딱지와 같은 순위 등급 색�
   await expect(card.locator('.cc-main .v.cs-t-pink').first()).toBeVisible();
   await clearRanking(request);
 });
+
+test('임무 탭 채집: 카드를 고르면 준비 계획에 쌓이고 목표를 넣으면 창고에서 꺼낼 것과 더 채집할 것이 계산된다 (2026-11-01)', async ({ page }) => {
+  await page.goto('/mission');
+  const cards = page.locator('.inv-card');
+  await expect(cards.first()).toBeVisible();
+  await expect(page.getByText('임무 준비 계획')).toBeVisible();
+  await cards.first().getByRole('button').click();
+  const row = page.locator('.gp-table tbody tr').first();
+  await expect(row).toBeVisible();
+  const input = row.getByRole('spinbutton');
+  await input.fill('500');
+  await expect(input).toHaveValue('500');
+  await expect(row.locator('.bad-text')).toBeVisible();   // 가방·창고에 없는 만큼은 "더 채집"으로 나온다
+  await expect(page.locator('.gp-table')).toBeVisible();
+  await page.getByRole('button', { name: '계획 비우기' }).click();
+  await expect(page.locator('.gp-table')).toHaveCount(0);
+});

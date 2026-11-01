@@ -95,16 +95,15 @@ export function InventoryView() {
 
 
 /** 아이템 목록(작은 카드 격자). 카드 하나가 이름이 같은 아이템 전체이고, 위치별 개수와 총합을 보인다. 0개 카드는 흐리게. */
-export function ItemList({ rows, diet = false, tall = false }: { rows: InvGroup[]; diet?: boolean; tall?: boolean }) {
+export function ItemList({ rows, diet = false, tall = false, picked, onPick }: { rows: InvGroup[]; diet?: boolean; tall?: boolean; /** 고른 카드(이름) */ picked?: ReadonlySet<string>; /** 주어지면 카드를 눌러 고를 수 있다 */ onPick?: (name: string) => void }) {
   return (
     <div className={`inv-grid ${tall ? 'tall' : ''}`} role="list">
       {rows.map(r => {
         const parts = LOC_KEYS.filter(k => (r.by[k] ?? 0) > 0);
         const info = missionInfo(r.name);
         const detail = parts.map(k => `${LOC_SHORT[k]} ${fmt(r.by[k])}`).join(', ');
-        return (
-          <div className={`inv-card ${r.favorite && diet ? 'fav' : ''} ${r.total === 0 ? 'zero' : ''}`} role="listitem" key={r.name}
-            title={`${plain(r.name)} · ${info ? `${info.town} ${info.kind}` : r.category} · 총 ${fmt(r.total)}개${detail ? ` (${detail})` : ''}`}>
+        const body = (
+          <>
             <div className="t">
               {diet && <button type="button" className="star" aria-pressed={r.favorite} aria-label={`${plain(r.name)} 다이어트 대상`} title={r.favorite ? '다이어트 대상 해제' : '다이어트 대상으로 표시'}
                 onClick={() => void setFavorite('items', r.name, !r.favorite)}>{r.favorite ? '★' : '☆'}</button>}
@@ -117,6 +116,14 @@ export function ItemList({ rows, diet = false, tall = false }: { rows: InvGroup[
               {!tall && <span className="by">{parts.length === 0 ? '없음' : parts.map(k => `${LOC_SHORT[k]} ${fmt(r.by[k])}`).join(' · ')}</span>}
             </div>
             {tall && <div className="by">{parts.length === 0 ? '없음' : parts.map(k => `${LOC_SHORT[k]} ${fmt(r.by[k])}`).join(' · ')}</div>}
+          </>
+        );
+        return (
+          <div className={`inv-card ${r.favorite && diet ? 'fav' : ''} ${r.total === 0 ? 'zero' : ''} ${picked?.has(r.name) ? 'sel' : ''}`} role="listitem" key={r.name}
+            title={`${plain(r.name)} · ${info ? `${info.town} ${info.kind}` : r.category} · 총 ${fmt(r.total)}개${detail ? ` (${detail})` : ''}`}>
+            {onPick
+              ? <button type="button" className="inv-pick" aria-pressed={picked?.has(r.name) ?? false} onClick={() => onPick(r.name)}>{body}</button>
+              : body}
           </div>
         );
       })}
