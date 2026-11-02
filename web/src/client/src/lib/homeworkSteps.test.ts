@@ -17,9 +17,9 @@ describe('숙제 수동 횟수 순환', () => {
 });
 
 describe('단계 카운터와 뒤로 가기', () => {
-  it('소환의 결계·검은 구멍은 7단계다', () => {
+  it('소환의 결계는 7단계, 검은 구멍은 14회다', () => {
     expect(STEP_GOALS.weekly_barrier_1_7).toBe(7);
-    expect(STEP_GOALS.weekly_black_hole_1_7).toBe(7);
+    expect(STEP_GOALS.weekly_black_hole_1_7).toBe(14);
     expect(TABLE_ONLY_IDS.has('weekly_barrier_1_7')).toBe(true);
     expect(TABLE_ONLY_IDS.has('weekly_vanguard_breach')).toBe(false);   // 뱅가드는 전체 탭 카드 칩에도 보인다
   });
