@@ -82,7 +82,7 @@ export function HomeworkView() {
           </section>
           <p className="faint small m0">
             칸을 누르면 <b>미완료 ↔ 완료</b>가 바뀝니다(수동 체크).<br />
-            횟수 칸(뱅가드 3회, 소환의 결계·검은 구멍 7단계, 나이트메어 드릴 30구역)은 누를 때마다 <b>0 → 1 → 2 → … → 완료 → 0</b>으로 돕니다. 한 단계 뒤로는 Shift+클릭이나 우클릭입니다.<br />
+            횟수 칸(뱅가드 3회, 소환의 결계 7단계, 검은 구멍 14회, 나이트메어 드릴 30구역)은 누를 때마다 <b>0 → 1 → 2 → … → 완료 → 0</b>으로 돕니다. 한 단계 뒤로는 Shift+클릭이나 우클릭입니다.<br />
             드릴 랭킹 칸은 처음엔 <b>-</b>이고, 누르면 순위를 직접 입력합니다(Enter나 다른 곳을 누르면 저장, 비우면 다시 -).<br />
             <b>나이트메어 드릴·드릴 랭킹</b>은 <b>{SEASON_NOTE}</b>입니다. 주간 리셋으로 지우지 않으니 시즌이 바뀌면 직접 0으로 돌려 주세요.<br />
             <span className="hw-legend done">✓ 완료</span> <span className="hw-legend todo">○ 미완료(이번 주기에 확인)</span> <span className="hw-legend unknown">· 미확인(아직 확인 전, 미완료로 봅니다)</span> ·

@@ -63,22 +63,22 @@ test('숙제: 뱅가드는 일부만 했을 수 있어 누를 때마다 0 → 1 
   await expect(cell).toHaveAttribute('aria-pressed', 'false');
 });
 
-test('숙제: 소환의 결계·검은 구멍은 0~7단계를 눌러 올리고 Shift+클릭으로 한 단계 뒤로 간다 (2026-10-24)', async ({ page }) => {
+test('숙제: 소환의 결계(7단계)·검은 구멍(14회)은 눌러서 올리고 Shift+클릭으로 한 단계 뒤로 간다 (2026-10-24, 검은 구멍 14회 2026-11-02)', async ({ page }) => {
   await page.goto('/homework');
-  for (const name of ['소환의 결계', '검은 구멍']) {
+  for (const [name, goal] of [['소환의 결계', 7], ['검은 구멍', 14]] as const) {
     const cell = page.locator('.hw-row.current').getByRole('button', { name: new RegExp(`^${name} `) });
-    for (let i = 0; i < 8 && !(await cell.textContent())!.includes('0/7'); i++) await cell.click();   // 0으로 맞추고 시작
-    await expect(cell).toContainText('0/7');
+    for (let i = 0; i < goal + 1 && !(await cell.textContent())!.includes(`0/${goal}`); i++) await cell.click();   // 0으로 맞추고 시작
+    await expect(cell).toContainText(`0/${goal}`);
     await cell.click(); await cell.click(); await cell.click();
-    await expect(cell).toContainText('3/7');
+    await expect(cell).toContainText(`3/${goal}`);
     await expect(cell).toHaveAttribute('aria-pressed', 'false');
     await cell.click({ modifiers: ['Shift'] });
-    await expect(cell).toContainText('2/7');
-    for (let i = 0; i < 5; i++) await cell.click();
-    await expect(cell).toContainText('7/7');
+    await expect(cell).toContainText(`2/${goal}`);
+    for (let i = 0; i < goal - 2; i++) await cell.click();
+    await expect(cell).toContainText(`${goal}/${goal}`);
     await expect(cell).toHaveAttribute('aria-pressed', 'true');
     await cell.click();
-    await expect(cell).toContainText('0/7');
+    await expect(cell).toContainText(`0/${goal}`);
   }
 });
 

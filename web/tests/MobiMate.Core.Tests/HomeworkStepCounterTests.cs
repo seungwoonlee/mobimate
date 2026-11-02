@@ -1,7 +1,7 @@
 namespace MobiMate.Tests;
 
 /// <summary>
-/// 소환의 결계·검은 구멍(주간) 1~7단계 (2026-10-24 승운): 자동으로 알 길이 없어(주간 미션 "소환결계 1회 파괴"·"검은 구멍 1회 입장"은 계정 공유의 1회짜리라
+/// 소환의 결계(주간) 1~7단계, 검은 구멍(주간) 14회 (2026-10-24 승운, 검은 구멍 14회는 2026-11-02): 자동으로 알 길이 없어(주간 미션 "소환결계 1회 파괴"·"검은 구멍 1회 입장"은 계정 공유의 1회짜리라
 /// 몇 단계인지, 어느 캐릭터인지 모른다) 숙제 화면에서 손으로 0~7을 맞춘다. 서버는 단계를 저장하고, 화면 칸이 읽을 수 있게 캐릭터별 현황에 단계를 준다.
 /// </summary>
 public class HomeworkStepCounterTests : IDisposable
@@ -10,7 +10,6 @@ public class HomeworkStepCounterTests : IDisposable
     private readonly HomeworkCatalog _catalog = HomeworkCatalog.LoadEmbedded();
     private DateTimeOffset _now = new DateTimeOffset(2026, 10, 22, 23, 0, 0, TimeSpan.FromHours(9)).ToUniversalTime();   // 목요일
     private const string Main = "에린_힐러";
-    private static readonly string[] Ids = { "weekly_barrier_1_7", "weekly_black_hole_1_7" };
 
     public HomeworkStepCounterTests() => Directory.CreateDirectory(_dir);
     public void Dispose() { try { Directory.Delete(_dir, true); } catch { } }
@@ -34,16 +33,34 @@ public class HomeworkStepCounterTests : IDisposable
     [InlineData(4, "todo", 3)]
     [InlineData(6, "todo", 1)]
     [InlineData(7, "done", null)]
-    public void TheStepIsSavedAndShownAsRemainingSteps(int step, string state, int? remaining)
+    public void TheBarrierStepIsSavedAndShownAsRemainingSteps(int step, string state, int? remaining)
     {
-        foreach (var id in Ids)
-        {
-            var svc = NewService();
-            svc.Set(Main, id, count: step);
-            var a = Auto(NewService(), id);   // 다시 읽어도 같다
-            Assert.Equal(state, a.State);
-            Assert.Equal(remaining, a.Remaining);
-        }
+        NewService().Set(Main, "weekly_barrier_1_7", count: step);
+        var a = Auto(NewService(), "weekly_barrier_1_7");   // 다시 읽어도 같다
+        Assert.Equal(state, a.State);
+        Assert.Equal(remaining, a.Remaining);
+    }
+
+    [Theory]
+    [InlineData(0, "unknown", null)]
+    [InlineData(1, "todo", 13)]
+    [InlineData(7, "todo", 7)]   // 7회는 아직 절반이다
+    [InlineData(13, "todo", 1)]
+    [InlineData(14, "done", null)]
+    public void TheBlackHoleCountIsOutOfFourteen(int count, string state, int? remaining)
+    {
+        NewService().Set(Main, "weekly_black_hole_1_7", count: count);
+        var a = Auto(NewService(), "weekly_black_hole_1_7");
+        Assert.Equal(state, a.State);
+        Assert.Equal(remaining, a.Remaining);
+    }
+
+    [Fact]
+    public void TheBlackHoleCountIsClampedToFourteen()
+    {
+        var svc = NewService();
+        svc.Set(Main, "weekly_black_hole_1_7", count: 99);
+        Assert.Equal("done", Auto(svc, "weekly_black_hole_1_7").State);
     }
 
     [Fact]
