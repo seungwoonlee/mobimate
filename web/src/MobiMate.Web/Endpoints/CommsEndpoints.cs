@@ -6,7 +6,7 @@ using MobiMate.Web.Services;
 
 namespace MobiMate.Web.Endpoints;
 
-public sealed record ChatRequest(string? Text, bool? AutoEmote, string? Source = null);
+public sealed record ChatRequest(string? Text, bool? AutoEmote, string? Source = null, string? SttOriginal = null);
 public sealed record ChatterRequest(string? Persona, string? CustomId);
 public sealed record PersonaRequest(string? Name, string? Emoji, string? Prompt);
 public sealed record PersonaGenerateRequest(string? Request);
@@ -32,8 +32,8 @@ public static class CommsEndpoints
 
         api.MapPost("/chat/game", async (HttpContext ctx, ChatRequest req, ChatService chat, WebSettingsStore s, CancellationToken ct) =>
         {
-            // 출처는 "직접" 또는 "아무말 · <페르소나>"만 받는다 (FR-GC-05). 그 밖의 값은 "직접"으로 둔다
-            var source = req.Source is { Length: <= 40 } src && src.StartsWith("아무말", StringComparison.Ordinal) ? src : "직접";
+            // 출처는 "직접", "아무말 · <페르소나>", "음성"만 받는다 (FR-GC-05). 그 밖의 값은 "직접"으로 둔다
+            var source = req.Source is { Length: <= 40 } src && (src == "음성" || src.StartsWith("아무말", StringComparison.Ordinal)) ? src : "직접";
             var (status, entry) = await chat.SendAsync(req.Text, req.AutoEmote ?? s.Current.AutoEmoteDefault, source, ClientId.Of(ctx), ct);
             return status switch
             {

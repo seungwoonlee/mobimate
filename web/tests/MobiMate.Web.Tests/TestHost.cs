@@ -36,6 +36,10 @@ public sealed class TestHost : WebApplicationFactory<Program>
     public FakeNetwork Network { get; } = new();
     public FakePortProbe Probe { get; } = new();
     public FakeMdns Mdns { get; } = new();
+
+    /// <summary>가짜 마이크·가짜 음성 인식 엔진 (FR-VC 테스트: 마이크와 모델이 없어도 통과한다)</summary>
+    public FakeAudioSource Audio { get; } = new();
+    public FakeEngineProvider Engines { get; } = new();
     public const string LanIp = "192.168.0.23";
 
     public TestHost(string? storageDir = null)
@@ -74,6 +78,8 @@ public sealed class TestHost : WebApplicationFactory<Program>
             s.AddSingleton<INetworkProfileSource>(Network);
             s.AddSingleton<IPortProbe>(Probe);
             s.AddSingleton<IMdnsAdvertiser>(Mdns);
+            s.AddSingleton<MobiMate.Web.Voice.IAudioSource>(Audio);
+            s.AddSingleton<MobiMate.Web.Voice.ISttEngineProvider>(Engines);
         });
     }
 

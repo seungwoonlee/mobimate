@@ -11,6 +11,22 @@ public sealed class WebSettings
 
     /// <summary>현재 아무말 페르소나: 기본 5종 이름 또는 "custom:&lt;id&gt;" (FR-MB-15, 기기 사이 공유)</summary>
     public string ChatterPersona { get; set; } = "Villainess";
+
+    // ── 음성 입력 (FR-VC) ──
+    /// <summary>확정 즉시 게임 채팅으로 보낸다 (기본 끔: 오인식이 그대로 나가므로)</summary>
+    public bool SttAutoSend { get; set; }
+
+    /// <summary>폰·태블릿(LAN 기기)이 음성 듣기를 시작할 수 있는가 (기본 끔: 무인증 LAN에서 마이크를 켜는 것을 막는다, FR-VC-10)</summary>
+    public bool SttAllowLanStart { get; set; }
+
+    /// <summary>한 번 듣는 최대 시간(초)</summary>
+    public int SttMaxSeconds { get; set; } = 15;
+
+    /// <summary>마이크 고유 ID. 없으면 시스템 기본 마이크</summary>
+    public string? SttDeviceId { get; set; }
+
+    /// <summary>인식 스레드 수 (기본 1: 게임 부하를 줄인다, FR-VC-06)</summary>
+    public int SttThreads { get; set; } = 1;
 }
 
 public sealed class WebSettingsStore
@@ -53,5 +69,10 @@ public sealed class WebSettingsStore
         CliPath = s.CliPath,
         LanEnabled = s.LanEnabled,
         ChatterPersona = s.ChatterPersona,
+        SttAutoSend = s.SttAutoSend,
+        SttAllowLanStart = s.SttAllowLanStart,
+        SttMaxSeconds = s.SttMaxSeconds,
+        SttDeviceId = s.SttDeviceId,
+        SttThreads = s.SttThreads,
     };
 }

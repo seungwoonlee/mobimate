@@ -4,6 +4,7 @@ using System.Net.Sockets;
 using Microsoft.Extensions.Options;
 using MobiMate;
 using MobiMate.Web.Endpoints;
+using MobiMate.Web.Voice;
 using MobiMate.Web.Hosting;
 using MobiMate.Web.Infrastructure;
 using MobiMate.Web.Lan;
@@ -103,6 +104,12 @@ builder.Services.AddSingleton<CombatScoreGuard>();
 builder.Services.AddSingleton<GameViews>();
 builder.Services.AddSingleton<GameActions>();
 builder.Services.AddSingleton<ChatService>();
+builder.Services.AddSingleton<IAudioSource, WasapiAudioSource>();
+builder.Services.AddSingleton(sp => new SttModelLocator(Dir(sp)));
+builder.Services.AddSingleton<ISttEngineProvider, SherpaEngineProvider>();
+builder.Services.AddSingleton<IVoicePostProcessor, PassThroughPostProcessor>();
+builder.Services.AddSingleton<SttService>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<SttService>());
 builder.Services.AddSingleton(_ => new AiEngineManager());
 builder.Services.AddSingleton(sp => new ChatterLineService(sp.GetRequiredService<AiEngineManager>()));
 builder.Services.AddSingleton<AiService>();
@@ -143,6 +150,7 @@ AuthEndpoints.Map(app);
 GameEndpoints.Map(app);
 CommsEndpoints.Map(app);
 RankingEndpoints.Map(app);
+SttEndpoints.Map(app);
 
 // 앱 셸 라우팅: /stats 같은 화면 경로는 index.html로 돌려준다. /api는 제외(없는 API는 404 그대로).
 app.MapFallbackToFile("{*path:regex(^(?!(?i:api/|api$)).*$)}", "index.html")
