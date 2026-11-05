@@ -297,6 +297,9 @@ public sealed class QueryCache
 | `toast` | `{ level, message }` | 서버발 알림 (채집 결과, 수거 결과 등) |
 | `gather` | `{ jobId, state: running|completed|stopped|failed, gained, item }` | 채집 작업 상태 변경 |
 | `chat.logged` | `ChatLogEntryDto` | 채팅 전송 로그 추가 |
+| `stt.state` | `{ sessionId, state: idle|starting|listening|finishing, byDevice?, error? }` | 음성 입력 상태 변경 (FR-VC-10: 모든 기기에 "듣는 중" 표시) |
+| `stt.partial` | `{ sessionId, text }` | 인식 중인 글자 (바뀔 때마다) |
+| `stt.final` | `{ sessionId, text, original, applied: [...] }` | 문장 확정 (치환·띄어쓰기 적용 후). `original`은 화면 메모리에서만 쓴다 |
 | `state.changed` | `{ keys: ["persona","engine","settings"] }` | FR-MB-15 공유 상태 변경 → 클라이언트가 재조회 |
 | `homework.changed` | `{ characterKey, ids: [...], reason: "auto" \| "manual" \| "reset" }` | 자동 판정·수동 설정·리셋으로 숙제 상태가 바뀜 → `['homework']`·`['overview']` 무효화 |
 | `ping` | — | 20초마다 (프록시·절전 감지용) |
@@ -362,30 +365,33 @@ public sealed class GatherJobService
 
 | 요소 | 역할 |
 |---|---|
-| `IAudioSource` | 마이크 캡처. 실제 구현 `WasapiAudioSource`(NAudio `WasapiCapture`, 공유 모드), 테스트용 `FakeAudioSource`(wav 재생). 장치 목록·고유 ID·기본 장치 추적·장치 분리 알림 |
+| `IAudioSource` | 마이크 캡처. 실제 구현 `WasapiAudioSource`(NAudio `WasapiCapture`, 공유 모드), 테스트용 `FakeAudioSource`(wav 재생). 장치 목록·고유 ID·기본 장치 추적·장치 분리 알림. 독점 점유로 열 수 없으면 전용 오류 코드 |
 | `AudioConverter` | 장치 형식(샘플레이트·채널·비트) → 16kHz 모노 float. 스테레오는 평균, 3채널 이상도 평균, 리샘플은 Wdl. 자동 이득 보정과 입력 레벨(피크·RMS) 계산 |
-| `ISttEngine` | 인식. 실제 구현 `SherpaSttEngine`(sherpa-onnx `OnlineRecognizer`, `modified_beam_search`, 1스레드, 끝점 감지 켬: 말 멈춤 0.8초), 테스트용 `FakeSttEngine`(미리 정한 글자를 흘림) |
-| `SttService` | 호스티드 서비스. 상태 기계 `Idle → Starting → Listening → Finishing → Idle`, 한 번에 한 세션, 최대 길이 타이머, 사전 버퍼(링 버퍼) 관리. 결과를 후처리 후 SSE로 방송 |
-| `VoicePostProcessor` | 인식 글자 → ① 학습된 치환 쌍 적용 ② 띄어쓰기 복원 ③ 정리. 순서 고정 |
-| `VoiceVocabulary` | 누적 학습 저장소. `%APPDATA%\MobiMateWeb\stt\vocab.json`(원자적 저장, §2.3 저장 계층 규칙). 낱말 개수·고친 쌍 개수·마지막 사용일만 저장 |
-| `HotkeyService` | 전역 단축키. 메시지 전용 창 스레드에서 `RegisterHotKey`. 누르는 동안/토글 두 방식. 등록 실패(다른 프로그램이 점유)는 설정 화면에 알림 |
-| `ModelInstaller` | 모델 내려받기·검증·진행률. 직업 이미지 내려받기(`ClassImages`)와 같은 방식 |
+| `ISttEngine` | 인식. 실제 구현 `SherpaSttEngine`(sherpa-onnx `OnlineRecognizer`, `modified_beam_search`, 1스레드, 끝점 감지 켬: 말 멈춤 0.8초), 테스트용 `FakeSttEngine`(미리 정한 글자를 흘림). 입력 큐는 5초 상한, 넘치면 오래된 것부터 버리고 경고 |
+| `SttService` | 호스티드 서비스. 상태 기계 `Idle → Starting → Listening → Finishing → Idle`, 한 번에 한 세션(이미 듣는 중이면 409 `STT_BUSY`), 최대 길이 타이머, 마지막 확정 결과 60초 보관. 서버 종료(`StopAsync`) 때 마이크를 닫는다 |
+| `VoicePostProcessor` | 인식 글자 → ① 학습된 치환 쌍 적용 ② 띄어쓰기 복원 ③ 정리. 순서 고정. 결과가 비면 이벤트만 보내고 초안은 건드리지 않는다 |
+| `VoiceVocabulary` | 누적 학습 저장소. `%APPDATA%\MobiMateWeb\stt\vocab.json`(`JsonFileStore`로 원자적 저장, 손상 시 격리 + 사용자에게 알림). 낱말·쌍 개수와 마지막 사용일만 저장하고 문장·문맥은 저장하지 않는다 |
+| `HotkeyService` | 전역 단축키. `RegisterHotKey`는 **메시지 루프가 있는 스레드**에서 등록·해제해야 하므로 트레이(`TrayHost`)가 쓰는 WinForms 메시지 루프 스레드에 `NativeWindow`를 붙이는 방안을 먼저 검토한다(확인 필요). 누르는 동안 듣기는 `WM_HOTKEY`(누름만 옴, `MOD_NOREPEAT`) 뒤 `GetAsyncKeyState`를 짧은 주기로 확인해 떼기를 감지한다. 등록 실패(다른 프로그램이 점유)는 설정 화면에 알린다 |
+| `ModelInstaller` | 모델 내려받기·검증·진행률. `ClassImages`와 같은 방식(고정 주소만 사용, 요청 값으로 주소를 만들지 않음) |
+| `SttGuard` | 음성 API 쓰기 요청 검사: `X-MobiMate-Req: 1` 헤더, `application/json`, `Origin`이 있으면 이 서버 주소와 일치. 🏠 엔드포인트는 `LanGate.IsLocal`로 PC 본체만 허용. "LAN 기기 시작 허용" 설정이 꺼져 있으면 `start`는 PC 본체만 |
 
-**의존 패키지(고정)**: `NAudio` **2.2.1**(3.x는 net9.0 전용이라 net8.0에서 쓸 수 없다 — P0에서 확인), `org.k2fsa.sherpa.onnx` **2.0.1**(Windows x64 런타임 포함). 단일 파일 exe 배포에서 네이티브 DLL(`sherpa-onnx-c-api`, `onnxruntime`)이 함께 풀리는지는 **아직 확인하지 않았다** — V3에서 `dotnet publish`로 확인하고, 안 되면 exe 옆에 두는 방식으로 한다.
+**의존 패키지(고정)**: `NAudio` **2.2.1**(3.x는 net9.0 전용이라 net8.0에서 쓸 수 없다 — P0에서 확인), `org.k2fsa.sherpa.onnx` **2.0.1**(Windows x64 런타임 포함, P0에서 net8.0 동작 확인). 단일 파일 exe 배포에서 네이티브 DLL(`sherpa-onnx-c-api`, `onnxruntime`)이 함께 풀리는지는 **아직 확인하지 않았다 — V1 첫 작업으로 `dotnet publish`해서 확인**하고, 안 되면 exe 옆에 두는 방식으로 한다.
 
-**모델**: Hugging Face `kangkyu/icefall-asr-ko-streaming-zipformer-174m`, int8 `chunk-16-left-128`(기본, 지연 약 320ms). 필요 파일 `encoder`(약 157MB)·`decoder`(1.5MB)·`joiner`(1.3MB)·`tokens.txt`. SHA-256은 저장소의 `SHA256SUMS` 값을 코드에 고정해 검증한다(경로 접두사 `174m_streaming/`를 떼고 비교). 라이선스 Apache-2.0(학습 자료는 KsponSpeech + AIHub 혼합이라 개인 사용 범위에서 쓴다).
+**모델**: Hugging Face `kangkyu/icefall-asr-ko-streaming-zipformer-174m`, **커밋 `f0e73b1653c3ea75898c6d949dd71c690c9121da`로 고정**, int8 `chunk-16-left-128`(기본, 지연 약 320ms). 필요 파일 `encoder`(약 157MB)·`decoder`(1.5MB)·`joiner`(1.3MB)·`tokens.txt`. SHA-256은 그 커밋의 `SHA256SUMS` 값을 코드에 고정해 검증한다(경로 접두사 `174m_streaming/`를 떼고 비교). 라이선스 Apache-2.0. 학습 자료(KsponSpeech + AIHub 혼합)의 약관은 확인하지 못했다 — 개인 PC에서 쓰는 범위로 한정한다. 네이티브 라이브러리가 손상된 파일을 읽으면 .NET에서 잡을 수 없는 오류로 서버가 죽을 수 있다(추측) — 로드 전 크기 확인과 설치 때 해시 검증으로 줄이고, 엔진을 별도 프로세스로 격리하는 것은 문제가 확인되면 한다.
 
 **누적 학습 알고리즘**
-1. 전송 시점에 `POST /api/chat/game`이 `source="음성"`과 `sttOriginal`(고치기 전 인식 글자)을 받는다.
-2. `sttOriginal`과 최종 문장을 **공백을 모두 뺀 글자열**로 맞추어 편집 거리 정렬하고, 바뀐 덩어리(1~6음절)를 `(틀린 글자 → 고친 글자)` 쌍으로 뽑는다. 덩어리 앞뒤 1음절 문맥을 함께 저장해 우연한 일치를 줄인다.
-3. 쌍마다 확인 횟수를 센다. **2회 이상**이면 활성. 활성 쌍은 인식 결과(공백 없는 글자열)에서 긴 것부터 치환한다. 화면에는 "적용된 치환"을 작게 표시하고 한 번에 되돌릴 수 있다.
-4. 전송된 모든 문장(직접 입력 포함)에서 낱말(공백 기준, 한글·영문·숫자 2~8자)을 세어 빈도를 올린다. 문장 자체는 저장하지 않는다.
-5. 빈도 3회 이상인 낱말 상위 N개(기본 30)를 **핫워드 파일**로 쓴다(음절 사이를 띄운 형식, 점수 기본 2.0 — P0에서 점수 6 이상은 문장이 깨졌다). 핫워드는 인식기를 만들 때만 적용되므로(스트림별 지정 API 없음) 학습이 바뀌면 **유휴 때 백그라운드에서 인식기를 새로 만들어 바꿔 끼운다**. 인식기 생성 시간은 아직 측정하지 않았다.
-6. 마지막 사용 후 90일이 지난 항목을 정리한다. 설정 화면에서 보기·끄기·삭제·전체 초기화·학습 끄기.
+1. 전송 시점에 `POST /api/chat/game`이 `source="음성"`과 `sttOriginal`(고치기 전 인식 글자)을 받는다. `sttOriginal`은 로그·파일에 남기지 않는다.
+2. `sttOriginal`과 최종 문장을 **공백을 모두 뺀 글자열**로 맞추어 편집 거리 정렬하고, 바뀐 덩어리를 찾는다. **양쪽이 모두 1~6음절인 맞바꿈만** `(틀린 글자 → 고친 글자)` 쌍으로 저장한다. 삽입·삭제만 있는 덩어리와 정렬이 둘 이상으로 갈리는 경우는 버린다. 문맥은 저장하지 않는다.
+3. 쌍마다 확인 횟수를 센다. **2회 이상**이면 활성이다. 활성 쌍은 인식 결과(공백 없는 글자열)에서 틀린 글자가 **2음절 이상**일 때만, 긴 것부터 **한 번만** 치환한다(치환 결과를 다시 치환하지 않는다). 사용자가 치환된 문장을 원래 인식 글자로 되돌려 보내면 되돌림으로 세고, 2회가 되면 그 쌍을 끈다. 화면에는 "적용된 치환"을 작게 표시하고 한 번에 되돌릴 수 있다. (알려진 한계: "일러→힐러"가 "일러스트"의 일부에도 걸릴 수 있다 — 되돌림 끄기와 설정 화면 삭제로 대응한다.)
+4. 전송된 모든 문장(직접 입력 포함)에서 낱말(공백 기준, 한글·영문 2~8자, 숫자가 섞이면 제외)을 세어 빈도를 올린다. 문장 자체는 저장하지 않는다.
+5. 빈도 3회 이상인 낱말 상위 N개(기본 30)를 **핫워드 파일**로 쓴다(음절 사이를 띄운 형식, 점수 기본 2.0 — P0에서 점수 6 이상은 문장이 깨졌다). `tokens.txt`에 없는 음절이 있는 낱말은 제외한다. 핫워드는 인식기를 만들 때만 적용되므로(스트림별 지정 API 없음) 학습이 바뀌면 **세션이 끝난 직후(Idle)에만** 새 인식기를 만들어 바꿔 끼운다. 만들기에 실패하면 이전 것을 유지한다. 새 인식기 생성 시간과 일시적 메모리 증가는 **아직 측정하지 않았다**.
+6. 마지막 사용 후 90일이 지난 항목을 정리한다. 설정 화면(PC)에서 보기·끄기·삭제·전체 초기화·학습 끄기.
 
 **띄어쓰기 복원(1차)**: 낱말 사전(기본 게임 용어 + 흔한 어미·조사 + 학습된 낱말)으로 글자열을 나누는 최단 경로 탐색. 한국어 띄어쓰기 전용 모델은 찾지 못했다(조사 결과). 품질이 모자라면 설정에서 끄고 붙여서 입력하도록 한다.
 
-**세션 흐름**: `start`(단축키·버튼) → 상태 `Starting`, 신호음 → 마이크 열기, 사전 버퍼 앞붙임 → `Listening`: 100ms 단위로 변환·인식, 글자가 바뀔 때 `stt.partial` → 끝점 감지 또는 `stop` → 후처리 → `stt.final` → `Finishing → Idle`. 각 이벤트에는 `sessionId`를 넣는다. 자동 전송이 켜져 있으면 `stt.final` 직후 서버가 `ChatService.SendAsync(source="음성")`를 직접 부른다(브라우저가 닫혀 있어도 단축키만으로 동작).
+**세션 흐름**: `start`(단축키·버튼) → 상태 `Starting`, 신호음 재생 → 신호음이 끝난 뒤 마이크 열기 → `Listening`: 100ms 단위로 변환·인식, 글자가 바뀔 때 `stt.partial` → 끝점 감지 또는 `stop`(또는 키 떼기·최대 시간) → 후처리 → `stt.final` → `Finishing → Idle`. 각 이벤트에는 `sessionId`를 넣는다. 자동 전송이 켜져 있으면 `stt.final` 직후 서버가 `ChatService.SendAsync(source="음성", deviceId="stt")`를 직접 부른다. 중복 방지는 `SendAsync` 안의 기기별 1초 규칙이 그대로 적용되고, 실패하면 `toast` 이벤트로 알린다. LAN을 끄거나 연결이 끊긴 기기는 돌아온 뒤 `GET /api/stt/last`로 마지막 확정 결과를 받는다.
+
+**상태 전이 예외**: 이미 `Listening`인데 `start` → 409 `STT_BUSY`. `Idle`에서 `stop` → 무시(200). 듣는 중 장치 분리 → 지금까지 글자로 `stt.final`, 기본 장치로 전환 가능하면 `Idle`로 돌아간 뒤 안내. 모델 없음 → `start`는 409 `STT_MODEL_MISSING`. 서버 종료 → 듣는 중이면 확정 없이 닫는다.
 
 ---
 
@@ -571,6 +577,7 @@ sequenceDiagram
 3. 성공하고 `BehaviourCommand`가 있으면 150ms 뒤 `write_chat(BehaviourCommand)`
 4. 로그 항목 저장 → SSE `chat.logged` → 응답 `{ ok, finalMessage, behaviour, error? }`
 5. 중복 방지: 같은 기기에서 같은 `text`가 1초 안에 다시 오면 409 (FR-GC-06)
+6. 출처는 `직접` / `아무말…` / `음성`만 받는다(`CommsEndpoints`의 허용 목록에 `음성` 추가). `sttOriginal`은 학습 입력으로만 쓰고 로그 항목·파일에 넣지 않는다 (FR-VC-08)
 
 ### 5.3 AI 질의 (FR-AI-04·05)
 
@@ -588,19 +595,19 @@ sequenceDiagram
 `POST /api/chatter/line { persona, customId? }` → `ChatterLineService.GenerateLineAsync`(2.5초) → `ChatPlanService`까지 거친 문장 → 응답 `{ text, usedFallback }` → 클라이언트가 입력창에 채운다. `usedFallback && persona==Custom`이면 토스트를 띄운다(D-03).
 
 
-### 5.5 음성 입력 (FR-VC-02·03·08)
+### 5.5 음성 입력 (FR-VC-02·03·08·13)
 
 ```
-[단축키/마이크 버튼] → POST /api/stt/start ─ 서버: 신호음 → 마이크 → 인식
+[단축키/마이크 버튼] → POST /api/stt/start ─ 서버: 신호음 → (끝난 뒤) 마이크 → 인식
    ↑ 모든 기기: stt.state(Listening) → "듣는 중" 표시
-말함 ──→ stt.partial("힐러한번만…")  → 입력창 초안에 실시간 표시 (draft 소스 = "음성", sttOriginal 보관)
+말함 ──→ stt.partial("힐러한번만…")  → 입력창 '음성 구간'(초안 뒤)에 실시간 표시
 말 멈춤 0.8초 → 후처리(치환→띄어쓰기) → stt.final("힐러 한 분만 더 구합니다")
-   ├ 자동 전송 꺼짐(기본): 초안 확정 → 사용자가 고치고 Enter → POST /api/chat/game {text, source:"음성", sttOriginal}
-   └ 자동 전송 켜짐: 서버가 바로 ChatService.SendAsync → chat.logged
-전송 후: 서버가 sttOriginal ↔ text 를 비교해 고친 쌍·낱말 빈도 학습 (문장은 저장하지 않음)
+   ├ 자동 전송 꺼짐(기본): 초안 뒤에 붙여 확정 → 사용자가 고치고 Enter → POST /api/chat/game {text, source:"음성", sttOriginal}
+   └ 자동 전송 켜짐: 서버가 바로 ChatService.SendAsync(deviceId="stt") → chat.logged (실패 시 toast)
+전송 후: 서버가 sttOriginal ↔ text 를 비교해 맞바꿈 쌍·낱말 빈도 학습 (문장은 저장하지 않음)
 ```
 
-화면 쪽 규칙: 사용자가 듣는 중에 입력창을 직접 고치기 시작하면 인식 글자는 더 이상 덮어쓰지 않는다(`stt.partial`은 무시, 확정 글자만 뒤에 붙일지 묻지 않고 버린다). 같은 기기가 아닌 곳에서 시작한 세션의 글자도 모든 기기 초안에 반영하되, 입력창에 포커스가 있는 기기는 건드리지 않는다.
+화면 쪽 규칙: 인식 중인 글자는 기존 초안을 지우거나 덮어쓰지 않고 뒤에 붙는 별도 구간으로 보인다. 듣는 중에 사용자가 입력창을 고치기 시작하면 `stt.partial`은 무시하고 `stt.final`만 초안 뒤에 붙인다(버리지 않는다). 빈 결과는 초안을 바꾸지 않는다. 확정 글자가 50자를 넘으면 그대로 두고 카운터를 경고색으로, 전송 버튼은 줄일 때까지 비활성이다. 같은 기기가 아닌 곳에서 시작한 세션의 글자는 포커스가 입력창에 있지 않은 기기에만 반영한다(타이핑 중인 기기를 방해하지 않는다). 연결이 끊겼다 돌아오면 `GET /api/stt/last`로 놓친 확정 결과를 받는다.
 
 ---
 
