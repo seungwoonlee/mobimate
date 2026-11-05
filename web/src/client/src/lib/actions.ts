@@ -214,3 +214,19 @@ async function resetHomeworkOnce(scope: 'character' | 'characterAndAccount') {
     void queryClient.invalidateQueries({ queryKey: keys.characters });
   }
 }
+
+/** 나이트메어 드릴 점수(구역·랭킹)만 모든 캐릭터에서 지운다 (시즌이 바뀔 때). 호출 전에 확인 대화상자를 띄운다. */
+export async function resetDrillAll() {
+  await runExclusive('hw-reset-drill', async () => {
+    try {
+      const r = await api.post<{ characters: number }>('/api/homework/reset-drill', {});
+      toast(r.data.characters > 0 ? `나이트메어 드릴을 ${r.data.characters}개 캐릭터에서 초기화했습니다` : '초기화할 드릴 기록이 없습니다', 'ok');
+    } catch (e) {
+      toast(`초기화하지 못했습니다: ${msg(e)}`, 'warn');
+    } finally {
+      void queryClient.invalidateQueries({ queryKey: keys.homework });
+      void queryClient.invalidateQueries({ queryKey: keys.overview });
+      void queryClient.invalidateQueries({ queryKey: keys.characters });
+    }
+  });
+}

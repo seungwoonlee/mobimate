@@ -3,7 +3,7 @@ import { useCharacters, useHomework } from '../api/queries';
 import type { AccountGroup, CharacterCard, HomeworkAuto } from '../api/types';
 import { Dialog, ErrorCard, Fresh, Icon, JobIcon, Pill, Skeleton } from '../components/ui';
 import { useNow } from '../hooks/layout';
-import { setHomework } from '../lib/actions';
+import { resetDrillAll, setHomework } from '../lib/actions';
 import { entryShort, MAX_VALUE, nextStep, prevStep, SEASON_IDS, SEASON_NOTE, STEP_GOALS, STEP_UNITS, stepOf, VALUE_UNITS } from '../lib/homeworkSteps';
 import { until } from '../lib/format';
 import { charName } from './characters';
@@ -14,7 +14,7 @@ import { charName } from './characters';
  * 칸을 누르면 미완료 ↔ 완료를 수동으로 바꾼다(캐릭터마다, 자동 판정이 놓친 경우). 접속 안 한 캐릭터는 마지막으로 본 값에 수동 체크가 겹친다.
  */
 export const HW_GROUPS: { title: string; cells: { id: string; label: string }[] }[] = [
-  { title: '일일·주간', cells: [{ id: 'daily_day_dungeon', label: '요일던전' }, { id: 'weekly_guild_regular', label: '길드의뢰' }, { id: 'weekly_vanguard_breach', label: '뱅가드' }, { id: 'weekly_barrier_1_7', label: '소환의 결계' }, { id: 'weekly_black_hole_1_7', label: '검은 구멍' }, { id: 'weekly_nightmare_drill', label: '나이트메어 드릴' }, { id: 'weekly_nightmare_rank', label: '드릴 랭킹' }] },
+  { title: '일일·주간', cells: [{ id: 'daily_day_dungeon', label: '요일던전' }, { id: 'weekly_guild_regular', label: '길드의뢰' }, { id: 'weekly_vanguard_breach', label: '뱅가드' }, { id: 'weekly_barrier_1_7', label: '소환의 결계' }, { id: 'weekly_black_hole_1_7', label: '검은 구멍' }, { id: 'weekly_nightmare_drill', label: '나이트메어 드릴' }, { id: 'weekly_nightmare_rank', label: '드릴 랭킹' }, { id: 'weekly_memorial_saga', label: '메모리얼 사가' }] },
   { title: '레이드', cells: [{ id: 'raid_scars', label: '적월의 스카스' }, { id: 'raid_cavrak', label: '카브락' }, { id: 'raid_airel', label: '에이렐' }, { id: 'raid_white_succubus', label: '화이트 서큐버스' }] },
   { title: '어비스', cells: [{ id: 'abyss_illusory_anchorage', label: '허상의 정박지' }, { id: 'abyss_madness_cave', label: '광기의 동굴' }, { id: 'abyss_scattered_waterway', label: '흩어진 물길' }] },
 ];
@@ -48,6 +48,29 @@ const BOSSES: { id: string; title: string }[] = [
   { id: 'fieldboss_drochenem', title: '드로흐에넴' }, { id: 'fieldboss_tormog', title: '토르모그' }, { id: 'fieldboss_angrbahan', title: '앙그르바한' },
 ];
 
+/**
+ * 나이트메어 드릴 머리글의 작은 초기화 버튼: 확인 대화상자를 거쳐 **드릴 점수(구역·랭킹)만** 모든 캐릭터에서 지운다.
+ * 다른 숙제와 메모리얼 사가는 건드리지 않는다.
+ */
+function DrillResetButton() {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button type="button" className="hw-mini-reset" aria-label="나이트메어 드릴 전체 캐릭터 초기화" title="나이트메어 드릴 점수를 모든 캐릭터에서 초기화" onClick={() => setOpen(true)}>초기화</button>
+      {open && (
+        <Dialog title="나이트메어 드릴 초기화" onClose={() => setOpen(false)}
+          actions={<>
+            <button type="button" className="btn" onClick={() => setOpen(false)}>취소</button>
+            <button type="button" className="btn danger" onClick={() => { setOpen(false); void resetDrillAll(); }}>모든 캐릭터 초기화</button>
+          </>}>
+          <p className="m0">모든 캐릭터의 <b>나이트메어 드릴 구역과 드릴 랭킹</b>을 지웁니다. 되돌릴 수 없습니다.</p>
+          <p className="small muted m0">다른 숙제와 메모리얼 사가는 그대로입니다.</p>
+        </Dialog>
+      )}
+    </>
+  );
+}
+
 export function HomeworkView() {
   const q = useCharacters();
   const hw = useHomework();
@@ -75,9 +98,9 @@ export function HomeworkView() {
         <>
           <section className="card hw-table" aria-label="캐릭터별 숙제">
             <div className="hw-all" style={{ '--hwcols': orderedCells(cellsOf(accounts[0].members[0])).length } as CSSProperties}>
-              <div className="hw-row hw-head" aria-hidden="true">
+              <div className="hw-row hw-head">
                 <span>캐릭터</span>
-                {orderedCells(cellsOf(accounts[0].members[0])).map(x => <span key={x.key}>{x.label}</span>)}
+                {orderedCells(cellsOf(accounts[0].members[0])).map(x => <span key={x.key}>{x.label}{x.key === 'weekly_nightmare_drill' && <DrillResetButton />}</span>)}
               </div>
               {accounts.map(a => <AccountBoard key={a.id} a={a} onBoss={setBossFor} showName={accounts.length > 1} />)}
             </div>
@@ -85,8 +108,8 @@ export function HomeworkView() {
           <p className="faint small m0">
             칸을 누르면 <b>미완료 ↔ 완료</b>가 바뀝니다(수동 체크).<br />
             횟수 칸(소환의 결계 7단계, 검은 구멍 14회, 나이트메어 드릴 30구역)은 누를 때마다 <b>0 → 1 → 2 → … → 완료 → 0</b>으로 돕니다. 한 단계 뒤로는 Shift+클릭이나 우클릭입니다.<br />
-            드릴 랭킹 칸은 처음엔 <b>-</b>이고, 누르면 순위를 직접 입력합니다(Enter나 다른 곳을 누르면 저장, 비우면 다시 -).<br />
-            <b>나이트메어 드릴·드릴 랭킹</b>은 <b>{SEASON_NOTE}</b>입니다. 주간 리셋으로 지우지 않으니 시즌이 바뀌면 직접 0으로 돌려 주세요.<br />
+            드릴 랭킹·메모리얼 사가 칸은 처음엔 <b>-</b>이고, 누르면 순위(층)를 직접 입력합니다(Enter나 다른 곳을 누르면 저장, 비우면 다시 -).<br />
+            <b>나이트메어 드릴·드릴 랭킹·메모리얼 사가</b>는 <b>{SEASON_NOTE}</b>입니다. 주간 리셋으로 지우지 않으니 시즌이 바뀌면 직접 돌려 주세요(드릴은 머리글의 <b>초기화</b> 버튼으로 모든 캐릭터를 한 번에).<br />
             <span className="hw-legend done">✓ 완료</span> <span className="hw-legend todo">○ 미완료(이번 주기에 확인)</span> <span className="hw-legend unknown">· 미확인(아직 확인 전, 미완료로 봅니다)</span> ·
             지금 접속한 캐릭터만 실시간이고, 다른 캐릭터는 마지막으로 접속했을 때 본 값입니다.
           </p>
@@ -214,7 +237,7 @@ function ValueCell({ x, c }: { x: Cell; c: CharacterCard }) {
   };
   if (!editing) {
     return (
-      <button type="button" className={`hw-cell ${done ? 'done' : 'unknown'} btn-cell value-cell`} title={SEASON_NOTE} aria-label={`${x.label} ${done ? `${x.value}${x.unit}` : '입력 전'} — 눌러서 순위 입력`} onClick={start}>
+      <button type="button" className={`hw-cell ${done ? 'done' : 'unknown'} btn-cell value-cell`} title={SEASON_NOTE} aria-label={`${x.label} ${done ? `${x.value}${x.unit}` : '입력 전'} — 눌러서 ${x.unit === '층' ? '층 수' : '순위'} 입력`} onClick={start}>
         <span className="hw-cell-name">{x.label}</span>
         <span className="hw-cell-state">{done ? <><Icon name="check" size={13} /> {x.value}{x.unit}</> : '-'}</span>
       </button>
@@ -224,7 +247,7 @@ function ValueCell({ x, c }: { x: Cell; c: CharacterCard }) {
     <div className={`hw-cell ${done ? 'done' : 'unknown'} value-cell editing`} title={SEASON_NOTE}>
       <span className="hw-cell-name">{x.label}</span>
       <span className="hw-cell-state">
-        <input type="number" inputMode="numeric" min={0} max={MAX_VALUE} autoFocus value={draft} aria-label={`${x.label} 순위 입력`}
+        <input type="number" inputMode="numeric" min={0} max={MAX_VALUE} autoFocus value={draft} aria-label={`${x.label} ${x.unit === '층' ? '층 수' : '순위'} 입력`}
           onChange={e => setDraft(e.target.value)} onBlur={commit}
           onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); else if (e.key === 'Escape') { skip.current = true; e.currentTarget.blur(); } }} />{x.unit}
       </span>

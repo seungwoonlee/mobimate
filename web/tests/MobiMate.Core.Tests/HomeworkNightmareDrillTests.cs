@@ -106,4 +106,95 @@ public class HomeworkNightmareDrillTests : IDisposable
         Assert.Null(_catalog.Find("weekly_nightmare_rank_2"));
         Assert.Null(_catalog.Find("weekly_nightmare_rank_1"));
     }
+
+    // ── 시즌 초기화 버튼과 메모리얼 사가 (2026-11-06 승운) ──
+
+    private const string Saga = "weekly_memorial_saga";
+    private const string Alt = "에린_댄서";
+
+    [Fact]
+    public void ResetDrill_ClearsTheZoneAndTheRank_OfEveryCharacter_ButNothingElse()
+    {
+        var svc = NewService();
+        foreach (var who in new[] { Main, Alt })
+        {
+            svc.Set(who, Drill, count: 12);
+            svc.Set(who, Rank, count: 345);
+            svc.Set(who, Saga, count: 40);
+            svc.Set(who, "weekly_guild_regular", completed: true);
+        }
+
+        var (cleared, change) = svc.ResetDrillAllCharacters(Main);
+        Assert.Equal(2, cleared);
+        Assert.NotNull(change);
+        Assert.Equal(HomeworkChangeReason.Reset, change!.Reason);
+
+        var fresh = NewService();   // 다시 읽어도
+        foreach (var who in new[] { Main, Alt })
+        {
+            var all = fresh.GetAutoStatuses(new[] { who })[who];
+            Assert.Equal("unknown", all.Single(x => x.Id == Drill).State);
+            Assert.Null(all.Single(x => x.Id == Rank).Value);
+            Assert.Equal(40, all.Single(x => x.Id == Saga).Value);                        // 메모리얼 사가는 그대로
+            Assert.Equal("done", all.Single(x => x.Id == "weekly_guild_regular").State);   // 다른 숙제도 그대로
+        }
+    }
+
+    [Fact]
+    public void ResetDrill_WithNothingToClear_ChangesNothing()
+    {
+        var svc = NewService();
+        svc.Set(Main, Saga, count: 5);
+        var (cleared, change) = svc.ResetDrillAllCharacters(Main);
+        Assert.Equal(0, cleared);
+        Assert.Null(change);
+        Assert.Equal(5, Auto(svc, Saga).Value);
+    }
+
+    [Fact]
+    public void ResetDrill_CountsOnlyCharactersThatHadDrillRecords()
+    {
+        var svc = NewService();
+        svc.Set(Main, Drill, count: 3);
+        svc.Set(Alt, "weekly_guild_regular", completed: true);   // 드릴 기록 없음
+        Assert.Equal(1, svc.ResetDrillAllCharacters(Main).Characters);
+    }
+
+    [Fact]
+    public void WeeklyResetAndFullReset_DoNotClearTheSeasonItemsEither()
+    {
+        var svc = NewService();
+        svc.Set(Main, Saga, count: 33);
+        svc.ResetAll(Main, includeAccount: false);
+        Assert.Equal(33, Auto(svc, Saga).Value);
+        _now = _now.AddDays(8);   // 주간 리셋을 넘겨도
+        Assert.Equal(33, Auto(NewService(), Saga).Value);
+    }
+
+    [Fact]
+    public void MemorialSaga_IsAManualFloorNumber_NotACardAndNotInProgress()
+    {
+        var svc = NewService();
+        Assert.Equal("unknown", Auto(svc, Saga).State);
+        Assert.Null(Auto(svc, Saga).Value);
+
+        svc.Set(Main, Saga, count: 57);
+        var a = Auto(NewService(), Saga);
+        Assert.Equal("done", a.State);
+        Assert.Equal(57, a.Value);
+
+        var board = svc.GetBoard(Main);
+        Assert.DoesNotContain(board.Cards, c => c.Id == Saga);   // 숙제 카드·진행 통계에 넣지 않는다 (랭킹과 같은 방식)
+        svc.Set(Main, Saga, count: 0);                           // 0이면 지운다(-)
+        Assert.Equal("unknown", Auto(NewService(), Saga).State);
+    }
+
+    [Fact]
+    public void MemorialSaga_IsASeasonItem_WithNoRank()
+    {
+        var def = _catalog.Find(Saga)!;
+        Assert.True(def.SeasonReset);
+        Assert.Equal("메모리얼 사가", def.Title);
+        Assert.DoesNotContain(_catalog.Items, d => d.Id.Contains("saga", StringComparison.OrdinalIgnoreCase) && d.Id.Contains("rank", StringComparison.OrdinalIgnoreCase));
+    }
 }

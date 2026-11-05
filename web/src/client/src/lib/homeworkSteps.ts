@@ -9,11 +9,11 @@ export const STEP_GOALS: Readonly<Record<string, number>> = { weekly_barrier_1_7
 export const STEP_UNITS: Readonly<Record<string, string>> = { weekly_nightmare_drill: '구역' };
 
 /** 손으로 수치를 입력하는 칸(나이트메어 드릴 랭킹): 처음엔 `-`, 눌러서 순위를 입력하면 완료처럼 보인다 */
-export const VALUE_UNITS: Readonly<Record<string, string>> = { weekly_nightmare_rank: '위' };
+export const VALUE_UNITS: Readonly<Record<string, string>> = { weekly_nightmare_rank: '위', weekly_memorial_saga: '층' };
 export const MAX_VALUE = 99999;
 
 /** 숙제 화면의 칸에만 보이고 전체 탭 카드의 칩으로는 보이지 않는 단계 카운터(소환의 결계 1~7단계, 검은 구멍 주간 14회) */
-export const TABLE_ONLY_IDS: ReadonlySet<string> = new Set(['weekly_barrier_1_7', 'weekly_black_hole_1_7', 'weekly_nightmare_drill', 'weekly_nightmare_rank']);
+export const TABLE_ONLY_IDS: ReadonlySet<string> = new Set(['weekly_barrier_1_7', 'weekly_black_hole_1_7', 'weekly_nightmare_drill', 'weekly_nightmare_rank', 'weekly_memorial_saga']);
 
 /** 지금 몇 번 했나. 완료면 목표, 미완료인데 남은 횟수를 알면 목표 − 남은 횟수, 모르면 0 */
 export function stepOf(goal: number, done: boolean, left: number | null | undefined): number {
@@ -29,7 +29,7 @@ export const prevStep = (cur: number): number => Math.max(0, cur - 1);
 
 /** 시즌제 칸(주간 리셋으로 지우지 않는다): 칸 설명에 "시즌 리셋 : 기한 모름"을 붙인다 */
 export const SEASON_NOTE = '시즌 리셋 : 기한 모름';
-export const SEASON_IDS: ReadonlySet<string> = new Set(['weekly_nightmare_drill', 'weekly_nightmare_rank']);
+export const SEASON_IDS: ReadonlySet<string> = new Set(['weekly_nightmare_drill', 'weekly_nightmare_rank', 'weekly_memorial_saga']);
 
 /** 숙제 칸 → 추천(전투력 기준) 콘텐츠. 입장 전투력에 못 미치는 캐릭터는 그 칸을 비활성화한다 */
 export const HW_CUTOFF: Record<string, string> = {

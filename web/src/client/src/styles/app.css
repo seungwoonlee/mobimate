@@ -684,6 +684,8 @@ button.toast { border: 0; text-align: left; cursor: pointer; }
 .hw-head { display: grid; grid-template-columns: subgrid; grid-column: 1 / -1; font-size: 12px; color: var(--text-3); padding: 0 0 4px; border-bottom: 1px solid var(--line); }
 .hw-head > * { padding: 0 8px; white-space: nowrap; text-align: center; }
 .hw-head > :first-child { text-align: left; }
+.hw-mini-reset { margin-left: 4px; padding: 0 5px; height: 16px; font-size: 10px; line-height: 14px; border: 1px solid var(--line); border-radius: 4px; background: var(--bg-2); color: var(--text-3); cursor: pointer; vertical-align: middle; }
+.hw-mini-reset:hover { color: var(--danger); border-color: var(--danger); }
 .hw-acct { display: grid; grid-template-columns: subgrid; grid-column: 1 / -1; }
 .hw-acct-h { grid-column: 1 / -1; display: flex; padding: 10px 4px 4px; align-items: baseline; justify-content: space-between; gap: 8px; }
 .hw-acct-h h3 { margin: 0; font-size: 15px; display: flex; align-items: center; gap: 6px; }

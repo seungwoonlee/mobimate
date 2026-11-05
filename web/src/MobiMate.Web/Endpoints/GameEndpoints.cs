@@ -234,6 +234,18 @@ public static class GameEndpoints
             catch (IOException ex) { return ApiResults.Error(503, "STORAGE_UNAVAILABLE", ex.Message); }
         });
 
+        // 나이트메어 드릴 점수(구역·랭킹)만 모든 캐릭터에서 초기화 (시즌이 바뀔 때). 화면이 확인 대화상자를 먼저 띄운다.
+        api.MapPost("/homework/reset-drill", (HomeworkWatcher hw, GameStateCache state) =>
+        {
+            try
+            {
+                var (count, change) = hw.Service.ResetDrillAllCharacters(state.CurrentKey ?? (state.Character == null ? "" : GameViews.CharacterKey(state.Character)));
+                if (change != null) hw.Notify(change);
+                return ApiResults.Ok(new { characters = count });
+            }
+            catch (IOException ex) { return ApiResults.Error(503, "STORAGE_UNAVAILABLE", ex.Message); }
+        });
+
         // ── 조작 ──
         api.MapPost("/actions/stop", async (GameActions a, CancellationToken ct) =>
         {

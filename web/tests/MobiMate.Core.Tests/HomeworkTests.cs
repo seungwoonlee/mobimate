@@ -28,7 +28,7 @@ public class HomeworkTests : IDisposable
     [Fact]
     public void Catalog_Has31Items_AndPassesValidation()
     {
-        Assert.Equal(31, _catalog.Items.Count);
+        Assert.Equal(31, _catalog.Items.Count);   // 메모리얼 사가(2026-11-06) 추가
         Assert.Empty(_catalog.Validate());
         Assert.Equal(6, _catalog.Items.Count(i => i.Pool == "field_boss_weekly"));
     }

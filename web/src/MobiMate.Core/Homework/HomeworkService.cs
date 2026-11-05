@@ -236,6 +236,30 @@ public sealed class HomeworkService
         }
     }
 
+    /// <summary>나이트메어 드릴 시즌 초기화에 쓰는 항목 (구역 횟수와 랭킹). 메모리얼 사가 등 다른 시즌 항목은 건드리지 않는다.</summary>
+    public static readonly IReadOnlyList<string> DrillIds = new[] { "weekly_nightmare_drill", "weekly_nightmare_rank" };
+
+    /// <summary>
+    /// 나이트메어 드릴 점수(구역·랭킹)를 **모든 캐릭터**에서 지운다. 시즌이 바뀌었을 때 캐릭터마다 하나씩 되돌리는 수고를 없앤다.
+    /// 되돌릴 수 없으므로 호출 전에 사용자 확인을 받는다. 지운 캐릭터 수를 돌려준다.
+    /// </summary>
+    public (int Characters, HomeworkChange? Change) ResetDrillAllCharacters(string currentKey)
+    {
+        lock (_lock) return _store.Lock.Run(() =>
+        {
+            var file = LoadOrThrow();
+            var cleared = new List<string>();
+            foreach (var (key, ledger) in file.Characters)
+            {
+                var any = false;
+                foreach (var id in DrillIds) any |= ledger.Items.Remove(id);
+                if (any) cleared.Add(key);
+            }
+            if (cleared.Count > 0) SaveOrThrow(file);
+            return (cleared.Count, cleared.Count > 0 ? new HomeworkChange(currentKey, DrillIds, HomeworkChangeReason.Reset) : null);
+        });
+    }
+
     public HomeworkBoard GetBoard(string characterKey, string? category = null)
     {
         RequireKey(characterKey);
