@@ -42,6 +42,21 @@ public class SttModelInstallerTests : IDisposable
         }
     }
 
+    /// <summary>길이를 알 수 없는 스트림: StreamContent가 Content-Length를 계산하지 못해 본문으로 크기를 검증하는 경로를 탄다</summary>
+    private sealed class NonSeekable(Stream inner) : Stream
+    {
+        public override bool CanRead => true;
+        public override bool CanSeek => false;
+        public override bool CanWrite => false;
+        public override long Length => throw new NotSupportedException();
+        public override long Position { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
+        public override int Read(byte[] buffer, int offset, int count) => inner.Read(buffer, offset, count);
+        public override void Flush() { }
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+        public override void SetLength(long value) => throw new NotSupportedException();
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+    }
+
     private static HttpResponseMessage Ok(byte[] body)
     {
         var r = new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(body) };
@@ -127,6 +142,23 @@ public class SttModelInstallerTests : IDisposable
         Assert.Empty(Directory.GetFiles(model.Dir, "*.part"));
     }
 
+    [Theory]
+    [InlineData(100)]    // 예상보다 큰 본문(길이 헤더 없음)
+    [InlineData(-100)]   // 예상보다 작은 본문
+    public async Task Install_RejectsAChunkedBodyOfTheWrongSize(int delta)
+    {
+        // Content-Length가 없어도(StreamContent) 받은 양으로 검증한다
+        var (installer, model, _) = Make(u => Path.GetFileName(u.AbsolutePath) == "one.onnx"
+            ? new HttpResponseMessage(HttpStatusCode.OK) { Content = new StreamContent(new NonSeekable(new MemoryStream(new byte[A.Length + delta]))) }
+            : Ok(B));
+        installer.Start();
+        await installer.WaitAsync();
+        Assert.Equal(SttInstallPhase.Failed, installer.State.Phase);
+        Assert.Contains(delta > 0 ? "큽니다" : "맞지 않습니다", installer.State.Error);
+        Assert.False(File.Exists(model.PathOf("one.onnx")));
+        Assert.Empty(Directory.GetFiles(model.Dir, "*.part"));
+    }
+
     [Fact]
     public async Task Install_FollowsRedirectsToTheCdn_ButOnlyOnAllowedHosts()
     {
@@ -171,7 +203,7 @@ public class SttModelInstallerTests : IDisposable
         await installer.WaitAsync();
         Assert.Equal(SttInstallPhase.Failed, installer.State.Phase);
         Assert.Contains("너무 많습니다", installer.State.Error);
-        Assert.True(server.Requests.Count <= 7);
+        Assert.Equal(6, server.Requests.Count);   // 처음 요청 + 리다이렉트 5번, 그 뒤는 따라가지 않는다
     }
 
     [Fact]
@@ -265,6 +297,11 @@ public class SttModelInstallerTests : IDisposable
     [InlineData("https://huggingface.co.evil.com/a", false)]
     [InlineData("https://evilhuggingface.co/a", false)]
     [InlineData("https://github.com/a", false)]
+    [InlineData("https://huggingface.co@evil.com/a", false)]   // userinfo로 위장: 실제 호스트는 evil.com
+    [InlineData("https://evil.com@huggingface.co/a", true)]    // 실제 호스트가 huggingface.co (자격 증명은 요청에 쓰이지 않는다)
+    [InlineData("https://huggingface.co:443/a", true)]
+    [InlineData("https://HuggingFace.CO/a", true)]             // 대소문자 무관
+    [InlineData("https://huggingface.co./a", false)]           // 끝점이 붙으면 거절 (안전한 쪽으로 실패)
     public void AllowedUri_OnlyHttpsHuggingFace(string url, bool expected) => Assert.Equal(expected, SttModelInstaller.AllowedUri(new Uri(url)));
 
     [Fact]
@@ -277,6 +314,8 @@ public class SttModelInstallerTests : IDisposable
             Assert.True(f.Size > 0);
         });
         Assert.Contains(SttModelLocator.DefaultFiles, f => f.Name == "tokens.txt");
+        Assert.All(SttModelLocator.DefaultFiles, f => Assert.Matches("^[0-9a-f]{64}$", f.Sha256));   // 16진수만 (오타 방지)
+        Assert.Equal(SttModelLocator.DefaultFiles.Count, SttModelLocator.DefaultFiles.Select(f => f.Sha256).Distinct().Count());
         Assert.InRange(SttModelLocator.DefaultFiles.Sum(f => f.Size), 155_000_000L, 165_000_000L);   // 약 160MB
     }
 }

@@ -282,6 +282,14 @@ button{cursor:pointer}
 .voice-warn{flex-basis:100%;color:var(--warn);font-size:12px}
 .rec-dot{width:9px;height:9px;border-radius:50%;background:var(--danger);flex:none;animation:recpulse 1.2s ease-in-out infinite}
 @keyframes recpulse{50%{opacity:.3}}
+.vocab-list{list-style:none;margin:6px 0;padding:0;display:grid;gap:6px}
+.vocab-list li{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px}
+.vocab-list .acts{margin-left:auto}
+.vocab-words summary{cursor:pointer;margin:6px 0;font-size:13px;color:var(--text-2)}
+.vocab-chips{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:6px}
+.vocab-chips li{display:inline-flex;align-items:center;gap:4px;padding:2px 4px 2px 10px;border:1px solid var(--line);border-radius:999px;background:var(--bg-2);font-size:13px}
+.chip-x{min-width:24px;min-height:24px;border:0;background:transparent;color:var(--text-3);cursor:pointer;border-radius:50%;font-size:15px;line-height:1}
+.chip-x:hover{color:var(--danger)}
 .bar{height:8px;border-radius:4px;background:var(--bg-3);overflow:hidden;margin:6px 0}
 .bar>i{display:block;height:100%;background:var(--accent);transition:width .25s ease}
 .kbd{display:inline-block;padding:2px 8px;border:1px solid var(--line);border-radius:6px;background:var(--bg-2);font-family:inherit;font-size:13px;font-weight:600}

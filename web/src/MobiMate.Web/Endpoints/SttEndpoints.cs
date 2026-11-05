@@ -6,7 +6,10 @@ using MobiMate.Web.Voice;
 
 namespace MobiMate.Web.Endpoints;
 
-public sealed record SttSettingsRequest(bool? AutoSend, bool? AllowLanStart, int? MaxSeconds, string? DeviceId, int? Threads, string? Hotkey, string? HotkeyMode, bool? Cue);
+public sealed record SttSettingsRequest(bool? AutoSend, bool? AllowLanStart, int? MaxSeconds, string? DeviceId, int? Threads, string? Hotkey, string? HotkeyMode, bool? Cue, bool? Hotwords);
+public sealed record VocabLearningRequest(bool? LearningOn);
+public sealed record VocabPairRequest(string? From, string? To, string? Action);
+public sealed record VocabWordRequest(string? Word);
 
 /// <summary>
 /// 음성 입력 요청 검사 (FR-VC-10). 요구사양 Q8로 Host·Origin 검사를 없앴지만, 마이크를 켜는 요청은 예외로 둔다:
@@ -61,6 +64,9 @@ public static class MicLevelClass
 /// <summary>음성 입력 (요구사양 §11.13, §7)</summary>
 public static class SttEndpoints
 {
+    /// <summary>설정 저장과 단축키 등록을 한 묶음으로: 동시에 두 요청이 오면 저장된 값과 등록된 값이 어긋날 수 있다</summary>
+    private static readonly object SettingsGate = new();
+
     public static void Map(WebApplication app)
     {
         var api = app.MapGroup("/api/stt");
@@ -148,6 +154,50 @@ public static class SttEndpoints
             return ApiResults.Ok(new { started = r == SttInstallStart.Started, alreadyInstalled = r == SttInstallStart.AlreadyInstalled, install = SttModelInstaller.Dto(installer.State) });
         });
 
+        // ── 학습 내용 (FR-VC-08 ⑥): 보기·끄기·지우기는 PC 본체에서만. 낱말에 이름이 섞일 수 있어 폰에서는 보지 못하게 한다. ──
+        api.MapGet("/vocab", (HttpContext ctx, VoiceVocabulary v) =>
+            SttGuard.CheckPcOnly(ctx) is { } bad ? bad : ApiResults.Ok(v.View()));
+
+        api.MapPut("/vocab", (HttpContext ctx, VocabLearningRequest req, VoiceVocabulary v) =>
+        {
+            if (SttGuard.CheckWrite(ctx) is { } bad) return bad;
+            if (SttGuard.CheckPcOnly(ctx) is { } notPc) return notPc;
+            if (req.LearningOn is { } on) v.SetLearning(on);
+            return ApiResults.Ok(v.View());
+        });
+
+        api.MapPost("/vocab/pair", (HttpContext ctx, VocabPairRequest req, VoiceVocabulary v) =>
+        {
+            if (SttGuard.CheckWrite(ctx) is { } bad) return bad;
+            if (SttGuard.CheckPcOnly(ctx) is { } notPc) return notPc;
+            if (string.IsNullOrEmpty(req.From) || string.IsNullOrEmpty(req.To)) return ApiResults.Error(StatusCodes.Status400BadRequest, "VALIDATION", "from과 to가 필요합니다.");
+            var found = req.Action switch
+            {
+                "on" => v.SetPairOff(req.From, req.To, false),
+                "off" => v.SetPairOff(req.From, req.To, true),
+                "delete" => v.RemovePair(req.From, req.To),
+                _ => (bool?)null,
+            };
+            if (found == null) return ApiResults.Error(StatusCodes.Status400BadRequest, "VALIDATION", "action은 on, off, delete 중 하나입니다.");
+            return found.Value ? ApiResults.Ok(v.View()) : ApiResults.Error(StatusCodes.Status404NotFound, "NOT_FOUND", "그런 항목이 없습니다.");
+        });
+
+        api.MapPost("/vocab/word", (HttpContext ctx, VocabWordRequest req, VoiceVocabulary v) =>
+        {
+            if (SttGuard.CheckWrite(ctx) is { } bad) return bad;
+            if (SttGuard.CheckPcOnly(ctx) is { } notPc) return notPc;
+            if (string.IsNullOrEmpty(req.Word)) return ApiResults.Error(StatusCodes.Status400BadRequest, "VALIDATION", "word가 필요합니다.");
+            return v.RemoveWord(req.Word) ? ApiResults.Ok(v.View()) : ApiResults.Error(StatusCodes.Status404NotFound, "NOT_FOUND", "그런 낱말이 없습니다.");
+        });
+
+        api.MapPost("/vocab/clear", (HttpContext ctx, VoiceVocabulary v) =>
+        {
+            if (SttGuard.CheckWrite(ctx) is { } bad) return bad;
+            if (SttGuard.CheckPcOnly(ctx) is { } notPc) return notPc;
+            v.Clear();
+            return ApiResults.Ok(v.View());
+        });
+
         api.MapGet("/settings", (HttpContext ctx, WebSettingsStore s) =>
         {
             if (SttGuard.CheckPcOnly(ctx) is { } bad) return bad;
@@ -160,13 +210,19 @@ public static class SttEndpoints
             if (SttGuard.CheckPcOnly(ctx) is { } notPc) return notPc;
             if (req.MaxSeconds is < 1 or > 60) return ApiResults.Error(StatusCodes.Status400BadRequest, "VALIDATION", "듣는 시간은 1~60초입니다.");
             if (req.Threads is < 1 or > 4) return ApiResults.Error(StatusCodes.Status400BadRequest, "VALIDATION", "스레드 수는 1~4입니다.");
+            if (req.DeviceId is { Length: > 300 } || (req.DeviceId?.Any(char.IsControl) ?? false)) return ApiResults.Error(StatusCodes.Status400BadRequest, "VALIDATION", "마이크 ID가 올바르지 않습니다.");
             if (req.HotkeyMode is not (null or "hold" or "toggle")) return ApiResults.Error(StatusCodes.Status400BadRequest, "VALIDATION", "단축키 방식은 hold 또는 toggle입니다.");
             if (!string.IsNullOrWhiteSpace(req.Hotkey) && HotkeyParser.Parse(req.Hotkey) == null)
-                return ApiResults.Error(StatusCodes.Status400BadRequest, "VALIDATION", "단축키 형식이 올바르지 않습니다. 수정키(Ctrl·Alt·Shift)와 키를 함께 쓰거나 F1~F24를 쓰세요. (예: Ctrl+Alt+V, F9)");
+                return ApiResults.Error(StatusCodes.Status400BadRequest, "VALIDATION", "단축키 형식이 올바르지 않습니다. Ctrl·Alt·Win 중 하나와 키를 함께 쓰거나 F1~F24를 쓰세요. (예: Ctrl+Alt+V, F9)");
 
-            var threadsChanged = req.Threads != null && req.Threads != s.Current.SttThreads;
+            bool threadsChanged, ok;
+            HotkeyStatus hk;
+            lock (SettingsGate)
+            {
+            // 스레드 수와 핫워드는 인식기를 만들 때 한 번 읽으므로 바뀌면 앱을 다시 켜야 적용된다
+            threadsChanged = (req.Threads != null && req.Threads != s.Current.SttThreads) || (req.Hotwords != null && req.Hotwords != s.Current.SttHotwords);
             var hotkeyChanged = req.Hotkey != null;
-            var ok = s.Update(x =>
+            ok = s.Update(x =>
             {
                 if (req.AutoSend != null) x.SttAutoSend = req.AutoSend.Value;
                 if (req.AllowLanStart != null) x.SttAllowLanStart = req.AllowLanStart.Value;
@@ -176,11 +232,12 @@ public static class SttEndpoints
                 if (req.Hotkey != null) x.SttHotkey = string.IsNullOrWhiteSpace(req.Hotkey) ? null : HotkeyParser.Parse(req.Hotkey)!.Display;
                 if (req.HotkeyMode != null) x.SttHotkeyMode = req.HotkeyMode;
                 if (req.Cue != null) x.SttCue = req.Cue.Value;
+                if (req.Hotwords != null) x.SttHotwords = req.Hotwords.Value;
             });
-            if (!ok) return ApiResults.Error(StatusCodes.Status500InternalServerError, "SAVE_FAILED", "설정을 저장하지 못했습니다.");
-
             // 단축키는 저장한 즉시 다시 등록한다. 다른 프로그램이 쓰는 조합이면 등록은 실패하지만 설정은 남기고 이유를 알려 준다.
-            var hk = hotkeyChanged ? hotkeys.Apply(s.Current.SttHotkey) : hotkeys.Status;
+            hk = ok && hotkeyChanged ? hotkeys.Apply(s.Current.SttHotkey) : hotkeys.Status;
+            }
+            if (!ok) return ApiResults.Error(StatusCodes.Status500InternalServerError, "SAVE_FAILED", "설정을 저장하지 못했습니다.");
             // 스레드 수는 인식 엔진을 만들 때 한 번 읽으므로 앱을 다시 켜야 적용된다
             return ApiResults.Ok(new { settings = ToDto(s.Current), restartRequired = threadsChanged, hotkey = new { key = hk.Key, registered = hk.Registered, error = hk.Error } });
         });
@@ -196,5 +253,6 @@ public static class SttEndpoints
         hotkey = s.SttHotkey,
         hotkeyMode = s.SttHotkeyMode,
         cue = s.SttCue,
+        hotwords = s.SttHotwords,
     };
 }

@@ -62,3 +62,75 @@ test('음성 입력: 마이크를 켜는 요청은 사용자 지정 헤더 없�
   expect(ok.status()).toBe(409);
   expect((await ok.json()).error.code).toBe('STT_MODEL_MISSING');
 });
+
+// ───────── 설정 화면 > 음성 입력 (FR-VC-14) ─────────
+// 주의: 이 E2E 서버는 실제 Windows 구현(전역 단축키·마이크·모델 내려받기)을 쓴다. 그래서 저장·시험·설치 버튼은 누르지 않고
+// 화면 구성과 키 캡처의 안전장치만 확인한다 (실제 단축키가 등록되거나 마이크가 켜지거나 160MB를 받으면 안 된다).
+
+async function openVoiceSettings(page: Page) {
+  await page.goto('/settings');
+  const card = page.locator('.card').filter({ has: page.getByRole('heading', { name: '음성 입력' }) });
+  await expect(card).toBeVisible();
+  return card;
+}
+
+test('설정: 음성 입력 구역에 모델 설치·마이크·단축키·전송 옵션이 보이고 위험한 옵션은 기본 꺼짐이다', async ({ page }) => {
+  const card = await openVoiceSettings(page);
+  await expect(card.getByText('음성 인식 모델')).toBeVisible();
+  await expect(card.getByText('설치 필요')).toBeVisible();
+  await expect(card.getByRole('button', { name: /모델 설치/ })).toBeVisible();   // 누르지 않는다
+  await expect(card.getByRole('combobox', { name: '마이크 선택' })).toBeVisible();
+  await expect(card.getByRole('button', { name: '마이크 테스트' })).toBeVisible();   // 누르지 않는다
+  await expect(card.getByRole('button', { name: '단축키 지정' })).toBeVisible();
+
+  // 자동 전송·폰에서 시작은 기본 꺼짐 (켜져 있으면 안 된다)
+  const autoSend = card.locator('.kv', { hasText: '말이 끝나면 바로 전송' });
+  await expect(autoSend.getByRole('button', { name: '끄기' })).toHaveAttribute('aria-pressed', 'true');
+  const lan = card.locator('.kv', { hasText: '폰·태블릿에서 시작' });
+  await expect(lan.getByRole('button', { name: '허용 안 함' })).toHaveAttribute('aria-pressed', 'true');
+  const hotwords = card.locator('.kv', { hasText: '우선 인식' });
+  await expect(hotwords.getByRole('button', { name: '끄기' })).toHaveAttribute('aria-pressed', 'true');
+  // 누적 학습은 기본 켜짐이고 문장을 저장하지 않는다고 알린다
+  await expect(card.locator('.kv', { hasText: '누적 학습' }).getByRole('button', { name: '켜기' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(card.getByText(/문장 전체는 저장하지 않고/)).toBeVisible();
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  expect(overflow).toBeLessThanOrEqual(0);
+});
+
+test('설정: 단축키 지정은 위험한 조합을 저장하지 않고, Esc·바깥 클릭으로 끝낸다', async ({ page, request }) => {
+  const card = await openVoiceSettings(page);
+  const start = card.getByRole('button', { name: '단축키 지정' });
+
+  // 글자 하나만 / Shift만으로는 안내만 하고 캡처를 계속한다 (그 키가 모든 프로그램에서 막히므로)
+  await start.click();
+  await expect(card.getByText('키를 누르세요…')).toBeVisible();
+  await page.keyboard.press('v');
+  await expect(card.getByRole('status').filter({ hasText: 'Ctrl·Alt 중 하나' })).toBeVisible();
+  await page.keyboard.press('Shift+V');
+  await expect(card.getByRole('status').filter({ hasText: 'Ctrl·Alt 중 하나' })).toBeVisible();
+  await expect(card.getByText('키를 누르세요…')).toBeVisible();
+
+  // Esc로 끝낸다
+  await page.keyboard.press('Escape');
+  await expect(card.getByText('키를 누르세요…')).toBeHidden();
+  await expect(card.locator('kbd')).toHaveText('없음');
+
+  // 바깥 클릭으로도 끝난다 (끝나지 않으면 나중에 누른 키가 단축키로 저장된다)
+  await start.click();
+  await expect(card.getByText('키를 누르세요…')).toBeVisible();
+  await page.locator('h2').first().click();
+  await expect(card.getByText('키를 누르세요…')).toBeHidden();
+
+  // 아무것도 저장되지 않았고 실제로 등록된 단축키도 없다
+  const status = await (await request.get('/api/stt/status')).json();
+  expect(status.data.hotkey.key).toBeNull();
+  expect(status.data.hotkey.registered).toBe(false);
+});
+
+test('설정: 단축키 캡처 중 Tab은 막지 않고 캡처를 끝낸다 (키보드로 나갈 수 있다)', async ({ page }) => {
+  const card = await openVoiceSettings(page);
+  await card.getByRole('button', { name: '단축키 지정' }).click();
+  await expect(card.getByText('키를 누르세요…')).toBeVisible();
+  await page.keyboard.press('Tab');
+  await expect(card.getByText('키를 누르세요…')).toBeHidden();
+});

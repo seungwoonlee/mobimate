@@ -115,7 +115,7 @@ export interface KeyComboInput {
 
 /**
  * 눌린 키를 서버가 읽는 단축키 글("Ctrl+Alt+V")로 바꾼다 (FR-VC-02). 키 위치(code)로 읽어 자판 배열과 한/영 상태에 영향받지 않는다.
- * 아직 주 키를 안 눌렀거나(수정키만), 수정키 없이 글자·숫자·스페이스만 누르면 null — 서버도 같은 규칙으로 거절한다.
+ * 아직 주 키를 안 눌렀거나(수정키만), Ctrl·Alt·Win 없이 글자·숫자·스페이스만(Shift만 포함) 누르면 null — 서버도 같은 규칙으로 거절한다.
  */
 export function comboFromKeyEvent(e: KeyComboInput): string | null {
   let key: string | null = null;
@@ -126,7 +126,8 @@ export function comboFromKeyEvent(e: KeyComboInput): string | null {
   if (!key) return null;
   const mods = [e.ctrlKey && 'Ctrl', e.altKey && 'Alt', e.shiftKey && 'Shift', e.metaKey && 'Win'].filter(Boolean) as string[];
   const isFunctionKey = /^F\d+$/.test(key);
-  if (mods.length === 0 && !isFunctionKey) return null;
+  // Ctrl·Alt·Win 중 하나가 있어야 한다. 수정키가 없거나 Shift뿐이면 그 글자·숫자·기호 입력이 모든 프로그램에서 가로채인다 (서버 규칙과 같다)
+  if (!isFunctionKey && !(e.ctrlKey || e.altKey || e.metaKey)) return null;
   return [...mods, key].join('+');
 }
 
@@ -150,4 +151,12 @@ export function formatMb(bytes: number): string {
 /** 내려받기 진행률 0~100 (전체 크기를 모르면 0) */
 export function installPercent(done: number, total: number): number {
   return total > 0 ? Math.min(100, Math.floor((done / total) * 100)) : 0;
+}
+
+/** 학습한 쌍의 상태 표시 (FR-VC-08): 2회 확인되면 적용, 2회 되돌리면 자동으로 꺼진다 */
+export function pairState(p: { count: number; off: boolean; active: boolean; reverts: number }): { tone: 'ok' | 'warn' | 'neutral'; text: string } {
+  if (p.off) return { tone: 'neutral', text: p.reverts >= 2 ? '꺼짐 (두 번 되돌려서)' : '꺼짐' };
+  if (p.active) return { tone: 'ok', text: p.reverts > 0 ? `적용 중 (되돌림 ${p.reverts}/2)` : '적용 중' };
+  if (p.count >= 2) return { tone: 'warn', text: '짧아서 적용 안 함' };   // 인식 글자가 2음절 미만
+  return { tone: 'warn', text: `확인 중 (${p.count}/2)` };
 }

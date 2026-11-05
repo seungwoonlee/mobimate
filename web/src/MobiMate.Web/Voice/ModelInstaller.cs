@@ -25,6 +25,12 @@ public sealed class SttModelInstaller(SttModelLocator model, SseHub hub, ILogger
     public static readonly Uri BaseUri = new($"https://huggingface.co/{Repo}/resolve/{Revision}/");
     private const int MaxRedirects = 5;
 
+    /// <summary>이만큼 데이터가 오지 않으면 실패로 본다 (전체 시간이 아니라 무활동 기준 — 느린 회선에서도 끝까지 받는다)</summary>
+    private static readonly TimeSpan IdleTimeout = TimeSpan.FromSeconds(60);
+
+    /// <summary>내려받기 전에 확보해야 하는 여유 공간(모델 크기 + 임시 파일 여유)</summary>
+    private const long SpareBytes = 100_000_000;
+
     private readonly object _lock = new();
     private SttInstallState _state = new(SttInstallPhase.Idle, 0, 0, null, null);
     private Task? _task;
@@ -67,8 +73,10 @@ public sealed class SttModelInstaller(SttModelLocator model, SseHub hub, ILogger
             foreach (var stale in Directory.GetFiles(model.Dir, "*.part")) TryDelete(stale);
 
             var total = model.Files.Sum(f => f.Size);
+            var need = model.Files.Where(f => !File.Exists(model.PathOf(f.Name)) || new FileInfo(model.PathOf(f.Name)).Length != f.Size).Sum(f => f.Size);
+            CheckFreeSpace(need);
             long done = 0;
-            using var http = new HttpClient(handler?.Invoke() ?? new SocketsHttpHandler { AllowAutoRedirect = false }) { Timeout = TimeSpan.FromMinutes(30) };
+            using var http = new HttpClient(handler?.Invoke() ?? new SocketsHttpHandler { AllowAutoRedirect = false }) { Timeout = Timeout.InfiniteTimeSpan };
             foreach (var f in model.Files)
             {
                 var dest = model.PathOf(f.Name);
@@ -91,7 +99,9 @@ public sealed class SttModelInstaller(SttModelLocator model, SseHub hub, ILogger
         var part = dest + ".part";
         try
         {
-            using var resp = await GetFollowingAsync(http, new Uri(BaseUri, f.Name), ct);
+            using var head = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            head.CancelAfter(IdleTimeout);   // 응답 머리까지
+            using var resp = await GetFollowingAsync(http, new Uri(BaseUri, f.Name), head.Token);
             if (resp.Content.Headers.ContentLength is { } len && len != f.Size)
                 throw new InvalidDataException($"{f.Name}: 크기가 다릅니다 ({len} ≠ {f.Size}).");
 
@@ -102,8 +112,12 @@ public sealed class SttModelInstaller(SttModelLocator model, SseHub hub, ILogger
             {
                 var buf = new byte[81920];
                 int n;
-                while ((n = await src.ReadAsync(buf, ct)) > 0)
+                while (true)
                 {
+                    using var idle = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                    idle.CancelAfter(IdleTimeout);   // 읽을 때마다 다시 잰다
+                    n = await src.ReadAsync(buf, idle.Token);
+                    if (n <= 0) break;
                     await dst.WriteAsync(buf.AsMemory(0, n), ct);
                     sha.TransformBlock(buf, 0, n, null, 0);
                     got += n;
@@ -122,6 +136,23 @@ public sealed class SttModelInstaller(SttModelLocator model, SseHub hub, ILogger
         {
             TryDelete(part);
             throw;
+        }
+    }
+
+    private void CheckFreeSpace(long needBytes)
+    {
+        if (needBytes <= 0) return;
+        try
+        {
+            var root = Path.GetPathRoot(Path.GetFullPath(model.Dir));
+            if (string.IsNullOrEmpty(root)) return;
+            var free = new DriveInfo(root).AvailableFreeSpace;
+            if (free < needBytes + SpareBytes)
+                throw new IOException($"디스크 여유 공간이 부족합니다. {(needBytes + SpareBytes) / 1_000_000}MB 이상 필요하고 지금은 {free / 1_000_000}MB입니다.");
+        }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or UnauthorizedAccessException)
+        {
+            // 네트워크 경로 등 여유 공간을 알 수 없는 곳은 그냥 진행한다
         }
     }
 

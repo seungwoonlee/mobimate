@@ -86,7 +86,7 @@ public sealed class SherpaSttEngine : ISttEngine
 {
     private readonly OnlineRecognizer _recognizer;
 
-    public SherpaSttEngine(SttModelLocator model, int threads)
+    public SherpaSttEngine(SttModelLocator model, int threads, string? hotwordsFile = null)
     {
         var c = new OnlineRecognizerConfig();
         c.FeatConfig.SampleRate = AudioConverter.TargetRate;
@@ -103,6 +103,12 @@ public sealed class SherpaSttEngine : ISttEngine
         c.Rule1MinTrailingSilence = 2.4f;   // 아직 말하지 않았을 때
         c.Rule2MinTrailingSilence = 0.8f;   // 말한 뒤 이만큼 조용하면 문장 끝 (P0 실측)
         c.Rule3MinUtteranceLength = 20f;
+        if (hotwordsFile != null)
+        {
+            c.HotwordsFile = hotwordsFile;
+            c.HotwordsScore = 2.0f;   // P0: 2에서는 해가 없었고 6부터 문장이 깨졌다
+            c.ModelConfig.ModelingUnit = "cjkchar";
+        }
         _recognizer = new OnlineRecognizer(c);
     }
 
@@ -135,7 +141,7 @@ public sealed class SherpaSttEngine : ISttEngine
 }
 
 /// <summary>실제 엔진 공급자: 처음 요청할 때 모델을 올리고 이후 재사용한다.</summary>
-public sealed class SherpaEngineProvider(SttModelLocator model, WebSettingsStore settings, ILogger<SherpaEngineProvider> log) : ISttEngineProvider, IDisposable
+public sealed class SherpaEngineProvider(SttModelLocator model, WebSettingsStore settings, VoiceVocabulary vocab, ILogger<SherpaEngineProvider> log) : ISttEngineProvider, IDisposable
 {
     private readonly object _lock = new();
     private SherpaSttEngine? _engine;
@@ -149,7 +155,8 @@ public sealed class SherpaEngineProvider(SttModelLocator model, WebSettingsStore
             if (_engine != null) return _engine;
             if (!model.IsInstalled) throw new InvalidOperationException("음성 인식 모델이 설치되어 있지 않습니다.");
             var clock = System.Diagnostics.Stopwatch.StartNew();
-            var engine = new SherpaSttEngine(model, settings.Current.SttThreads);
+            var hotwords = settings.Current.SttHotwords ? HotwordFile.Write(model, vocab, log) : null;
+            var engine = new SherpaSttEngine(model, settings.Current.SttThreads, hotwords);
             log.LogInformation("음성 인식기를 올렸습니다 ({Ms}ms, {Threads}스레드)", clock.ElapsedMilliseconds, settings.Current.SttThreads);
             return _engine = engine;
         }
@@ -164,5 +171,42 @@ public sealed class SherpaEngineProvider(SttModelLocator model, WebSettingsStore
     public void Dispose()
     {
         lock (_lock) { _engine?.Dispose(); _engine = null; }
+    }
+}
+
+/// <summary>
+/// 핫워드 파일 만들기 (실험, 기본 끔). 모델 글자표(tokens.txt)에 없는 음절이 든 낱말은 뺀다 — 모르는 글자가 있으면 인식기가 파일을 읽지 못할 수 있다.
+/// 형식은 음절 사이를 띄운 한 줄 한 낱말("힐 러").
+/// </summary>
+public static class HotwordFile
+{
+    public const int MaxWords = 30;
+
+    /// <summary>글자표에 있는 음절로만 된 낱말을 "힐 러" 형식으로</summary>
+    public static IReadOnlyList<string> BuildLines(IEnumerable<string> words, ISet<string> tokens, int max = MaxWords) =>
+        words.Where(w => w.Length > 0 && w.All(ch => tokens.Contains(ch.ToString())))
+            .Take(max)
+            .Select(w => string.Join(" ", w.Select(ch => ch.ToString())))
+            .ToList();
+
+    /// <summary>파일을 쓰고 경로를 돌려준다. 쓸 낱말이 없거나 실패하면 null(핫워드 없이 간다).</summary>
+    public static string? Write(SttModelLocator model, VoiceVocabulary vocab, ILogger log)
+    {
+        try
+        {
+            var tokens = File.ReadLines(model.PathOf(model.Files[3].Name))
+                .Select(l => l.Split(' ', 2)[0]).Where(s => s.Length > 0).ToHashSet(StringComparer.Ordinal);
+            var lines = BuildLines(vocab.HotwordCandidates(MaxWords * 2), tokens);
+            if (lines.Count == 0) return null;
+            var path = Path.Combine(Path.GetDirectoryName(model.Dir.TrimEnd('\\', '/')) ?? model.Dir, "hotwords.txt");
+            File.WriteAllLines(path, lines);
+            log.LogInformation("핫워드 {Count}개를 넣습니다", lines.Count);
+            return path;
+        }
+        catch (Exception ex)
+        {
+            log.LogWarning(ex, "핫워드 파일을 만들지 못했습니다. 핫워드 없이 시작합니다");
+            return null;
+        }
     }
 }

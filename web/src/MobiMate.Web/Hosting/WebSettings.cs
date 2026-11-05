@@ -36,6 +36,9 @@ public sealed class WebSettings
 
     /// <summary>듣기 시작·문장 확정 신호음 (게임 전체 화면에서 소리로 알린다)</summary>
     public bool SttCue { get; set; } = true;
+
+    /// <summary>실험: 자주 쓰는 낱말(3회 이상)을 인식기의 핫워드로 넣는다. 기본 끔 — P0 측정에서 일부 낱말만 고쳐졌고 점수를 올리면 문장이 깨졌다. 인식기를 만들 때 한 번 읽으므로 앱을 다시 켜야 적용된다</summary>
+    public bool SttHotwords { get; set; }
 }
 
 public sealed class WebSettingsStore
@@ -86,5 +89,6 @@ public sealed class WebSettingsStore
         SttHotkey = s.SttHotkey,
         SttHotkeyMode = s.SttHotkeyMode,
         SttCue = s.SttCue,
+        SttHotwords = s.SttHotwords,
     };
 }

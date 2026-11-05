@@ -63,6 +63,9 @@ public class SttHotkeyTests
     [InlineData("Ctrl+V+B")]     // 주 키가 둘
     [InlineData("Ctrl+F25")]
     [InlineData("Ctrl+Nope")]
+    [InlineData("Shift+V")]      // Shift만으로는 대문자 입력이 모든 프로그램에서 막힌다
+    [InlineData("Shift+7")]
+    [InlineData("Shift+Space")]
     public void Parse_Invalid(string? text) => Assert.Null(HotkeyParser.Parse(text));
 
     // ── 설정 → 등록 ──
@@ -213,6 +216,92 @@ public class SttHotkeyTests
     }
 
     [Fact]
+    public async Task APressWhoseKeyIsAlreadyUp_DoesNotStartAnything()
+    {
+        using var host = new TestHost();
+        var c = await host.LocalAsync();
+        await Put(c, new { hotkey = "F9" });
+        host.Hotkeys.Fire();   // 눌렀다가 처리되기 전에 이미 뗐다
+        await Task.Delay(150);
+        Assert.Equal(0, host.Audio.OpenCount);
+        Assert.Equal(SttState.Idle, Stt(host).Snapshot().State);
+    }
+
+    [Fact]
+    public async Task ReleasingTheKey_OnlyEndsTheSessionTheHotkeyStarted()
+    {
+        // 키를 누르고 있는 사이 세션이 다른 경로로 끝나고 다른 기기가 새로 시작해도, 키를 뗄 때 그 새 세션을 끊으면 안 된다
+        using var host = new TestHost();
+        var c = await host.LocalAsync();
+        await Put(c, new { hotkey = "F9" });
+        host.Keys.Down(0x78);
+        host.Hotkeys.Fire();
+        Assert.True(await Eventually(() => Stt(host).Snapshot().State == SttState.Listening));
+
+        await c.SendAsync(Req(HttpMethod.Post, "/api/stt/stop"));
+        Assert.True(await Eventually(() => Stt(host).Snapshot().State == SttState.Idle));
+        Assert.Equal(HttpStatusCode.OK, (await c.SendAsync(Req(HttpMethod.Post, "/api/stt/start"))).StatusCode);   // 다른 기기가 새로 시작
+        var newSession = Stt(host).Snapshot().SessionId;
+
+        host.Keys.Up(0x78);
+        await Task.Delay(250);
+        Assert.Equal(SttState.Listening, Stt(host).Snapshot().State);
+        Assert.Equal(newSession, Stt(host).Snapshot().SessionId);
+        Assert.Equal(2, host.Audio.OpenCount);
+    }
+
+    [Fact]
+    public async Task Stop_WithASessionId_OnlyStopsThatSession()
+    {
+        using var host = new TestHost();
+        var c = await host.LocalAsync();
+        await c.SendAsync(Req(HttpMethod.Post, "/api/stt/start"));
+        var id = Stt(host).Snapshot().SessionId!;
+        Assert.False(Stt(host).Stop("다른-세션"));
+        Assert.Equal(SttState.Listening, Stt(host).Snapshot().State);
+        Assert.True(Stt(host).Stop(id));
+        Assert.True(await Eventually(() => Stt(host).Snapshot().State == SttState.Idle));
+    }
+
+    [Fact]
+    public void AHotkeyPressedWhileRegistering_DoesNotDeadlock()
+    {
+        // 등록은 창 스레드의 응답을 기다린다. 그 사이 창 스레드가 단축키 눌림을 처리하다 같은 락을 기다리면 5초 동안 멈춘다 (리뷰 지적).
+        using var host = new TestHost();
+#pragma warning disable xUnit1031 // 등록이 창 스레드의 응답을 동기로 기다리는 상황을 그대로 재현하려는 의도된 차단이다
+        host.Hotkeys.OnRegister = () => Task.Run(() => host.Hotkeys.Fire()).Wait(3000);   // 등록 중에 눌림이 창 스레드에서 들어온다
+#pragma warning restore xUnit1031
+        var started = DateTime.UtcNow;
+        var status = Hotkeys(host).Apply("F9");
+        Assert.True(status.Registered);
+        Assert.True(DateTime.UtcNow - started < TimeSpan.FromSeconds(1.5), "단축키 등록이 눌림 처리를 기다리며 멈췄다");
+    }
+
+    [Fact]
+    public async Task ConcurrentSettingsChanges_LeaveTheSavedAndRegisteredHotkeyInAgreement()
+    {
+        using var host = new TestHost();
+        var c = await host.LocalAsync();
+        var keys = new[] { "F5", "F6", "F7", "F8", "F9", "F10" };
+        await Task.WhenAll(keys.Select(k => Put(c, new { hotkey = k })));
+        var saved = (await TestHost.Data(await c.GetAsync("/api/stt/settings"))).GetProperty("hotkey").GetString();
+        Assert.Equal(saved, host.Hotkeys.Current!.Display);   // 저장된 값과 실제 등록된 값이 같다
+        Assert.Equal(saved, Hotkeys(host).Status.Key);
+    }
+
+    [Fact]
+    public async Task AMicFailureWhileStarting_IsReportedAsAFailure_NotAsACancellation()
+    {
+        using var host = new TestHost();
+        host.Audio.OnCaptureStart = () => host.Audio.Current!.Fail(new AudioFailure(AudioFailureKind.Removed, "마이크 연결이 끊겼습니다."));
+        var c = await host.LocalAsync();
+        var r = await c.SendAsync(Req(HttpMethod.Post, "/api/stt/start"));
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, r.StatusCode);   // 200 {cancelled}로 가려지면 단축키 토스트도 성공처럼 보인다
+        Assert.Equal("STT_MIC_REMOVED", await TestHost.ErrorCode(r));
+        Assert.Equal(SttState.Idle, Stt(host).Snapshot().State);
+    }
+
+    [Fact]
     public async Task APressWithNoHotkeyConfigured_DoesNothing()
     {
         using var host = new TestHost();
@@ -266,13 +355,30 @@ public class SttHotkeyTests
     }
 
     [Fact]
-    public async Task DoneCue_PlaysWhenASentenceIsConfirmed()
+    public async Task DoneCue_PlaysAfterTheMicIsClosed_SoItCannotLeakIntoTheNextSentence()
     {
         using var host = new TestHost();
+        host.Cue.Probe = () => host.Audio.Current?.Disposed ?? false;   // 재생하는 순간 마이크가 닫혀 있었는가
         var c = await host.LocalAsync();
         await c.SendAsync(Req(HttpMethod.Post, "/api/stt/start"));
         host.Audio.Current!.PushVoice(4);
         Assert.True(await Eventually(() => host.Cue.Played.Contains(SttCueKind.Done)));
+        var i = host.Cue.Played.ToList().IndexOf(SttCueKind.Done);
+        Assert.True(host.Cue.ProbeValues[i], "확정 신호음이 마이크가 열린 채로 재생되었다");
+    }
+
+    [Fact]
+    public async Task NoDoneCue_WhenNothingWasRecognised()
+    {
+        using var host = new TestHost();
+        host.Engines.Utterances = new[] { "" };
+        var c = await host.LocalAsync();
+        await c.SendAsync(Req(HttpMethod.Post, "/api/stt/start"));
+        host.Audio.Current!.PushVoice(3);
+        await Task.Delay(100);
+        await c.SendAsync(Req(HttpMethod.Post, "/api/stt/stop"));
+        Assert.True(await Eventually(() => Stt(host).Snapshot().State == SttState.Idle));
+        Assert.DoesNotContain(SttCueKind.Done, host.Cue.Played);
     }
 
     [Fact]

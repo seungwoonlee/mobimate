@@ -29,7 +29,7 @@ public sealed record MicTestOutcome(bool Busy, MicTestResult? Result, AudioFailu
 /// 인식은 낮은 우선순위 전용 스레드에서 돌려 게임에 영향을 주지 않는다 (FR-VC-06).
 /// </summary>
 public sealed class SttService(
-    IAudioSource audio, ISttEngineProvider engines, IVoicePostProcessor post, ISttCue cue, ChatService chat,
+    IAudioSource audio, ISttEngineProvider engines, IVoicePostProcessor post, ISttCue cue, ChatService chat, VoiceVocabulary vocab,
     WebSettingsStore settings, SseHub hub, ILogger<SttService> log) : IHostedService
 {
     /// <summary>마지막 확정 결과를 보관하는 시간 (연결이 끊겼다 돌아온 기기용, FR-VC-12)</summary>
@@ -142,10 +142,17 @@ public sealed class SttService(
 
     private static bool Stopped(Session s) => Volatile.Read(ref s.StopFlag) == 1;
 
+    /// <summary>
+    /// 시작 도중 중지를 받아 끝낸다. 다만 중지가 마이크 실패(분리 등) 때문이었다면 취소가 아니라 실패로 알린다 —
+    /// 그렇지 않으면 HTTP 응답과 단축키 토스트가 성공처럼 보인다.
+    /// </summary>
     private SttStartResult Cancel(Session s)
     {
+        var failure = s.Failure;
         Abort(s);
-        return new(SttStartStatus.Cancelled, s.Id);
+        return failure != null
+            ? new(SttStartStatus.MicFailed, s.Id, failure, failure.Message)
+            : new(SttStartStatus.Cancelled, s.Id);
     }
 
     /// <summary>시작하지 못한 이유를 사용자에게 보일 문장으로 (단축키 시작 실패 토스트용)</summary>
@@ -208,11 +215,17 @@ public sealed class SttService(
     }
 
     /// <summary>듣기를 끝낸다. 지금까지 들은 글자는 확정된다. 듣는 중이 아니면 false.</summary>
-    public bool Stop()
+    public bool Stop() => Stop(null);
+
+    /// <summary>
+    /// <paramref name="sessionId"/>가 주어지면 그 세션일 때만 끝낸다. 단축키는 자기가 시작한 세션만 끝내야 한다 —
+    /// 그 사이 다른 기기가 새로 시작한 세션을 끊으면 안 된다.
+    /// </summary>
+    public bool Stop(string? sessionId)
     {
         Session? s;
         lock (_gate) s = _session;
-        if (s == null) return false;
+        if (s == null || (sessionId != null && s.Id != sessionId)) return false;
         RequestStop(s);
         return true;
     }
@@ -307,6 +320,8 @@ public sealed class SttService(
         {
             try { s.Capture?.Dispose(); } catch { }
             try { s.Stream?.Dispose(); } catch { }
+            // 확정 신호음은 마이크를 닫은 뒤에 낸다: 열려 있는 동안 내면 다음 문장 인식에 섞일 수 있다. 전체 화면 게임에서도 받았음을 알 수 있다.
+            if (s.EmittedFinal && settings.Current.SttCue) { try { cue.Play(SttCueKind.Done); } catch { } }
             if (s.Drops > 0) log.LogInformation("음성 입력: 인식이 느려 오디오 {Count}블록을 버렸습니다", s.Drops);
             lock (_gate)
             {
@@ -329,7 +344,7 @@ public sealed class SttService(
         var fin = new SttFinal(s.Id, r.Text, raw, r.Applied, DateTimeOffset.UtcNow, autoSent);
         lock (_gate) _last = fin;
         hub.Broadcast("stt.final", new { sessionId = fin.SessionId, text = fin.Text, original = fin.Original, applied = fin.Applied, autoSent });
-        if (cur.SttCue) _ = Task.Run(() => cue.Play(SttCueKind.Done));   // 전체 화면 게임에서도 받았음을 알 수 있게
+        s.EmittedFinal = true;
         if (autoSent) _ = Task.Run(() => AutoSendAsync(fin));
         else if (cur.SttAutoSend) hub.Broadcast("toast", new { level = "warn", message = "음성 문장이 길어서 보내지 않았습니다. 입력창에서 줄여 주세요" });
     }
@@ -356,6 +371,9 @@ public sealed class SttService(
             var (status, entry) = await chat.SendAsync(fin.Text, autoEmote, "음성", "stt", CancellationToken.None);
             switch (status)
             {
+                case ChatSendStatus.Sent:
+                    vocab.Learn(fin.Text);   // 자동 전송은 사람이 고친 것이 없어 낱말만 센다
+                    break;
                 case ChatSendStatus.Duplicate:
                     hub.Broadcast("toast", new { level = "warn", message = "같은 문장을 방금 보냈습니다" });
                     break;
@@ -415,6 +433,7 @@ public sealed class SttService(
         public BlockingCollection<float[]> Queue { get; } = new(new ConcurrentQueue<float[]>(), QueueCapacity);
         public ManualResetEventSlim Done { get; } = new(false);
         public string LastPartial { get; set; } = "";
+        public bool EmittedFinal { get; set; }
         public int StopFlag;
         public int Drops;
     }

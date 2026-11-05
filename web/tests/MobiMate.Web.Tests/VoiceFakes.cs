@@ -139,9 +139,13 @@ public sealed class FakeHotkeyRegistrar : IHotkeyRegistrar
     public string? FailWith { get; set; }
     public int RegisterCount { get; private set; }
 
+    /// <summary>등록하는 도중에 실행된다(그 사이 단축키가 눌리는 경우를 흉내 낸다)</summary>
+    public Action? OnRegister { get; set; }
+
     public bool Register(HotkeySpec spec, out string? error)
     {
         RegisterCount++;
+        OnRegister?.Invoke();
         if (FailWith != null) { error = FailWith; return false; }
         Current = spec;
         error = null;
@@ -163,10 +167,17 @@ public sealed class FakeKeyState : IKeyState
     public bool IsDown(uint virtualKey) { lock (_down) return _down.Contains(virtualKey); }
 }
 
-/// <summary>재생한 신호음을 기록한다</summary>
+/// <summary>재생한 신호음을 기록한다. <see cref="Probe"/>가 있으면 재생하는 순간의 값도 남긴다(예: 그때 마이크가 닫혀 있었는지)</summary>
 public sealed class RecordingCue : ISttCue
 {
     private readonly List<SttCueKind> _played = new();
+    private readonly List<bool> _probes = new();
+    public Func<bool>? Probe { get; set; }
     public IReadOnlyList<SttCueKind> Played { get { lock (_played) return _played.ToList(); } }
-    public void Play(SttCueKind kind) { lock (_played) _played.Add(kind); }
+    public IReadOnlyList<bool> ProbeValues { get { lock (_played) return _probes.ToList(); } }
+    public void Play(SttCueKind kind)
+    {
+        var probe = Probe?.Invoke() ?? false;
+        lock (_played) { _played.Add(kind); _probes.Add(probe); }
+    }
 }

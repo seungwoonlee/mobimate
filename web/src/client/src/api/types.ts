@@ -19,8 +19,11 @@ export interface SttInstall { phase: 'idle' | 'downloading' | 'done' | 'failed';
 export interface SttHotkeyStatus { key: string | null; registered: boolean; error: string | null; mode: 'hold' | 'toggle' }
 export interface SttSettings {
   autoSend: boolean; allowLanStart: boolean; maxSeconds: number; deviceId: string | null; threads: number;
-  hotkey: string | null; hotkeyMode: 'hold' | 'toggle'; cue: boolean;
+  hotkey: string | null; hotkeyMode: 'hold' | 'toggle'; cue: boolean; hotwords: boolean;
 }
+export interface SttVocabWord { word: string; count: number; last: string; hotword: boolean }
+export interface SttVocabPair { from: string; to: string; count: number; reverts: number; off: boolean; active: boolean; last: string }
+export interface SttVocab { learningOn: boolean; warning: string | null; words: SttVocabWord[]; pairs: SttVocabPair[] }
 export interface SttDevice { id: string; name: string; sampleRate: number; channels: number; isDefault: boolean }
 export interface SttDevices { devices: SttDevice[]; selectedId: string | null }
 export interface SttMicTest { device: string; fallback: boolean; peakDb: number; rmsDb: number; level: 'none' | 'low' | 'ok' | 'loud' }

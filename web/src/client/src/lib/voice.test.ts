@@ -1,6 +1,6 @@
 import { useUi } from '../state/ui';
 import {
-  applyVoiceFinal, comboFromKeyEvent, formatMb, installPercent, joinDraft, micAvailability, micLevelMessage, remember, sttErrorMessage, sttWarnMessage,
+  applyVoiceFinal, comboFromKeyEvent, formatMb, installPercent, joinDraft, micAvailability, micLevelMessage, pairState, remember, sttErrorMessage, sttWarnMessage,
   VOICE_SOURCE, voiceKey, type KeyComboInput, type MicInput,
 } from './voice';
 
@@ -192,10 +192,13 @@ describe('단축키 입력 변환', () => {
     expect(comboFromKeyEvent(key('F12', { shiftKey: true }))).toBe('Shift+F12');
   });
 
-  it('수정키 없이 글자·숫자·스페이스만 누르면 거절 — 그 키를 모든 프로그램에서 못 쓰게 된다', () => {
+  it('수정키 없이, 또는 Shift만으로 글자·숫자·스페이스를 누르면 거절 — 대문자·기호 입력을 모든 프로그램에서 못 쓰게 된다', () => {
     expect(comboFromKeyEvent(key('KeyV'))).toBeNull();
     expect(comboFromKeyEvent(key('Digit1'))).toBeNull();
     expect(comboFromKeyEvent(key('Space'))).toBeNull();
+    expect(comboFromKeyEvent(key('KeyV', { shiftKey: true }))).toBeNull();
+    expect(comboFromKeyEvent(key('Digit7', { shiftKey: true }))).toBeNull();
+    expect(comboFromKeyEvent(key('KeyV', { shiftKey: true, ctrlKey: true }))).toBe('Ctrl+Shift+V');   // 다른 수정키와 함께면 된다
   });
 
   it('수정키만 누른 것, 지원하지 않는 키는 거절한다', () => {
@@ -227,5 +230,22 @@ describe('모델 내려받기 표시', () => {
     expect(installPercent(200, 200)).toBe(100);
     expect(installPercent(300, 200)).toBe(100);   // 넘쳐도 100을 넘지 않는다
     expect(installPercent(10, 0)).toBe(0);        // 전체를 모르면 0
+  });
+});
+
+describe('학습한 쌍의 상태', () => {
+  it('1회는 확인 중, 2회부터 적용', () => {
+    expect(pairState({ count: 1, off: false, active: false, reverts: 0 })).toEqual({ tone: 'warn', text: '확인 중 (1/2)' });
+    expect(pairState({ count: 2, off: false, active: true, reverts: 0 })).toEqual({ tone: 'ok', text: '적용 중' });
+  });
+
+  it('되돌린 횟수를 보여 주고, 두 번 되돌리면 꺼졌다고 알려 준다', () => {
+    expect(pairState({ count: 3, off: false, active: true, reverts: 1 }).text).toBe('적용 중 (되돌림 1/2)');
+    expect(pairState({ count: 3, off: true, active: false, reverts: 2 }).text).toBe('꺼짐 (두 번 되돌려서)');
+    expect(pairState({ count: 3, off: true, active: false, reverts: 0 }).text).toBe('꺼짐');
+  });
+
+  it('확인은 됐는데 짧아서 적용되지 않는 쌍은 그렇게 알린다', () => {
+    expect(pairState({ count: 2, off: false, active: false, reverts: 0 }).text).toBe('짧아서 적용 안 함');
   });
 });

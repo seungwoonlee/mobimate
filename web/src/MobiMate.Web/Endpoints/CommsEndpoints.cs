@@ -3,6 +3,7 @@ using MobiMate.Web.Hosting;
 using MobiMate.Web.Infrastructure;
 using MobiMate.Web.Lan;
 using MobiMate.Web.Services;
+using MobiMate.Web.Voice;
 
 namespace MobiMate.Web.Endpoints;
 
@@ -31,11 +32,15 @@ public static class CommsEndpoints
         api.MapPost("/chat/game/preview", (ChatRequest req, WebSettingsStore s) =>
             ApiResults.Ok(ChatService.Preview(req.Text, req.AutoEmote ?? s.Current.AutoEmoteDefault)));
 
-        api.MapPost("/chat/game", async (HttpContext ctx, ChatRequest req, ChatService chat, WebSettingsStore s, CancellationToken ct) =>
+        api.MapPost("/chat/game", async (HttpContext ctx, ChatRequest req, ChatService chat, WebSettingsStore s, VoiceVocabulary vocab, CancellationToken ct) =>
         {
             // 출처는 "직접", "아무말 · <페르소나>", "음성"만 받는다 (FR-GC-05). 그 밖의 값은 "직접"으로 둔다
             var source = req.Source is { Length: <= 40 } src && (src == "음성" || src.StartsWith("아무말", StringComparison.Ordinal)) ? src : "직접";
             var (status, entry) = await chat.SendAsync(req.Text, req.AutoEmote ?? s.Current.AutoEmoteDefault, source, ClientId.Of(ctx), ct);
+            // 누적 학습 (FR-VC-08): 사람이 쓴 글(직접·음성)만 배운다. 한마디(아무말) 대사는 생성된 글이라 배우지 않는다.
+            // 고치기 전 인식 글자는 음성 초안일 때만 받고, 로그·파일에는 남기지 않는다.
+            if (status == ChatSendStatus.Sent && (source == "직접" || source == "음성"))
+                vocab.Learn(req.Text ?? "", source == "음성" ? req.SttOriginal : null);
             return status switch
             {
                 ChatSendStatus.Sent => ApiResults.Ok(entry),
