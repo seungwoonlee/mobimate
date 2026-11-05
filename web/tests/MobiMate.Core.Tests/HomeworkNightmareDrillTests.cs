@@ -141,6 +141,35 @@ public class HomeworkNightmareDrillTests : IDisposable
     }
 
     [Fact]
+    public void ResetSaga_ClearsOnlyTheFloors_OfEveryCharacter_AndLeavesTheDrill()
+    {
+        var svc = NewService();
+        foreach (var who in new[] { Main, Alt }) { svc.Set(who, Saga, count: 40); svc.Set(who, Drill, count: 12); svc.Set(who, Rank, count: 9); }
+        var (cleared, change) = svc.ResetSagaAllCharacters(Main);
+        Assert.Equal(2, cleared);
+        Assert.NotNull(change);
+        var fresh = NewService();
+        foreach (var who in new[] { Main, Alt })
+        {
+            var all = fresh.GetAutoStatuses(new[] { who })[who];
+            Assert.Null(all.Single(x => x.Id == Saga).Value);
+            Assert.Equal(18, all.Single(x => x.Id == Drill).Remaining);   // 12구역 = 남은 18, 드릴은 그대로
+            Assert.Equal(9, all.Single(x => x.Id == Rank).Value);
+        }
+        Assert.Equal(0, svc.ResetSagaAllCharacters(Main).Characters);
+    }
+
+    [Fact]
+    public void TheSagaCountsUpWithoutALimit_AndDrillResetLeavesIt()
+    {
+        var svc = NewService();
+        svc.Set(Main, Saga, count: 250);   // 끝 층을 모른다
+        Assert.Equal(250, Auto(svc, Saga).Value);
+        svc.ResetDrillAllCharacters(Main);
+        Assert.Equal(250, Auto(svc, Saga).Value);
+    }
+
+    [Fact]
     public void ResetDrill_WithNothingToClear_ChangesNothing()
     {
         var svc = NewService();

@@ -243,7 +243,14 @@ public sealed class HomeworkService
     /// 나이트메어 드릴 점수(구역·랭킹)를 **모든 캐릭터**에서 지운다. 시즌이 바뀌었을 때 캐릭터마다 하나씩 되돌리는 수고를 없앤다.
     /// 되돌릴 수 없으므로 호출 전에 사용자 확인을 받는다. 지운 캐릭터 수를 돌려준다.
     /// </summary>
-    public (int Characters, HomeworkChange? Change) ResetDrillAllCharacters(string currentKey)
+    public (int Characters, HomeworkChange? Change) ResetDrillAllCharacters(string currentKey) => ResetSeasonAllCharacters(DrillIds, currentKey);
+
+    /// <summary>메모리얼 사가 층 수 초기화에 쓰는 항목 (드릴과 따로 지운다)</summary>
+    public static readonly IReadOnlyList<string> SagaIds = new[] { "weekly_memorial_saga" };
+
+    public (int Characters, HomeworkChange? Change) ResetSagaAllCharacters(string currentKey) => ResetSeasonAllCharacters(SagaIds, currentKey);
+
+    private (int Characters, HomeworkChange? Change) ResetSeasonAllCharacters(IReadOnlyList<string> ids, string currentKey)
     {
         lock (_lock) return _store.Lock.Run(() =>
         {
@@ -252,11 +259,11 @@ public sealed class HomeworkService
             foreach (var (key, ledger) in file.Characters)
             {
                 var any = false;
-                foreach (var id in DrillIds) any |= ledger.Items.Remove(id);
+                foreach (var id in ids) any |= ledger.Items.Remove(id);
                 if (any) cleared.Add(key);
             }
             if (cleared.Count > 0) SaveOrThrow(file);
-            return (cleared.Count, cleared.Count > 0 ? new HomeworkChange(currentKey, DrillIds, HomeworkChangeReason.Reset) : null);
+            return (cleared.Count, cleared.Count > 0 ? new HomeworkChange(currentKey, ids, HomeworkChangeReason.Reset) : null);
         });
     }
 

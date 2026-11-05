@@ -246,6 +246,18 @@ public static class GameEndpoints
             catch (IOException ex) { return ApiResults.Error(503, "STORAGE_UNAVAILABLE", ex.Message); }
         });
 
+        // 메모리얼 사가 층 수만 모든 캐릭터에서 초기화 (드릴과 따로)
+        api.MapPost("/homework/reset-saga", (HomeworkWatcher hw, GameStateCache state) =>
+        {
+            try
+            {
+                var (count, change) = hw.Service.ResetSagaAllCharacters(state.CurrentKey ?? (state.Character == null ? "" : GameViews.CharacterKey(state.Character)));
+                if (change != null) hw.Notify(change);
+                return ApiResults.Ok(new { characters = count });
+            }
+            catch (IOException ex) { return ApiResults.Error(503, "STORAGE_UNAVAILABLE", ex.Message); }
+        });
+
         // ── 조작 ──
         api.MapPost("/actions/stop", async (GameActions a, CancellationToken ct) =>
         {

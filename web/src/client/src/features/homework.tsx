@@ -3,8 +3,8 @@ import { useCharacters, useHomework } from '../api/queries';
 import type { AccountGroup, CharacterCard, HomeworkAuto } from '../api/types';
 import { Dialog, ErrorCard, Fresh, Icon, JobIcon, Pill, Skeleton } from '../components/ui';
 import { useNow } from '../hooks/layout';
-import { resetDrillAll, setHomework } from '../lib/actions';
-import { entryShort, MAX_VALUE, nextStep, prevStep, SEASON_IDS, SEASON_NOTE, STEP_GOALS, STEP_UNITS, stepOf, VALUE_UNITS } from '../lib/homeworkSteps';
+import { resetDrillAll, resetSagaAll, setHomework } from '../lib/actions';
+import { MAX_VALUE, nextStep, prevStep, SEASON_IDS, SEASON_NOTE, STEP_GOALS, STEP_UNITS, stepOf, VALUE_UNITS } from '../lib/homeworkSteps';
 import { until } from '../lib/format';
 import { charName } from './characters';
 
@@ -53,18 +53,27 @@ const BOSSES: { id: string; title: string }[] = [
  * 다른 숙제와 메모리얼 사가는 건드리지 않는다.
  */
 function DrillResetButton() {
+  return <SeasonResetButton label="나이트메어 드릴 전체 초기화" title="나이트메어 드릴 초기화" what="나이트메어 드릴 구역과 드릴 랭킹" keep="다른 숙제와 메모리얼 사가" run={resetDrillAll} />;
+}
+
+/** 메모리얼 사가 층 수만 모든 캐릭터에서 지운다 (드릴과 따로) */
+function SagaResetButton() {
+  return <SeasonResetButton label="메모리얼 사가 전체 초기화" title="메모리얼 사가 초기화" what="메모리얼 사가 층 수" keep="다른 숙제와 나이트메어 드릴" run={resetSagaAll} />;
+}
+
+function SeasonResetButton({ label, title, what, keep, run }: { label: string; title: string; what: string; keep: string; run: () => Promise<void> }) {
   const [open, setOpen] = useState(false);
   return (
     <>
-      <button type="button" className="hw-mini-reset" onClick={() => setOpen(true)}>나이트메어 드릴 전체 초기화</button>
+      <button type="button" className="hw-mini-reset" onClick={() => setOpen(true)}>{label}</button>
       {open && (
-        <Dialog title="나이트메어 드릴 초기화" onClose={() => setOpen(false)}
+        <Dialog title={title} onClose={() => setOpen(false)}
           actions={<>
             <button type="button" className="btn" onClick={() => setOpen(false)}>취소</button>
-            <button type="button" className="btn danger" onClick={() => { setOpen(false); void resetDrillAll(); }}>모든 캐릭터 초기화</button>
+            <button type="button" className="btn danger" onClick={() => { setOpen(false); void run(); }}>모든 캐릭터 초기화</button>
           </>}>
-          <p className="m0">모든 캐릭터의 <b>나이트메어 드릴 구역과 드릴 랭킹</b>을 지웁니다. 되돌릴 수 없습니다.</p>
-          <p className="small muted m0">다른 숙제와 메모리얼 사가는 그대로입니다.</p>
+          <p className="m0">모든 캐릭터의 <b>{what}</b>을(를) 지웁니다. 되돌릴 수 없습니다.</p>
+          <p className="small muted m0">{keep}은(는) 그대로입니다.</p>
         </Dialog>
       )}
     </>
@@ -109,7 +118,7 @@ export function HomeworkView() {
             칸을 누르면 <b>미완료 ↔ 완료</b>가 바뀝니다(수동 체크).<br />
             횟수 칸(소환의 결계 7단계, 검은 구멍 14회, 나이트메어 드릴 30구역)은 누를 때마다 <b>0 → 1 → 2 → … → 완료 → 0</b>으로 돕니다. 한 단계 뒤로는 Shift+클릭이나 우클릭입니다.<br />
             메모리얼 사가는 끝 층을 몰라 <b>누르면 +1층, 우클릭(Shift+클릭)이면 −1층</b>이고 0층이면 <b>-</b>입니다. 드릴 랭킹 칸은 처음엔 <b>-</b>이고, 누르면 순위를 직접 입력합니다(Enter나 다른 곳을 누르면 저장, 비우면 다시 -).<br />
-            <b>나이트메어 드릴·드릴 랭킹·메모리얼 사가</b>는 <b>{SEASON_NOTE}</b>입니다. 주간 리셋으로 지우지 않으니 시즌이 바뀌면 직접 돌려 주세요시즌이 바뀌면 드릴은 <DrillResetButton />으로 모든 캐릭터를 한 번에 지울 수 있습니다.<br />
+            <b>나이트메어 드릴·드릴 랭킹·메모리얼 사가</b>는 <b>{SEASON_NOTE}</b>입니다. 주간 리셋으로 지우지 않으니 시즌이 바뀌면 직접 돌려 주세요시즌이 바뀌면 <DrillResetButton /> <SagaResetButton />로 모든 캐릭터를 한 번에 지울 수 있습니다.<br />
             <span className="hw-legend done">✓ 완료</span> <span className="hw-legend todo">○ 미완료(이번 주기에 확인)</span> <span className="hw-legend unknown">· 미확인(아직 확인 전, 미완료로 봅니다)</span> ·
             지금 접속한 캐릭터만 실시간이고, 다른 캐릭터는 마지막으로 접속했을 때 본 값입니다.
           </p>
