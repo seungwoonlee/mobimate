@@ -99,3 +99,55 @@ export function micAvailability(i: MicInput): MicAvailability {
   if (i.kind === 'lan' && i.allowLanStart === false) return { enabled: false, reason: 'PC 설정에서 "폰·태블릿 음성 시작"을 켜야 합니다' };
   return { enabled: true, reason: null };
 }
+
+const NAMED_KEYS: Record<string, string> = {
+  Space: 'Space', Insert: 'Insert', Delete: 'Delete', Home: 'Home', End: 'End', PageUp: 'PageUp', PageDown: 'PageDown',
+  ArrowUp: 'Up', ArrowDown: 'Down', ArrowLeft: 'Left', ArrowRight: 'Right',
+};
+
+export interface KeyComboInput {
+  code: string;
+  ctrlKey: boolean;
+  altKey: boolean;
+  shiftKey: boolean;
+  metaKey: boolean;
+}
+
+/**
+ * 눌린 키를 서버가 읽는 단축키 글("Ctrl+Alt+V")로 바꾼다 (FR-VC-02). 키 위치(code)로 읽어 자판 배열과 한/영 상태에 영향받지 않는다.
+ * 아직 주 키를 안 눌렀거나(수정키만), 수정키 없이 글자·숫자·스페이스만 누르면 null — 서버도 같은 규칙으로 거절한다.
+ */
+export function comboFromKeyEvent(e: KeyComboInput): string | null {
+  let key: string | null = null;
+  if (/^Key[A-Z]$/.test(e.code)) key = e.code.slice(3);
+  else if (/^Digit[0-9]$/.test(e.code)) key = e.code.slice(5);
+  else if (/^F([1-9]|1[0-9]|2[0-4])$/.test(e.code)) key = e.code;
+  else if (NAMED_KEYS[e.code]) key = NAMED_KEYS[e.code];
+  if (!key) return null;
+  const mods = [e.ctrlKey && 'Ctrl', e.altKey && 'Alt', e.shiftKey && 'Shift', e.metaKey && 'Win'].filter(Boolean) as string[];
+  const isFunctionKey = /^F\d+$/.test(key);
+  if (mods.length === 0 && !isFunctionKey) return null;
+  return [...mods, key].join('+');
+}
+
+export type MicLevel = 'none' | 'low' | 'ok' | 'loud';
+
+/** 마이크 시험 결과 안내 문구 (FR-VC-05 ⑦) */
+export function micLevelMessage(level: MicLevel): { tone: 'ok' | 'warn' | 'danger'; text: string } {
+  switch (level) {
+    case 'ok': return { tone: 'ok', text: '알맞게 들립니다' };
+    case 'low': return { tone: 'warn', text: '소리가 작습니다. Windows 마이크 볼륨을 올리거나 마이크에 더 가까이 말해 보세요' };
+    case 'loud': return { tone: 'warn', text: '소리가 너무 커서 찌그러질 수 있습니다. 마이크 볼륨을 낮춰 보세요' };
+    default: return { tone: 'danger', text: '소리가 거의 들어오지 않습니다. 음소거, Windows 개인정보(마이크 접근), 연결을 확인하세요. 시험하는 동안 말씀하셨는지도 확인해 주세요' };
+  }
+}
+
+/** 바이트 → "150.5MB" */
+export function formatMb(bytes: number): string {
+  return `${(bytes / 1_000_000).toFixed(1)}MB`;
+}
+
+/** 내려받기 진행률 0~100 (전체 크기를 모르면 0) */
+export function installPercent(done: number, total: number): number {
+  return total > 0 ? Math.min(100, Math.floor((done / total) * 100)) : 0;
+}

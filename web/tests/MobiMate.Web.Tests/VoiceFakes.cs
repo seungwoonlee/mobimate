@@ -86,6 +86,8 @@ public sealed class FakeEngineProvider : ISttEngineProvider
 
     public bool IsInstalled => Installed;
 
+    public Task WarmUpAsync() => Task.CompletedTask;
+
     public ISttEngine GetEngine()
     {
         OnGetEngine?.Invoke();
@@ -127,4 +129,44 @@ public sealed class FakeEngineProvider : ISttEngineProvider
 
         public void Dispose() { }
     }
+}
+
+/// <summary>가짜 전역 단축키: 등록 결과를 정하고 <see cref="Fire"/>로 누름을 흉내 낸다</summary>
+public sealed class FakeHotkeyRegistrar : IHotkeyRegistrar
+{
+    public event Action? Pressed;
+    public HotkeySpec? Current { get; private set; }
+    public string? FailWith { get; set; }
+    public int RegisterCount { get; private set; }
+
+    public bool Register(HotkeySpec spec, out string? error)
+    {
+        RegisterCount++;
+        if (FailWith != null) { error = FailWith; return false; }
+        Current = spec;
+        error = null;
+        return true;
+    }
+
+    public void Unregister() => Current = null;
+
+    public void Fire() => Pressed?.Invoke();
+
+    public void Dispose() { }
+}
+
+public sealed class FakeKeyState : IKeyState
+{
+    private readonly HashSet<uint> _down = new();
+    public void Down(uint vk) { lock (_down) _down.Add(vk); }
+    public void Up(uint vk) { lock (_down) _down.Remove(vk); }
+    public bool IsDown(uint virtualKey) { lock (_down) return _down.Contains(virtualKey); }
+}
+
+/// <summary>재생한 신호음을 기록한다</summary>
+public sealed class RecordingCue : ISttCue
+{
+    private readonly List<SttCueKind> _played = new();
+    public IReadOnlyList<SttCueKind> Played { get { lock (_played) return _played.ToList(); } }
+    public void Play(SttCueKind kind) { lock (_played) _played.Add(kind); }
 }

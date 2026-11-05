@@ -31,7 +31,16 @@ public interface ISttEngineProvider
 {
     bool IsInstalled { get; }
     ISttEngine GetEngine();
+
+    /// <summary>
+    /// 인식기를 미리 올려 둔다. 처음 단축키를 눌렀을 때 모델을 올리느라 첫 문장을 놓치지 않게 한다.
+    /// 모델이 없거나 올리지 못해도 예외 없이 끝난다.
+    /// </summary>
+    Task WarmUpAsync();
 }
+
+/// <summary>모델 파일 하나: 이름, 크기, SHA-256 (저장소 커밋 고정본의 SHA256SUMS 값)</summary>
+public sealed record SttModelFile(string Name, long Size, string Sha256);
 
 /// <summary>
 /// 모델 파일 위치와 설치 확인 (FR-VC-07). 정해진 파일이 정해진 크기로 모두 있어야 설치된 것으로 본다.
@@ -41,18 +50,23 @@ public interface ISttEngineProvider
 public sealed class SttModelLocator
 {
     public const int Chunk = 16;
-    public static readonly IReadOnlyList<(string Name, long Size)> Files = new[]
+
+    /// <summary>순서: 인코더, 디코더, 조인너, 글자표</summary>
+    public static readonly IReadOnlyList<SttModelFile> DefaultFiles = new[]
     {
-        ($"encoder-epoch-99-avg-1-chunk-{Chunk}-left-128.int8.onnx", 156840518L),
-        ($"decoder-epoch-99-avg-1-chunk-{Chunk}-left-128.int8.onnx", 1544210L),
-        ($"joiner-epoch-99-avg-1-chunk-{Chunk}-left-128.int8.onnx", 1270777L),
-        ("tokens.txt", 20844L),
+        new SttModelFile($"encoder-epoch-99-avg-1-chunk-{Chunk}-left-128.int8.onnx", 156840518L, "e595e2e37f46078387868ffa656b775de787fa511cf851cf8e1892d7dbdabe54"),
+        new SttModelFile($"decoder-epoch-99-avg-1-chunk-{Chunk}-left-128.int8.onnx", 1544210L, "f5dfa6c8609b29da86c739d4904889475c33b62e28e70c619952a0ee6c31416f"),
+        new SttModelFile($"joiner-epoch-99-avg-1-chunk-{Chunk}-left-128.int8.onnx", 1270777L, "64efd9aeb71fb2278c713b3d5eb5ec45edf6b2ccd8716d3709044f17723c13fd"),
+        new SttModelFile("tokens.txt", 20844L, "435dfb9e0a2b6a79124f1a4d8f0f33a951b25384726e2e0d854f081533e6ec9d"),
     };
+
+    public IReadOnlyList<SttModelFile> Files { get; }
 
     public string Dir { get; }
 
-    public SttModelLocator(string storageDir)
+    public SttModelLocator(string storageDir, IReadOnlyList<SttModelFile>? files = null)
     {
+        Files = files ?? DefaultFiles;
         var over = Environment.GetEnvironmentVariable("MOBIMATE_STT_MODEL_DIR");
         Dir = !string.IsNullOrWhiteSpace(over) ? over : Path.Combine(storageDir, "stt", "model");
     }
@@ -77,10 +91,10 @@ public sealed class SherpaSttEngine : ISttEngine
         var c = new OnlineRecognizerConfig();
         c.FeatConfig.SampleRate = AudioConverter.TargetRate;
         c.FeatConfig.FeatureDim = 80;
-        c.ModelConfig.Transducer.Encoder = model.PathOf(SttModelLocator.Files[0].Name);
-        c.ModelConfig.Transducer.Decoder = model.PathOf(SttModelLocator.Files[1].Name);
-        c.ModelConfig.Transducer.Joiner = model.PathOf(SttModelLocator.Files[2].Name);
-        c.ModelConfig.Tokens = model.PathOf("tokens.txt");
+        c.ModelConfig.Transducer.Encoder = model.PathOf(model.Files[0].Name);
+        c.ModelConfig.Transducer.Decoder = model.PathOf(model.Files[1].Name);
+        c.ModelConfig.Transducer.Joiner = model.PathOf(model.Files[2].Name);
+        c.ModelConfig.Tokens = model.PathOf(model.Files[3].Name);
         c.ModelConfig.NumThreads = Math.Clamp(threads, 1, 4);
         c.ModelConfig.Provider = "cpu";
         c.DecodingMethod = "modified_beam_search";
@@ -121,7 +135,7 @@ public sealed class SherpaSttEngine : ISttEngine
 }
 
 /// <summary>실제 엔진 공급자: 처음 요청할 때 모델을 올리고 이후 재사용한다.</summary>
-public sealed class SherpaEngineProvider(SttModelLocator model, WebSettingsStore settings) : ISttEngineProvider, IDisposable
+public sealed class SherpaEngineProvider(SttModelLocator model, WebSettingsStore settings, ILogger<SherpaEngineProvider> log) : ISttEngineProvider, IDisposable
 {
     private readonly object _lock = new();
     private SherpaSttEngine? _engine;
@@ -134,9 +148,18 @@ public sealed class SherpaEngineProvider(SttModelLocator model, WebSettingsStore
         {
             if (_engine != null) return _engine;
             if (!model.IsInstalled) throw new InvalidOperationException("음성 인식 모델이 설치되어 있지 않습니다.");
-            return _engine = new SherpaSttEngine(model, settings.Current.SttThreads);
+            var clock = System.Diagnostics.Stopwatch.StartNew();
+            var engine = new SherpaSttEngine(model, settings.Current.SttThreads);
+            log.LogInformation("음성 인식기를 올렸습니다 ({Ms}ms, {Threads}스레드)", clock.ElapsedMilliseconds, settings.Current.SttThreads);
+            return _engine = engine;
         }
     }
+
+    public Task WarmUpAsync() => !model.IsInstalled ? Task.CompletedTask : Task.Run(() =>
+    {
+        try { GetEngine(); }
+        catch (Exception ex) { log.LogWarning(ex, "음성 인식기를 미리 올리지 못했습니다"); }
+    });
 
     public void Dispose()
     {

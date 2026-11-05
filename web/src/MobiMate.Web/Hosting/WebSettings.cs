@@ -27,6 +27,15 @@ public sealed class WebSettings
 
     /// <summary>인식 스레드 수 (기본 1: 게임 부하를 줄인다, FR-VC-06)</summary>
     public int SttThreads { get; set; } = 1;
+
+    /// <summary>전역 단축키 (예: "Ctrl+Alt+V", "F9"). 없으면 단축키 없음</summary>
+    public string? SttHotkey { get; set; }
+
+    /// <summary>"hold"(누르는 동안 듣기, 기본) 또는 "toggle"(눌러서 켜고 끄기)</summary>
+    public string SttHotkeyMode { get; set; } = "hold";
+
+    /// <summary>듣기 시작·문장 확정 신호음 (게임 전체 화면에서 소리로 알린다)</summary>
+    public bool SttCue { get; set; } = true;
 }
 
 public sealed class WebSettingsStore
@@ -74,5 +83,8 @@ public sealed class WebSettingsStore
         SttMaxSeconds = s.SttMaxSeconds,
         SttDeviceId = s.SttDeviceId,
         SttThreads = s.SttThreads,
+        SttHotkey = s.SttHotkey,
+        SttHotkeyMode = s.SttHotkeyMode,
+        SttCue = s.SttCue,
     };
 }

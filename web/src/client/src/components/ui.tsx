@@ -215,3 +215,17 @@ export function LinkCard({ to, params, className = '', label, children }: { to: 
     </a>
   );
 }
+
+/** 설정 한 줄: 이름 + 값 */
+export function Row({ label, children }: { label: string; children: React.ReactNode }) {
+  return <div className="kv wrap"><span className="muted">{label}</span>{children}</div>;
+}
+
+/** 여러 선택지 중 하나 고르기 */
+export function Seg({ value, options, onChange, disabled }: { value: string; options: [string, string][]; onChange: (v: string) => void; disabled?: boolean }) {
+  return (
+    <span className="seg" role="group">
+      {options.map(([v, l]) => <button key={v} type="button" aria-pressed={value === v} disabled={disabled} onClick={() => onChange(v)}>{l}</button>)}
+    </span>
+  );
+}

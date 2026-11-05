@@ -9,12 +9,21 @@ export interface Session { kind: 'local' | 'lan' }
 export type SttStateName = 'idle' | 'starting' | 'listening' | 'finishing';
 export interface SttStatus {
   state: SttStateName; sessionId: string | null; byDevice: string | null; device: string | null;
-  modelInstalled: boolean; autoSend: boolean; allowLanStart: boolean; maxSeconds: number;
+  modelInstalled: boolean; install: SttInstall; autoSend: boolean; allowLanStart: boolean; maxSeconds: number; hotkey: SttHotkeyStatus;
 }
 export interface SttStateEvent {
   sessionId: string; state: SttStateName; byDevice?: string | null; error?: string | null; message?: string | null;
   warn?: string | null; device?: string | null; fallback?: boolean;
 }
+export interface SttInstall { phase: 'idle' | 'downloading' | 'done' | 'failed'; done: number; total: number; file: string | null; error: string | null }
+export interface SttHotkeyStatus { key: string | null; registered: boolean; error: string | null; mode: 'hold' | 'toggle' }
+export interface SttSettings {
+  autoSend: boolean; allowLanStart: boolean; maxSeconds: number; deviceId: string | null; threads: number;
+  hotkey: string | null; hotkeyMode: 'hold' | 'toggle'; cue: boolean;
+}
+export interface SttDevice { id: string; name: string; sampleRate: number; channels: number; isDefault: boolean }
+export interface SttDevices { devices: SttDevice[]; selectedId: string | null }
+export interface SttMicTest { device: string; fallback: boolean; peakDb: number; rmsDb: number; level: 'none' | 'low' | 'ok' | 'loud' }
 export interface SttFinalEvent { sessionId: string; text: string; original: string; applied: string[]; autoSent?: boolean }
 export interface SttLast extends SttFinalEvent { at: string }
 

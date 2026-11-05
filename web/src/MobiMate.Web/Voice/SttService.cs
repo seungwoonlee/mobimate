@@ -18,13 +18,18 @@ public sealed record SttFinal(string SessionId, string Text, string Original, IR
 
 public sealed record SttSnapshot(SttState State, string? SessionId, string? ByDevice, string? DeviceName);
 
+/// <summary>마이크 시험 결과 (Peak·Rms는 0~1)</summary>
+public sealed record MicTestResult(string Device, float Peak, float Rms, bool Fallback);
+
+public sealed record MicTestOutcome(bool Busy, MicTestResult? Result, AudioFailure? Failure);
+
 /// <summary>
 /// 음성 입력 서비스 (FR-VC, 상세설계 §3.9). 한 번에 한 세션:
 /// Idle → Starting(모델·마이크 열기) → Listening(100ms 단위로 변환·인식, 글자가 바뀔 때 stt.partial) → Finishing(남은 글자 확정) → Idle.
 /// 인식은 낮은 우선순위 전용 스레드에서 돌려 게임에 영향을 주지 않는다 (FR-VC-06).
 /// </summary>
 public sealed class SttService(
-    IAudioSource audio, ISttEngineProvider engines, IVoicePostProcessor post, ChatService chat,
+    IAudioSource audio, ISttEngineProvider engines, IVoicePostProcessor post, ISttCue cue, ChatService chat,
     WebSettingsStore settings, SseHub hub, ILogger<SttService> log) : IHostedService
 {
     /// <summary>마지막 확정 결과를 보관하는 시간 (연결이 끊겼다 돌아온 기기용, FR-VC-12)</summary>
@@ -40,6 +45,7 @@ public sealed class SttService(
     private readonly SemaphoreSlim _sendGate = new(1, 1);
 
     private readonly object _gate = new();
+    private int _testing;   // 마이크 시험 중에는 듣기를 시작하지 않는다
     private Session? _session;
     private SttFinal? _last;
 
@@ -72,7 +78,7 @@ public sealed class SttService(
         Session s;
         lock (_gate)
         {
-            if (_session != null) return new(SttStartStatus.Busy);
+            if (_session != null || Volatile.Read(ref _testing) == 1) return new(SttStartStatus.Busy);
             if (!engines.IsInstalled) return new(SttStartStatus.ModelMissing);
             s = new Session(Guid.NewGuid().ToString("N")[..12], byDevice, stopAtEndpoint) { State = SttState.Starting };
             _session = s;
@@ -82,6 +88,9 @@ public sealed class SttService(
         try
         {
             s.Stream = engines.GetEngine().CreateStream();
+            if (Stopped(s)) return Cancel(s);
+            // 시작 신호음은 마이크를 열기 전에 끝까지 재생한다: 신호음이 인식에 섞이지 않게 (FR-VC-02)
+            if (settings.Current.SttCue) cue.Play(SttCueKind.Start);
             if (Stopped(s)) return Cancel(s);
             s.Capture = audio.Open(settings.Current.SttDeviceId);
             s.Capture.Samples += block =>
@@ -137,6 +146,65 @@ public sealed class SttService(
     {
         Abort(s);
         return new(SttStartStatus.Cancelled, s.Id);
+    }
+
+    /// <summary>시작하지 못한 이유를 사용자에게 보일 문장으로 (단축키 시작 실패 토스트용)</summary>
+    public static string DescribeStartFailure(SttStartResult r) => r.Status switch
+    {
+        SttStartStatus.ModelMissing => "음성 인식 모델이 설치되어 있지 않습니다. 설정에서 설치해 주세요.",
+        SttStartStatus.MicFailed => r.Failure?.Message ?? "마이크를 열지 못했습니다.",
+        SttStartStatus.Busy => "이미 듣고 있습니다.",
+        _ => "음성 인식을 시작하지 못했습니다.",
+    };
+
+    /// <summary>
+    /// 마이크를 잠깐 열어 입력 크기를 잰다 (설정 화면의 마이크 테스트). 듣는 중이거나 이미 시험 중이면 Busy.
+    /// 시험하는 동안 듣기 시작은 막힌다.
+    /// </summary>
+    public async Task<MicTestOutcome> TestMicAsync(TimeSpan duration, CancellationToken ct)
+    {
+        lock (_gate)
+        {
+            if (_session != null) return new(true, null, null);
+            if (Interlocked.CompareExchange(ref _testing, 1, 0) != 0) return new(true, null, null);
+        }
+        try
+        {
+            IAudioCapture cap;
+            try { cap = audio.Open(settings.Current.SttDeviceId); }
+            catch (AudioException ex) { return new(false, null, ex.Failure); }
+
+            float peak = 0;
+            double sum = 0;
+            long count = 0;
+            var sync = new object();
+            cap.Samples += block =>
+            {
+                lock (sync)
+                {
+                    foreach (var v in block)
+                    {
+                        var a = Math.Abs(v);
+                        if (a > peak) peak = a;
+                        sum += v * v;
+                    }
+                    count += block.Length;
+                }
+            };
+            try
+            {
+                cap.Start();
+                await Task.Delay(duration, ct);
+            }
+            catch (AudioException ex) { return new(false, null, ex.Failure); }
+            finally { cap.Dispose(); }
+
+            lock (sync) return new(false, new MicTestResult(cap.Device.Name, peak, count > 0 ? (float)Math.Sqrt(sum / count) : 0f, cap.UsedDefaultFallback), null);
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _testing, 0);
+        }
     }
 
     /// <summary>듣기를 끝낸다. 지금까지 들은 글자는 확정된다. 듣는 중이 아니면 false.</summary>
@@ -261,6 +329,7 @@ public sealed class SttService(
         var fin = new SttFinal(s.Id, r.Text, raw, r.Applied, DateTimeOffset.UtcNow, autoSent);
         lock (_gate) _last = fin;
         hub.Broadcast("stt.final", new { sessionId = fin.SessionId, text = fin.Text, original = fin.Original, applied = fin.Applied, autoSent });
+        if (cur.SttCue) _ = Task.Run(() => cue.Play(SttCueKind.Done));   // 전체 화면 게임에서도 받았음을 알 수 있게
         if (autoSent) _ = Task.Run(() => AutoSendAsync(fin));
         else if (cur.SttAutoSend) hub.Broadcast("toast", new { level = "warn", message = "음성 문장이 길어서 보내지 않았습니다. 입력창에서 줄여 주세요" });
     }

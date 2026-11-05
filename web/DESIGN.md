@@ -300,6 +300,7 @@ public sealed class QueryCache
 | `stt.state` | `{ sessionId, state: idle|starting|listening|finishing, byDevice?, error? }` | 음성 입력 상태 변경 (FR-VC-10: 모든 기기에 "듣는 중" 표시) |
 | `stt.partial` | `{ sessionId, text }` | 인식 중인 글자 (바뀔 때마다) |
 | `stt.final` | `{ sessionId, text, original, applied: [...] }` | 문장 확정 (치환·띄어쓰기 적용 후). `original`은 화면 메모리에서만 쓴다 |
+| `stt.install` | `{ phase: idle|downloading|done|failed, done, total, file, error }` | 음성 인식 모델 내려받기 진행 (설정 화면의 진행 막대) |
 | `state.changed` | `{ keys: ["persona","engine","settings"] }` | FR-MB-15 공유 상태 변경 → 클라이언트가 재조회 |
 | `homework.changed` | `{ characterKey, ids: [...], reason: "auto" \| "manual" \| "reset" }` | 자동 판정·수동 설정·리셋으로 숙제 상태가 바뀜 → `['homework']`·`['overview']` 무효화 |
 | `ping` | — | 20초마다 (프록시·절전 감지용) |
@@ -371,8 +372,9 @@ public sealed class GatherJobService
 | `SttService` | 호스티드 서비스. 상태 기계 `Idle → Starting → Listening → Finishing → Idle`, 한 번에 한 세션(이미 듣는 중이면 409 `STT_BUSY`), 최대 길이 타이머, 마지막 확정 결과 60초 보관. 서버 종료(`StopAsync`) 때 마이크를 닫는다 |
 | `VoicePostProcessor` | 인식 글자 → ① 학습된 치환 쌍 적용 ② 띄어쓰기 복원 ③ 정리. 순서 고정. 결과가 비면 이벤트만 보내고 초안은 건드리지 않는다 |
 | `VoiceVocabulary` | 누적 학습 저장소. `%APPDATA%\MobiMateWeb\stt\vocab.json`(`JsonFileStore`로 원자적 저장, 손상 시 격리 + 사용자에게 알림). 낱말·쌍 개수와 마지막 사용일만 저장하고 문장·문맥은 저장하지 않는다 |
-| `HotkeyService` | 전역 단축키. `RegisterHotKey`는 **메시지 루프가 있는 스레드**에서 등록·해제해야 하므로 트레이(`TrayHost`)가 쓰는 WinForms 메시지 루프 스레드에 `NativeWindow`를 붙이는 방안을 먼저 검토한다(확인 필요). 누르는 동안 듣기는 `WM_HOTKEY`(누름만 옴, `MOD_NOREPEAT`) 뒤 `GetAsyncKeyState`를 짧은 주기로 확인해 떼기를 감지한다. 등록 실패(다른 프로그램이 점유)는 설정 화면에 알린다 |
-| `ModelInstaller` | 모델 내려받기·검증·진행률. `ClassImages`와 같은 방식(고정 주소만 사용, 요청 값으로 주소를 만들지 않음) |
+| `HotkeyService` | 전역 단축키. `IHotkeyRegistrar`(실제 `Win32HotkeyRegistrar`)가 전용 STA 스레드의 숨은 메시지 창(`HWND_MESSAGE`)에서 `RegisterHotKey`(`MOD_NOREPEAT`)를 등록·해제한다 — 트레이 메시지 루프를 재사용하는 방안은 쓰지 않았다(스레드 소유를 분리하는 쪽이 단순하다). `WM_HOTKEY`는 누름만 오므로 "누르는 동안 듣기"는 `IKeyState`(실제 `GetAsyncKeyState`)를 15ms마다 확인해 뗌을 감지한다. 누르는 동안은 `stopAtEndpoint=false`로 여러 문장을 이어 듣고, 토글은 눌 때마다 시작/중지를 번갈아 한다. 등록 실패(다른 프로그램이 점유 = 오류 1409)는 `HotkeyStatus`에 이유를 담아 설정 화면에 보인다. 등록에 성공하면 인식기를 미리 올린다(`WarmUpAsync`). 단축키 시작 실패는 `toast` 이벤트로 알린다 |
+| `SttModelInstaller` | 모델 내려받기. 저장소 **커밋 고정** 주소(`resolve/<커밋>/<파일>`)만 쓰고, 리다이렉트는 직접 따라가며 매번 **https + huggingface.co / hf.co(하위 도메인 포함)** 인지 확인한다(최대 5번). 받는 중에는 `<파일>.part`에 쓰며 SHA-256을 함께 계산해 크기와 해시가 맞을 때만 제 이름으로 바꾼다. 실패하면 `.part`를 지우고, 시작할 때 지난번 `.part` 잔재도 지운다. 동시 설치는 하나만(두 번째는 현재 상태를 돌려줌), 이어받기는 하지 않는다. 진행은 SSE `stt.install`(0.25초마다) |
+| `SoundCue` | 시작·확정 신호음. 짧은 사인파 WAV를 메모리에서 만들어 `SoundPlayer`로 재생한다(실패해도 기능은 계속). 시작음은 마이크를 열기 *전에* 끝까지 재생해 인식에 섞이지 않게 한다 |
 | `SttGuard` | 음성 API 요청 검사. **Host가 허용 목록(루프백 IP·`localhost`·`ILanHosts.Current`의 LAN IP·mDNS 이름)이 아니면 읽기 포함 모든 `/api/stt/*`를 403**(그룹 필터, DNS 리바인딩 방어: Origin==Host·원격 IP 루프백으로는 막을 수 없다). 쓰기 요청은 `X-MobiMate-Req: 1` 헤더, `application/json`, `Origin`이 있으면 이 서버 주소와 일치. 🏠 엔드포인트는 `LanGate.IsLocal`로 PC 본체만 허용. "LAN 기기 시작 허용" 설정이 꺼져 있으면 `start`는 PC 본체만 |
 
 **의존 패키지(고정)**: `NAudio` **2.2.1**(3.x는 net9.0 전용이라 net8.0에서 쓸 수 없다 — P0에서 확인), `org.k2fsa.sherpa.onnx` **2.0.1**(Windows x64 런타임 포함, P0에서 net8.0 동작 확인). 단일 파일 exe 배포에서 네이티브 DLL(`sherpa-onnx-c-api`, `onnxruntime`)이 함께 풀리는지는 **아직 확인하지 않았다 — V1 첫 작업으로 `dotnet publish`해서 확인**하고, 안 되면 exe 옆에 두는 방식으로 한다.

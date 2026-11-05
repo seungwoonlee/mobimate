@@ -37,7 +37,7 @@ public class SherpaEngineIntegrationTests
         {
             var locator = new SttModelLocator(dir);   // MOBIMATE_STT_MODEL_DIR이 우선한다
             Assert.True(locator.IsInstalled, "모델 파일 누락: " + string.Join(", ", locator.Missing()));
-            using var provider = new SherpaEngineProvider(locator, new WebSettingsStore(dir));
+            using var provider = new SherpaEngineProvider(locator, new WebSettingsStore(dir), Microsoft.Extensions.Logging.Abstractions.NullLogger<SherpaEngineProvider>.Instance);
             var engine = provider.GetEngine();
             using var stream = engine.CreateStream();
 

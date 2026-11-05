@@ -6,7 +6,7 @@ using MobiMate.Web.Voice;
 
 namespace MobiMate.Web.Endpoints;
 
-public sealed record SttSettingsRequest(bool? AutoSend, bool? AllowLanStart, int? MaxSeconds, string? DeviceId, int? Threads);
+public sealed record SttSettingsRequest(bool? AutoSend, bool? AllowLanStart, int? MaxSeconds, string? DeviceId, int? Threads, string? Hotkey, string? HotkeyMode, bool? Cue);
 
 /// <summary>
 /// 음성 입력 요청 검사 (FR-VC-10). 요구사양 Q8로 Host·Origin 검사를 없앴지만, 마이크를 켜는 요청은 예외로 둔다:
@@ -46,9 +46,16 @@ public static class SttGuard
         return null;
     }
 
-    /// <summary>설정 변경·학습 내용·모델 설치는 PC 본체에서만 (FR-VC-10 ⑤)</summary>
+    /// <summary>설정 변경·학습 내용·모델 설치·마이크 시험은 PC 본체에서만 (FR-VC-10 ⑤)</summary>
     public static IResult? CheckPcOnly(HttpContext ctx) =>
         ClientId.IsLocal(ctx) ? null : ApiResults.Error(StatusCodes.Status403Forbidden, "PC_ONLY", "이 설정은 PC 본체에서만 바꿀 수 있습니다.");
+}
+
+/// <summary>마이크 입력 크기 분류 (설정 화면의 "마이크 테스트")</summary>
+public static class MicLevelClass
+{
+    /// <summary>none: 거의 무음(음소거·권한 막힘·연결 문제) / low: 작음 / ok: 알맞음 / loud: 너무 커서 찌그러질 수 있음</summary>
+    public static string Classify(double peakDb) => peakDb < -60 ? "none" : peakDb < -30 ? "low" : peakDb > -1 ? "loud" : "ok";
 }
 
 /// <summary>음성 입력 (요구사양 §11.13, §7)</summary>
@@ -64,10 +71,11 @@ public static class SttEndpoints
                 ? await next(ctx)
                 : ApiResults.Error(StatusCodes.Status403Forbidden, "STT_FORBIDDEN", "허용되지 않은 주소로 접속했습니다."));
 
-        api.MapGet("/status", (SttService stt, ISttEngineProvider engines, WebSettingsStore s) =>
+        api.MapGet("/status", (SttService stt, ISttEngineProvider engines, HotkeyService hotkeys, SttModelInstaller installer, WebSettingsStore s) =>
         {
             var snap = stt.Snapshot();
             var cur = s.Current;
+            var hk = hotkeys.Status;
             return ApiResults.Ok(new
             {
                 state = snap.State.ToString().ToLowerInvariant(),
@@ -75,9 +83,11 @@ public static class SttEndpoints
                 byDevice = snap.ByDevice,
                 device = snap.DeviceName,
                 modelInstalled = engines.IsInstalled,
+                install = SttModelInstaller.Dto(installer.State),
                 autoSend = cur.SttAutoSend,
                 allowLanStart = cur.SttAllowLanStart,
                 maxSeconds = cur.SttMaxSeconds,
+                hotkey = new { key = hk.Key, registered = hk.Registered, error = hk.Error, mode = cur.SttHotkeyMode },
             });
         });
 
@@ -114,19 +124,48 @@ public static class SttEndpoints
             return ApiResults.Ok(new { stopped = stt.Stop() });   // 듣는 중이 아니어도 오류가 아니다
         });
 
+        // 마이크 시험: 1.5초 동안 입력 크기를 잰다 (말하면서 눌러 보라고 안내한다). 듣는 중이면 거절.
+        api.MapPost("/devices/test", async (HttpContext ctx, SttService stt, CancellationToken ct) =>
+        {
+            if (SttGuard.CheckWrite(ctx) is { } bad) return bad;
+            if (SttGuard.CheckPcOnly(ctx) is { } notPc) return notPc;
+            var o = await stt.TestMicAsync(TimeSpan.FromMilliseconds(1500), ct);
+            if (o.Busy) return ApiResults.Error(StatusCodes.Status409Conflict, "STT_BUSY", "듣는 중이거나 시험 중입니다.");
+            if (o.Failure != null) return ApiResults.Error(StatusCodes.Status503ServiceUnavailable, SttService.ErrorCode(o.Failure.Kind), o.Failure.Message);
+            var r = o.Result!;
+            var level = new AudioLevel(r.Peak, r.Rms);
+            return ApiResults.Ok(new { device = r.Device, fallback = r.Fallback, peakDb = Math.Round(level.PeakDb, 1), rmsDb = Math.Round(level.RmsDb, 1), level = MicLevelClass.Classify(level.PeakDb) });
+        });
+
+        api.MapGet("/model", (SttModelLocator locator, SttModelInstaller installer) =>
+            ApiResults.Ok(new { installed = locator.IsInstalled, missing = locator.Missing(), totalBytes = locator.Files.Sum(f => f.Size), install = SttModelInstaller.Dto(installer.State) }));
+
+        api.MapPost("/model/install", (HttpContext ctx, SttModelInstaller installer) =>
+        {
+            if (SttGuard.CheckWrite(ctx) is { } bad) return bad;
+            if (SttGuard.CheckPcOnly(ctx) is { } notPc) return notPc;
+            var r = installer.Start();   // 이미 받는 중이거나 설치돼 있어도 오류가 아니다: 현재 상태를 돌려준다
+            return ApiResults.Ok(new { started = r == SttInstallStart.Started, alreadyInstalled = r == SttInstallStart.AlreadyInstalled, install = SttModelInstaller.Dto(installer.State) });
+        });
+
         api.MapGet("/settings", (HttpContext ctx, WebSettingsStore s) =>
         {
             if (SttGuard.CheckPcOnly(ctx) is { } bad) return bad;
             return ApiResults.Ok(ToDto(s.Current));
         });
 
-        api.MapPut("/settings", (HttpContext ctx, SttSettingsRequest req, WebSettingsStore s) =>
+        api.MapPut("/settings", (HttpContext ctx, SttSettingsRequest req, WebSettingsStore s, HotkeyService hotkeys) =>
         {
             if (SttGuard.CheckWrite(ctx) is { } bad) return bad;
             if (SttGuard.CheckPcOnly(ctx) is { } notPc) return notPc;
             if (req.MaxSeconds is < 1 or > 60) return ApiResults.Error(StatusCodes.Status400BadRequest, "VALIDATION", "듣는 시간은 1~60초입니다.");
             if (req.Threads is < 1 or > 4) return ApiResults.Error(StatusCodes.Status400BadRequest, "VALIDATION", "스레드 수는 1~4입니다.");
+            if (req.HotkeyMode is not (null or "hold" or "toggle")) return ApiResults.Error(StatusCodes.Status400BadRequest, "VALIDATION", "단축키 방식은 hold 또는 toggle입니다.");
+            if (!string.IsNullOrWhiteSpace(req.Hotkey) && HotkeyParser.Parse(req.Hotkey) == null)
+                return ApiResults.Error(StatusCodes.Status400BadRequest, "VALIDATION", "단축키 형식이 올바르지 않습니다. 수정키(Ctrl·Alt·Shift)와 키를 함께 쓰거나 F1~F24를 쓰세요. (예: Ctrl+Alt+V, F9)");
+
             var threadsChanged = req.Threads != null && req.Threads != s.Current.SttThreads;
+            var hotkeyChanged = req.Hotkey != null;
             var ok = s.Update(x =>
             {
                 if (req.AutoSend != null) x.SttAutoSend = req.AutoSend.Value;
@@ -134,9 +173,16 @@ public static class SttEndpoints
                 if (req.MaxSeconds != null) x.SttMaxSeconds = req.MaxSeconds.Value;
                 if (req.Threads != null) x.SttThreads = req.Threads.Value;
                 if (req.DeviceId != null) x.SttDeviceId = req.DeviceId.Length == 0 ? null : req.DeviceId;   // 빈 문자열 = 시스템 기본 마이크
+                if (req.Hotkey != null) x.SttHotkey = string.IsNullOrWhiteSpace(req.Hotkey) ? null : HotkeyParser.Parse(req.Hotkey)!.Display;
+                if (req.HotkeyMode != null) x.SttHotkeyMode = req.HotkeyMode;
+                if (req.Cue != null) x.SttCue = req.Cue.Value;
             });
+            if (!ok) return ApiResults.Error(StatusCodes.Status500InternalServerError, "SAVE_FAILED", "설정을 저장하지 못했습니다.");
+
+            // 단축키는 저장한 즉시 다시 등록한다. 다른 프로그램이 쓰는 조합이면 등록은 실패하지만 설정은 남기고 이유를 알려 준다.
+            var hk = hotkeyChanged ? hotkeys.Apply(s.Current.SttHotkey) : hotkeys.Status;
             // 스레드 수는 인식 엔진을 만들 때 한 번 읽으므로 앱을 다시 켜야 적용된다
-            return ok ? ApiResults.Ok(new { settings = ToDto(s.Current), restartRequired = threadsChanged }) : ApiResults.Error(StatusCodes.Status500InternalServerError, "SAVE_FAILED", "설정을 저장하지 못했습니다.");
+            return ApiResults.Ok(new { settings = ToDto(s.Current), restartRequired = threadsChanged, hotkey = new { key = hk.Key, registered = hk.Registered, error = hk.Error } });
         });
     }
 
@@ -147,5 +193,8 @@ public static class SttEndpoints
         maxSeconds = s.SttMaxSeconds,
         deviceId = s.SttDeviceId,
         threads = s.SttThreads,
+        hotkey = s.SttHotkey,
+        hotkeyMode = s.SttHotkeyMode,
+        cue = s.SttCue,
     };
 }
