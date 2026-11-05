@@ -57,9 +57,11 @@ public sealed class WasapiAudioSource : IAudioSource
         try
         {
             using var en = new MMDeviceEnumerator();
-            var defaultId = TryDefault(en)?.ID;
+            string? defaultId;
+            using (var def = TryDefault(en)) defaultId = def?.ID;
             var list = new List<AudioDeviceInfo>();
-            foreach (var d in en.EnumerateAudioEndPoints(DataFlow.Capture, DeviceState.Active))
+            var devices = en.EnumerateAudioEndPoints(DataFlow.Capture, DeviceState.Active);
+            foreach (var d in devices)
             {
                 using (d) list.Add(Describe(d, d.ID == defaultId));
             }
@@ -73,26 +75,31 @@ public sealed class WasapiAudioSource : IAudioSource
 
     public IAudioCapture Open(string? deviceId)
     {
+        MMDeviceEnumerator? en = null;
+        MMDevice? dev = null;
         try
         {
-            var en = new MMDeviceEnumerator();
-            MMDevice? dev = null;
+            en = new MMDeviceEnumerator();
             var fallback = false;
             if (!string.IsNullOrEmpty(deviceId))
             {
                 try
                 {
                     var d = en.GetDevice(deviceId);
-                    if (d.State == DeviceState.Active) dev = d;
+                    if (d.State == DeviceState.Active) dev = d; else d.Dispose();
                 }
                 catch (Exception ex) when (ex is COMException or ArgumentException) { }
                 fallback = dev == null;
             }
             dev ??= TryDefault(en) ?? throw new AudioException(new AudioFailure(AudioFailureKind.NoDevice, "사용할 수 있는 마이크가 없습니다."));
-            return new WasapiCaptureSession(en, dev, fallback);
+            return new WasapiCaptureSession(en, dev, fallback);   // 성공하면 세션이 en·dev를 가져가 닫는다
         }
-        catch (AudioException) { throw; }
-        catch (Exception ex) { throw new AudioException(Map(ex)); }
+        catch (Exception ex)
+        {
+            dev?.Dispose();
+            en?.Dispose();
+            throw ex is AudioException ? ex : new AudioException(Map(ex));
+        }
     }
 
     private static MMDevice? TryDefault(MMDeviceEnumerator en)
@@ -140,8 +147,12 @@ public sealed class WasapiAudioSource : IAudioSource
             _device = device;
             UsedDefaultFallback = fallback;
             _capture = new WasapiCapture(device) { ShareMode = AudioClientShareMode.Shared };
-            _converter = new AudioConverter(_capture.WaveFormat);
-            Device = new AudioDeviceInfo(device.ID, device.FriendlyName, _capture.WaveFormat.SampleRate, _capture.WaveFormat.Channels, false);
+            try
+            {
+                _converter = new AudioConverter(_capture.WaveFormat);
+                Device = new AudioDeviceInfo(device.ID, device.FriendlyName, _capture.WaveFormat.SampleRate, _capture.WaveFormat.Channels, false);
+            }
+            catch { _capture.Dispose(); throw; }
             _capture.DataAvailable += (_, e) =>
             {
                 if (_disposed || e.BytesRecorded == 0) return;

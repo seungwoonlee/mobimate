@@ -8,12 +8,13 @@ namespace MobiMate.Web.Voice;
 
 public enum SttState { Idle, Starting, Listening, Finishing }
 
-public enum SttStartStatus { Started, Busy, ModelMissing, MicFailed, EngineFailed }
+/// <summary><see cref="Cancelled"/>: 시작하는 도중에 중지가 와서 듣지 않고 끝났다(오류 아님)</summary>
+public enum SttStartStatus { Started, Cancelled, Busy, ModelMissing, MicFailed, EngineFailed }
 
 public sealed record SttStartResult(SttStartStatus Status, string? SessionId = null, AudioFailure? Failure = null, string? Message = null);
 
 /// <summary>확정된 문장. <see cref="Original"/>은 후처리 전 인식 글자(학습 비교용)이다.</summary>
-public sealed record SttFinal(string SessionId, string Text, string Original, IReadOnlyList<string> Applied, DateTimeOffset At);
+public sealed record SttFinal(string SessionId, string Text, string Original, IReadOnlyList<string> Applied, DateTimeOffset At, bool AutoSent = false);
 
 public sealed record SttSnapshot(SttState State, string? SessionId, string? ByDevice, string? DeviceName);
 
@@ -31,6 +32,12 @@ public sealed class SttService(
 
     /// <summary>인식 대기 오디오 상한(100ms 블록 50개 ≈ 5초). 넘치면 오래된 것부터 버린다 (FR-VC-06)</summary>
     private const int QueueCapacity = 50;
+
+    /// <summary>이만큼 소리가 없으면(또는 블록이 안 오면) 마이크 문제를 알린다</summary>
+    private static readonly TimeSpan NoSignalAfter = TimeSpan.FromSeconds(3);
+
+    /// <summary>자동 전송은 한 번에 하나씩 (CLI 호출과 행동 명령이 섞이지 않게)</summary>
+    private readonly SemaphoreSlim _sendGate = new(1, 1);
 
     private readonly object _gate = new();
     private Session? _session;
@@ -75,6 +82,7 @@ public sealed class SttService(
         try
         {
             s.Stream = engines.GetEngine().CreateStream();
+            if (Stopped(s)) return Cancel(s);
             s.Capture = audio.Open(settings.Current.SttDeviceId);
             s.Capture.Samples += block =>
             {
@@ -89,27 +97,46 @@ public sealed class SttService(
                 catch (InvalidOperationException) { }   // 이미 닫힘
             };
             s.Capture.Failed += f => { s.Failure = f; RequestStop(s); };
+            if (Stopped(s)) return Cancel(s);   // 열고 있는 동안 중지가 왔다
             s.Capture.Start();
         }
         catch (AudioException ex)
         {
+            if (Stopped(s)) return Cancel(s);   // 중지가 마이크를 닫아 시작이 실패한 것: 오류가 아니다
             s.Failure = ex.Failure;
             Abort(s);
             return new(SttStartStatus.MicFailed, Failure: ex.Failure, Message: ex.Message);
         }
         catch (Exception ex)
         {
+            if (Stopped(s)) return Cancel(s);
             log.LogWarning(ex, "음성 인식 엔진을 시작하지 못했습니다");
             s.Failure = new AudioFailure(AudioFailureKind.Other, "음성 인식을 시작하지 못했습니다: " + ex.Message);
             Abort(s);
             return new(SttStartStatus.EngineFailed, Message: ex.Message);
         }
 
-        lock (_gate) s.State = SttState.Listening;
+        // Listening으로 바꾸는 것과 중지 확인을 한 락에서 한다. 상태를 알리는 일은 작업 스레드를 띄우기 전에 끝내
+        // 작업 스레드가 내는 Idle보다 늦게 Listening이 나가지 않게 한다.
+        bool cancelled;
+        lock (_gate)
+        {
+            cancelled = Stopped(s);
+            if (!cancelled) s.State = SttState.Listening;
+        }
+        if (cancelled) return Cancel(s);
+        PublishState(s);
         s.Worker = new Thread(() => Run(s)) { IsBackground = true, Name = "stt-" + s.Id, Priority = ThreadPriority.BelowNormal };
         s.Worker.Start();
-        PublishState(s);
         return new(SttStartStatus.Started, s.Id);
+    }
+
+    private static bool Stopped(Session s) => Volatile.Read(ref s.StopFlag) == 1;
+
+    private SttStartResult Cancel(Session s)
+    {
+        Abort(s);
+        return new(SttStartStatus.Cancelled, s.Id);
     }
 
     /// <summary>듣기를 끝낸다. 지금까지 들은 글자는 확정된다. 듣는 중이 아니면 false.</summary>
@@ -154,8 +181,9 @@ public sealed class SttService(
     {
         var clock = Stopwatch.StartNew();
         var skipFinish = false;
-        var silent = 0;
+        var silentSamples = 0;
         var warned = false;
+        var sinceBlock = Stopwatch.StartNew();
         try
         {
             while (true)
@@ -164,13 +192,16 @@ public sealed class SttService(
                 if (!s.Queue.TryTake(out var block, 100))
                 {
                     if (s.Queue.IsCompleted) break;
+                    // 블록이 3초 넘게 오지 않는다: 마이크 콜백이 멈췄다 (FR-VC-05 ⑥)
+                    if (!warned && sinceBlock.Elapsed > NoSignalAfter) { warned = true; PublishState(s, warn: "NO_SIGNAL"); }
                     continue;
                 }
+                sinceBlock.Restart();
 
                 var level = s.Gain.Apply(block);
-                // 소리가 정확히 0만 3초 이어지면 마이크 접근이 막혔을 수 있다 (FR-VC-05 ⑥)
-                silent = level.Peak == 0 ? silent + 1 : 0;
-                if (silent >= 30 && !warned) { warned = true; PublishState(s, warn: "NO_SIGNAL"); }
+                // 소리가 정확히 0만 3초 어치 이어지면 마이크 접근이 막혔을 수 있다 (블록 길이와 무관하게 샘플 수로 센다)
+                silentSamples = level.Peak == 0 ? silentSamples + block.Length : 0;
+                if (silentSamples >= NoSignalAfter.TotalSeconds * AudioConverter.TargetRate && !warned) { warned = true; PublishState(s, warn: "NO_SIGNAL"); }
 
                 s.Stream!.Accept(block);
                 var p = s.Stream.Poll();
@@ -214,8 +245,9 @@ public sealed class SttService(
                 if (_session == s) _session = null;
                 s.State = SttState.Idle;
             }
-            PublishState(s);
-            s.Done.Set();
+            try { PublishState(s); }
+            catch (Exception ex) { log.LogDebug(ex, "상태 알림 실패"); }
+            finally { s.Done.Set(); }
         }
     }
 
@@ -223,23 +255,35 @@ public sealed class SttService(
     {
         var r = post.Process(raw);
         if (r.Text.Length == 0) return;   // 빈 결과는 초안을 바꾸지 않는다 (FR-VC-03)
-        var fin = new SttFinal(s.Id, r.Text, raw, r.Applied, DateTimeOffset.UtcNow);
+        // 자동 전송이 켜져 있어도 한도를 넘으면 보내지 않고 화면 초안에 남긴다 (FR-VC-04). 화면은 autoSent가 false일 때만 초안에 붙인다.
+        var cur = settings.Current;
+        var autoSent = cur.SttAutoSend && FitsInChat(r.Text, cur.AutoEmoteDefault);
+        var fin = new SttFinal(s.Id, r.Text, raw, r.Applied, DateTimeOffset.UtcNow, autoSent);
         lock (_gate) _last = fin;
-        hub.Broadcast("stt.final", new { sessionId = fin.SessionId, text = fin.Text, original = fin.Original, applied = fin.Applied });
-        if (settings.Current.SttAutoSend) _ = Task.Run(() => AutoSendAsync(fin));
+        hub.Broadcast("stt.final", new { sessionId = fin.SessionId, text = fin.Text, original = fin.Original, applied = fin.Applied, autoSent });
+        if (autoSent) _ = Task.Run(() => AutoSendAsync(fin));
+        else if (cur.SttAutoSend) hub.Broadcast("toast", new { level = "warn", message = "음성 문장이 길어서 보내지 않았습니다. 입력창에서 줄여 주세요" });
+    }
+
+    /// <summary>
+    /// 본문이 잘리지 않고 한 번에 들어가는가. 자동 이모티콘이 켜져 있으면 실제 채팅 계획(이모지 길이는 문장마다 다르다)을 만들어
+    /// 최종 문장이 원문으로 시작하는지로 판정한다 — 본문이 잘리면 시작 부분이 달라진다.
+    /// </summary>
+    internal static bool FitsInChat(string text, bool autoEmote)
+    {
+        var clean = ChatText.Sanitize(text);
+        if (clean.Length == 0) return true;
+        if (!autoEmote) return ChatText.Count(clean) <= ChatText.MaxLength;
+        return ChatPlanService.BuildChatPlan(clean).FinalMessage.StartsWith(clean, StringComparison.Ordinal);
     }
 
     /// <summary>자동 전송 (FR-VC-13): 중복 방지(1초)와 로그는 ChatService가 처리한다. 실패는 모든 기기에 토스트로 알린다.</summary>
     private async Task AutoSendAsync(SttFinal fin)
     {
+        await _sendGate.WaitAsync();
         try
         {
             var autoEmote = settings.Current.AutoEmoteDefault;
-            if (ChatText.Count(fin.Text) > ChatText.MaxLength - (autoEmote ? 2 : 0))
-            {
-                hub.Broadcast("toast", new { level = "warn", message = "음성 문장이 길어서 보내지 않았습니다. 입력창에서 줄여 주세요" });
-                return;
-            }
             var (status, entry) = await chat.SendAsync(fin.Text, autoEmote, "음성", "stt", CancellationToken.None);
             switch (status)
             {
@@ -254,6 +298,10 @@ public sealed class SttService(
         catch (Exception ex)
         {
             log.LogWarning(ex, "음성 자동 전송 오류");
+        }
+        finally
+        {
+            _sendGate.Release();
         }
     }
 
@@ -280,7 +328,7 @@ public sealed class SttService(
     public Task StopAsync(CancellationToken cancellationToken)
     {
         Stop();
-        WaitIdle(TimeSpan.FromSeconds(2));   // 마이크를 닫고 끝낸다 (FR-VC-12)
+        WaitIdle(TimeSpan.FromSeconds(5));   // 마이크를 닫고 끝낸다. 엔진을 먼저 해제하지 않도록 충분히 기다린다 (FR-VC-12)
         return Task.CompletedTask;
     }
 

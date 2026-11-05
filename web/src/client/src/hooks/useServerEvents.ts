@@ -4,7 +4,44 @@ import { keys, keys5 } from '../api/queries';
 import { queryClient } from '../lib/queryClient';
 import { useUi, type ToastLevel } from '../state/ui';
 import { api } from '../api/http';
-import type { GatherJob, Header } from '../api/types';
+import type { GatherJob, Header, SttFinalEvent, SttLast, SttStateEvent } from '../api/types';
+import { sttErrorMessage } from '../lib/voice';
+
+/**
+ * 음성 입력 SSE 이벤트 → 상태 저장소 (FR-VC). 훅에서 떼어 내 직접 시험한다.
+ * - stt.state: 상태 표시. 오류는 세션이 끝날 때(idle) 한 번만 알린다(중간 상태마다 알리면 같은 오류가 겹쳐 뜬다)
+ * - stt.partial: 인식 중인 글자
+ * - stt.final: 확정 글자. 서버가 이미 게임 채팅으로 보냈다면(autoSent) 초안에 붙이지 않는다(붙이면 다시 보내게 된다)
+ */
+export function applyVoiceEvent(type: string, data: unknown): void {
+  const ui = useUi.getState();
+  switch (type) {
+    case 'stt.state': {
+      const e = data as SttStateEvent;
+      ui.setVoice({
+        state: e.state, sessionId: e.sessionId, byDevice: e.byDevice ?? null, device: e.device ?? null,
+        partial: e.state === 'idle' ? '' : ui.voice.partial,
+        warn: e.warn ?? (e.state === 'idle' ? null : ui.voice.warn),
+      });
+      if (e.state === 'idle' && e.error) ui.toast(sttErrorMessage(e.error, e.message), 'warn');
+      break;
+    }
+    case 'stt.partial':
+      ui.setVoice({ partial: (data as { text?: string })?.text ?? '' });
+      break;
+    case 'stt.final': {
+      const e = data as SttFinalEvent;
+      ui.setVoice({ partial: '' });
+      if (!e.autoSent) ui.receiveVoiceFinal(e);
+      break;
+    }
+  }
+}
+
+/** 끊겼다 돌아온 뒤 서버가 보관한 마지막 확정 결과를 반영한다. 이미 붙였거나 자동 전송한 문장은 건너뛴다 (FR-VC-12) */
+export function recoverVoiceFinal(last: SttLast | null | undefined): void {
+  if (last && !last.autoSent) useUi.getState().receiveVoiceFinal(last);
+}
 
 /** 캐릭터 선택창(selecting)은 마지막 캐릭터를 흐리게 보여 줄 뿐이라 전환으로 치지 않는다 */
 export const characterSwitched = (prev: Header | undefined, next: Header) => !!prev && !next.selecting && prev.characterKey !== next.characterKey;
@@ -22,8 +59,16 @@ export function useServerEvents() {
 
   useEffect(() => connectSse({
     onState: (s, retry) => {
+      const reconnected = s === 'open' && useUi.getState().everOpen;   // 처음 열린 것이 아니라 끊겼다 돌아온 것
       setSse(s, retry);
       if (s === 'open') {
+        void queryClient.invalidateQueries({ queryKey: keys5.stt });
+        // 끊긴 사이 확정된 음성 문장(서버가 60초 보관)을 받아 초안에 붙인다. 이미 붙인 문장은 건너뛴다 (FR-VC-12)
+        if (reconnected) {
+          void api.get<SttLast | null>('/api/stt/last')
+            .then(r => recoverVoiceFinal(r.data))
+            .catch(() => { /* 다음 이벤트가 채운다 */ });
+        }
         void queryClient.invalidateQueries({ type: 'active' });   // 다시 붙으면 현재 화면을 바로 갱신 (FR-MB-12)
         // 자리를 비운 사이 시작·진행된 채집을 이 화면도 보여 준다 (끝난 작업은 다시 띄우지 않는다)
         void api.get<{ job: GatherJob | null }>('/api/actions/gather/current')
@@ -65,6 +110,12 @@ export function useServerEvents() {
           break;
         case 'chat.logged':
           void queryClient.invalidateQueries({ queryKey: keys5.chatLog });
+          break;
+        case 'stt.state':
+        case 'stt.partial':
+        case 'stt.final':
+          applyVoiceEvent(type, data);
+          if (type === 'stt.state') void queryClient.invalidateQueries({ queryKey: keys5.stt });
           break;
         case 'homework.changed':
           void queryClient.invalidateQueries({ queryKey: keys.homework });

@@ -5,6 +5,19 @@ export interface ErrorBody { error: { code: string; message: string } }
 
 export interface Session { kind: 'local' | 'lan' }
 
+/** 음성 입력 (FR-VC) */
+export type SttStateName = 'idle' | 'starting' | 'listening' | 'finishing';
+export interface SttStatus {
+  state: SttStateName; sessionId: string | null; byDevice: string | null; device: string | null;
+  modelInstalled: boolean; autoSend: boolean; allowLanStart: boolean; maxSeconds: number;
+}
+export interface SttStateEvent {
+  sessionId: string; state: SttStateName; byDevice?: string | null; error?: string | null; message?: string | null;
+  warn?: string | null; device?: string | null; fallback?: boolean;
+}
+export interface SttFinalEvent { sessionId: string; text: string; original: string; applied: string[]; autoSent?: boolean }
+export interface SttLast extends SttFinalEvent { at: string }
+
 export interface LanView {
   enabled: boolean; active: boolean; hosts: string[]; mdnsName: string | null; port: number;
   error: string | null; networkPrivate: boolean | null;

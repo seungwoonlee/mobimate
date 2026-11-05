@@ -104,34 +104,48 @@ public class AutoGainTests
 {
     private static float[] Block(float amp) => Enumerable.Repeat(amp, 1600).ToArray();
 
-    private static AutoGain Converged(float amp, int blocks = 100)
+    /// <summary>잡음만 있던 마이크에 목소리가 들어온 상황 (잡음 50블록 + 목소리 60블록)</summary>
+    private static AutoGain NoiseThenQuietVoice(float noise = 0.002f, float voice = 0.05f)
     {
         var g = new AutoGain();
-        for (var i = 0; i < blocks; i++) g.Apply(Block(amp));
+        for (var i = 0; i < 50; i++) g.Apply(Block(noise));
+        for (var i = 0; i < 60; i++) g.Apply(Block(voice));
         return g;
     }
 
     [Fact]
-    public void QuietInput_IsRaisedTowardTargetPeak()
+    public void QuietVoice_AfterRoomNoise_IsRaisedTowardTargetPeak()
     {
-        var g = Converged(0.05f);
-        Assert.InRange(g.Gain, 8f, AutoGain.MaxGain + 0.01f);
+        var g = NoiseThenQuietVoice();
+        Assert.InRange(g.Gain, 6f, AutoGain.MaxGain + 0.01f);
         var b = Block(0.05f);
         g.Apply(b);
-        Assert.InRange(b.Max(), 0.4f, 0.55f);
+        Assert.InRange(b.Max(), 0.3f, 0.5f);
     }
 
     [Fact]
-    public void BelowNoiseGate_IsNotAmplified()
+    public void RoomNoise_IsNeverAmplified()
     {
-        var g = Converged(0.001f);
+        // 방 잡음을 키우면 인식 모델이 없는 말을 지어낼 수 있다 (리뷰 지적)
+        var g = new AutoGain();
+        for (var i = 0; i < 200; i++) g.Apply(Block(0.002f));
         Assert.Equal(1f, g.Gain, 3);
     }
 
     [Fact]
-    public void LoudInput_StaysUnchanged()
+    public void SteadyLevelWithoutQuietReference_IsTreatedAsNoise_AndNotAmplified()
     {
-        var g = Converged(0.9f);
+        // 계속 일정한 소리(선풍기 등)는 목소리가 아니라 잡음 바닥으로 본다
+        var g = new AutoGain();
+        for (var i = 0; i < 150; i++) g.Apply(Block(0.05f));
+        Assert.Equal(1f, g.Gain, 2);
+    }
+
+    [Fact]
+    public void LoudVoice_StaysUnchanged()
+    {
+        var g = new AutoGain();
+        for (var i = 0; i < 50; i++) g.Apply(Block(0.002f));
         var b = Block(0.9f);
         g.Apply(b);
         Assert.All(b, v => Assert.Equal(0.9f, v, 3));
@@ -140,8 +154,8 @@ public class AutoGainTests
     [Fact]
     public void SuddenLoudSound_DropsGainAtOnce_AndNeverClips()
     {
-        var g = Converged(0.05f);
-        Assert.True(g.Gain > 8f);
+        var g = NoiseThenQuietVoice();
+        Assert.True(g.Gain > 6f);
         var loud = Block(0.8f);
         g.Apply(loud);
         Assert.Equal(1f, g.Gain, 3);
@@ -149,9 +163,18 @@ public class AutoGainTests
     }
 
     [Fact]
+    public void WhenVoiceStops_GainReturnsToOne()
+    {
+        var g = NoiseThenQuietVoice();
+        Assert.True(g.Gain > 6f);
+        for (var i = 0; i < 200; i++) g.Apply(Block(0.002f));
+        Assert.InRange(g.Gain, 0.99f, 1.05f);
+    }
+
+    [Fact]
     public void Level_IsMeasuredBeforeGain()
     {
-        var g = Converged(0.05f);
+        var g = NoiseThenQuietVoice();
         var level = g.Apply(Block(0.05f));
         Assert.Equal(0.05f, level.Peak, 3);
         Assert.InRange(level.PeakDb, -27, -25);

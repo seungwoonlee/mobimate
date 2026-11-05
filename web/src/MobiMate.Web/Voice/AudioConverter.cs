@@ -83,17 +83,26 @@ public sealed class AudioConverter
 }
 
 /// <summary>
-/// 자동 이득 보정 (FR-VC-05 ④). 입력이 작은 마이크(노트북 내장 등)를 끌어올린다.
-/// 최근 피크를 천천히 줄어드는 포락선으로 따라가고, 목표 피크(0.5)에 맞추되 최대 10배(20dB)까지만 올린다.
-/// 포락선이 잡음 문턱(약 -50dBFS) 아래이면 올리지 않는다(조용한 방의 잡음을 키우지 않는다). 커지는 소리에는 즉시 낮춘다.
+/// 자동 이득 보정 (FR-VC-05 ④). 입력이 작은 마이크(노트북 내장 등)의 **목소리**를 끌어올린다.
+/// - 잡음 바닥: 최근 10초 블록 소리 크기의 하위 20% 값. 이 바닥보다 약 9.5dB 이상 크고 절대 크기도 -48dBFS 이상이어야 목소리로 본다.
+///   (그래서 일정한 방 잡음·선풍기 소리는 키우지 않는다. 방 잡음을 키우면 모델이 없는 말을 지어낼 수 있다.)
+/// - 목소리 블록에서만 피크 포락선을 따라가고 목표 피크(0.5)에 맞춘다. 최대 8배(18dB).
+/// - 커지는 소리에는 즉시 낮추고, 목소리가 없으면 이득을 서서히 1로 되돌린다.
 /// </summary>
 public sealed class AutoGain
 {
     public const float TargetPeak = 0.5f;
-    public const float MaxGain = 10f;
-    public const float NoiseGate = 0.003f;
-    private const float Release = 0.97f;   // 100ms 블록 기준 약 10초에 걸쳐 줄어든다
+    public const float MaxGain = 8f;
+    public const float MinVoiceRms = 0.004f;
+    private const float VoiceOverNoise = 3f;
+    private const float EnvelopeRelease = 0.97f;
+    private const float GainReturn = 0.96f;   // 목소리가 없으면 블록마다 4%씩 1로 (말 사이 쉬는 동안 잡음이 커지지 않게)
+    private const int NoiseWindow = 100;    // 블록 100개 ≈ 10초 (블록은 100ms 안팎)
+    private const float NoisePercentile = 0.2f;
 
+    private readonly float[] _recent = new float[NoiseWindow];
+    private int _count;
+    private int _next;
     private float _envelope;
     private float _gain = 1f;
 
@@ -110,14 +119,38 @@ public sealed class AutoGain
             if (a > peak) peak = a;
             sum += v * v;
         }
-        var level = new AudioLevel(peak, MathF.Sqrt(sum / samples.Length));
+        var rms = MathF.Sqrt(sum / samples.Length);
+        var level = new AudioLevel(peak, rms);
 
-        _envelope = Math.Max(peak, _envelope * Release);
-        var desired = _envelope < NoiseGate ? 1f : Math.Clamp(TargetPeak / _envelope, 1f, MaxGain);
-        _gain = desired < _gain ? desired : _gain + (desired - _gain) * 0.2f;
+        _recent[_next] = rms;
+        _next = (_next + 1) % NoiseWindow;
+        if (_count < NoiseWindow) _count++;
+        var noise = NoiseFloor();
+
+        var voice = rms > Math.Max(noise * VoiceOverNoise, MinVoiceRms);
+        if (voice)
+        {
+            _envelope = Math.Max(peak, _envelope * EnvelopeRelease);
+            var desired = Math.Clamp(TargetPeak / _envelope, 1f, MaxGain);
+            _gain = desired < _gain ? desired : _gain + (desired - _gain) * 0.2f;
+        }
+        else
+        {
+            _envelope *= EnvelopeRelease;
+            _gain = 1f + (_gain - 1f) * GainReturn;
+        }
+        if (peak * _gain > 1f) _gain = 1f / peak;   // 찌그러지지 않게 즉시 낮춘다
 
         if (_gain > 1.0001f)
             for (var i = 0; i < samples.Length; i++) samples[i] = Math.Clamp(samples[i] * _gain, -1f, 1f);
         return level;
+    }
+
+    private float NoiseFloor()
+    {
+        var copy = new float[_count];
+        Array.Copy(_recent, copy, _count);
+        Array.Sort(copy);
+        return copy[(int)((_count - 1) * NoisePercentile)];
     }
 }

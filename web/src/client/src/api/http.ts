@@ -19,7 +19,7 @@ async function parse<T>(res: Response): Promise<Envelope<T>> {
 }
 
 async function send<T>(method: string, path: string, body?: unknown, signal?: AbortSignal): Promise<Envelope<T>> {
-  const headers: Record<string, string> = { Accept: 'application/json' };
+  const headers: Record<string, string> = { Accept: 'application/json', 'X-MobiMate-Req': '1' };   // 음성 입력 API가 요구한다(다른 웹페이지의 요청 차단, FR-VC-10)
   if (body !== undefined) headers['Content-Type'] = 'application/json';
   let res: Response;
   try {

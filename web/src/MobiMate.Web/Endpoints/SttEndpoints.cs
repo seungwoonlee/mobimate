@@ -1,3 +1,4 @@
+using System.Net;
 using MobiMate.Web.Hosting;
 using MobiMate.Web.Infrastructure;
 using MobiMate.Web.Lan;
@@ -15,6 +16,20 @@ public sealed record SttSettingsRequest(bool? AutoSend, bool? AllowLanStart, int
 public static class SttGuard
 {
     public const string HeaderName = "X-MobiMate-Req";
+
+    /// <summary>
+    /// 요청의 Host가 이 서버의 주소인가 — 루프백 IP, localhost, 지금 열어 둔 LAN IP·mDNS 이름만 허용한다.
+    /// 다른 웹페이지가 도메인을 이 PC로 돌려 붙는 "DNS 리바인딩"이면 Origin과 Host가 같아 보이고 원격 IP도 루프백이므로,
+    /// Host를 직접 확인해야 막을 수 있다 (FR-VC-10).
+    /// </summary>
+    public static bool HostAllowed(HttpContext ctx, ILanHosts lan)
+    {
+        var host = ctx.Request.Host.Host;
+        if (string.IsNullOrEmpty(host)) return false;
+        if (host.Equals("localhost", StringComparison.OrdinalIgnoreCase)) return true;
+        if (IPAddress.TryParse(host.Trim('[', ']'), out var ip) && IPAddress.IsLoopback(ip)) return true;
+        return lan.Current.Any(h => h.Equals(host, StringComparison.OrdinalIgnoreCase));
+    }
 
     /// <summary>통과하면 null, 아니면 응답</summary>
     public static IResult? CheckWrite(HttpContext ctx)
@@ -43,6 +58,12 @@ public static class SttEndpoints
     {
         var api = app.MapGroup("/api/stt");
 
+        // 읽기(인식 결과·상태)도 Host가 이 서버 주소일 때만 (DNS 리바인딩 방어)
+        api.AddEndpointFilter(async (ctx, next) =>
+            SttGuard.HostAllowed(ctx.HttpContext, ctx.HttpContext.RequestServices.GetRequiredService<ILanHosts>())
+                ? await next(ctx)
+                : ApiResults.Error(StatusCodes.Status403Forbidden, "STT_FORBIDDEN", "허용되지 않은 주소로 접속했습니다."));
+
         api.MapGet("/status", (SttService stt, ISttEngineProvider engines, WebSettingsStore s) =>
         {
             var snap = stt.Snapshot();
@@ -63,7 +84,7 @@ public static class SttEndpoints
         api.MapGet("/last", (SttService stt) =>
         {
             var f = stt.Last();
-            return ApiResults.Ok(f == null ? null : new { sessionId = f.SessionId, text = f.Text, original = f.Original, applied = f.Applied, at = f.At });
+            return ApiResults.Ok(f == null ? null : new { sessionId = f.SessionId, text = f.Text, original = f.Original, applied = f.Applied, autoSent = f.AutoSent, at = f.At });
         });
 
         api.MapGet("/devices", (IAudioSource audio, WebSettingsStore s) =>
@@ -79,6 +100,7 @@ public static class SttEndpoints
             return r.Status switch
             {
                 SttStartStatus.Started => ApiResults.Ok(new { sessionId = r.SessionId }),
+                SttStartStatus.Cancelled => ApiResults.Ok(new { sessionId = r.SessionId, cancelled = true }),   // 시작하는 중에 중지가 왔다
                 SttStartStatus.Busy => ApiResults.Error(StatusCodes.Status409Conflict, "STT_BUSY", "이미 듣고 있습니다."),
                 SttStartStatus.ModelMissing => ApiResults.Error(StatusCodes.Status409Conflict, "STT_MODEL_MISSING", "음성 인식 모델이 설치되어 있지 않습니다."),
                 SttStartStatus.MicFailed => ApiResults.Error(StatusCodes.Status503ServiceUnavailable, SttService.ErrorCode(r.Failure!.Kind), r.Failure.Message),
@@ -104,6 +126,7 @@ public static class SttEndpoints
             if (SttGuard.CheckPcOnly(ctx) is { } notPc) return notPc;
             if (req.MaxSeconds is < 1 or > 60) return ApiResults.Error(StatusCodes.Status400BadRequest, "VALIDATION", "듣는 시간은 1~60초입니다.");
             if (req.Threads is < 1 or > 4) return ApiResults.Error(StatusCodes.Status400BadRequest, "VALIDATION", "스레드 수는 1~4입니다.");
+            var threadsChanged = req.Threads != null && req.Threads != s.Current.SttThreads;
             var ok = s.Update(x =>
             {
                 if (req.AutoSend != null) x.SttAutoSend = req.AutoSend.Value;
@@ -112,7 +135,8 @@ public static class SttEndpoints
                 if (req.Threads != null) x.SttThreads = req.Threads.Value;
                 if (req.DeviceId != null) x.SttDeviceId = req.DeviceId.Length == 0 ? null : req.DeviceId;   // 빈 문자열 = 시스템 기본 마이크
             });
-            return ok ? ApiResults.Ok(ToDto(s.Current)) : ApiResults.Error(StatusCodes.Status500InternalServerError, "SAVE_FAILED", "설정을 저장하지 못했습니다.");
+            // 스레드 수는 인식 엔진을 만들 때 한 번 읽으므로 앱을 다시 켜야 적용된다
+            return ok ? ApiResults.Ok(new { settings = ToDto(s.Current), restartRequired = threadsChanged }) : ApiResults.Error(StatusCodes.Status500InternalServerError, "SAVE_FAILED", "설정을 저장하지 못했습니다.");
         });
     }
 

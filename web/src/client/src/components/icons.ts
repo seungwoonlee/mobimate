@@ -9,6 +9,7 @@ export const ICONS: Record<string, string> = {
   'leaf': '<path d="M5 19C5 10.5 10 5 20 4.5 20 14 14.5 19 6 19"/><path d="M5 19l7.5-7.5"/>',
   'radar': '<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4"/><path d="M12 12l5.5-5.5"/>',
   'chat': '<path d="M4 5h16v11H9.5L4 20V5z"/>',
+  'mic': '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3M8.5 21h7"/>',
   'spark': '<path d="M11 3l1.8 5.2L18 10l-5.2 1.8L11 17l-1.8-5.2L4 10l5.2-1.8L11 3z"/><path d="M18.5 15.5l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7.7-1.8z"/>',
   'stop': '<path d="M8.2 3h7.6L21 8.2v7.6L15.8 21H8.2L3 15.8V8.2L8.2 3z"/><rect x="9.2" y="9.2" width="5.6" height="5.6" rx=".8"/>',
   'refresh': '<path d="M20 12a8 8 0 1 1-2.4-5.7"/><path d="M20 4v5h-5"/>',

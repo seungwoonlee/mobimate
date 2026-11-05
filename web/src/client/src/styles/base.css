@@ -273,6 +273,16 @@ button{cursor:pointer}
 .send{width:44px;height:44px;border-radius:12px;border:0;background:var(--accent);color:var(--on-accent);display:grid;place-items:center;flex:none}
 .comp-meta{display:flex;justify-content:space-between;gap:8px;font-size:12px;color:var(--text-3);min-height:18px}
 .comp-meta .cnt.warn{color:var(--warn);font-weight:600}
+.comp-meta .cnt.over{color:var(--danger);font-weight:700}
+.mic{width:44px;height:44px;border-radius:12px;border:1px solid var(--line);background:var(--bg-2);color:var(--text-1);display:grid;place-items:center;flex:none;cursor:pointer}
+.mic:disabled{opacity:.45;cursor:not-allowed}
+.mic.on{background:var(--danger);border-color:var(--danger);color:var(--on-danger)}
+.voice-row{display:flex;align-items:center;gap:8px;min-height:30px;padding:5px 10px;border-radius:10px;background:var(--bg-2);font-size:13px;flex-wrap:wrap}
+.voice-text{flex:1;min-width:0;overflow-wrap:anywhere;color:var(--text-1)}
+.voice-warn{flex-basis:100%;color:var(--warn);font-size:12px}
+.rec-dot{width:9px;height:9px;border-radius:50%;background:var(--danger);flex:none;animation:recpulse 1.2s ease-in-out infinite}
+@keyframes recpulse{50%{opacity:.3}}
+.voice-badge{position:absolute;top:calc(8px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);z-index:80;display:flex;align-items:center;gap:8px;max-width:92%;padding:6px 14px;border-radius:999px;background:var(--bg-1);border:1px solid var(--danger);color:var(--text-1);font-size:13px;font-weight:600;box-shadow:var(--shadow);pointer-events:none}
 .comp-meta .pv{color:var(--accent);font-weight:600}
 .tt-quick{display:none}
 .app[data-posture="tabletop"] .tt-quick{display:flex;gap:8px;padding:0 12px 10px;background:var(--bg-1);overflow-x:auto}

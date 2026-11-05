@@ -6,6 +6,7 @@ using MobiMate.Web.Services;
 
 namespace MobiMate.Web.Endpoints;
 
+/// <summary>SttOriginal: 음성 초안을 고쳐 보낼 때 고치기 전 인식 글자. 누적 학습(V3)이 읽는다 — 로그·파일에는 남기지 않는다.</summary>
 public sealed record ChatRequest(string? Text, bool? AutoEmote, string? Source = null, string? SttOriginal = null);
 public sealed record ChatterRequest(string? Persona, string? CustomId);
 public sealed record PersonaRequest(string? Name, string? Emoji, string? Prompt);

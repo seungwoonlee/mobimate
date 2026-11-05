@@ -11,14 +11,21 @@ public sealed class FakeAudioSource : IAudioSource
     public string? LastRequestedId { get; private set; }
     public int OpenCount { get; private set; }
 
+    /// <summary>마이크를 여는 도중에 실행된다(그 사이에 중지가 오는 경우를 흉내 낸다)</summary>
+    public Action? OnOpen { get; set; }
+
+    /// <summary>캡처를 시작하는 순간에 실행된다</summary>
+    public Action? OnCaptureStart { get; set; }
+
     public IReadOnlyList<AudioDeviceInfo> Devices() => DeviceList;
 
     public IAudioCapture Open(string? deviceId)
     {
         LastRequestedId = deviceId;
         OpenCount++;
+        OnOpen?.Invoke();
         if (OpenFailure != null) throw new AudioException(OpenFailure);
-        return Current = new FakeCapture();
+        return Current = new FakeCapture { OnStart = OnCaptureStart };
     }
 }
 
@@ -30,8 +37,13 @@ public sealed class FakeCapture : IAudioCapture
     public bool UsedDefaultFallback => false;
     public bool Started { get; private set; }
     public bool Disposed { get; private set; }
+    public Action? OnStart { get; set; }
 
-    public void Start() => Started = true;
+    public void Start()
+    {
+        Started = true;
+        OnStart?.Invoke();
+    }
 
     public void Push(float[] block) => Samples?.Invoke(block);
 
@@ -39,6 +51,12 @@ public sealed class FakeCapture : IAudioCapture
     public void PushVoice(int blocks = 1)
     {
         for (var i = 0; i < blocks; i++) Push(Enumerable.Repeat(0.1f, 1600).ToArray());
+    }
+
+    /// <summary>정확히 0인 100ms 블록 (마이크 접근이 막힌 것처럼)</summary>
+    public void PushSilence(int blocks = 1)
+    {
+        for (var i = 0; i < blocks; i++) Push(new float[1600]);
     }
 
     public void Fail(AudioFailure f) => Failed?.Invoke(f);
@@ -57,9 +75,23 @@ public sealed class FakeEngineProvider : ISttEngineProvider
     public int SamplesPerUtterance { get; set; } = 3200;
     public int TrailingSamples { get; set; } = 1600;
 
+    /// <summary>엔진을 가져오는 도중에 실행된다(시작 중에 중지가 오는 경우)</summary>
+    public Action? OnGetEngine { get; set; }
+
+    /// <summary>엔진을 만들 때 실패한다(모델 파일 손상 등)</summary>
+    public bool ThrowOnGetEngine { get; set; }
+
+    /// <summary>소리를 받아 인식하는 중에 실패한다</summary>
+    public bool ThrowOnAccept { get; set; }
+
     public bool IsInstalled => Installed;
 
-    public ISttEngine GetEngine() => new Engine(this);
+    public ISttEngine GetEngine()
+    {
+        OnGetEngine?.Invoke();
+        if (ThrowOnGetEngine) throw new InvalidOperationException("가짜 엔진 생성 실패");
+        return new Engine(this);
+    }
 
     private sealed class Engine(FakeEngineProvider cfg) : ISttEngine
     {
@@ -80,7 +112,11 @@ public sealed class FakeEngineProvider : ISttEngineProvider
             return u[..n];
         }
 
-        public void Accept(float[] samples) => _count += samples.Length;
+        public void Accept(float[] samples)
+        {
+            if (cfg.ThrowOnAccept) throw new InvalidOperationException("가짜 인식 실패");
+            _count += samples.Length;
+        }
 
         public SttPartial Poll() =>
             _index >= cfg.Utterances.Length ? new("", false) : new(Prefix(), _count >= cfg.SamplesPerUtterance + cfg.TrailingSamples);

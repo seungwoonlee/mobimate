@@ -1,11 +1,26 @@
 import { create } from 'zustand';
 import type { SseState } from '../api/sse';
 import type { GatherJob } from '../api/types';
+import { applyVoiceFinal, remember, VOICE_SOURCE, voiceKey, type VoiceState } from '../lib/voice';
 
 export type ToastLevel = 'ok' | 'warn' | 'danger' | 'info';
 export interface Toast { id: number; level: ToastLevel; message: string }
 
 export type DockTab = 'game' | 'ai';
+
+/** 음성 입력 화면 상태 (FR-VC-10: 듣는 중에는 모든 기기에 표시) */
+export interface VoiceView {
+  state: VoiceState;
+  sessionId: string | null;
+  /** 시작한 기기(서버가 본 주소) */
+  byDevice: string | null;
+  /** 쓰는 마이크 이름 */
+  device: string | null;
+  /** 인식 중인 글자 (확정되면 비운다) */
+  partial: string;
+  /** "NO_SIGNAL" 등 경고 코드 */
+  warn: string | null;
+}
 
 interface UiState {
   // 도크: 라우트가 아니라 UI 상태다. 화면을 오가거나 접었다 펴도 유지된다 (상세설계 §4.2, FR-MB-03).
@@ -47,6 +62,16 @@ interface UiState {
   /** 초안을 한마디로 만들었으면 "아무말 · 페르소나", 아니면 null(직접) */
   chatDraftSource: string | null;
   setChatDraft: (v: string, source?: string | null) => void;
+  /** 음성으로 채운 초안이면 후처리 전 인식 글자 (FR-VC-08: 고쳐 보냈을 때 서버가 배운다) */
+  chatDraftOriginal: string | null;
+
+  /** 음성 입력 상태 (FR-VC). 모든 기기에 SSE로 같은 상태가 온다 */
+  voice: VoiceView;
+  setVoice: (patch: Partial<VoiceView>) => void;
+  /** 이미 반영한 확정 결과 열쇠 (재연결 뒤 같은 결과를 두 번 붙이지 않는다) */
+  voiceSeen: string[];
+  /** 확정된 문장을 초안 뒤에 붙인다. 이미 반영한 문장이면 false */
+  receiveVoiceFinal: (ev: { sessionId: string; text: string; original: string }) => boolean;
   aiDraft: string;
   setAiDraft: (v: string) => void;
 
@@ -69,7 +94,7 @@ function saveDockPref(open: boolean) {
 
 let nextId = 1;
 
-export const useUi = create<UiState>(set => ({
+export const useUi = create<UiState>((set, get) => ({
   dockOpen: false,
   dockPref: loadDockPref(),
   dockTab: 'game',
@@ -98,8 +123,26 @@ export const useUi = create<UiState>(set => ({
 
   chatDraft: '',
   chatDraftSource: null,
+  chatDraftOriginal: null,
   // 다 지우면 출처도 지운다. 한마디 대사를 고쳐 쓰는 경우는 출처를 유지한다
-  setChatDraft: (v, source) => set(s => ({ chatDraft: v, chatDraftSource: source !== undefined ? source : v.trim() ? s.chatDraftSource : null })),
+  setChatDraft: (v, source) => set(s => ({
+    chatDraft: v,
+    chatDraftSource: source !== undefined ? source : v.trim() ? s.chatDraftSource : null,
+    // 인식 글자는 음성 초안일 때만 둔다: 비우거나 다른 출처(한마디)로 바꾸면 버린다
+    chatDraftOriginal: !v.trim() || (source !== undefined && source !== VOICE_SOURCE) ? null : s.chatDraftOriginal,
+  })),
+  voice: { state: 'idle', sessionId: null, byDevice: null, device: null, partial: '', warn: null },
+  setVoice: patch => set(s => ({ voice: { ...s.voice, ...patch } })),
+  voiceSeen: [],
+  receiveVoiceFinal: ev => {
+    const key = voiceKey(ev.sessionId, ev.text);
+    if (get().voiceSeen.includes(key)) return false;
+    set(s => {
+      const next = applyVoiceFinal({ draft: s.chatDraft, source: s.chatDraftSource, original: s.chatDraftOriginal }, ev);
+      return { chatDraft: next.draft, chatDraftSource: next.source, chatDraftOriginal: next.original, voiceSeen: remember(s.voiceSeen, key) };
+    });
+    return true;
+  },
   aiDraft: '',
   setAiDraft: v => set({ aiDraft: v }),
 

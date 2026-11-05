@@ -108,9 +108,22 @@ export function AppShell({ children }: { children: ReactNode }) {
       <button type="button" className="fab-stop" onClick={stopAction} aria-label="긴급 정지">
         <Icon name="stop" />
       </button>
+      <VoiceBadge />
       <Toasts />
       <PairHost />
       <CommandPalette />
+    </div>
+  );
+}
+
+/** 음성 입력 중 표시 (FR-VC-10): 어느 기기·어느 화면에서든 PC 마이크가 켜져 있음을 알린다 */
+function VoiceBadge() {
+  const v = useUi(s => s.voice);
+  if (v.state === 'idle') return null;
+  return (
+    <div className="voice-badge" role="status" aria-live="polite">
+      <span className="rec-dot" aria-hidden="true" />
+      <span>{v.state === 'finishing' ? '정리하는 중' : '듣는 중'}{v.device ? ` · ${v.device}` : ''}</span>
     </div>
   );
 }
