@@ -56,7 +56,7 @@ function DrillResetButton() {
   const [open, setOpen] = useState(false);
   return (
     <>
-      <button type="button" className="hw-mini-reset" aria-label="나이트메어 드릴 전체 캐릭터 초기화" title="나이트메어 드릴 점수를 모든 캐릭터에서 초기화" onClick={() => setOpen(true)}>초기화</button>
+      <button type="button" className="hw-mini-reset" onClick={() => setOpen(true)}>나이트메어 드릴 전체 초기화</button>
       {open && (
         <Dialog title="나이트메어 드릴 초기화" onClose={() => setOpen(false)}
           actions={<>
@@ -100,7 +100,7 @@ export function HomeworkView() {
             <div className="hw-all" style={{ '--hwcols': orderedCells(cellsOf(accounts[0].members[0])).length } as CSSProperties}>
               <div className="hw-row hw-head">
                 <span>캐릭터</span>
-                {orderedCells(cellsOf(accounts[0].members[0])).map(x => <span key={x.key}>{x.label}{x.key === 'weekly_nightmare_drill' && <DrillResetButton />}</span>)}
+                {orderedCells(cellsOf(accounts[0].members[0])).map(x => <span key={x.key}>{x.label}</span>)}
               </div>
               {accounts.map(a => <AccountBoard key={a.id} a={a} onBoss={setBossFor} showName={accounts.length > 1} />)}
             </div>
@@ -108,8 +108,8 @@ export function HomeworkView() {
           <p className="faint small m0">
             칸을 누르면 <b>미완료 ↔ 완료</b>가 바뀝니다(수동 체크).<br />
             횟수 칸(소환의 결계 7단계, 검은 구멍 14회, 나이트메어 드릴 30구역)은 누를 때마다 <b>0 → 1 → 2 → … → 완료 → 0</b>으로 돕니다. 한 단계 뒤로는 Shift+클릭이나 우클릭입니다.<br />
-            드릴 랭킹·메모리얼 사가 칸은 처음엔 <b>-</b>이고, 누르면 순위(층)를 직접 입력합니다(Enter나 다른 곳을 누르면 저장, 비우면 다시 -).<br />
-            <b>나이트메어 드릴·드릴 랭킹·메모리얼 사가</b>는 <b>{SEASON_NOTE}</b>입니다. 주간 리셋으로 지우지 않으니 시즌이 바뀌면 직접 돌려 주세요(드릴은 머리글의 <b>초기화</b> 버튼으로 모든 캐릭터를 한 번에).<br />
+            메모리얼 사가는 끝 층을 몰라 <b>누르면 +1층, 우클릭(Shift+클릭)이면 −1층</b>이고 0층이면 <b>-</b>입니다. 드릴 랭킹 칸은 처음엔 <b>-</b>이고, 누르면 순위를 직접 입력합니다(Enter나 다른 곳을 누르면 저장, 비우면 다시 -).<br />
+            <b>나이트메어 드릴·드릴 랭킹·메모리얼 사가</b>는 <b>{SEASON_NOTE}</b>입니다. 주간 리셋으로 지우지 않으니 시즌이 바뀌면 직접 돌려 주세요시즌이 바뀌면 드릴은 <DrillResetButton />으로 모든 캐릭터를 한 번에 지울 수 있습니다.<br />
             <span className="hw-legend done">✓ 완료</span> <span className="hw-legend todo">○ 미완료(이번 주기에 확인)</span> <span className="hw-legend unknown">· 미확인(아직 확인 전, 미완료로 봅니다)</span> ·
             지금 접속한 캐릭터만 실시간이고, 다른 캐릭터는 마지막으로 접속했을 때 본 값입니다.
           </p>
@@ -223,6 +223,27 @@ function BossDialog({ c, onClose }: { c: CharacterCard; onClose: () => void }) {
  * Enter나 다른 곳을 누르면 저장해 `✓ N위`(완료)로 보이고, 비우거나 0이면 다시 `-`이다. Esc는 입력을 버린다.
  */
 function ValueCell({ x, c }: { x: Cell; c: CharacterCard }) {
+  if (x.unit === '층') return <FloorCell x={x} c={c} />;
+  return <RankCell x={x} c={c} />;
+}
+
+/** 메모리얼 사가: 끝 층을 몰라 상한 없이, 드릴 구역과 같은 방식으로 누르면 +1, 우클릭(Shift+클릭)이면 −1. 0이면 `-`. */
+function FloorCell({ x, c }: { x: Cell; c: CharacterCard }) {
+  const characterKey = c.isCurrent ? undefined : c.key;
+  const value = x.value ?? 0;
+  const set = (n: number) => void setHomework(x.toggleId!, { count: Math.min(MAX_VALUE, Math.max(0, n)), characterKey });
+  return (
+    <button type="button" className={`hw-cell ${value > 0 ? 'done' : 'unknown'} season btn-cell value-cell`} title={`${SEASON_NOTE} · 클릭 +1 · 우클릭 −1`}
+      aria-label={`${x.label} ${value > 0 ? `${value}${x.unit}` : '입력 전'} — 누르면 1층 올림, 우클릭하면 1층 내림`}
+      onClick={e => set(e.shiftKey ? value - 1 : value + 1)} onContextMenu={e => { e.preventDefault(); set(value - 1); }}>
+      <span className="hw-cell-name">{x.label}</span>
+      <span className="hw-cell-state">{value > 0 ? <><Icon name="check" size={13} /> {value}{x.unit}</> : '-'}</span>
+    </button>
+  );
+}
+
+/** 드릴 랭킹: 눌러서 순위를 직접 입력한다 */
+function RankCell({ x, c }: { x: Cell; c: CharacterCard }) {
   const characterKey = c.isCurrent ? undefined : c.key;
   const done = x.state === 'done' && (x.value ?? 0) > 0;
   const [editing, setEditing] = useState(false);
