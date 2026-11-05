@@ -326,7 +326,8 @@ public class VocabularyTests : IDisposable
     {
         var v = Make();
         for (var i = 0; i < 2; i++) v.Learn("힐러 구합니다", "일러구합니다");
-        var r = new LearnedPostProcessor(v).Process("  일러구합니다  ");
+        var settings = new MobiMate.Web.Hosting.WebSettingsStore(_dir);
+        var r = new LearnedPostProcessor(v, new SpacingProvider(v), settings).Process("  일러구합니다  ");
         Assert.Equal("힐러구합니다", r.Text);
         Assert.Equal(new[] { "일러→힐러" }, r.Applied);
     }

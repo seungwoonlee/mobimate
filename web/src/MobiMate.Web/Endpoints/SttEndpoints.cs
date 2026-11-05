@@ -6,7 +6,7 @@ using MobiMate.Web.Voice;
 
 namespace MobiMate.Web.Endpoints;
 
-public sealed record SttSettingsRequest(bool? AutoSend, bool? AllowLanStart, int? MaxSeconds, string? DeviceId, int? Threads, string? Hotkey, string? HotkeyMode, bool? Cue, bool? Hotwords);
+public sealed record SttSettingsRequest(bool? AutoSend, bool? AllowLanStart, int? MaxSeconds, string? DeviceId, int? Threads, string? Hotkey, string? HotkeyMode, bool? Cue, bool? Hotwords, bool? Spacing);
 public sealed record VocabLearningRequest(bool? LearningOn);
 public sealed record VocabPairRequest(string? From, string? To, string? Action);
 public sealed record VocabWordRequest(string? Word);
@@ -233,6 +233,7 @@ public static class SttEndpoints
                 if (req.HotkeyMode != null) x.SttHotkeyMode = req.HotkeyMode;
                 if (req.Cue != null) x.SttCue = req.Cue.Value;
                 if (req.Hotwords != null) x.SttHotwords = req.Hotwords.Value;
+                if (req.Spacing != null) x.SttSpacing = req.Spacing.Value;
             });
             // 단축키는 저장한 즉시 다시 등록한다. 다른 프로그램이 쓰는 조합이면 등록은 실패하지만 설정은 남기고 이유를 알려 준다.
             hk = ok && hotkeyChanged ? hotkeys.Apply(s.Current.SttHotkey) : hotkeys.Status;
@@ -254,5 +255,6 @@ public static class SttEndpoints
         hotkeyMode = s.SttHotkeyMode,
         cue = s.SttCue,
         hotwords = s.SttHotwords,
+        spacing = s.SttSpacing,
     };
 }

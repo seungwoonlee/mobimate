@@ -39,6 +39,9 @@ public sealed class WebSettings
 
     /// <summary>실험: 자주 쓰는 낱말(3회 이상)을 인식기의 핫워드로 넣는다. 기본 끔 — P0 측정에서 일부 낱말만 고쳐졌고 점수를 올리면 문장이 깨졌다. 인식기를 만들 때 한 번 읽으므로 앱을 다시 켜야 적용된다</summary>
     public bool SttHotwords { get; set; }
+
+    /// <summary>인식 글자에 띄어쓰기를 넣어 본다 (FR-VC-09). 기본 끔 — 처음 보는 문장에서는 정확도가 높지 않아(경계 정밀도 약 83%) 선택 기능이다</summary>
+    public bool SttSpacing { get; set; }
 }
 
 public sealed class WebSettingsStore
@@ -90,5 +93,6 @@ public sealed class WebSettingsStore
         SttHotkeyMode = s.SttHotkeyMode,
         SttCue = s.SttCue,
         SttHotwords = s.SttHotwords,
+        SttSpacing = s.SttSpacing,
     };
 }

@@ -78,6 +78,22 @@ public sealed class VoiceVocabulary
 
     public bool LearningOn { get { lock (_lock) return _data.LearningOn; } }
 
+    private int _version;
+
+    /// <summary>학습 내용이 바뀔 때마다 올라간다 (이 값으로 띄어쓰기 사전을 다시 만들지 판단한다)</summary>
+    public int Version => Volatile.Read(ref _version);
+
+    /// <summary>낱말과 횟수 (띄어쓰기 사전용). 학습이 꺼져 있으면 비어 있다</summary>
+    public IReadOnlyList<KeyValuePair<string, int>> WordCounts()
+    {
+        lock (_lock)
+        {
+            return _data.LearningOn
+                ? _data.Words.Select(kv => new KeyValuePair<string, int>(kv.Key, kv.Value.Count)).ToList()
+                : Array.Empty<KeyValuePair<string, int>>();
+        }
+    }
+
     public void SetLearning(bool on)
     {
         lock (_lock) { _data.LearningOn = on; Save(); }
@@ -247,7 +263,11 @@ public sealed class VoiceVocabulary
             foreach (var k in _data.Words.OrderBy(kv => kv.Value.Count).ThenBy(kv => kv.Value.Last).Take(_data.Words.Count - MaxWords).Select(kv => kv.Key).ToList()) _data.Words.Remove(k);
     }
 
-    private void Save() => _store.Save(_path, _data);
+    private void Save()
+    {
+        Interlocked.Increment(ref _version);
+        _store.Save(_path, _data);
+    }
 
     private static readonly Regex NotLetters = new(@"[^\p{L}]", RegexOptions.Compiled);
 
@@ -327,14 +347,49 @@ public sealed record VocabPairView(string From, string To, int Count, int Revert
 public sealed record VocabView(bool LearningOn, string? Warning, IReadOnlyList<VocabWordView> Words, IReadOnlyList<VocabPairView> Pairs);
 
 /// <summary>
-/// 인식 글자 후처리 (상세설계 §3.9): ① 학습된 치환 ② 띄어쓰기 복원(V4) ③ 정리.
-/// 지금은 ①까지 한다.
+/// 띄어쓰기 사전을 필요할 때 만들어 두고 쓴다 (FR-VC-09). 학습 내용이 바뀌면(<see cref="VoiceVocabulary.Version"/>) 다시 만든다 —
+/// 내가 보낸 낱말이 사전에 들어가므로 쓸수록 좋아진다.
 /// </summary>
-public sealed class LearnedPostProcessor(VoiceVocabulary vocab) : IVoicePostProcessor
+public sealed class SpacingProvider(VoiceVocabulary vocab)
+{
+    private static readonly Lazy<List<string>> Corpus = new(() =>
+    {
+        var all = new List<string>();
+        foreach (var dict in new[] { PersonaTemplatesData.VillainessLines, PersonaTemplatesData.ScroogeLines, PersonaTemplatesData.MorningLines,
+                                     PersonaTemplatesData.GyeongsangLines, PersonaTemplatesData.IdolDancerLines, NeutralPersonaLines.Lines })
+            foreach (var lines in dict.Values) all.AddRange(lines);
+        return all;
+    });
+
+    private readonly object _lock = new();
+    private SpacingRestorer? _restorer;
+    private int _builtFor = -1;
+
+    public SpacingRestorer Get()
+    {
+        lock (_lock)
+        {
+            var v = vocab.Version;
+            if (_restorer == null || _builtFor != v)
+            {
+                _restorer = SpacingRestorer.Build(Corpus.Value, SpacingRestorer.Curated, vocab.WordCounts());
+                _builtFor = v;
+            }
+            return _restorer;
+        }
+    }
+}
+
+/// <summary>
+/// 인식 글자 후처리 (상세설계 §3.9): ① 학습된 치환 ② 띄어쓰기 복원(설정에서 켠 경우) ③ 정리.
+/// 치환은 공백 없는 글자열에서 하므로 띄어쓰기 복원보다 먼저 한다.
+/// </summary>
+public sealed class LearnedPostProcessor(VoiceVocabulary vocab, SpacingProvider spacing, Hosting.WebSettingsStore settings) : IVoicePostProcessor
 {
     public VoicePostResult Process(string raw)
     {
         var (text, applied) = vocab.Apply(raw.Trim());
+        if (settings.Current.SttSpacing) text = spacing.Get().Restore(text);
         return new VoicePostResult(text.Trim(), applied);
     }
 }

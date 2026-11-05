@@ -69,6 +69,13 @@ export function VoiceSettings({ local }: { local: boolean }) {
           <p className={s.allowLanStart ? 'warn-text small' : 'faint small'}>
             {s.allowLanStart ? '같은 와이파이의 다른 기기도 PC 마이크를 켤 수 있습니다. 공용 와이파이에서는 끄세요.' : '끄면 PC 단축키와 PC 화면의 마이크 버튼으로만 시작합니다. (권장)'}
           </p>
+          <Row label="띄어쓰기 넣기 (실험)">
+            <Seg value={s.spacing ? 'on' : 'off'} options={[['off', '끄기'], ['on', '켜기']]} onChange={v => void save({ spacing: v === 'on' })} />
+          </Row>
+          <p className="faint small">
+            인식 글자는 띄어쓰기 없이 나옵니다("지금레이드들어갑니다"). 켜면 아는 낱말 사이에 공백을 넣고, 모르는 부분은 붙여 둡니다.
+            처음 보는 문장에서는 공백의 약 5분의 4가 맞고 놓치는 곳도 있어서 기본은 끔입니다. 내가 보낸 낱말이 사전에 더해져 쓸수록 나아집니다.
+          </p>
           <LearningSection />
           <Row label="자주 쓰는 낱말 우선 인식 (실험)">
             <Seg value={s.hotwords ? 'on' : 'off'} options={[['off', '끄기'], ['on', '켜기']]} onChange={v => void save({ hotwords: v === 'on' })} />
