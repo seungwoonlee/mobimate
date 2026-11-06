@@ -35,8 +35,8 @@ public static class ChatPlanService
 
     public const string DefaultEmoji = "😊";
 
-    /// <summary>AI가 고를 수 있는 이모지 (키워드 규칙이 쓰는 8종). 이 밖의 것은 게임 채팅에서 안전하다고 확인되지 않았다.</summary>
-    public static readonly string[] AllowedEmojis = { "😊", "😓", "🥳", "😍", "😉", "🤣", "😢", "😎" };
+    /// <summary>AI가 고를 수 있는 이모지. 앞 8종은 키워드 규칙이 쓰는 것이고, 뒤 2종(😡 🤔)은 2026-11-07 게임 채팅 전송 시험에서 표시를 확인해 추가했다(😴 🙏 👍는 게임이 표시하지 않았다). 짝지은 행동 명령은 앞 8종에만 있다.</summary>
+    public static readonly string[] AllowedEmojis = { "😊", "😓", "🥳", "😍", "😉", "🤣", "😢", "😎", "😡", "🤔" };
 
     /// <summary>이모지에 짝지은 소셜 액션(행동 명령). 없으면 null</summary>
     public static string? BehaviourForEmoji(string emoji)
