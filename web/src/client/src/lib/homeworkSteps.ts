@@ -1,3 +1,4 @@
+import type { CharacterCard } from '../api/types';
 /**
  * 여러 번 해야 끝나는 숙제의 수동 횟수 (2026-10-24 승운): 일부만 했을 수 있어, 칸을 누를 때마다 0 → 1 → 2 → … → 목표(완료) → 0으로 돈다.
  * 서버(HomeworkDefinition.RunGoal)의 값과 같아야 한다. 뱅가드 브리치 주 3회가 첫 사례다.
@@ -29,3 +30,17 @@ export const prevStep = (cur: number): number => Math.max(0, cur - 1);
 /** 시즌제 칸(주간 리셋으로 지우지 않는다): 칸 설명에 "시즌 리셋 : 기한 모름"을 붙인다 */
 export const SEASON_NOTE = '시즌 리셋 : 기한 모름';
 export const SEASON_IDS: ReadonlySet<string> = new Set(['weekly_nightmare_drill', 'weekly_nightmare_rank']);
+
+/** 숙제 칸 → 추천(전투력 기준) 콘텐츠. 입장 전투력에 못 미치는 캐릭터는 그 칸을 비활성화한다 */
+export const HW_CUTOFF: Record<string, string> = {
+  raid_scars: 'scars', raid_cavrak: 'cavrak', raid_airel: 'airel', raid_white_succubus: 'white_succubus',
+  abyss_illusory_anchorage: 'abyss', abyss_madness_cave: 'abyss', abyss_scattered_waterway: 'abyss',
+};
+
+/** 이 캐릭터가 그 숙제의 입장 전투력에 못 미치면 필요한 전투력, 아니면 null (전투력을 아직 모르면 null) */
+export function entryShort(c: Partial<Pick<CharacterCard, 'combat' | 'recommend'>>, id: string): number | null {
+  const cut = HW_CUTOFF[id];
+  if (!cut || !c.combat) return null;
+  const need = c.recommend?.find(r => r.id === cut)?.entry ?? 0;
+  return need > c.combat ? need : null;
+}

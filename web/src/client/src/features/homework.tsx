@@ -4,7 +4,7 @@ import type { AccountGroup, CharacterCard, HomeworkAuto } from '../api/types';
 import { Dialog, ErrorCard, Fresh, Icon, JobIcon, Pill, Skeleton } from '../components/ui';
 import { useNow } from '../hooks/layout';
 import { setHomework } from '../lib/actions';
-import { MAX_VALUE, nextStep, prevStep, SEASON_IDS, SEASON_NOTE, STEP_GOALS, STEP_UNITS, stepOf, VALUE_UNITS } from '../lib/homeworkSteps';
+import { entryShort, MAX_VALUE, nextStep, prevStep, SEASON_IDS, SEASON_NOTE, STEP_GOALS, STEP_UNITS, stepOf, VALUE_UNITS } from '../lib/homeworkSteps';
 import { until } from '../lib/format';
 import { charName } from './characters';
 
@@ -15,19 +15,21 @@ import { charName } from './characters';
  */
 export const HW_GROUPS: { title: string; cells: { id: string; label: string }[] }[] = [
   { title: '일일·주간', cells: [{ id: 'daily_day_dungeon', label: '요일던전' }, { id: 'weekly_guild_regular', label: '길드의뢰' }, { id: 'weekly_vanguard_breach', label: '뱅가드' }, { id: 'weekly_barrier_1_7', label: '소환의 결계' }, { id: 'weekly_black_hole_1_7', label: '검은 구멍' }, { id: 'weekly_nightmare_drill', label: '나이트메어 드릴' }, { id: 'weekly_nightmare_rank', label: '드릴 랭킹' }] },
-  { title: '레이드', cells: [{ id: 'raid_cavrak', label: '카브락' }, { id: 'raid_airel', label: '에이렐' }, { id: 'raid_white_succubus', label: '화이트 서큐버스' }] },
+  { title: '레이드', cells: [{ id: 'raid_scars', label: '적월의 스카스' }, { id: 'raid_cavrak', label: '카브락' }, { id: 'raid_airel', label: '에이렐' }, { id: 'raid_white_succubus', label: '화이트 서큐버스' }] },
   { title: '어비스', cells: [{ id: 'abyss_illusory_anchorage', label: '허상의 정박지' }, { id: 'abyss_madness_cave', label: '광기의 동굴' }, { id: 'abyss_scattered_waterway', label: '흩어진 물길' }] },
 ];
 
-type State = 'done' | 'todo' | 'unknown';
+type State = 'done' | 'todo' | 'unknown' | 'locked';
 
 interface Cell { key: string; label: string; state: State; note?: string; /** 클리어 추정(미션 카운터는 올랐는데 어느 항목인지 모름): 눌러서 확인 */ guess?: boolean; /** 남은 횟수 (뱅가드, 미완료일 때) */ left?: number; /** 여러 번 해야 끝나는 숙제의 목표 횟수와 지금 횟수: 누를 때마다 0→1→…→목표→0 */ steps?: number; step?: number; /** 손으로 입력하는 수치 칸(랭킹): 단위와 지금 값 */ unit?: string; value?: number; toggleId?: string; boss?: boolean }
 
 /** 한 캐릭터의 칸들: 일반 숙제 8개 + 필드 보스 1개 */
-export function cellsOf(c: Pick<CharacterCard, 'homework' | 'fieldBoss'>): Cell[] {
+export function cellsOf(c: Pick<CharacterCard, 'homework' | 'fieldBoss'> & Partial<Pick<CharacterCard, 'combat' | 'recommend'>>): Cell[] {
   const byId = new Map<string, HomeworkAuto>(c.homework.map(h => [h.id, h]));
   const cells: Cell[] = HW_GROUPS.flatMap(g => g.cells.map(x => {
     const h = byId.get(x.id);
+    const need = entryShort(c, x.id);
+    if (need != null) return { key: x.id, label: x.label, state: 'locked', note: `입장 전투력 ${need.toLocaleString()} 필요 (현재 ${(c.combat ?? 0).toLocaleString()})` } as Cell;
     const state = h?.state ?? 'unknown';
     const steps = STEP_GOALS[x.id];
     const left = state === 'todo' && h?.remaining != null ? h.remaining : undefined;
@@ -38,7 +40,7 @@ export function cellsOf(c: Pick<CharacterCard, 'homework' | 'fieldBoss'>): Cell[
   return cells;
 }
 
-const STATE_TEXT: Record<State, string> = { done: '완료', todo: '미완료', unknown: '미확인' };
+const STATE_TEXT: Record<State, string> = { done: '완료', todo: '미완료', unknown: '미확인', locked: '입장 불가' };
 
 /** 필드 보스 여섯 (카탈로그 `field_boss_weekly` 풀). 다른 캐릭터도 고칠 수 있어야 해서 숙제 보드(현재 캐릭터)와 별개로 둔다 */
 const BOSSES: { id: string; title: string }[] = [
@@ -96,7 +98,7 @@ export function HomeworkView() {
 }
 
 function AccountBoard({ a, onBoss, showName }: { a: AccountGroup; onBoss: (c: CharacterCard) => void; showName: boolean }) {
-  const left = a.members.reduce((n, m) => n + cellsOf(m).filter(c => c.unit == null && c.state !== 'done').length, 0);
+  const left = a.members.reduce((n, m) => n + cellsOf(m).filter(c => c.unit == null && c.state !== 'done' && c.state !== 'locked').length, 0);
   return (
     <section className="hw-acct" aria-label={`${a.name} 계정 숙제`}>
       {showName && (
@@ -119,7 +121,7 @@ function orderedCells(cells: Cell[]): Cell[] {
 
 function CharacterRow({ c, onBoss }: { c: CharacterCard; onBoss: (c: CharacterCard) => void }) {
   const cells = cellsOf(c);
-  const counted = cells.filter(x => x.unit == null);   // 수치 입력 칸(랭킹)은 완료 수에 넣지 않는다
+  const counted = cells.filter(x => x.unit == null && x.state !== 'locked');   // 수치 입력 칸(랭킹)은 완료 수에 넣지 않는다
   const done = counted.filter(x => x.state === 'done').length;
   const all = done === counted.length;
   const name = charName(c);
@@ -143,6 +145,14 @@ function CharacterRow({ c, onBoss }: { c: CharacterCard; onBoss: (c: CharacterCa
 /** 칸을 누르면 미완료 ↔ 완료를 바꾼다. 필드 보스는 완료로 바꿀 때 어느 보스인지 고른다. */
 function CellView({ x, c, onBoss }: { x: Cell; c: CharacterCard; onBoss: (c: CharacterCard) => void }) {
   if (x.unit != null) return <ValueCell x={x} c={c} />;
+  if (x.state === 'locked') {   // 입장 전투력 미달: 누를 수 없고 완료 수에도 넣지 않는다
+    return (
+      <div className="hw-cell locked" title={x.note} aria-label={`${x.label} 입장 불가 — ${x.note}`}>
+        <span className="hw-cell-name">{x.label}</span>
+        <span className="hw-cell-state">입장 불가</span>
+      </div>
+    );
+  }
   const done = x.state === 'done';
   const guess = !!x.guess && !done;   // 미션 카운터는 올랐는데 어느 항목인지 못 가렸다
   const stepped = x.steps != null && x.step != null;
