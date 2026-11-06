@@ -2,10 +2,10 @@ import { useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api, ApiError } from '../api/http';
 import { keys5, useSttStatus } from '../api/queries';
-import type { SttDevices, SttMicTest, SttSettings, SttVocab } from '../api/types';
+import type { SttDevices, SttElevation, SttMicTest, SttSettings, SttVocab } from '../api/types';
 import { Pill, Row, Seg } from '../components/ui';
 import { queryClient } from '../lib/queryClient';
-import { comboFromKeyEvent, formatMb, installPercent, micLevelMessage, pairState, sttErrorMessage } from '../lib/voice';
+import { comboFromKeyEvent, elevationNotice, formatMb, installPercent, micLevelMessage, pairState, sttErrorMessage } from '../lib/voice';
 import { useUi } from '../state/ui';
 
 const SETTINGS_KEY = [...keys5.stt, 'settings'] as const;
@@ -46,7 +46,7 @@ export function VoiceSettings({ local }: { local: boolean }) {
       {local && s && (
         <>
           <MicRow s={s} devices={devicesQ.data?.data} onPick={id => void save({ deviceId: id })} />
-          <HotkeyRow s={s} status={st.hotkey} onSave={save} />
+          <HotkeyRow s={s} status={st.hotkey} elevation={st.elevation} onSave={save} />
           <Row label="단축키 방식">
             <Seg value={s.hotkeyMode} options={[['hold', '누르는 동안 듣기'], ['toggle', '눌러서 켜고 끄기']]} onChange={v => void save({ hotkeyMode: v })} />
           </Row>
@@ -178,7 +178,7 @@ function MicRow({ s, devices, onPick }: { s: SttSettings; devices: SttDevices | 
  * 캡처 중에는 눌린 키를 이 화면의 다른 단축키로 새지 않게 막되, Tab은 막지 않고(키보드로 나갈 수 있게) 캡처를 끝낸다.
  * Esc, 다른 곳 클릭, 창 포커스 이탈로도 끝난다 — 끝나지 않은 채 남으면 나중에 누른 Ctrl+S 같은 조합이 단축키로 저장된다.
  */
-function HotkeyRow({ s, status, onSave }: { s: SttSettings; status: { key: string | null; registered: boolean; error: string | null }; onSave: (body: Record<string, unknown>) => Promise<boolean> }) {
+function HotkeyRow({ s, status, elevation, onSave }: { s: SttSettings; status: { key: string | null; registered: boolean; error: string | null }; elevation: SttElevation | undefined; onSave: (body: Record<string, unknown>) => Promise<boolean> }) {
   const [capturing, setCapturing] = useState(false);
   const [hint, setHint] = useState<string | null>(null);
   const box = useRef<HTMLDivElement>(null);
@@ -227,9 +227,10 @@ function HotkeyRow({ s, status, onSave }: { s: SttSettings; status: { key: strin
         <button type="button" className="btn" onClick={() => { setCapturing(c => !c); setHint(null); }}>{capturing ? '취소 (Esc)' : s.hotkey ? '다른 키로 바꾸기' : '단축키 지정'}</button>
         {s.hotkey && !capturing && <button type="button" className="btn" onClick={() => void onSave({ hotkey: '' })}>지우기</button>}
       </div>
+      {(() => { const n = elevationNotice(elevation); return n && <p className={n.tone === 'ok' ? 'small' : 'warn-text small'} role="status">{n.text}</p>; })()}
       {hint && <p className="warn-text small" role="status">{hint}</p>}
       {s.hotkey && !status.registered && status.error && <p className="warn-text small">{status.error}</p>}
-      <p className="faint small">게임이 쓰지 않는 조합을 고르세요. 왼쪽 Ctrl만 누르면 "LCtrl+…"로 저장되어 오른쪽 Ctrl로는 동작하지 않습니다. 등록한 조합은 모든 프로그램에서 이 기능이 먼저 가져갑니다(예: Ctrl+Space는 한/영 전환이나 편집기 자동완성과 겹칠 수 있습니다).</p>
+      <p className="faint small">게임은 채팅을 보낼 때마다 확인창을 띄우고 Space로 보내고 ESC로 취소합니다. 단축키에 Space가 있으면 Ctrl을 누른 채 확인하려는 순간 보내기 대신 새 녹음이 시작될 수 있으니, Space가 없는 조합(예: LCtrl+Alt+V)이 더 안전합니다. 게임이 쓰지 않는 조합을 고르세요. 왼쪽 Ctrl만 누르면 "LCtrl+…"로 저장되어 오른쪽 Ctrl로는 동작하지 않습니다. 등록한 조합은 모든 프로그램에서 이 기능이 먼저 가져갑니다(예: Ctrl+Space는 한/영 전환이나 편집기 자동완성과 겹칠 수 있습니다).</p>
     </div>
   );
 }

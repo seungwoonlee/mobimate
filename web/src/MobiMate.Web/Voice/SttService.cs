@@ -368,7 +368,7 @@ public sealed class SttService(
         try
         {
             var autoEmote = settings.Current.AutoEmoteDefault;
-            var (status, entry) = await chat.SendAsync(fin.Text, autoEmote, "음성", "stt", CancellationToken.None);
+            var (status, entry) = await chat.SendAsync(fin.Text, autoEmote, "음성", "stt", CancellationToken.None, sendBehaviour: false);
             switch (status)
             {
                 case ChatSendStatus.Sent:

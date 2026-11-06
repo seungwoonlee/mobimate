@@ -36,7 +36,7 @@ public static class CommsEndpoints
         {
             // 출처는 "직접", "아무말 · <페르소나>", "음성"만 받는다 (FR-GC-05). 그 밖의 값은 "직접"으로 둔다
             var source = req.Source is { Length: <= 40 } src && (src == "음성" || src.StartsWith("아무말", StringComparison.Ordinal)) ? src : "직접";
-            var (status, entry) = await chat.SendAsync(req.Text, req.AutoEmote ?? s.Current.AutoEmoteDefault, source, ClientId.Of(ctx), ct);
+            var (status, entry) = await chat.SendAsync(req.Text, req.AutoEmote ?? s.Current.AutoEmoteDefault, source, ClientId.Of(ctx), ct, sendBehaviour: source != "음성");
             // 누적 학습 (FR-VC-08): 사람이 쓴 글(직접·음성)만 배운다. 한마디(아무말) 대사는 생성된 글이라 배우지 않는다.
             // 고치기 전 인식 글자는 음성 초안일 때만 받고, 로그·파일에는 남기지 않는다.
             // 학습은 이 PC의 화면에서 온 요청만: 인증이 없는 LAN의 다른 기기나 다른 웹페이지가 sttOriginal을 실어 학습 쌍을 주입하지 못하게

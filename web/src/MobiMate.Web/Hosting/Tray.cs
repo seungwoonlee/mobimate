@@ -15,7 +15,13 @@ public sealed class BrowserLauncher(ServerIdentity identity, ILogger<BrowserLaun
     public void Open(string fragment = "")
     {
         var url = Url(fragment);
-        try { Process.Start(new ProcessStartInfo(url) { UseShellExecute = true }); }
+        try
+        {
+            // 이 앱이 관리자 권한이면 브라우저를 그대로 열 때 브라우저도 관리자 권한으로 떠서 문제가 생긴다(크롬은 관리자 실행을 경고한다).
+            // 탐색기를 통해 열면 일반 권한 브라우저로 열린다.
+            if (MobiMate.Web.Voice.ElevationProbe.IsAppElevated()) Process.Start(new ProcessStartInfo("explorer.exe", url) { UseShellExecute = true });
+            else Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+        }
         catch (Exception ex) { log.LogWarning(ex, "브라우저를 열지 못했습니다. 직접 여세요: http://127.0.0.1:{Port}", identity.Port); }
     }
 }

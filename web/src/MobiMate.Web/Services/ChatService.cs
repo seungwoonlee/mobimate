@@ -39,7 +39,11 @@ public sealed class ChatService(IGameCli cli, SseHub hub)
         return new { final = plan.FinalMessage, emoji = (string?)plan.Emoji, behaviour = plan.BehaviourCommand, count = ChatText.Count(plan.FinalMessage), max = ChatText.MaxLength };
     }
 
-    public async Task<(ChatSendStatus Status, ChatLogEntry? Entry)> SendAsync(string? text, bool autoEmote, string source, string deviceId, CancellationToken ct)
+    /// <param name="sendBehaviour">
+    /// 소셜 액션(`/손인사1` 같은 행동 명령)을 두 번째 write_chat으로 보낼지. 게임은 write_chat마다 확인창을 띄우므로 행동 명령까지 보내면
+    /// 한 문장에 확인창이 두 번 뜬다. 음성으로 말한 문장은 확인창이 한 번만 뜨도록 보내지 않는다(이모지는 문장에 그대로 붙는다).
+    /// </param>
+    public async Task<(ChatSendStatus Status, ChatLogEntry? Entry)> SendAsync(string? text, bool autoEmote, string source, string deviceId, CancellationToken ct, bool sendBehaviour = true)
     {
         var clean = ChatText.Sanitize(text);
         if (clean.Length == 0) return (ChatSendStatus.Empty, null);
@@ -63,7 +67,7 @@ public sealed class ChatService(IGameCli cli, SseHub hub)
         else final = ChatText.Truncate(clean, ChatText.MaxLength);
 
         var (ok, error) = await cli.SendGameChatAsync(final, ct);
-        if (ok && behaviour != null)
+        if (ok && sendBehaviour && behaviour != null)
         {
             try
             {
@@ -73,7 +77,7 @@ public sealed class ChatService(IGameCli cli, SseHub hub)
             catch (OperationCanceledException) { }
         }
 
-        var entry = new ChatLogEntry(DateTimeOffset.UtcNow, final, ok ? behaviour : null, ok, ok ? null : error, source, deviceId);
+        var entry = new ChatLogEntry(DateTimeOffset.UtcNow, final, ok && sendBehaviour ? behaviour : null, ok, ok ? null : error, source, deviceId);
         lock (_lock)
         {
             _log.AddLast(entry);

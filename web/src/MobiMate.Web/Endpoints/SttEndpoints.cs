@@ -87,6 +87,7 @@ public static class SttEndpoints
             var snap = stt.Snapshot();
             var cur = s.Current;
             var hk = hotkeys.Status;
+            var elevation = ElevationProbe.Detect();
             return ApiResults.Ok(new
             {
                 state = snap.State.ToString().ToLowerInvariant(),
@@ -98,6 +99,7 @@ public static class SttEndpoints
                 autoSend = cur.SttAutoSend,
                 maxSeconds = cur.SttMaxSeconds,
                 hotkey = new { key = hk.Key, registered = hk.Registered, error = hk.Error, mode = cur.SttHotkeyMode },
+                elevation = new { app = elevation.App, game = elevation.Game, mismatch = elevation.Mismatch },
             });
         });
 

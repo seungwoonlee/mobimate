@@ -170,3 +170,19 @@ export function pairState(p: { count: number; off: boolean; active: boolean; rev
   if (p.count >= 2) return { tone: 'warn', text: '짧아서 적용 안 함' };   // 인식 글자가 2음절 미만
   return { tone: 'warn', text: `확인 중 (${p.count}/2)` };
 }
+
+/**
+ * 게임이 관리자 권한(상승)으로 실행 중인데 이 앱이 일반 권한이면 Windows 보안 규칙(UIPI) 때문에 게임 화면이 앞에 있는 동안 전역 단축키가 전달되지 않는다.
+ * 앱 화면이 앞에 있을 때만 동작하는 것처럼 보인다 (2026-11-06 실사용). 이 앱도 관리자 권한으로 실행해야 한다.
+ */
+export function elevationNotice(e: { app: boolean; game: boolean | null; mismatch: boolean } | undefined): { tone: 'ok' | 'warn'; text: string } | null {
+  if (!e) return null;
+  if (e.mismatch) {
+    return {
+      tone: 'warn',
+      text: '게임이 관리자 권한으로 실행 중인데 이 앱은 일반 권한이라, 게임 화면이 앞에 있을 때는 단축키가 동작하지 않습니다(Windows 보안 규칙). 앱을 끄고 MobiMateWeb.exe를 마우스 오른쪽 → "관리자 권한으로 실행"으로 다시 켜세요.',
+    };
+  }
+  if (e.app && e.game === true) return { tone: 'ok', text: '앱이 게임과 같은 관리자 권한으로 실행 중이라 게임 화면이 앞에 있어도 단축키가 동작합니다.' };
+  return null;
+}

@@ -1,6 +1,6 @@
 import { useUi } from '../state/ui';
 import {
-  applyVoiceFinal, comboFromKeyEvent, formatMb, installPercent, joinDraft, micAvailability, micLevelMessage, pairState, remember, sttErrorMessage, sttWarnMessage,
+  applyVoiceFinal, comboFromKeyEvent, formatMb, installPercent, joinDraft, micAvailability, micLevelMessage, pairState, elevationNotice, remember, sttErrorMessage, sttWarnMessage,
   VOICE_SOURCE, voiceKey, type KeyComboInput, type MicInput,
 } from './voice';
 
@@ -268,5 +268,25 @@ describe('학습한 쌍의 상태', () => {
 
   it('확인은 됐는데 짧아서 적용되지 않는 쌍은 그렇게 알린다', () => {
     expect(pairState({ count: 2, off: false, active: false, reverts: 0 }).text).toBe('짧아서 적용 안 함');
+  });
+});
+
+describe('관리자 권한 안내 (게임 화면에서 단축키가 안 먹는 원인)', () => {
+  it('게임은 관리자인데 앱이 일반 권한이면 다시 켜는 방법을 알려 준다', () => {
+    const n = elevationNotice({ app: false, game: true, mismatch: true });
+    expect(n?.tone).toBe('warn');
+    expect(n?.text).toContain('관리자 권한으로 실행');
+    expect(n?.text).toContain('게임 화면이 앞에 있을 때');
+  });
+
+  it('둘 다 관리자면 문제없다고 알린다', () => {
+    expect(elevationNotice({ app: true, game: true, mismatch: false })?.tone).toBe('ok');
+  });
+
+  it('게임이 꺼져 있거나 알 수 없거나 둘 다 일반이면 아무 말도 하지 않는다', () => {
+    expect(elevationNotice({ app: false, game: null, mismatch: false })).toBeNull();
+    expect(elevationNotice({ app: false, game: false, mismatch: false })).toBeNull();
+    expect(elevationNotice({ app: true, game: false, mismatch: false })).toBeNull();
+    expect(elevationNotice(undefined)).toBeNull();
   });
 });

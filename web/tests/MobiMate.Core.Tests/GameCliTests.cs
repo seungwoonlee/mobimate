@@ -200,7 +200,7 @@ public class GameCliTests
     [InlineData("stop_action", CliLane.Priority)]
     [InlineData("stand_up", CliLane.Priority)]
     [InlineData("get_items", CliLane.General)]
-    [InlineData("write_chat", CliLane.General)]
+    [InlineData("write_chat", CliLane.Chat)]   // 확인창을 기다리는 동안 다른 조회를 막지 않게 따로 둔다
     public void Lanes_AreDecidedByCommandName(string command, CliLane lane)
     {
         Assert.Equal(lane, CliLanes.For(command));

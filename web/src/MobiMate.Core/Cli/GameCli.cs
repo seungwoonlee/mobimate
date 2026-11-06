@@ -9,7 +9,8 @@ public enum CliLane
 {
     General,     // 조회·짧은 조작: 전역 단일 큐
     LongRunning, // execute_gathering (최대 120초): 동시 1건
-    Priority     // stop_action·stand_up: 어떤 큐도 기다리지 않음
+    Priority,    // stop_action·stand_up: 어떤 큐도 기다리지 않음
+    Chat         // write_chat: 게임 안 확인창에서 사용자가 Send·Cancel을 누를 때까지 호출이 최대 몇 분 막힌다(명세). 다른 조회를 막지 않게 따로 둔다
 }
 
 public sealed record CliCommand(
@@ -36,12 +37,16 @@ public static class CliLanes
     {
         "execute_gathering" => CliLane.LongRunning,
         "stop_action" or "stand_up" => CliLane.Priority,
+        "write_chat" => CliLane.Chat,
         _ => CliLane.General
     };
 
     public static TimeSpan DefaultTimeout(string command) => command switch
     {
         "execute_gathering" => TimeSpan.FromMinutes(10),   // 게임이 9분에 스스로 멈추고 응답한다
+        // 확인창에서 사용자가 누를 때까지 기다린다(명세: 최대 몇 분). 8초에 끊으면 사용자가 누르기 전에 CLI를 죽여 "시간 초과"가 되고,
+        // 기다리는 동안 모든 조회(헤더·상태)가 막힌다. 게임 쪽에도 확인 시간 제한(confirm_timeout)이 있다.
+        "write_chat" => TimeSpan.FromMinutes(3),
         // 게임과 연결이 끊겨 있으면(시작·캐릭터 선택·로딩·재시작) CLI가 5초를 기다린 뒤 {"pipe":"disconnected"}로 응답한다(2026-10-22 실측 5.03초).
         // 그보다 짧게 두면 그 순간마다 타임아웃으로 죽여 "CLI 응답 시간 초과"가 되고 실제 이유(연결 끊김)를 읽지 못한다.
         "get_items" => TimeSpan.FromSeconds(10),
@@ -64,6 +69,7 @@ public sealed class GameCli : IGameCli
 
     private readonly SemaphoreSlim _general = new(1, 1);
     private readonly SemaphoreSlim _longRunning = new(1, 1);
+    private readonly SemaphoreSlim _chat = new(1, 1);
     private readonly Dictionary<int, Process> _longRunningProcs = new();
     private readonly HashSet<int> _killedPids = new();
     private readonly object _procLock = new();
@@ -90,6 +96,7 @@ public sealed class GameCli : IGameCli
         {
             CliLane.General => _general,
             CliLane.LongRunning => _longRunning,
+            CliLane.Chat => _chat,
             _ => null
         };
 
@@ -232,6 +239,9 @@ public static class GameCliExtensions
         var text = ChatText.Truncate(ChatText.Sanitize(message), ChatText.MaxLength);
         if (text.Length == 0) return (false, "채팅 내용이 비어 있습니다.");
         var r = await cli.RunAsync(new CliCommand("write_chat", Args: new[] { text }), ct);
-        return (r.Ok, r.Error);
+        if (!r.Ok) return (false, r.Error);
+        // 프로세스가 정상 종료해도 게임이 거절했을 수 있다: 사용자가 확인창에서 취소, 확인 시간 초과, 호출 제한, 문자 필터 (명세)
+        var rejection = CliEnvelope.ChatRejection(r.Stdout);
+        return rejection == null ? (true, r.Error) : (false, rejection);
     }
 }

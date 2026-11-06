@@ -26,6 +26,42 @@ public static class CliEnvelope
         catch (JsonException) { return null; }
     }
 
+    /// <summary>
+    /// write_chat 응답이 거절이면 사용자에게 보일 문장을, 보내졌거나(accepted) 알 수 없으면 null.
+    /// 명세: 실패는 `status`가 rejected·invalid_body이고 `body.error`가 user_declined | confirm_timeout | rate_limited(retryAfterSeconds) |
+    /// inappropriate_text | blocked | not_enough_currency | unsupported_command 등. 오류 이름이 최상위에 오는 형식도 함께 읽는다.
+    /// </summary>
+    public static string? ChatRejection(string? stdout)
+    {
+        if (string.IsNullOrWhiteSpace(stdout) || stdout.AsSpan().TrimStart() is not [{ } c, ..] || c != '{') return null;
+        try
+        {
+            using var doc = JsonDocument.Parse(stdout);
+            var root = doc.RootElement;
+            if (root.ValueKind != JsonValueKind.Object) return null;
+            var body = root.TryGetProperty("body", out var b) && b.ValueKind == JsonValueKind.Object ? b : root;
+            string? Str(JsonElement e, string n) => e.TryGetProperty(n, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
+            var status = Str(root, "status");
+            var error = Str(body, "error") ?? Str(root, "error");
+            if (error == null && status is not ("rejected" or "invalid_body")) return null;   // accepted이거나 알 수 없는 정상 응답
+            error ??= status;
+            var message = Str(body, "message") ?? Str(root, "message");
+            var retry = body.TryGetProperty("retryAfterSeconds", out var r) && r.TryGetInt32(out var n) ? n : (int?)null;
+            return error switch
+            {
+                "user_declined" => "게임에서 취소했습니다",
+                "confirm_timeout" => "게임에서 확인하지 않아 취소되었습니다",
+                "rate_limited" => retry is { } s ? $"너무 자주 보냈습니다. {s}초 뒤에 다시 보내 주세요" : "너무 자주 보냈습니다. 잠시 뒤에 다시 보내 주세요",
+                "inappropriate_text" => "서버 문자 필터에 걸려 보내지 못했습니다. 말을 바꿔 다시 해 보세요",
+                "blocked" => "게임에서 채팅이 막혀 있습니다",
+                "not_enough_currency" => "채팅에 필요한 재화가 부족합니다",
+                "message_too_long" => "메시지가 너무 깁니다",
+                _ => string.IsNullOrWhiteSpace(message) ? $"게임 CLI 오류: {error}" : $"게임 CLI 오류({error}): {message}",
+            };
+        }
+        catch (JsonException) { return null; }
+    }
+
     /// <summary>오류 응답이면 사람이 읽을 메시지를 돌려준다. 정상 값이거나 JSON이 아니면 false.</summary>
     public static bool TryReadError(string? stdout, out string message)
     {

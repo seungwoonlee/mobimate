@@ -132,7 +132,12 @@ public sealed class HotkeyService(
             _applyGate.Release();
         }
         // 처음 누를 때 모델을 올리느라 첫 문장을 놓치지 않게 미리 올려 둔다 (등록에 성공한 단축키가 있을 때만)
-        if (status.Registered) _ = engines.WarmUpAsync();
+        if (status.Registered)
+        {
+            _ = engines.WarmUpAsync();
+            var e = ElevationProbe.Detect();
+            if (e.Mismatch) log.LogWarning("게임이 관리자 권한으로 실행 중이고 이 앱은 일반 권한입니다: 게임 화면이 앞에 있을 때는 전역 단축키가 동작하지 않습니다. 앱을 관리자 권한으로 실행하세요.");
+        }
         return status;
     }
 
@@ -156,7 +161,12 @@ public sealed class HotkeyService(
         if (spec == null) return;
         if (!LeftModifiersHeld(spec)) return;   // 왼쪽 키만 인정하는 단축키인데 오른쪽 키로 눌렀다
         var mode = settings.Current.SttHotkeyMode;
-        _ = Task.Run(() => HandleAsync(spec, mode));
+        _ = Task.Run(() =>
+        {
+            // 진단: 단축키가 눌렸을 때 앞에 있던 프로그램. 게임이 앞일 때 이 줄이 없으면 단축키가 전달되지 않은 것이다(권한 불일치 등).
+            log.LogInformation("음성 단축키 눌림 {Key} (방식 {Mode}, 앞에 있는 프로그램: {Foreground})", spec.Display, mode, ElevationProbe.ForegroundProcessName() ?? "알 수 없음");
+            return HandleAsync(spec, mode);
+        });
     }
 
     /// <summary>"LCtrl+Space"처럼 왼쪽 수정키만 인정하는 단축키는, 눌린 순간 왼쪽 키가 눌려 있고 오른쪽 키는 눌려 있지 않아야 한다</summary>
