@@ -51,6 +51,18 @@ public sealed class WebSettings
     /// 측정(보류 5겹 교차): 보수적 정밀도 85.1%·재현율 55.8%, 보통 83.3%·59.7%, 적극적 80.1%·62.4%.
     /// </summary>
     public int SttSpacingLevel { get; set; } = 2;
+
+    /// <summary>
+    /// AI로 다듬기 (승운 2026-11-07): 인식 결과를 보내기 전에 이 PC의 Ollama가 잘못 알아들은 낱말과 띄어쓰기를 고친다.
+    /// 기본 켬 — Ollama가 없거나 느리면 알아서 건너뛰고 사전 방식으로 보낸다. 게임 확인창이 마지막 안전장치다.
+    /// </summary>
+    public bool SttRefine { get; set; } = true;
+
+    /// <summary>교정 모델. 비우면 gemma4:e4b (측정: 내용 29/30, 중앙값 0.17초). 이름이 cloud로 끝나면 말한 내용이 Ollama 클라우드로 나간다.</summary>
+    public string? SttRefineModel { get; set; }
+
+    /// <summary>교정이 이 시간(ms) 안에 끝나지 않으면 포기하고 사전 방식으로 보낸다</summary>
+    public int SttRefineMs { get; set; } = 2500;
 }
 
 public sealed class WebSettingsStore
@@ -103,5 +115,8 @@ public sealed class WebSettingsStore
         SttHotwords = s.SttHotwords,
         SttSpacing = s.SttSpacing,
         SttSpacingLevel = s.SttSpacingLevel,
+        SttRefine = s.SttRefine,
+        SttRefineModel = s.SttRefineModel,
+        SttRefineMs = s.SttRefineMs,
     };
 }

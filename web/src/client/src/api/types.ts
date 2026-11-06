@@ -9,7 +9,7 @@ export interface Session { kind: 'local' | 'lan' }
 export type SttStateName = 'idle' | 'starting' | 'listening' | 'finishing';
 export interface SttStatus {
   state: SttStateName; sessionId: string | null; byDevice: string | null; device: string | null;
-  modelInstalled: boolean; install: SttInstall; autoSend: boolean; maxSeconds: number; hotkey: SttHotkeyStatus; elevation: SttElevation;
+  modelInstalled: boolean; install: SttInstall; autoSend: boolean; maxSeconds: number; hotkey: SttHotkeyStatus; elevation: SttElevation; refine?: SttRefineStatus;
 }
 export interface SttStateEvent {
   sessionId: string; state: SttStateName; byDevice?: string | null; error?: string | null; message?: string | null;
@@ -22,7 +22,11 @@ export interface SttHotkeyStatus { key: string | null; registered: boolean; erro
 export interface SttSettings {
   autoSend: boolean; maxSeconds: number; deviceId: string | null; threads: number;
   hotkey: string | null; hotkeyMode: 'hold' | 'toggle'; cue: boolean; hotwords: boolean; spacing: boolean; spacingLevel: 0 | 1 | 2;
+  refine: boolean; refineModel: string; refineMs: number;
 }
+/** AI로 다듬기 상태: lastError가 있으면 마지막 시도가 실패해 사전 방식으로 보냈다는 뜻 */
+export interface SttRefineStatus { enabled: boolean; model: string | null; cloud: boolean; lastError: string | null; lastMs: number | null }
+export interface SttRefineModels { online: boolean; models: { name: string; cloud: boolean }[]; selected: string }
 export interface SttVocabWord { word: string; count: number; last: string; hotword: boolean }
 export interface SttVocabPair { from: string; to: string; count: number; reverts: number; off: boolean; active: boolean; last: string }
 export interface SttVocab { learningOn: boolean; warning: string | null; words: SttVocabWord[]; pairs: SttVocabPair[] }

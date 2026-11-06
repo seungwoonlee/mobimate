@@ -6,7 +6,7 @@ using MobiMate.Web.Voice;
 
 namespace MobiMate.Web.Endpoints;
 
-public sealed record SttSettingsRequest(bool? AutoSend, int? MaxSeconds, string? DeviceId, int? Threads, string? Hotkey, string? HotkeyMode, bool? Cue, bool? Hotwords, bool? Spacing, int? SpacingLevel);
+public sealed record SttSettingsRequest(bool? AutoSend, int? MaxSeconds, string? DeviceId, int? Threads, string? Hotkey, string? HotkeyMode, bool? Cue, bool? Hotwords, bool? Spacing, int? SpacingLevel, bool? Refine = null, string? RefineModel = null, int? RefineMs = null);
 public sealed record VocabLearningRequest(bool? LearningOn);
 public sealed record VocabPairRequest(string? From, string? To, string? Action);
 public sealed record VocabWordRequest(string? Word);
@@ -82,7 +82,7 @@ public static class SttEndpoints
             return await next(ctx);
         });
 
-        api.MapGet("/status", (SttService stt, ISttEngineProvider engines, HotkeyService hotkeys, SttModelInstaller installer, WebSettingsStore s) =>
+        api.MapGet("/status", (SttService stt, ISttEngineProvider engines, HotkeyService hotkeys, SttModelInstaller installer, WebSettingsStore s, IVoiceRefiner refiner) =>
         {
             var snap = stt.Snapshot();
             var cur = s.Current;
@@ -100,6 +100,7 @@ public static class SttEndpoints
                 maxSeconds = cur.SttMaxSeconds,
                 hotkey = new { key = hk.Key, registered = hk.Registered, error = hk.Error, mode = cur.SttHotkeyMode },
                 elevation = new { app = elevation.App, game = elevation.Game, mismatch = elevation.Mismatch },
+                refine = new { enabled = refiner.Status.Enabled, model = refiner.Status.Model, cloud = refiner.Status.Cloud, lastError = refiner.Status.LastError, lastMs = refiner.Status.LastMs },
             });
         });
 
@@ -201,18 +202,30 @@ public static class SttEndpoints
             return ApiResults.Ok(v.View());
         });
 
+        // 설치된 Ollama 모델 목록 (교정 모델 고르기용). 이 PC의 Ollama만 부른다.
+        api.MapGet("/refine/models", async (HttpContext ctx, WebSettingsStore s) =>
+        {
+            if (SttGuard.CheckPcOnly(ctx) is { } bad) return bad;
+            var names = await new OllamaService().GetInstalledModelsAsync(ctx.RequestAborted);
+            var models = names.Where(n => !n.Contains("embed", StringComparison.OrdinalIgnoreCase))
+                .Select(n => new { name = n, cloud = OllamaVoiceRefiner.IsCloud(n) }).OrderBy(m => m.cloud).ThenBy(m => m.name).ToList();
+            return ApiResults.Ok(new { online = names.Count > 0, models, selected = s.Current.SttRefineModel ?? OllamaVoiceRefiner.DefaultModel });
+        });
+
         api.MapGet("/settings", (HttpContext ctx, WebSettingsStore s) =>
         {
             if (SttGuard.CheckPcOnly(ctx) is { } bad) return bad;
             return ApiResults.Ok(ToDto(s.Current));
         });
 
-        api.MapPut("/settings", (HttpContext ctx, SttSettingsRequest req, WebSettingsStore s, HotkeyService hotkeys) =>
+        api.MapPut("/settings", (HttpContext ctx, SttSettingsRequest req, WebSettingsStore s, HotkeyService hotkeys, IVoiceRefiner refiner) =>
         {
             if (SttGuard.CheckWrite(ctx) is { } bad) return bad;
             if (SttGuard.CheckPcOnly(ctx) is { } notPc) return notPc;
             if (req.MaxSeconds is < 1 or > 60) return ApiResults.Error(StatusCodes.Status400BadRequest, "VALIDATION", "듣는 시간은 1~60초입니다.");
             if (req.SpacingLevel is < 0 or > 2) return ApiResults.Error(StatusCodes.Status400BadRequest, "VALIDATION", "띄어쓰기 강도는 0(보수적)~2(적극적)입니다.");
+            if (req.RefineMs is < 500 or > 10000) return ApiResults.Error(StatusCodes.Status400BadRequest, "VALIDATION", "다듬기 제한 시간은 0.5~10초입니다.");
+            if (req.RefineModel is { Length: > 100 } || (req.RefineModel?.Any(c => char.IsControl(c) || char.IsWhiteSpace(c)) ?? false)) return ApiResults.Error(StatusCodes.Status400BadRequest, "VALIDATION", "모델 이름이 올바르지 않습니다.");
             if (req.Threads is < 1 or > 4) return ApiResults.Error(StatusCodes.Status400BadRequest, "VALIDATION", "스레드 수는 1~4입니다.");
             if (req.DeviceId is { Length: > 300 } || (req.DeviceId?.Any(char.IsControl) ?? false)) return ApiResults.Error(StatusCodes.Status400BadRequest, "VALIDATION", "마이크 ID가 올바르지 않습니다.");
             if (req.HotkeyMode is not (null or "hold" or "toggle")) return ApiResults.Error(StatusCodes.Status400BadRequest, "VALIDATION", "단축키 방식은 hold 또는 toggle입니다.");
@@ -238,11 +251,15 @@ public static class SttEndpoints
                 if (req.Hotwords != null) x.SttHotwords = req.Hotwords.Value;
                 if (req.Spacing != null) x.SttSpacing = req.Spacing.Value;
                 if (req.SpacingLevel != null) x.SttSpacingLevel = req.SpacingLevel.Value;
+                if (req.Refine != null) x.SttRefine = req.Refine.Value;
+                if (req.RefineModel != null) x.SttRefineModel = req.RefineModel.Length == 0 ? null : req.RefineModel;
+                if (req.RefineMs != null) x.SttRefineMs = req.RefineMs.Value;
             });
             // 단축키는 저장한 즉시 다시 등록한다. 다른 프로그램이 쓰는 조합이면 등록은 실패하지만 설정은 남기고 이유를 알려 준다.
             hk = ok && hotkeyChanged ? hotkeys.Apply(s.Current.SttHotkey) : hotkeys.Status;
             }
             if (!ok) return ApiResults.Error(StatusCodes.Status500InternalServerError, "SAVE_FAILED", "설정을 저장하지 못했습니다.");
+            if (req.Refine == true || req.RefineModel != null) _ = Task.Run(refiner.WarmUpAsync);   // 새로 고른 모델을 미리 올려 첫 문장이 느리지 않게
             // 스레드 수는 인식 엔진을 만들 때 한 번 읽으므로 앱을 다시 켜야 적용된다
             return ApiResults.Ok(new { settings = ToDto(s.Current), restartRequired = threadsChanged, hotkey = new { key = hk.Key, registered = hk.Registered, error = hk.Error } });
         });
@@ -260,5 +277,8 @@ public static class SttEndpoints
         hotwords = s.SttHotwords,
         spacing = s.SttSpacing,
         spacingLevel = s.SttSpacingLevel,
+        refine = s.SttRefine,
+        refineModel = s.SttRefineModel ?? OllamaVoiceRefiner.DefaultModel,
+        refineMs = s.SttRefineMs,
     };
 }

@@ -110,6 +110,7 @@ builder.Services.AddSingleton<ISttEngineProvider, SherpaEngineProvider>();
 builder.Services.AddSingleton(sp => new VoiceVocabulary(Dir(sp)));
 builder.Services.AddSingleton<SpacingProvider>();
 builder.Services.AddSingleton<IVoicePostProcessor, LearnedPostProcessor>();
+builder.Services.AddSingleton<IVoiceRefiner, OllamaVoiceRefiner>();
 builder.Services.AddSingleton<ISttCue, SoundCue>();
 builder.Services.AddSingleton<IKeyState, Win32KeyState>();
 builder.Services.AddSingleton<IHotkeyRegistrar, Win32HotkeyRegistrar>();

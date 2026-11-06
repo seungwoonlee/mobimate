@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api, ApiError } from '../api/http';
 import { keys5, useSttStatus } from '../api/queries';
-import type { SttDevices, SttElevation, SttMicTest, SttSettings, SttVocab } from '../api/types';
+import type { SttDevices, SttElevation, SttMicTest, SttRefineModels, SttRefineStatus, SttSettings, SttVocab } from '../api/types';
 import { Pill, Row, Seg } from '../components/ui';
 import { queryClient } from '../lib/queryClient';
 import { comboFromKeyEvent, elevationNotice, formatMb, installPercent, micLevelMessage, pairState, sttErrorMessage } from '../lib/voice';
@@ -11,6 +11,7 @@ import { useUi } from '../state/ui';
 const SETTINGS_KEY = [...keys5.stt, 'settings'] as const;
 const DEVICES_KEY = [...keys5.stt, 'devices'] as const;
 const VOCAB_KEY = [...keys5.stt, 'vocab'] as const;
+const REFINE_MODELS_KEY = [...keys5.stt, 'refine-models'] as const;
 
 /**
  * 설정 > 음성 입력 (FR-VC). 값을 바꾸는 것은 게임 PC에서만 가능하다(서버도 PC 본체 요청만 받는다).
@@ -63,6 +64,7 @@ export function VoiceSettings({ local }: { local: boolean }) {
           <p className={s.autoSend ? 'warn-text small' : 'faint small'}>
             {s.autoSend ? '잘못 알아들은 말도 그대로 게임 채팅으로 나갑니다. 50자를 넘는 문장은 보내지 않고 입력창에 남깁니다.' : '끄면 이 PC의 채팅 입력창에 적어 주고 Enter로 보냅니다. 게임을 전체 화면으로 하는 중에는 입력창이 보이지 않으니, 게임 중에 쓰려면 켜세요.'}
           </p>
+          <RefineSection s={s} status={st.refine} onSave={save} />
           <Row label="띄어쓰기 넣기 (실험)">
             <Seg value={s.spacing ? 'on' : 'off'} options={[['off', '끄기'], ['on', '켜기']]} onChange={v => void save({ spacing: v === 'on' })} />
           </Row>
@@ -306,6 +308,46 @@ function LearningSection() {
               <button type="button" className="btn primary" onClick={() => { setConfirmClear(false); void run(() => api.post<SttVocab>('/api/stt/vocab/clear', {})); }}>모두 지우기</button></div>
           : <div className="acts"><button type="button" className="btn" onClick={() => setConfirmClear(true)}>학습 내용 모두 지우기</button></div>
       )}
+    </>
+  );
+}
+
+/**
+ * AI로 다듬기: 인식한 말을 보내기 전에 이 PC의 Ollama가 잘못 알아들은 낱말과 띄어쓰기를 고친다.
+ * 모델 이름이 cloud로 끝나면 말한 내용이 Ollama 클라우드로 나가므로 경고한다.
+ */
+function RefineSection({ s, status, onSave }: { s: SttSettings; status: SttRefineStatus | undefined; onSave: (b: Record<string, unknown>) => Promise<boolean> }) {
+  const modelsQ = useQuery({ queryKey: REFINE_MODELS_KEY, queryFn: () => api.get<SttRefineModels>('/api/stt/refine/models'), staleTime: 15_000, retry: false, enabled: s.refine });
+  const m = modelsQ.data?.data;
+  const names = m?.models.map(x => x.name) ?? [];
+  const selectedMissing = !!m && m.online && !names.includes(s.refineModel);
+  const cloud = /(:|-)cloud$/i.test(s.refineModel);
+  return (
+    <>
+      <Row label="AI로 다듬기">
+        <Seg value={s.refine ? 'on' : 'off'} options={[['on', '켜기'], ['off', '끄기']]} onChange={v => void onSave({ refine: v === 'on' })} />
+      </Row>
+      {s.refine && (
+        <>
+          <div className="kv wrap">
+            <span className="muted">다듬기 모델</span>
+            <select aria-label="다듬기 모델 선택" value={s.refineModel} onChange={e => void onSave({ refineModel: e.target.value })}>
+              {!names.includes(s.refineModel) && <option value={s.refineModel}>{s.refineModel}{m?.online ? ' (설치되지 않음)' : ''}</option>}
+              {m?.models.filter(x => !x.cloud).map(x => <option key={x.name} value={x.name}>{x.name}</option>)}
+              {m?.models.some(x => x.cloud) && <optgroup label="클라우드 (말한 내용이 밖으로 나감)">{m.models.filter(x => x.cloud).map(x => <option key={x.name} value={x.name}>{x.name}</option>)}</optgroup>}
+            </select>
+          </div>
+          {m && !m.online && <p className="warn-text small" role="status">Ollama가 켜져 있지 않아 지금은 다듬지 않고 사전 방식으로 보냅니다. Ollama를 켜면 자동으로 쓰입니다.</p>}
+          {selectedMissing && <p className="warn-text small" role="status">'{s.refineModel}' 모델이 설치되어 있지 않습니다. 터미널에서 ollama pull {s.refineModel} 으로 받으세요.</p>}
+          {cloud && <p className="warn-text small" role="status">클라우드 모델입니다. 말한 문장이 Ollama 클라우드 서버로 전송되고 인터넷 지연이 붙습니다. 개인 정보를 말하지 않도록 주의하세요.</p>}
+          {status?.lastError && !selectedMissing && <p className="faint small" role="status">마지막 시도: {status.lastError}</p>}
+          {status && !status.lastError && status.lastMs != null && <p className="faint small">마지막 다듬기 {status.lastMs}ms</p>}
+        </>
+      )}
+      <p className="faint small">
+        모델이 띄어쓰기 없이 내놓는 글자에서 잘못 알아들은 낱말(예: 일러→힐러)과 띄어쓰기를 문맥으로 고친 뒤 게임에 보냅니다. 이 PC의 Ollama만 부르고, 2.5초 안에 끝나지 않거나 이상한 결과가 나오면 버리고 사전 방식 결과를 보냅니다.
+        측정(문장 30개, 이 PC): gemma4:e4b는 29개를 맞히고 0.17초, gemma4:12b도 29개지만 4초라 느립니다.
+      </p>
     </>
   );
 }
