@@ -495,6 +495,7 @@ public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManag
                         r.Id, r.Name,
                         status = r.Status switch { CutoffStatus.Overwhelm => "overwhelm", CutoffStatus.Near => "near", CutoffStatus.Marginal => "marginal", _ => "locked" },
                         tier = r.RecommendedTier, maxEntry = r.MaxEntryTier,
+                        entry = cutoffs.Contents.FirstOrDefault(x => x.Id == r.Id)?.Tiers.FirstOrDefault()?.MinCombat ?? 0,   // 가장 낮은 단계의 입장 전투력 (숙제에서 미달 캐릭터를 비활성화하는 기준)
                     }),
                 };
             }).ToList();

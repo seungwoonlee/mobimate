@@ -12,7 +12,7 @@ public class CutoffTests
     public void Catalog_HasMeasuredStructure_AndNoWarnings()
     {
         Assert.Empty(Catalog.Warnings);
-        Assert.Equal(new[] { "abyss", "white_succubus", "airel", "cavrak" }, Catalog.Contents.Select(c => c.Id));
+        Assert.Equal(new[] { "abyss", "white_succubus", "airel", "scars", "cavrak" }, Catalog.Contents.Select(c => c.Id));
         var abyss = Catalog.Contents[0];
         Assert.Equal(8, abyss.Tiers.Count);
         Assert.Equal(new CutoffTier("매우 어려움 2", 82500, 87000, 100000, 2500, 3000), abyss.Tiers[3]);
@@ -21,7 +21,8 @@ public class CutoffTests
         Assert.Equal(2, Catalog.Contents[1].Tiers.Count);
         Assert.Equal(0, Catalog.Contents[1].Tiers[0].MinCombat);
         Assert.Equal(3000, Catalog.Contents[2].Tiers[1].MinMdef);
-        Assert.Equal(3100, Catalog.Contents[3].Tiers[1].MinMdef);
+        Assert.Equal(new CutoffTier("고난이도", 104500, 110000, 126500, 0, 0), Catalog.Contents[3].Tiers.Single());   // 적월의 스카스 (승운 실측 2026-11-07)
+        Assert.Equal(3100, Catalog.Contents[4].Tiers[1].MinMdef);
     }
 
     [Theory]

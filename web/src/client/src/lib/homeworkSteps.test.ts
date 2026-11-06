@@ -1,4 +1,4 @@
-import { nextStep, prevStep, STEP_GOALS, stepOf, TABLE_ONLY_IDS } from './homeworkSteps';
+import { entryShort, nextStep, prevStep, STEP_GOALS, stepOf, TABLE_ONLY_IDS } from './homeworkSteps';
 
 describe('숙제 수동 횟수 순환', () => {
   it('0 → 1 → 2 → 3(완료) → 0으로 돈다', () => {
@@ -32,5 +32,18 @@ describe('단계 카운터와 뒤로 가기', () => {
     for (let i = 0; i < 7; i++) s = nextStep(s, 7);
     expect(s).toBe(7);
     expect(nextStep(s, 7)).toBe(0);
+  });
+});
+
+describe('입장 전투력 미달 비활성화', () => {
+  const rec = [{ id: 'scars', name: '적월의 스카스', status: 'locked' as const, tier: null, maxEntry: null, entry: 104500 }, { id: 'cavrak', name: '카브락', status: 'near' as const, tier: '입문', maxEntry: '입문', entry: 65000 }];
+  it('입장 전투력에 못 미치면 필요한 전투력을 돌려준다', () => {
+    expect(entryShort({ combat: 100000, recommend: rec }, 'raid_scars')).toBe(104500);
+    expect(entryShort({ combat: 104500, recommend: rec }, 'raid_scars')).toBeNull();
+    expect(entryShort({ combat: 100000, recommend: rec }, 'raid_cavrak')).toBeNull();
+  });
+  it('전투력을 모르거나 전투력과 무관한 숙제는 건드리지 않는다', () => {
+    expect(entryShort({ combat: 0, recommend: rec }, 'raid_scars')).toBeNull();
+    expect(entryShort({ combat: 1, recommend: rec }, 'weekly_guild_regular')).toBeNull();
   });
 });

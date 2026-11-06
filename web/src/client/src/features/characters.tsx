@@ -6,7 +6,7 @@ import type { AccountGroup, CharacterCard, CoinView, HomeworkAuto } from '../api
 import { CardHead, Dialog, ErrorCard, Fresh, Icon, JobIcon, Pill, Skeleton } from '../components/ui';
 import { useNow } from '../hooks/layout';
 import { finishClock, fmt } from '../lib/format';
-import { TABLE_ONLY_IDS } from '../lib/homeworkSteps';
+import { entryShort, TABLE_ONLY_IDS } from '../lib/homeworkSteps';
 import { queryClient } from '../lib/queryClient';
 import { scoreClass } from '../lib/score';
 import { useDevice } from '../state/device';
@@ -190,7 +190,7 @@ function CoinChip({ label, c }: { label: string; c: CoinView }) {
 }
 
 /** 칩 순서: 첫 줄은 요일던전·길드의뢰·뱅가드, 둘째 줄은 레이드(카브락·에이렐·화이트서큐), 셋째 줄은 어비스·필드 보스(허상·광기·물길·필드보스). 목록에 없는 것은 뒤에 붙는다 */
-const HW_ORDER = ['daily_day_dungeon', 'weekly_guild_regular', 'weekly_vanguard_breach', 'raid_cavrak', 'raid_airel', 'raid_white_succubus', 'abyss_illusory_anchorage', 'abyss_madness_cave', 'abyss_scattered_waterway', 'field_boss'];
+const HW_ORDER = ['daily_day_dungeon', 'weekly_guild_regular', 'weekly_vanguard_breach', 'raid_scars', 'raid_cavrak', 'raid_airel', 'raid_white_succubus', 'abyss_illusory_anchorage', 'abyss_madness_cave', 'abyss_scattered_waterway', 'field_boss'];
 const hwRank = (id: string) => { const i = HW_ORDER.indexOf(id); return i < 0 ? HW_ORDER.length : i; };
 export function splitHwRows(list: HomeworkAuto[]): [HomeworkAuto[], HomeworkAuto[], HomeworkAuto[]] {
   const sorted = [...list].sort((a, b) => hwRank(a.id) - hwRank(b.id));
@@ -271,7 +271,7 @@ function CharacterCardView({ c, now }: { c: CharacterCard; now: number }) {
         <span className="muted">데카 <b className="num">{fmt(c.deca)}</b></span>
         <span className="muted">M캐시 <b className="num">{fmt(c.mcash)}</b></span>
       </div>
-      {c.homework.length > 0 && <HwRows list={withFieldBossChip(c.homework, c.fieldBoss)} />}
+      {c.homework.length > 0 && <HwRows list={withFieldBossChip(c.homework, c.fieldBoss).filter(h => entryShort(c, h.id) == null)} />}   {/* 입장 전투력 미달 레이드·어비스 칩은 감춘다 */}
       {notes.length > 0 && <ul className="cc-notes small">{notes.map(n => <li key={n}>{n}</li>)}</ul>}
       {asking && (
         <Dialog title="캐릭터 삭제" onClose={() => setAsking(false)}

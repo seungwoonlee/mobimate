@@ -21,6 +21,9 @@
       { "name": "어려움",      "minCombat": 43500,  "recCombat": 50000,  "overCombat": 57500,  "minMdef": 0,    "overMdef": 0 },
       { "name": "매우 어려움", "minCombat": 88500,  "recCombat": 93000,  "overCombat": 107000, "minMdef": 3000, "overMdef": 3500 }
     ]},
+    { "id": "scars", "name": "적월의 스카스", "icon": "cavrak", "tiers": [
+      { "name": "고난이도",    "minCombat": 104500, "recCombat": 110000, "overCombat": 126500, "minMdef": 0,    "overMdef": 0 }
+    ]},
     { "id": "cavrak", "name": "카브락", "icon": "cavrak", "tiers": [
       { "name": "입문",        "minCombat": 65000,  "recCombat": 72000,  "overCombat": 82500,  "minMdef": 2000, "overMdef": 2500 },
       { "name": "어려움",      "minCombat": 90000,  "recCombat": 95000,  "overCombat": 109000, "minMdef": 3100, "overMdef": 3700 }

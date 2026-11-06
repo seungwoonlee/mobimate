@@ -64,6 +64,8 @@
       "spaceNames": ["원념이 메아리치는 곳"], "entrySpaceNames": ["원념이 메아리치는 곳"], "clearQuestTitles": ["앙그르바한의 영역 나가기"],
       "tokenCurrency": "미스틱 다이스 열쇠 상자", "tokenIsItem": true, "tokenMinIncrease": 6, "tokenRequiresSpace": true, "tokenAuto": true, "autoCheck": true, "cardLabel": "앙그르바한" },
 
+    { "id": "raid_scars", "category": "raid", "period": "weekly", "share": "character", "mode": "manual", "clearGroup": "raid",
+      "title": "적월의 스카스", "subtitle": "주간 레이드 적월의 스카스 (새로 생김 · 자동 판정 정보는 아직 모름, 직접 체크)", "icon": "raid", "goal": 1, "bossNames": ["적월의 스카스"], "cardLabel": "스카스" },
     { "id": "raid_cavrak", "category": "raid", "period": "weekly", "share": "character", "mode": "manual", "clearGroup": "raid",
       "title": "카브락", "subtitle": "주간 레이드 흑룡 카브락 토벌 (처치하면 게임이 띄우는 \"카브락 토벌 완료\" 퀘스트로 완료 · 레이드 지역에 들어가면 진행 중)", "icon": "raid", "goal": 1, "bossNames": ["카브락", "카브라크"],
       "entrySpaceNames": ["먼 바다의 바위 협곡"], "entryCompletes": false, "clearQuestTitles": ["카브락 토벌 완료"], "areaRewards": { "골드": 10000, "하트 토큰": 1 },

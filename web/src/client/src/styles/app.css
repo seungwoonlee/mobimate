@@ -693,6 +693,7 @@ button.hw-cell:focus-visible { outline: 2px solid var(--accent); outline-offset:
 .hw-cell.todo { border-color: var(--warn); }
 .hw-cell.todo .hw-cell-state { color: var(--warn); font-weight: 600; }
 .hw-cell.unknown { border-style: dashed; }
+.hw-cell.locked { opacity: .45; border-style: dotted; background: transparent; cursor: not-allowed; }
 .hw-legend.done { color: var(--ok); font-weight: 700; }
 .hw-legend.todo { color: var(--warn); font-weight: 600; }
 .hw-boss-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
