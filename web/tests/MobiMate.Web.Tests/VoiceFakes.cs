@@ -201,3 +201,18 @@ public sealed class FakeRefiner : IVoiceRefiner
 
     public Task WarmUpAsync() { Interlocked.Increment(ref WarmUps); return Task.CompletedTask; }
 }
+
+/// <summary>가짜 채팅 꾸미기: 시험이 Reply로 결과를 정한다. 기본은 아무것도 하지 않는다.</summary>
+public sealed class FakeStylist : MobiMate.Web.Services.IChatStylist
+{
+    public Func<string, MobiMate.Web.Services.ChatStyleRequest, MobiMate.Web.Services.ChatStyleResult> Reply { get; set; } = (_, _) => MobiMate.Web.Services.ChatStyleResult.Nothing;
+    public bool Throw { get; set; }
+    public List<(string Text, MobiMate.Web.Services.ChatStyleRequest Req)> Calls { get; } = new();
+
+    public Task<MobiMate.Web.Services.ChatStyleResult> StyleAsync(string text, MobiMate.Web.Services.ChatStyleRequest req, CancellationToken ct)
+    {
+        lock (Calls) Calls.Add((text, req));
+        if (Throw) throw new InvalidOperationException("가짜 오류");
+        return Task.FromResult(Reply(text, req));
+    }
+}

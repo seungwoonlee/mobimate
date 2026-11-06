@@ -14,7 +14,7 @@ public sealed record PersonaRequest(string? Name, string? Emoji, string? Prompt)
 public sealed record PersonaGenerateRequest(string? Request);
 public sealed record EngineSelectRequest(string? Id, bool? ConfirmPaid);
 public sealed record AskRequest(string? Text);
-public sealed record SettingsRequest(int? MaxRefreshSec, bool? AutoEmoteDefault, string? CliPath, string? ChatterPersona = null);
+public sealed record SettingsRequest(int? MaxRefreshSec, bool? AutoEmoteDefault, string? CliPath, string? ChatterPersona = null, bool? SmartEmote = null, bool? PersonaTone = null);
 public sealed record ClientErrorRequest(string? Message, string? Source, string? Stack);
 
 /// <summary>채팅·아무말·페르소나·AI·설정·SSE (요구사양서 §7).</summary>
@@ -158,7 +158,7 @@ public static class CommsEndpoints
         // ── 설정 (FR-ST) ──
         api.MapGet("/settings", (WebSettingsStore s, GameCli cli) => ApiResults.Ok(new
         {
-            MaxRefreshSec = Math.Min(30, s.Current.MaxRefreshSec), s.Current.AutoEmoteDefault, s.Current.LanEnabled, s.Current.ChatterPersona, cliPath = cli.CliPath, cliAvailable = cli.IsAvailable,
+            MaxRefreshSec = Math.Min(30, s.Current.MaxRefreshSec), s.Current.AutoEmoteDefault, s.Current.LanEnabled, s.Current.ChatterPersona, smartEmote = s.Current.ChatSmartEmote, personaTone = s.Current.ChatPersonaTone, cliPath = cli.CliPath, cliAvailable = cli.IsAvailable,
         }));
 
         api.MapPut("/settings", async (HttpContext ctx, SettingsRequest req, WebSettingsStore s, GameCli cli, StatusMonitor status, SseHub hub) =>
@@ -174,6 +174,8 @@ public static class CommsEndpoints
                 {
                     if (req.MaxRefreshSec is { } m) x.MaxRefreshSec = m;
                     if (req.AutoEmoteDefault is { } a) x.AutoEmoteDefault = a;
+                    if (req.SmartEmote is { } se) x.ChatSmartEmote = se;
+                    if (req.PersonaTone is { } pt) x.ChatPersonaTone = pt;
                     if (req.CliPath != null) x.CliPath = req.CliPath;
                     if (req.ChatterPersona != null) x.ChatterPersona = req.ChatterPersona;
                 }))
@@ -185,7 +187,7 @@ public static class CommsEndpoints
                 await status.CheckNowAsync(ctx.RequestAborted);
             }
             hub.Broadcast("state.changed", new { keys = new[] { "settings" } });
-            return ApiResults.Ok(new { MaxRefreshSec = Math.Min(30, s.Current.MaxRefreshSec), s.Current.AutoEmoteDefault, s.Current.ChatterPersona, cliPath = cli.CliPath, cliAvailable = cli.IsAvailable });
+            return ApiResults.Ok(new { MaxRefreshSec = Math.Min(30, s.Current.MaxRefreshSec), s.Current.AutoEmoteDefault, s.Current.ChatterPersona, smartEmote = s.Current.ChatSmartEmote, personaTone = s.Current.ChatPersonaTone, cliPath = cli.CliPath, cliAvailable = cli.IsAvailable });
         });
 
         // ── 클라이언트 오류 보고 (FR-ST-03): 기기별 분당 10건 ──

@@ -11,6 +11,21 @@ public sealed class WebSettings
     /// 맥락에 맞는 이모티콘 추천은 음성 입력 시험이 끝난 뒤에 추가한다.
     /// </summary>
     public bool AutoEmoteDefault { get; set; }
+
+    /// <summary>
+    /// 맥락 이모티콘 (승운 2026-11-07): 자동 이모티콘이 켜져 있을 때 키워드 규칙 대신 AI가 문장의 감정·맥락에 맞는 이모지를 고른다.
+    /// 감정이 뚜렷하지 않은 문장(모집·공략·지시)에는 이모지를 붙이지 않는다. 기본 끔.
+    /// </summary>
+    public bool ChatSmartEmote { get; set; }
+
+    /// <summary>페르소나 말투 (승운 2026-11-07): 보내기 전에 현재 아무말 페르소나의 말투로 문장을 바꾼다. 뜻이 바뀌면 원문을 보낸다. 기본 끔.</summary>
+    public bool ChatPersonaTone { get; set; }
+
+    /// <summary>말투·이모지 AI 모델. 비우면 음성 다듬기 모델(기본 gemma4:e4b)을 쓴다</summary>
+    public string? ChatStyleModel { get; set; }
+
+    /// <summary>말투·이모지가 이 시간(ms) 안에 끝나지 않으면 포기하고 원문을 보낸다</summary>
+    public int ChatStyleMs { get; set; } = 3000;
     public string? CliPath { get; set; }
     public bool LanEnabled { get; set; }
 
@@ -116,6 +131,10 @@ public sealed class WebSettingsStore
         SttSpacing = s.SttSpacing,
         SttSpacingLevel = s.SttSpacingLevel,
         SttRefine = s.SttRefine,
+        ChatSmartEmote = s.ChatSmartEmote,
+        ChatPersonaTone = s.ChatPersonaTone,
+        ChatStyleModel = s.ChatStyleModel,
+        ChatStyleMs = s.ChatStyleMs,
         SttRefineModel = s.SttRefineModel,
         SttRefineMs = s.SttRefineMs,
     };

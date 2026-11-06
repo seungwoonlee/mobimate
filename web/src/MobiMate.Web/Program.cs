@@ -103,6 +103,7 @@ builder.Services.AddSingleton<SseHub>();
 builder.Services.AddSingleton<CombatScoreGuard>();
 builder.Services.AddSingleton<GameViews>();
 builder.Services.AddSingleton<GameActions>();
+builder.Services.AddSingleton<IChatStylist, OllamaChatStylist>();
 builder.Services.AddSingleton<ChatService>();
 builder.Services.AddSingleton<IAudioSource, WasapiAudioSource>();
 builder.Services.AddSingleton(sp => new SttModelLocator(Dir(sp)));
