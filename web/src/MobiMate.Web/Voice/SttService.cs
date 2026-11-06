@@ -29,7 +29,7 @@ public sealed record MicTestOutcome(bool Busy, MicTestResult? Result, AudioFailu
 /// 인식은 낮은 우선순위 전용 스레드에서 돌려 게임에 영향을 주지 않는다 (FR-VC-06).
 /// </summary>
 public sealed class SttService(
-    IAudioSource audio, ISttEngineProvider engines, IVoicePostProcessor post, ISttCue cue, ChatService chat, VoiceVocabulary vocab,
+    IAudioSource audio, ISttEngineProvider engines, IVoicePostProcessor post, IVoiceRefiner refiner, ISttCue cue, ChatService chat, VoiceVocabulary vocab,
     WebSettingsStore settings, SseHub hub, ILogger<SttService> log) : IHostedService
 {
     /// <summary>마지막 확정 결과를 보관하는 시간 (연결이 끊겼다 돌아온 기기용, FR-VC-12)</summary>
@@ -338,6 +338,7 @@ public sealed class SttService(
     {
         var r = post.Process(raw);
         if (r.Text.Length == 0) return;   // 빈 결과는 초안을 바꾸지 않는다 (FR-VC-03)
+        r = Refine(raw, r);
         // 자동 전송이 켜져 있어도 한도를 넘으면 보내지 않고 화면 초안에 남긴다 (FR-VC-04). 화면은 autoSent가 false일 때만 초안에 붙인다.
         var cur = settings.Current;
         var autoSent = cur.SttAutoSend && FitsInChat(r.Text, cur.AutoEmoteDefault);
@@ -347,6 +348,27 @@ public sealed class SttService(
         s.EmittedFinal = true;
         if (autoSent) _ = Task.Run(() => AutoSendAsync(fin));
         else if (cur.SttAutoSend) hub.Broadcast("toast", new { level = "warn", message = "음성 문장이 길어서 보내지 않았습니다. 입력창에서 줄여 주세요" });
+    }
+
+    /// <summary>
+    /// 사전 방식 결과(<paramref name="fallback"/>) 대신 AI가 다듬은 문장을 쓴다. 입력은 학습된 치환만 거친 띄어쓰기 없는 글자다(측정 조건과 같다).
+    /// 인식 스레드에서 시간 제한 안에서만 기다리며, 실패하면 사전 방식 결과를 그대로 쓴다.
+    /// </summary>
+    private VoicePostResult Refine(string raw, VoicePostResult fallback)
+    {
+        if (!refiner.Enabled) return fallback;
+        try
+        {
+            var (subst, applied) = vocab.Apply(raw.Trim());
+            var ai = refiner.RefineAsync(subst, CancellationToken.None).GetAwaiter().GetResult();
+            if (ai == null) return fallback;
+            return new VoicePostResult(ai, applied.Append("AI 다듬기").ToList());
+        }
+        catch (Exception ex)
+        {
+            log.LogDebug(ex, "음성 다듬기 실패");
+            return fallback;
+        }
     }
 
     /// <summary>
@@ -410,7 +432,11 @@ public sealed class SttService(
         });
     }
 
-    public Task StartAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+    public Task StartAsync(CancellationToken cancellationToken)
+    {
+        if (refiner.Enabled) _ = Task.Run(refiner.WarmUpAsync);   // 앱이 켜질 때 교정 모델을 미리 올린다
+        return Task.CompletedTask;
+    }
 
     public Task StopAsync(CancellationToken cancellationToken)
     {

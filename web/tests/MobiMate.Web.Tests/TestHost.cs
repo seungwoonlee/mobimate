@@ -43,6 +43,7 @@ public sealed class TestHost : WebApplicationFactory<Program>
     public FakeHotkeyRegistrar Hotkeys { get; } = new();
     public FakeKeyState Keys { get; } = new();
     public RecordingCue Cue { get; } = new();
+    public FakeRefiner Refiner { get; } = new();
     public const string LanIp = "192.168.0.23";
 
     public TestHost(string? storageDir = null)
@@ -95,6 +96,7 @@ public sealed class TestHost : WebApplicationFactory<Program>
             s.AddSingleton<MobiMate.Web.Voice.IHotkeyRegistrar>(Hotkeys);
             s.AddSingleton<MobiMate.Web.Voice.IKeyState>(Keys);
             s.AddSingleton<MobiMate.Web.Voice.ISttCue>(Cue);
+            s.AddSingleton<MobiMate.Web.Voice.IVoiceRefiner>(Refiner);
         });
     }
 

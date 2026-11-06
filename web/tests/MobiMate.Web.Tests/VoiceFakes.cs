@@ -181,3 +181,23 @@ public sealed class RecordingCue : ISttCue
         lock (_played) { _played.Add(kind); _probes.Add(probe); }
     }
 }
+
+/// <summary>가짜 AI 다듬기: 기본은 꺼짐. 시험이 Reply를 정하면 그대로 돌려주고, DelayMs만큼 기다린다.</summary>
+public sealed class FakeRefiner : IVoiceRefiner
+{
+    public bool Enabled { get; set; }
+    public Func<string, string?> Reply { get; set; } = _ => null;
+    public int DelayMs { get; set; }
+    public List<string> Inputs { get; } = new();
+    public int WarmUps;
+    public RefinerStatus Status => new(Enabled, "fake", false, null, null, false);
+
+    public async Task<string?> RefineAsync(string text, CancellationToken ct)
+    {
+        lock (Inputs) Inputs.Add(text);
+        if (DelayMs > 0) await Task.Delay(DelayMs, ct);
+        return RefineGuard.Accept(text, Reply(text));
+    }
+
+    public Task WarmUpAsync() { Interlocked.Increment(ref WarmUps); return Task.CompletedTask; }
+}
