@@ -49,6 +49,9 @@ public class ChatStyleTests
     [InlineData("이모지: 🥳", "🥳", false)]
     [InlineData("없음", null, true)]
     [InlineData("이모지: 없음", null, true)]
+    [InlineData("😡", "😡", false)]
+    [InlineData("🤔", "🤔", false)]
+    [InlineData("👍", null, false)]          // 게임이 표시하지 않는 이모지
     [InlineData("😤", null, false)]          // 허용 목록 밖은 모른다(키워드 규칙으로)
     [InlineData("", null, false)]
     public void Emoji_IsOneOfTheAllowedEightOrNone(string output, string? emoji, bool none) => Assert.Equal((emoji, none), StyleGuard.AcceptEmoji(output));
