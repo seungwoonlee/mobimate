@@ -60,8 +60,17 @@ public sealed class TestHost : WebApplicationFactory<Program>
         Environment.SetEnvironmentVariable("FAKECLI_STOPFILE", StopFile);
     }
 
+    /// <summary>
+    /// 음성 설정을 예전 기본값(자동 전송 끔·단축키 없음·누르는 동안·핫워드 끔·띄어쓰기 끔)으로 깔고 시작한다 — 대부분의 테스트는 그 기준으로 쓰였다.
+    /// 실제 기본값(2026-11-06: 자동 전송·LCtrl+Space·토글·핫워드·띄어쓰기 켬)을 확인하는 테스트만 false로 둔다.
+    /// </summary>
+    public bool LegacyVoiceBaseline { get; init; } = true;
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
+        var settingsFile = Path.Combine(StorageDir, WebSettingsStore.FileName);
+        if (LegacyVoiceBaseline && !File.Exists(settingsFile))
+            File.WriteAllText(settingsFile, "{\"SttAutoSend\":false,\"SttHotkey\":null,\"SttHotkeyMode\":\"hold\",\"SttHotwords\":false,\"SttSpacing\":false}");
         builder.UseSetting("MobiMate:StorageDir", StorageDir);
         builder.UseSetting("MobiMate:WpfStorageDir", "");
         builder.UseSetting("MobiMate:CliPath", FakeCli.ExePath);

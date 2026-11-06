@@ -315,14 +315,14 @@ public class SttLearningTests
     // ── 핫워드(실험, 기본 끔) ──
 
     [Fact]
-    public async Task Hotwords_AreOffByDefault_AndChangingThemNeedsARestart()
+    public async Task Hotwords_AreOnByDefault_AndChangingThemNeedsARestart()
     {
-        using var host = new TestHost();
+        using var host = new TestHost { LegacyVoiceBaseline = false };
         var c = await host.LocalAsync();
-        Assert.False((await TestHost.Data(await c.GetAsync("/api/stt/settings"))).GetProperty("hotwords").GetBoolean());
-        var on = await TestHost.Data(await c.SendAsync(Req(HttpMethod.Put, "/api/stt/settings", new { hotwords = true })));
+        Assert.True((await TestHost.Data(await c.GetAsync("/api/stt/settings"))).GetProperty("hotwords").GetBoolean());
+        var on = await TestHost.Data(await c.SendAsync(Req(HttpMethod.Put, "/api/stt/settings", new { hotwords = false })));
         Assert.True(on.GetProperty("restartRequired").GetBoolean());
-        var again = await TestHost.Data(await c.SendAsync(Req(HttpMethod.Put, "/api/stt/settings", new { hotwords = true })));
+        var again = await TestHost.Data(await c.SendAsync(Req(HttpMethod.Put, "/api/stt/settings", new { hotwords = false })));
         Assert.False(again.GetProperty("restartRequired").GetBoolean());
     }
 

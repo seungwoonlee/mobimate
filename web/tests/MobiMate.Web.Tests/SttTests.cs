@@ -516,12 +516,19 @@ public class SttTests
     }
 
     [Fact]
-    public async Task Settings_RejectOutOfRangeValues_AndDefaultsAreSafe()
+    public async Task Settings_RejectOutOfRangeValues_AndTheDefaultsAreTheChosenFlow()
     {
-        using var host = new TestHost();
+        using var host = new TestHost { LegacyVoiceBaseline = false };
         var c = await host.LocalAsync();
         var d = await TestHost.Data(await c.GetAsync("/api/stt/settings"));
-        Assert.False(d.GetProperty("autoSend").GetBoolean());
+        // 승운 2026-11-06 기본 흐름: Ctrl+Space → 삑 → 녹음 → 게임 확인창에 출력 → 사용자가 보고 Space로 보냄
+        Assert.True(d.GetProperty("autoSend").GetBoolean());
+        Assert.Equal("LCtrl+Space", d.GetProperty("hotkey").GetString());
+        Assert.Equal("toggle", d.GetProperty("hotkeyMode").GetString());
+        Assert.True(d.GetProperty("cue").GetBoolean());
+        Assert.True(d.GetProperty("hotwords").GetBoolean());
+        Assert.True(d.GetProperty("spacing").GetBoolean());
+        Assert.Equal(2, d.GetProperty("spacingLevel").GetInt32());
         Assert.False(d.TryGetProperty("allowLanStart", out _));   // 폰·태블릿 시작 설정은 없다(PC 전용)
         Assert.Equal(15, d.GetProperty("maxSeconds").GetInt32());
         Assert.Equal(1, d.GetProperty("threads").GetInt32());
@@ -649,7 +656,7 @@ public class SttTests
     [Fact]
     public async Task Status_ReportsDefaults_WhenNothingWasHeard()
     {
-        using var host = new TestHost();
+        using var host = new TestHost();   // 예전 기준선(자동 전송 끔)
         var c = await host.LocalAsync();
         Assert.Equal(JsonValueKind.Null, (await Last(c)).ValueKind);
         var s = await Status(c);

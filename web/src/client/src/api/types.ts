@@ -21,7 +21,7 @@ export interface SttInstall { phase: 'idle' | 'downloading' | 'done' | 'failed';
 export interface SttHotkeyStatus { key: string | null; registered: boolean; error: string | null; mode: 'hold' | 'toggle' }
 export interface SttSettings {
   autoSend: boolean; maxSeconds: number; deviceId: string | null; threads: number;
-  hotkey: string | null; hotkeyMode: 'hold' | 'toggle'; cue: boolean; hotwords: boolean; spacing: boolean;
+  hotkey: string | null; hotkeyMode: 'hold' | 'toggle'; cue: boolean; hotwords: boolean; spacing: boolean; spacingLevel: 0 | 1 | 2;
 }
 export interface SttVocabWord { word: string; count: number; last: string; hotword: boolean }
 export interface SttVocabPair { from: string; to: string; count: number; reverts: number; off: boolean; active: boolean; last: string }

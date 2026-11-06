@@ -170,7 +170,7 @@ function Composer() {
   const devAuto = useDevice(s => s.autoEmote);
   const setDev = useDevice(s => s.set);
   const settings = useSettings();
-  const autoEmote = devAuto ?? settings.data?.data.autoEmoteDefault ?? true;
+  const autoEmote = devAuto ?? settings.data?.data.autoEmoteDefault ?? false;   // 기본 끔: 맥락과 무관하게 같은 이모지를 붙이는 것은 의미가 없다
   const [preview, setPreview] = useState<ChatPreview | null>(null);
   const [busy, setBusy] = useState(false);
   const composing = useRef(false);
