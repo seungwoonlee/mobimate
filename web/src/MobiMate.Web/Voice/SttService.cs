@@ -299,7 +299,7 @@ public sealed class SttService(
                 else if (p.Text.Length > 0 && p.Text != s.LastPartial)
                 {
                     s.LastPartial = p.Text;
-                    hub.Broadcast("stt.partial", new { sessionId = s.Id, text = post.Process(p.Text).Text });
+                    hub.BroadcastLocal("stt.partial", new { sessionId = s.Id, text = post.Process(p.Text).Text });
                 }
             }
 
@@ -343,7 +343,7 @@ public sealed class SttService(
         var autoSent = cur.SttAutoSend && FitsInChat(r.Text, cur.AutoEmoteDefault);
         var fin = new SttFinal(s.Id, r.Text, raw, r.Applied, DateTimeOffset.UtcNow, autoSent);
         lock (_gate) _last = fin;
-        hub.Broadcast("stt.final", new { sessionId = fin.SessionId, text = fin.Text, original = fin.Original, applied = fin.Applied, autoSent });
+        hub.BroadcastLocal("stt.final", new { sessionId = fin.SessionId, text = fin.Text, original = fin.Original, applied = fin.Applied, autoSent });
         s.EmittedFinal = true;
         if (autoSent) _ = Task.Run(() => AutoSendAsync(fin));
         else if (cur.SttAutoSend) hub.Broadcast("toast", new { level = "warn", message = "음성 문장이 길어서 보내지 않았습니다. 입력창에서 줄여 주세요" });
@@ -397,7 +397,7 @@ public sealed class SttService(
         SttState state;
         lock (_gate) state = s.State;
         var f = s.Failure;
-        hub.Broadcast("stt.state", new
+        hub.BroadcastLocal("stt.state", new
         {
             sessionId = s.Id,
             state = state.ToString().ToLowerInvariant(),

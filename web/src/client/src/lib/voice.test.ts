@@ -63,7 +63,7 @@ describe('같은 결과를 두 번 반영하지 않기', () => {
 describe('오류·경고 문구', () => {
   it('알려진 코드는 사용자가 할 일을 알려 준다', () => {
     expect(sttErrorMessage('STT_MIC_DENIED')).toContain('개인정보');
-    expect(sttErrorMessage('STT_LAN_DISABLED')).toContain('PC 설정');
+    expect(sttErrorMessage('PC_ONLY')).toContain('게임 PC');
     expect(sttErrorMessage('STT_MODEL_MISSING')).toContain('모델');
   });
 
@@ -81,7 +81,7 @@ describe('오류·경고 문구', () => {
 });
 
 describe('마이크 버튼 사용 조건', () => {
-  const base: MicInput = { modelInstalled: true, allowLanStart: false, kind: 'local', voiceState: 'idle', offline: false };
+  const base: MicInput = { modelInstalled: true, kind: 'local', voiceState: 'idle', offline: false };
 
   it('PC 본체에서 모델이 있으면 쓸 수 있다', () => {
     expect(micAvailability(base)).toEqual({ enabled: true, reason: null });
@@ -98,15 +98,14 @@ describe('마이크 버튼 사용 조건', () => {
     expect(r).toEqual({ enabled: false, reason: expect.stringContaining('모델') });
   });
 
-  it('폰·태블릿은 PC 설정이 꺼져 있으면 시작할 수 없다 (기본값)', () => {
+  it('폰·태블릿에서는 쓸 수 없다 — 음성 입력은 게임 PC 전용', () => {
     const r = micAvailability({ ...base, kind: 'lan' });
     expect(r.enabled).toBe(false);
-    expect(r.reason).toContain('PC 설정');
-    expect(micAvailability({ ...base, kind: 'lan', allowLanStart: true }).enabled).toBe(true);
+    expect(r.reason).toContain('게임 PC');
   });
 
   it('상태를 아직 못 받았으면 막지 않는다 (받으면 바로 갱신된다)', () => {
-    expect(micAvailability({ ...base, modelInstalled: undefined, allowLanStart: undefined, kind: undefined }).enabled).toBe(true);
+    expect(micAvailability({ ...base, modelInstalled: undefined, kind: undefined }).enabled).toBe(true);
   });
 
   it('듣는 중에는 어느 기기든 끝낼 수 있다', () => {
@@ -207,6 +206,28 @@ describe('단축키 입력 변환', () => {
     expect(comboFromKeyEvent(key('Escape', { ctrlKey: true }))).toBeNull();
     expect(comboFromKeyEvent(key('Enter', { ctrlKey: true }))).toBeNull();
     expect(comboFromKeyEvent(key('F25', { ctrlKey: true }))).toBeNull();
+  });
+});
+
+describe('단축키 입력 변환: 왼쪽·오른쪽 수정키', () => {
+  const only = (...codes: string[]) => new Set(codes);
+
+  it('왼쪽 Ctrl만 눌렸으면 LCtrl+Space — 오른쪽 Ctrl로는 동작하지 않는 단축키가 된다', () => {
+    expect(comboFromKeyEvent(key('Space', { ctrlKey: true }), only('ControlLeft', 'Space'))).toBe('LCtrl+Space');
+  });
+
+  it('오른쪽 Ctrl만, 또는 양쪽을 다 눌렀거나 모르면 좌우 구분 없는 Ctrl', () => {
+    expect(comboFromKeyEvent(key('Space', { ctrlKey: true }), only('ControlRight', 'Space'))).toBe('Ctrl+Space');
+    expect(comboFromKeyEvent(key('Space', { ctrlKey: true }), only('ControlLeft', 'ControlRight', 'Space'))).toBe('Ctrl+Space');
+    expect(comboFromKeyEvent(key('Space', { ctrlKey: true }))).toBe('Ctrl+Space');
+  });
+
+  it('Alt·Shift도 왼쪽만이면 L을 붙이고, 표기 순서는 Ctrl·Alt·Shift·Win', () => {
+    expect(comboFromKeyEvent(key('KeyV', { ctrlKey: true, altKey: true, shiftKey: true }), only('ControlLeft', 'AltLeft', 'ShiftRight'))).toBe('LCtrl+LAlt+Shift+V');
+  });
+
+  it('Shift만 왼쪽이어도 Ctrl·Alt·Win이 없으면 여전히 거절한다', () => {
+    expect(comboFromKeyEvent(key('KeyV', { shiftKey: true }), only('ShiftLeft'))).toBeNull();
   });
 });
 

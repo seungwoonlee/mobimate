@@ -164,8 +164,9 @@ function Composer() {
   const original = useUi(s => s.chatDraftOriginal);
   const voice = useUi(s => s.voice);
   const offline = useUi(s => isOffline(s));
-  const stt = useSttStatus();
   const session = useSession();
+  const isLan = session.data?.kind === 'lan';   // 음성 입력은 게임 PC에서만: 폰·태블릿에서는 버튼도 상태 조회도 없다
+  const stt = useSttStatus(session.data?.kind === 'local');
   const devAuto = useDevice(s => s.autoEmote);
   const setDev = useDevice(s => s.set);
   const settings = useSettings();
@@ -197,7 +198,7 @@ function Composer() {
   const over = cp(draft) > limit;
 
   const mic = micAvailability({
-    modelInstalled: stt.data?.data.modelInstalled, allowLanStart: stt.data?.data.allowLanStart,
+    modelInstalled: stt.data?.data.modelInstalled,
     kind: session.data?.kind, voiceState: voice.state, offline,
   });
   const listening = voice.state === 'listening';
@@ -238,10 +239,10 @@ function Composer() {
           onCompositionEnd={e => { composing.current = false; setDraft(clamp(e.currentTarget.value)); }}
           onChange={e => setDraft(composing.current ? e.target.value : clamp(e.target.value))}
           onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); void send(); } }} />
-        <button type="button" className={`mic${listening ? ' on' : ''}`} onClick={toggleMic} disabled={!mic.enabled} aria-pressed={listening}
+        {!isLan && <button type="button" className={`mic${listening ? ' on' : ''}`} onClick={toggleMic} disabled={!mic.enabled} aria-pressed={listening}
           aria-label={listening ? '음성 입력 끝내기' : '음성으로 입력'} title={mic.reason ?? (listening ? '누르면 듣기를 마칩니다' : '누르고 말하면 입력창에 적어 줍니다')}>
           <Icon name="mic" />
-        </button>
+        </button>}
         <button type="button" className="send" onClick={send} disabled={busy || !draft.trim() || over} aria-label="게임으로 전송" data-needs-conn>
           <Icon name="send" />
         </button>

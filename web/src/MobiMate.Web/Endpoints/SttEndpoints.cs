@@ -6,7 +6,7 @@ using MobiMate.Web.Voice;
 
 namespace MobiMate.Web.Endpoints;
 
-public sealed record SttSettingsRequest(bool? AutoSend, bool? AllowLanStart, int? MaxSeconds, string? DeviceId, int? Threads, string? Hotkey, string? HotkeyMode, bool? Cue, bool? Hotwords, bool? Spacing);
+public sealed record SttSettingsRequest(bool? AutoSend, int? MaxSeconds, string? DeviceId, int? Threads, string? Hotkey, string? HotkeyMode, bool? Cue, bool? Hotwords, bool? Spacing);
 public sealed record VocabLearningRequest(bool? LearningOn);
 public sealed record VocabPairRequest(string? From, string? To, string? Action);
 public sealed record VocabWordRequest(string? Word);
@@ -71,11 +71,16 @@ public static class SttEndpoints
     {
         var api = app.MapGroup("/api/stt");
 
-        // 읽기(인식 결과·상태)도 Host가 이 서버 주소일 때만 (DNS 리바인딩 방어)
+        // 음성 입력은 게임 PC에서만 쓴다: 폰·태블릿(LAN)은 읽기든 쓰기든 모두 거절한다.
+        // 읽기(인식 결과·상태)도 Host가 이 서버 주소일 때만 (DNS 리바인딩 방어).
         api.AddEndpointFilter(async (ctx, next) =>
-            SttGuard.HostAllowed(ctx.HttpContext, ctx.HttpContext.RequestServices.GetRequiredService<ILanHosts>())
-                ? await next(ctx)
-                : ApiResults.Error(StatusCodes.Status403Forbidden, "STT_FORBIDDEN", "허용되지 않은 주소로 접속했습니다."));
+        {
+            var http = ctx.HttpContext;
+            if (!SttGuard.HostAllowed(http, http.RequestServices.GetRequiredService<ILanHosts>()))
+                return ApiResults.Error(StatusCodes.Status403Forbidden, "STT_FORBIDDEN", "허용되지 않은 주소로 접속했습니다.");
+            if (SttGuard.CheckPcOnly(http) is { } notPc) return notPc;
+            return await next(ctx);
+        });
 
         api.MapGet("/status", (SttService stt, ISttEngineProvider engines, HotkeyService hotkeys, SttModelInstaller installer, WebSettingsStore s) =>
         {
@@ -91,7 +96,6 @@ public static class SttEndpoints
                 modelInstalled = engines.IsInstalled,
                 install = SttModelInstaller.Dto(installer.State),
                 autoSend = cur.SttAutoSend,
-                allowLanStart = cur.SttAllowLanStart,
                 maxSeconds = cur.SttMaxSeconds,
                 hotkey = new { key = hk.Key, registered = hk.Registered, error = hk.Error, mode = cur.SttHotkeyMode },
             });
@@ -109,9 +113,6 @@ public static class SttEndpoints
         api.MapPost("/start", (HttpContext ctx, SttService stt, WebSettingsStore s) =>
         {
             if (SttGuard.CheckWrite(ctx) is { } bad) return bad;
-            if (!ClientId.IsLocal(ctx) && !s.Current.SttAllowLanStart)
-                return ApiResults.Error(StatusCodes.Status403Forbidden, "STT_LAN_DISABLED", "폰·태블릿에서 음성 시작은 PC 설정에서 켜야 합니다.");
-
             var r = stt.Start(ClientId.Of(ctx));
             return r.Status switch
             {
@@ -225,7 +226,6 @@ public static class SttEndpoints
             ok = s.Update(x =>
             {
                 if (req.AutoSend != null) x.SttAutoSend = req.AutoSend.Value;
-                if (req.AllowLanStart != null) x.SttAllowLanStart = req.AllowLanStart.Value;
                 if (req.MaxSeconds != null) x.SttMaxSeconds = req.MaxSeconds.Value;
                 if (req.Threads != null) x.SttThreads = req.Threads.Value;
                 if (req.DeviceId != null) x.SttDeviceId = req.DeviceId.Length == 0 ? null : req.DeviceId;   // 빈 문자열 = 시스템 기본 마이크
@@ -247,7 +247,6 @@ public static class SttEndpoints
     private static object ToDto(WebSettings s) => new
     {
         autoSend = s.SttAutoSend,
-        allowLanStart = s.SttAllowLanStart,
         maxSeconds = s.SttMaxSeconds,
         deviceId = s.SttDeviceId,
         threads = s.SttThreads,

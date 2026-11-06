@@ -408,8 +408,8 @@ public class SttTests
 
         Assert.Equal(HttpStatusCode.Forbidden, (await c.SendAsync(Req(HttpMethod.Get, "/api/stt/last", contentType: null, host: hostHeader))).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await c.SendAsync(Req(HttpMethod.Get, "/api/stt/status", contentType: null, host: hostHeader))).StatusCode);
-        Assert.Equal(HttpStatusCode.Forbidden, (await c.SendAsync(Req(HttpMethod.Put, "/api/stt/settings", new { allowLanStart = true }, origin: "http://" + hostHeader, host: hostHeader))).StatusCode);
-        Assert.False((await TestHost.Data(await c.GetAsync("/api/stt/settings"))).GetProperty("allowLanStart").GetBoolean());   // 설정도 안 바뀌었다
+        Assert.Equal(HttpStatusCode.Forbidden, (await c.SendAsync(Req(HttpMethod.Put, "/api/stt/settings", new { autoSend = true }, origin: "http://" + hostHeader, host: hostHeader))).StatusCode);
+        Assert.False((await TestHost.Data(await c.GetAsync("/api/stt/settings"))).GetProperty("autoSend").GetBoolean());   // 설정도 안 바뀌었다
     }
 
     [Theory]
@@ -456,19 +456,49 @@ public class SttTests
         Assert.Equal(expected, HostOk(hostHeader, "192.168.0.23", "mobimate.local"));
 
     [Fact]
-    public async Task LanDevice_CannotStart_UntilPcTurnsItOn()
+    public async Task LanDevices_CannotUseAnyVoiceEndpoint_ReadOrWrite()
     {
+        // 음성 입력은 게임 PC에서만 쓴다: 폰·태블릿(LAN)은 시작·중지뿐 아니라 상태·인식 결과·마이크 목록도 볼 수 없다
         using var host = new TestHost();
         var pc = await host.LocalAsync();
         var phone = await host.LanAsync(pc);
 
-        var denied = await Post(phone, "/api/stt/start");
-        Assert.Equal(HttpStatusCode.Forbidden, denied.StatusCode);
-        Assert.Equal("STT_LAN_DISABLED", await TestHost.ErrorCode(denied));
-        Assert.Equal(0, host.Audio.OpenCount);
+        foreach (var url in new[] { "/api/stt/status", "/api/stt/last", "/api/stt/devices", "/api/stt/model", "/api/stt/settings", "/api/stt/vocab" })
+        {
+            var r = await phone.GetAsync(url);
+            Assert.Equal(HttpStatusCode.Forbidden, r.StatusCode);
+            Assert.Equal("PC_ONLY", await TestHost.ErrorCode(r));
+        }
+        foreach (var url in new[] { "/api/stt/start", "/api/stt/stop", "/api/stt/devices/test", "/api/stt/model/install", "/api/stt/vocab/clear" })
+        {
+            var r = await phone.SendAsync(Req(HttpMethod.Post, url));
+            Assert.Equal(HttpStatusCode.Forbidden, r.StatusCode);
+            Assert.Equal("PC_ONLY", await TestHost.ErrorCode(r));
+        }
+        Assert.Equal(0, host.Audio.OpenCount);   // 마이크는 한 번도 열리지 않았다
+        Assert.Equal(HttpStatusCode.OK, (await Post(pc, "/api/stt/start")).StatusCode);   // PC에서는 된다
+    }
 
-        Assert.Equal(HttpStatusCode.OK, (await pc.SendAsync(Req(HttpMethod.Put, "/api/stt/settings", new { allowLanStart = true }))).StatusCode);
-        Assert.Equal(HttpStatusCode.OK, (await Post(phone, "/api/stt/start")).StatusCode);
+    [Fact]
+    public async Task VoiceEvents_ReachOnlyThisPc_NotOtherDevicesOnTheNetwork()
+    {
+        // PC 마이크로 말한 내용(인식 중인 글자·확정 글자)을 같은 와이파이의 다른 기기에 퍼뜨리지 않는다
+        using var host = new TestHost();
+        var pc = await host.LocalAsync();
+        var phone = await host.LanAsync(pc);
+        using var pcSse = await Sse.Open(pc);
+        using var phoneSse = await Sse.Open(phone);
+
+        await Post(pc, "/api/stt/start");
+        host.Audio.Current!.PushVoice(4);
+        Assert.NotNull(await pcSse.WaitFor("stt.final"));
+        Assert.NotNull(await pcSse.WaitFor("stt.state"));
+        await Task.Delay(300);
+
+        Assert.Empty(phoneSse.Of("stt.final"));
+        Assert.Empty(phoneSse.Of("stt.partial"));
+        Assert.Empty(phoneSse.Of("stt.state"));
+        Assert.NotEmpty(phoneSse.Of("hello"));   // 연결 자체는 되어 있다 (다른 이벤트는 받는다)
     }
 
     [Fact]
@@ -478,11 +508,11 @@ public class SttTests
         var pc = await host.LocalAsync();
         var phone = await host.LanAsync(pc);
 
-        var put = await phone.SendAsync(Req(HttpMethod.Put, "/api/stt/settings", new { allowLanStart = true }));
+        var put = await phone.SendAsync(Req(HttpMethod.Put, "/api/stt/settings", new { autoSend = true }));
         Assert.Equal(HttpStatusCode.Forbidden, put.StatusCode);
         Assert.Equal("PC_ONLY", await TestHost.ErrorCode(put));
         Assert.Equal(HttpStatusCode.Forbidden, (await phone.GetAsync("/api/stt/settings")).StatusCode);
-        Assert.False((await TestHost.Data(await pc.GetAsync("/api/stt/settings"))).GetProperty("allowLanStart").GetBoolean());
+        Assert.False((await TestHost.Data(await pc.GetAsync("/api/stt/settings"))).GetProperty("autoSend").GetBoolean());
     }
 
     [Fact]
@@ -492,7 +522,7 @@ public class SttTests
         var c = await host.LocalAsync();
         var d = await TestHost.Data(await c.GetAsync("/api/stt/settings"));
         Assert.False(d.GetProperty("autoSend").GetBoolean());
-        Assert.False(d.GetProperty("allowLanStart").GetBoolean());
+        Assert.False(d.TryGetProperty("allowLanStart", out _));   // 폰·태블릿 시작 설정은 없다(PC 전용)
         Assert.Equal(15, d.GetProperty("maxSeconds").GetInt32());
         Assert.Equal(1, d.GetProperty("threads").GetInt32());
 
@@ -624,7 +654,7 @@ public class SttTests
         Assert.Equal(JsonValueKind.Null, (await Last(c)).ValueKind);
         var s = await Status(c);
         Assert.False(s.GetProperty("autoSend").GetBoolean());
-        Assert.False(s.GetProperty("allowLanStart").GetBoolean());
+        Assert.False(s.TryGetProperty("allowLanStart", out _));
         Assert.True(s.GetProperty("modelInstalled").GetBoolean());
         Assert.Equal("idle", s.GetProperty("state").GetString());
     }

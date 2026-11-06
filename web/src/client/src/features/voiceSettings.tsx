@@ -17,7 +17,7 @@ const VOCAB_KEY = [...keys5.stt, 'vocab'] as const;
  * 폰·태블릿에서는 상태만 보여 준다.
  */
 export function VoiceSettings({ local }: { local: boolean }) {
-  const status = useSttStatus();
+  const status = useSttStatus(local);
   const st = status.data?.data;
   const settingsQ = useQuery({ queryKey: SETTINGS_KEY, queryFn: () => api.get<SttSettings>('/api/stt/settings'), enabled: local, retry: false });
   const devicesQ = useQuery({ queryKey: DEVICES_KEY, queryFn: () => api.get<SttDevices>('/api/stt/devices'), enabled: local, staleTime: 10_000, retry: false });
@@ -37,12 +37,12 @@ export function VoiceSettings({ local }: { local: boolean }) {
     }
   };
 
+  if (!local) return <p className="faint small">음성 입력은 게임 PC에서만 쓸 수 있습니다. 폰·태블릿에서는 설정도 사용도 할 수 없습니다.</p>;
   if (!st) return <p className="faint small">불러오는 중…</p>;
 
   return (
     <>
       <ModelRow local={local} />
-      {!local && <p className="faint small">음성 입력 설정은 게임 PC에서만 바꿀 수 있습니다.</p>}
       {local && s && (
         <>
           <MicRow s={s} devices={devicesQ.data?.data} onPick={id => void save({ deviceId: id })} />
@@ -61,13 +61,7 @@ export function VoiceSettings({ local }: { local: boolean }) {
             <Seg value={s.autoSend ? 'on' : 'off'} options={[['off', '끄기'], ['on', '켜기']]} onChange={v => void save({ autoSend: v === 'on' })} />
           </Row>
           <p className={s.autoSend ? 'warn-text small' : 'faint small'}>
-            {s.autoSend ? '잘못 알아들은 말도 그대로 게임 채팅으로 나갑니다. 50자를 넘는 문장은 보내지 않고 입력창에 남깁니다.' : '끄면 입력창에 적어 주고, 확인한 뒤 Enter로 보냅니다. (권장)'}
-          </p>
-          <Row label="폰·태블릿에서 시작">
-            <Seg value={s.allowLanStart ? 'on' : 'off'} options={[['off', '허용 안 함'], ['on', '허용']]} onChange={v => void save({ allowLanStart: v === 'on' })} />
-          </Row>
-          <p className={s.allowLanStart ? 'warn-text small' : 'faint small'}>
-            {s.allowLanStart ? '같은 와이파이의 다른 기기도 PC 마이크를 켤 수 있습니다. 공용 와이파이에서는 끄세요.' : '끄면 PC 단축키와 PC 화면의 마이크 버튼으로만 시작합니다. (권장)'}
+            {s.autoSend ? '잘못 알아들은 말도 그대로 게임 채팅으로 나갑니다. 50자를 넘는 문장은 보내지 않고 입력창에 남깁니다.' : '끄면 이 PC의 채팅 입력창에 적어 주고 Enter로 보냅니다. 게임을 전체 화면으로 하는 중에는 입력창이 보이지 않으니, 게임 중에 쓰려면 켜세요.'}
           </p>
           <Row label="띄어쓰기 넣기 (실험)">
             <Seg value={s.spacing ? 'on' : 'off'} options={[['off', '끄기'], ['on', '켜기']]} onChange={v => void save({ spacing: v === 'on' })} />
@@ -189,27 +183,32 @@ function HotkeyRow({ s, status, onSave }: { s: SttSettings; status: { key: strin
   const [hint, setHint] = useState<string | null>(null);
   const box = useRef<HTMLDivElement>(null);
   const saveRef = useRef(onSave);
-  saveRef.current = onSave;   // onSave는 렌더마다 바뀌므로 effect가 매번 다시 등록되지 않게 ref로 읽는다
+  saveRef.current = onSave;
+  const down = useRef(new Set<string>());   // 지금 눌려 있는 키 (브라우저의 수정키 상태는 왼쪽·오른쪽을 구분하지 못한다)   // onSave는 렌더마다 바뀌므로 effect가 매번 다시 등록되지 않게 ref로 읽는다
 
   useEffect(() => {
     if (!capturing) return;
-    const stop = () => { setCapturing(false); setHint(null); };
+    const stop = () => { setCapturing(false); setHint(null); down.current.clear(); };
     const onKey = (e: KeyboardEvent) => {
       if (e.code === 'Tab') { stop(); return; }   // 막지 않는다
       e.preventDefault();
       e.stopPropagation();
+      down.current.add(e.code);
       if (e.code === 'Escape') { stop(); return; }
-      const combo = comboFromKeyEvent(e);
+      const combo = comboFromKeyEvent(e, down.current);
       if (!combo) { setHint('Ctrl·Alt 중 하나와 글자·숫자를 함께 누르세요. (F1~F24는 혼자 눌러도 됩니다)'); return; }
       stop();
       void saveRef.current({ hotkey: combo });
     };
     const onPointer = (e: PointerEvent) => { if (!box.current?.contains(e.target as Node)) stop(); };
+    const onUp = (e: KeyboardEvent) => { down.current.delete(e.code); };
     window.addEventListener('keydown', onKey, true);
+    window.addEventListener('keyup', onUp, true);
     window.addEventListener('pointerdown', onPointer, true);
     window.addEventListener('blur', stop);
     return () => {
       window.removeEventListener('keydown', onKey, true);
+      window.removeEventListener('keyup', onUp, true);
       window.removeEventListener('pointerdown', onPointer, true);
       window.removeEventListener('blur', stop);
     };
@@ -230,7 +229,7 @@ function HotkeyRow({ s, status, onSave }: { s: SttSettings; status: { key: strin
       </div>
       {hint && <p className="warn-text small" role="status">{hint}</p>}
       {s.hotkey && !status.registered && status.error && <p className="warn-text small">{status.error}</p>}
-      <p className="faint small">게임이 쓰지 않는 조합을 고르세요. 등록한 조합은 모든 프로그램에서 이 기능이 먼저 가져갑니다.</p>
+      <p className="faint small">게임이 쓰지 않는 조합을 고르세요. 왼쪽 Ctrl만 누르면 "LCtrl+…"로 저장되어 오른쪽 Ctrl로는 동작하지 않습니다. 등록한 조합은 모든 프로그램에서 이 기능이 먼저 가져갑니다(예: Ctrl+Space는 한/영 전환이나 편집기 자동완성과 겹칠 수 있습니다).</p>
     </div>
   );
 }

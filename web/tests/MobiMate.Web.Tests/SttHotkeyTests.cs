@@ -52,6 +52,27 @@ public class SttHotkeyTests
     }
 
     [Theory]
+    [InlineData("LCtrl+Space", HotkeyParser.Ctrl, 0x20u, "LCtrl+Space", HotkeyParser.Ctrl)]                                  // 왼쪽 Ctrl만
+    [InlineData("leftctrl+space", HotkeyParser.Ctrl, 0x20u, "LCtrl+Space", HotkeyParser.Ctrl)]
+    [InlineData("LCtrl+Alt+V", HotkeyParser.Ctrl | HotkeyParser.Alt, 0x56u, "LCtrl+Alt+V", HotkeyParser.Ctrl)]              // 왼쪽 Ctrl, 아무 쪽 Alt
+    [InlineData("LCtrl+LAlt+V", HotkeyParser.Ctrl | HotkeyParser.Alt, 0x56u, "LCtrl+LAlt+V", HotkeyParser.Ctrl | HotkeyParser.Alt)]
+    [InlineData("LShift+Ctrl+F9", HotkeyParser.Ctrl | HotkeyParser.Shift, 0x78u, "Ctrl+LShift+F9", HotkeyParser.Shift)]
+    public void Parse_LeftOnlyModifiers(string text, uint mods, uint vk, string display, uint leftOnly)
+    {
+        var s = HotkeyParser.Parse(text);
+        Assert.NotNull(s);
+        Assert.Equal(mods, s!.Modifiers);   // 운영체제에는 좌우 구분 없이 등록한다
+        Assert.Equal(vk, s.VirtualKey);
+        Assert.Equal(display, s.Display);
+        Assert.Equal(leftOnly, s.LeftOnly);
+    }
+
+    [Theory]
+    [InlineData("LShift+V")]      // 왼쪽 Shift만으로도 대문자 입력이 막힌다
+    [InlineData("LShift+Space")]
+    public void Parse_LeftShiftAloneIsStillRejected(string text) => Assert.Null(HotkeyParser.Parse(text));
+
+    [Theory]
     [InlineData(null)]
     [InlineData("")]
     [InlineData("   ")]
@@ -213,6 +234,54 @@ public class SttHotkeyTests
         Assert.Equal(1, host.Audio.OpenCount);
         host.Keys.Up(0x78);
         Assert.True(await Eventually(() => Stt(host).Snapshot().State == SttState.Idle));
+    }
+
+    [Fact]
+    public async Task LeftCtrlSpace_StartsWhileHeld_AndStopsWhenSpaceIsReleased()
+    {
+        using var host = new TestHost();
+        var c = await host.LocalAsync();
+        var r = await TestHost.Data(await Put(c, new { hotkey = "LCtrl+Space" }));
+        Assert.Equal("LCtrl+Space", r.GetProperty("hotkey").GetProperty("key").GetString());
+        Assert.Equal(HotkeyParser.Ctrl, host.Hotkeys.Current!.Modifiers);   // 운영체제에는 Ctrl+Space로 등록
+
+        host.Keys.Down(0xA2);   // 왼쪽 Ctrl
+        host.Keys.Down(0x20);   // Space
+        host.Hotkeys.Fire();
+        Assert.True(await Eventually(() => Stt(host).Snapshot().State == SttState.Listening));
+        host.Keys.Up(0x20);     // Space를 뗀다 (Ctrl은 계속 누르고 있어도 된다)
+        Assert.True(await Eventually(() => Stt(host).Snapshot().State == SttState.Idle));
+    }
+
+    [Fact]
+    public async Task LeftOnlyHotkey_IgnoresThePressMadeWithTheRightKey()
+    {
+        using var host = new TestHost();
+        var c = await host.LocalAsync();
+        await Put(c, new { hotkey = "LCtrl+Space" });
+
+        host.Keys.Down(0xA3);   // 오른쪽 Ctrl만
+        host.Keys.Down(0x20);
+        host.Hotkeys.Fire();
+        await Task.Delay(200);
+        Assert.Equal(0, host.Audio.OpenCount);
+        Assert.Equal(SttState.Idle, Stt(host).Snapshot().State);
+
+        host.Keys.Down(0xA2);   // 양쪽 Ctrl을 다 누르면 왼쪽 전용이라는 약속과 어긋나므로 역시 무시
+        host.Hotkeys.Fire();
+        await Task.Delay(200);
+        Assert.Equal(0, host.Audio.OpenCount);
+    }
+
+    [Fact]
+    public async Task APlainCtrlHotkey_AcceptsEitherCtrl()
+    {
+        using var host = new TestHost();
+        var c = await host.LocalAsync();
+        await Put(c, new { hotkey = "Ctrl+Space", hotkeyMode = "toggle" });
+        host.Keys.Down(0xA3);   // 오른쪽 Ctrl
+        host.Hotkeys.Fire();
+        Assert.True(await Eventually(() => Stt(host).Snapshot().State == SttState.Listening));
     }
 
     [Fact]

@@ -27,12 +27,21 @@ public class SttLearningTests
         return cond();
     }
 
+    /// <summary>이 PC 화면이 보내는 것과 같은 채팅 요청 (학습은 헤더가 있는 요청만 받는다)</summary>
+    private static Task<HttpResponseMessage> PostChat(HttpClient c, object body, bool header = true, string? host = null)
+    {
+        var r = new HttpRequestMessage(HttpMethod.Post, "/api/chat/game") { Content = JsonContent.Create(body) };
+        if (header) r.Headers.Add("X-MobiMate-Req", "1");
+        if (host != null) r.Headers.Host = host;
+        return c.SendAsync(r);
+    }
+
     private static SttService Stt(TestHost h) => h.Services.GetRequiredService<SttService>();
 
     /// <summary>음성으로 받아 고쳐 보냈다고 서버에 알린다 (중복 방지 1초를 넘겨서)</summary>
     private static async Task SendCorrected(HttpClient c, string text = Fixed, string original = Raw, string source = "음성")
     {
-        var r = await c.PostAsJsonAsync("/api/chat/game", new { text, autoEmote = false, source, sttOriginal = original });
+        var r = await PostChat(c, new { text, autoEmote = false, source, sttOriginal = original });
         Assert.Equal(HttpStatusCode.OK, r.StatusCode);
         await Task.Delay(1100);
     }
@@ -101,8 +110,8 @@ public class SttLearningTests
     {
         using var host = new TestHost();
         var c = await host.LocalAsync();
-        await c.PostAsJsonAsync("/api/chat/game", new { text = "생성된 대사입니다 호호호", autoEmote = false, source = "아무말 · 악덕영애" });
-        await c.PostAsJsonAsync("/api/chat/game", new { text = "직접 쓴 글입니다", autoEmote = false });
+        await PostChat(c, new { text = "생성된 대사입니다 호호호", autoEmote = false, source = "아무말 · 악덕영애" });
+        await PostChat(c, new { text = "직접 쓴 글입니다", autoEmote = false });
 
         var words = (await TestHost.Data(await c.GetAsync("/api/stt/vocab"))).GetProperty("words").EnumerateArray().Select(w => w.GetProperty("word").GetString()).ToList();
         Assert.Contains("직접", words);
@@ -129,12 +138,13 @@ public class SttLearningTests
         var log = await (await c.GetAsync("/api/chat/game/log")).Content.ReadAsStringAsync();
         Assert.DoesNotContain(Raw, log);
         Assert.DoesNotContain("sttOriginal", log, StringComparison.OrdinalIgnoreCase);
-        // 서버 로그 파일에도 본문을 남기지 않는다 (NFR-15): 저장 폴더 어디에도 인식 원문이 없다
+        // 서버 로그 파일에도 본문을 남기지 않는다 (NFR-15): 저장 폴더 어디에도 인식 원문이 없다.
         // (fakecli.log는 가짜 CLI가 "게임으로 나간 명령"을 적는 시험 도구의 파일이라 제외한다)
         var appFiles = Directory.EnumerateFiles(host.StorageDir, "*", SearchOption.AllDirectories)
             .Where(p => Path.GetFileName(p) != Path.GetFileName(host.FakeCliLog) && Path.GetFileName(p) != "stop.flag").ToList();
-        Assert.Contains(appFiles, p => p.EndsWith("vocab.json"));   // 검사가 헛돌지 않는다: 학습 파일은 실제로 있다
-        foreach (var f in appFiles)
+        var vocabFile = appFiles.SingleOrDefault(p => p.EndsWith("vocab.json"));
+        Assert.NotNull(vocabFile);   // 검사가 헛돌지 않는다: 학습 파일은 실제로 있다
+        foreach (var f in appFiles.Where(p => p != vocabFile))
         {
             string text;
             try { text = File.ReadAllText(f); } catch (IOException) { continue; }
@@ -142,6 +152,42 @@ public class SttLearningTests
             Assert.DoesNotContain(Fixed, text);
             Assert.DoesNotContain("sttOriginal", text, StringComparison.OrdinalIgnoreCase);
         }
+
+        // vocab.json은 한글이 \\uXXXX로 저장되어 원문 문자열 비교로는 아무것도 잡지 못한다: JSON으로 읽어 낱말·쌍 값을 비교한다
+        var root = JsonDocument.Parse(File.ReadAllText(vocabFile!)).RootElement;
+        var stored = root.GetProperty("Words").EnumerateObject().Select(w => w.Name)
+            .Concat(root.GetProperty("Pairs").EnumerateArray().SelectMany(p => new[] { p.GetProperty("From").GetString()!, p.GetProperty("To").GetString()! })).ToList();
+        Assert.NotEmpty(stored);
+        Assert.DoesNotContain(Raw, stored);
+        Assert.DoesNotContain(Raw.Replace(" ", ""), stored);
+        Assert.DoesNotContain(Fixed, stored);
+        Assert.DoesNotContain(Fixed.Replace(" ", ""), stored);
+        Assert.All(stored, s => Assert.True(s.Length <= 8 && !s.Contains(' '), $"문장 조각이 저장됨: {s}"));
+    }
+
+    [Fact]
+    public async Task LearningCannotBeInjected_FromAnotherDevice_WithoutTheHeader_OrThroughAForeignHost()
+    {
+        // 인증이 없으므로 LAN의 다른 기기나 다른 웹페이지가 sttOriginal을 실어 보내 쌍을 주입할 수 있었다 (같은 쌍을 두 번 보내면 활성화)
+        using var host = new TestHost();
+        var pc = await host.LocalAsync();
+        var phone = await host.LanAsync(pc);
+        var body = (string tail) => new { text = Fixed + tail, autoEmote = false, source = "음성", sttOriginal = Raw };   // 이모지만 달라 중복 방지에 걸리지 않는다
+
+        foreach (var tail in new[] { " 😊", " 🌹", " 🔥" })
+        {
+            Assert.Equal(HttpStatusCode.OK, (await PostChat(phone, body(tail))).StatusCode);                              // 폰: 보내기는 된다
+            Assert.Equal(HttpStatusCode.OK, (await PostChat(pc, body(tail + "a"), header: false)).StatusCode);           // PC지만 요청 형식이 다르다(다른 웹페이지)
+            Assert.Equal(HttpStatusCode.OK, (await PostChat(pc, body(tail + "b"), host: "evil.example")).StatusCode);     // 도메인을 돌려 붙인 요청
+        }
+        var v = await TestHost.Data(await pc.GetAsync("/api/stt/vocab"));
+        Assert.Empty(v.GetProperty("pairs").EnumerateArray());   // 아무것도 배우지 않았다
+        Assert.Empty(v.GetProperty("words").EnumerateArray());
+
+        // 대조: 이 PC 화면의 정상 요청은 배운다 (위 시험이 헛돌지 않는다는 증거)
+        await SendCorrected(pc);
+        await SendCorrected(pc);
+        Assert.NotEmpty((await TestHost.Data(await pc.GetAsync("/api/stt/vocab"))).GetProperty("pairs").EnumerateArray());
     }
 
     [Fact]
@@ -244,7 +290,7 @@ public class SttLearningTests
         var off = await TestHost.Data(await c.SendAsync(Req(HttpMethod.Put, "/api/stt/vocab", new { learningOn = false })));
         Assert.False(off.GetProperty("learningOn").GetBoolean());
         Assert.Equal(Raw, (await ListenOnce(host, c)).Text);                  // 꺼지면 이미 배운 치환도 하지 않는다
-        await c.PostAsJsonAsync("/api/chat/game", new { text = "꺼진 뒤에 쓴 말입니다", autoEmote = false });
+        await PostChat(c, new { text = "꺼진 뒤에 쓴 말입니다", autoEmote = false });
         Assert.DoesNotContain((await TestHost.Data(await c.GetAsync("/api/stt/vocab"))).GetProperty("words").EnumerateArray(), w => w.GetProperty("word").GetString() == "꺼진");
 
         await c.SendAsync(Req(HttpMethod.Put, "/api/stt/vocab", new { learningOn = true }));
@@ -260,7 +306,7 @@ public class SttLearningTests
     {
         using var host = new TestHost();
         var c = await host.LocalAsync();
-        await c.PostAsJsonAsync("/api/chat/game", new { text = "파티장님 고맙습니다", autoEmote = false });
+        await PostChat(c, new { text = "파티장님 고맙습니다", autoEmote = false });
         Assert.Contains((await TestHost.Data(await c.GetAsync("/api/stt/vocab"))).GetProperty("words").EnumerateArray(), w => w.GetProperty("word").GetString() == "파티장님");
         Assert.Equal(HttpStatusCode.OK, (await c.SendAsync(Req(HttpMethod.Post, "/api/stt/vocab/word", new { word = "파티장님" }))).StatusCode);
         Assert.DoesNotContain((await TestHost.Data(await c.GetAsync("/api/stt/vocab"))).GetProperty("words").EnumerateArray(), w => w.GetProperty("word").GetString() == "파티장님");

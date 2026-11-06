@@ -55,7 +55,8 @@ export const keys5 = {
   stt: ['stt'] as const,
 };
 
-export const useSttStatus = () => q<SttStatus>(keys5.stt, '/api/stt/status', { staleTime: 30_000 });
+/** 음성 입력은 게임 PC에서만 쓴다: 폰·태블릿(LAN)은 서버가 거절하므로 조회하지 않는다 */
+export const useSttStatus = (enabled = true) => q<SttStatus>(keys5.stt, '/api/stt/status', { staleTime: 30_000, enabled });
 export const useChatLog = () => q<ChatLogEntry[]>(keys5.chatLog, '/api/chat/game/log');
 export const usePersonas = () => q<CustomPersona[]>(keys5.personas, '/api/personas', { staleTime: 60_000 });
 export const useEngines = () => q<Engines>(keys5.engines, '/api/ai/engines', { staleTime: 60_000 });

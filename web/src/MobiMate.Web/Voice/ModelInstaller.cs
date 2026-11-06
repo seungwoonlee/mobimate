@@ -191,7 +191,7 @@ public sealed class SttModelInstaller(SttModelLocator model, SseHub hub, ILogger
             publish = force || next.Phase != SttInstallPhase.Downloading || now - _lastPublish >= 250;   // 진행률은 0.25초마다만
             if (publish) _lastPublish = now;
         }
-        if (publish) hub.Broadcast("stt.install", Dto(next));
+        if (publish) hub.BroadcastLocal("stt.install", Dto(next));
     }
 
     public static object Dto(SttInstallState s) => new

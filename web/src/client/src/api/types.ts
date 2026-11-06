@@ -9,7 +9,7 @@ export interface Session { kind: 'local' | 'lan' }
 export type SttStateName = 'idle' | 'starting' | 'listening' | 'finishing';
 export interface SttStatus {
   state: SttStateName; sessionId: string | null; byDevice: string | null; device: string | null;
-  modelInstalled: boolean; install: SttInstall; autoSend: boolean; allowLanStart: boolean; maxSeconds: number; hotkey: SttHotkeyStatus;
+  modelInstalled: boolean; install: SttInstall; autoSend: boolean; maxSeconds: number; hotkey: SttHotkeyStatus;
 }
 export interface SttStateEvent {
   sessionId: string; state: SttStateName; byDevice?: string | null; error?: string | null; message?: string | null;
@@ -18,7 +18,7 @@ export interface SttStateEvent {
 export interface SttInstall { phase: 'idle' | 'downloading' | 'done' | 'failed'; done: number; total: number; file: string | null; error: string | null }
 export interface SttHotkeyStatus { key: string | null; registered: boolean; error: string | null; mode: 'hold' | 'toggle' }
 export interface SttSettings {
-  autoSend: boolean; allowLanStart: boolean; maxSeconds: number; deviceId: string | null; threads: number;
+  autoSend: boolean; maxSeconds: number; deviceId: string | null; threads: number;
   hotkey: string | null; hotkeyMode: 'hold' | 'toggle'; cue: boolean; hotwords: boolean; spacing: boolean;
 }
 export interface SttVocabWord { word: string; count: number; last: string; hotword: boolean }

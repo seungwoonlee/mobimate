@@ -53,6 +53,8 @@ public sealed class VoiceVocabulary
     public const int MaxEditDistance = 8;      // 이보다 많이 고쳤으면 다시 쓴 것으로 보고 배우지 않는다
     public const int MaxHunks = 3;
     public const int MaxWords = 2000;
+    public const int MaxPairs = 500;
+    public const int MaxInputChars = 200;      // 학습에 쓰는 문장 길이 상한 (편집 거리 계산이 길이의 제곱이라 무제한이면 메모리·시간이 폭주한다)
     public const int HotwordMinCount = 3;
     public static readonly TimeSpan Retention = TimeSpan.FromDays(90);
 
@@ -61,6 +63,7 @@ public sealed class VoiceVocabulary
     private readonly JsonFileStore _store = new();
     private readonly Func<DateTime> _now;
     private VocabData _data;
+    private bool _readOnly;   // 파일을 읽지 못한 채 시작했다: 빈 데이터로 원본을 덮어쓰지 않도록 이번 실행에서는 저장하지 않는다
 
     /// <summary>파일이 손상되어 격리했다면 그 사실 (설정 화면에서 알린다 — 학습이 조용히 사라지면 안 된다)</summary>
     public string? LoadWarning { get; private set; }
@@ -71,8 +74,14 @@ public sealed class VoiceVocabulary
         _path = Path.Combine(storageDir, "stt", "vocab.json");
         var status = _store.TryLoad<VocabData>(_path, out var loaded);
         _data = loaded ?? new VocabData();
+        Sanitize();
         if (status == LoadStatus.Quarantined) LoadWarning = "학습 파일이 손상되어 따로 보관하고 새로 시작했습니다.";
-        else if (status == LoadStatus.Failed) LoadWarning = "학습 파일을 읽지 못했습니다(다른 프로그램이 쓰는 중일 수 있습니다). 이번 실행에서는 새로 시작합니다.";
+        else if (status == LoadStatus.Failed)
+        {
+            // 잠겨 있거나 권한 문제로 읽지 못한 것이지 비어 있는 것이 아니다: 저장하면 원본(과 백업)을 빈 내용으로 덮어쓴다 (JsonFileStore 계약)
+            _readOnly = true;
+            LoadWarning = "학습 파일을 읽지 못했습니다(다른 프로그램이 쓰는 중일 수 있습니다). 원본을 보호하려고 이번 실행에서는 학습 내용을 저장하지 않습니다. 앱을 다시 켜 보세요.";
+        }
         Prune();
     }
 
@@ -108,6 +117,8 @@ public sealed class VoiceVocabulary
     public void Learn(string sent, string? sttOriginal = null)
     {
         if (string.IsNullOrWhiteSpace(sent)) return;
+        sent = Clip(sent);
+        sttOriginal = sttOriginal == null ? null : Clip(sttOriginal);
         lock (_lock)
         {
             if (!_data.LearningOn) return;
@@ -157,17 +168,14 @@ public sealed class VoiceVocabulary
     /// </summary>
     public (string Text, IReadOnlyList<string> Applied) Apply(string raw)
     {
-        List<VocabPair> active;
+        Regex regex;
+        Dictionary<string, string> map;
         lock (_lock)
         {
             if (!_data.LearningOn) return (raw, Array.Empty<string>());
-            active = _data.Pairs.Where(IsActive).OrderByDescending(p => p.From.Length).ThenByDescending(p => p.Count).ToList();
+            (regex, map) = CompiledPairs();
         }
-        if (active.Count == 0 || string.IsNullOrEmpty(raw)) return (raw, Array.Empty<string>());
-
-        var map = new Dictionary<string, string>();
-        foreach (var p in active) map.TryAdd(p.From, p.To);   // 같은 from이 둘이면 더 많이 확인된 쪽
-        var regex = new Regex(string.Join("|", map.Keys.OrderByDescending(k => k.Length).Select(Regex.Escape)));
+        if (regex == null || string.IsNullOrEmpty(raw)) return (raw, Array.Empty<string>());
         var applied = new List<string>();
         var text = regex.Replace(raw, m =>
         {
@@ -175,6 +183,26 @@ public sealed class VoiceVocabulary
             return map[m.Value];
         });
         return (text, applied.Distinct().ToList());
+    }
+
+    private Regex? _regex;
+    private Dictionary<string, string> _map = new();
+    private int _regexVersion = -1;
+
+    /// <summary>활성 쌍을 한 번에 바꾸는 정규식. 학습 내용이 바뀐 때만 다시 만든다(부분 인식마다 새로 만들지 않는다). 호출자가 락을 잡고 있어야 한다.</summary>
+    private (Regex Regex, Dictionary<string, string> Map) CompiledPairs()
+    {
+        var v = Version;
+        if (_regexVersion != v)
+        {
+            var active = _data.Pairs.Where(IsActive).OrderByDescending(p => p.From.Length).ThenByDescending(p => p.Count).ToList();
+            var map = new Dictionary<string, string>();
+            foreach (var p in active) map.TryAdd(p.From, p.To);   // 같은 from이 둘이면 더 많이 확인된 쪽
+            _map = map;
+            _regex = map.Count == 0 ? null : new Regex(string.Join("|", map.Keys.OrderByDescending(k => k.Length).Select(Regex.Escape)));
+            _regexVersion = v;
+        }
+        return (_regex!, _map);
     }
 
     private static bool IsActive(VocabPair p) => !p.Off && p.Count >= ActivateAt && p.From.Length >= MinApplySyllables;
@@ -226,7 +254,7 @@ public sealed class VoiceVocabulary
         lock (_lock)
         {
             var n = _data.Pairs.RemoveAll(x => x.From == from && x.To == to);
-            if (n > 0) Save();
+            if (n > 0) { Save(); DeleteResidue(); }
             return n > 0;
         }
     }
@@ -236,7 +264,7 @@ public sealed class VoiceVocabulary
         lock (_lock)
         {
             var ok = _data.Words.Remove(word);
-            if (ok) Save();
+            if (ok) { Save(); DeleteResidue(); }
             return ok;
         }
     }
@@ -248,7 +276,9 @@ public sealed class VoiceVocabulary
         {
             var on = _data.LearningOn;
             _data = new VocabData { LearningOn = on };
+            _readOnly = false;   // 사용자가 일부러 비웠다: 읽지 못해 보호 중이던 파일도 새로 쓴다
             Save();
+            DeleteResidue();
         }
     }
 
@@ -259,6 +289,11 @@ public sealed class VoiceVocabulary
         var limit = _now() - Retention;
         foreach (var k in _data.Words.Where(kv => kv.Value.Last < limit).Select(kv => kv.Key).ToList()) _data.Words.Remove(k);
         _data.Pairs.RemoveAll(p => p.Last < limit);
+        if (_data.Pairs.Count > MaxPairs)
+        {
+            var drop = _data.Pairs.OrderBy(p => p.Count).ThenBy(p => p.Last).Take(_data.Pairs.Count - MaxPairs).ToHashSet();
+            _data.Pairs.RemoveAll(drop.Contains);
+        }
         if (_data.Words.Count > MaxWords)
             foreach (var k in _data.Words.OrderBy(kv => kv.Value.Count).ThenBy(kv => kv.Value.Last).Take(_data.Words.Count - MaxWords).Select(kv => kv.Key).ToList()) _data.Words.Remove(k);
     }
@@ -266,7 +301,37 @@ public sealed class VoiceVocabulary
     private void Save()
     {
         Interlocked.Increment(ref _version);
-        _store.Save(_path, _data);
+        if (_readOnly) return;
+        if (!_store.Save(_path, _data))
+            LoadWarning = "학습 내용을 저장하지 못했습니다. 이번 실행의 학습은 앱을 끄면 사라질 수 있습니다.";
+    }
+
+    /// <summary>
+    /// 사용자가 낱말·쌍을 지우거나 전체를 지웠을 때, 지운 내용이 남아 있을 수 있는 파일을 함께 지운다:
+    /// 저장소가 직전 내용을 `vocab.json.bak`으로 남기고, 손상 격리본(`vocab.json.corrupted.*.bak`)과 핫워드 파일(`hotwords.txt`)에도 낱말이 평문으로 있다.
+    /// </summary>
+    private void DeleteResidue()
+    {
+        try
+        {
+            var dir = Path.GetDirectoryName(_path);
+            if (string.IsNullOrEmpty(dir) || !Directory.Exists(dir)) return;
+            foreach (var f in Directory.GetFiles(dir, "vocab.json.*").Where(f => f.EndsWith(".bak", StringComparison.OrdinalIgnoreCase))) File.Delete(f);
+            var hot = Path.Combine(dir, "hotwords.txt");
+            if (File.Exists(hot)) File.Delete(hot);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+    }
+
+    private static string Clip(string s) => s.Length <= MaxInputChars ? s : s[..MaxInputChars];
+
+    /// <summary>JSON은 올바르지만 null 항목이 든 파일("Pairs":[null])도 시작을 막지 않게 정리한다</summary>
+    private void Sanitize()
+    {
+        _data.Words ??= new();
+        _data.Pairs ??= new();
+        foreach (var k in _data.Words.Where(kv => kv.Value == null || string.IsNullOrEmpty(kv.Key)).Select(kv => kv.Key).ToList()) _data.Words.Remove(k);
+        _data.Pairs.RemoveAll(p => p == null || string.IsNullOrEmpty(p.From) || string.IsNullOrEmpty(p.To));
     }
 
     private static readonly Regex NotLetters = new(@"[^\p{L}]", RegexOptions.Compiled);
@@ -294,6 +359,7 @@ public sealed class VoiceVocabulary
     internal static IReadOnlyList<(string From, string To)> ExtractPairs(string a, string b)
     {
         var n = a.Length; var m = b.Length;
+        if (n > MaxInputChars || m > MaxInputChars) return Array.Empty<(string, string)>();   // 호출 쪽에서 줄이지만 안전망: 표가 길이의 제곱이다
         var d = new int[n + 1, m + 1];
         for (var i = 0; i <= n; i++) d[i, 0] = i;
         for (var j = 0; j <= m; j++) d[0, j] = j;

@@ -258,6 +258,27 @@ public class SpacingTests(ITestOutputHelper output)
         return last;
     }
 
+    private static Task<HttpResponseMessage> PostChat(HttpClient c, object body)
+    {
+        var r = new HttpRequestMessage(HttpMethod.Post, "/api/chat/game") { Content = System.Net.Http.Json.JsonContent.Create(body) };
+        r.Headers.Add("X-MobiMate-Req", "1");   // 학습은 이 PC 화면에서 온 요청(헤더 포함)만 받는다
+        return c.SendAsync(r);
+    }
+
+    [Fact]
+    public void TwoOneSyllableWords_AreNotSplitOutOfARealWord()
+    {
+        // "분명"이 "분 명"으로 나뉘면 안 된다 (한 글자 낱말 "분", "명"이 사전에 있어도)
+        Assert.Equal("분명", Small("분", "명").Restore("분명"));
+        Assert.Equal("한명", Small("한", "명").Restore("한명"));   // 보수적: 숫자+단위도 붙여 둔다 (놓치는 쪽이 틀린 공백보다 낫다)
+    }
+
+    [Fact]
+    public void AOneSyllableWordBetweenKnownWords_IsStillSplit()
+    {
+        Assert.Equal("한 분만 더 구합니다", Small("한", "분만", "더", "구합니다").Restore("한분만더구합니다"));
+    }
+
     [Fact]
     public async Task InTheApp_SpacingIsOffByDefault_AndOnlyChangesTheFinalText_NotTheOriginal()
     {
@@ -281,7 +302,7 @@ public class SpacingTests(ITestOutputHelper output)
         await c.SendAsync(Req(HttpMethod.Put, "/api/stt/settings", new { spacing = true }));
         for (var i = 0; i < 2; i++)
         {
-            await c.PostAsJsonAsync("/api/chat/game", new { text = "힐러 구합니다", autoEmote = false, source = "음성", sttOriginal = "일러구합니다" });
+            await PostChat(c, new { text = "힐러 구합니다", autoEmote = false, source = "음성", sttOriginal = "일러구합니다" });
             await Task.Delay(1100);
         }
         var fin = await Listen(host, c, "일러구합니다");

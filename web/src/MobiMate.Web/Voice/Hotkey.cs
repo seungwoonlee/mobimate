@@ -6,8 +6,12 @@ using WinForms = System.Windows.Forms;
 
 namespace MobiMate.Web.Voice;
 
-/// <summary>전역 단축키 하나: 수정키 비트(Alt=1·Ctrl=2·Shift=4·Win=8)와 가상 키 코드</summary>
-public sealed record HotkeySpec(uint Modifiers, uint VirtualKey, string Display);
+/// <summary>
+/// 전역 단축키 하나: 수정키 비트(Alt=1·Ctrl=2·Shift=4·Win=8)와 가상 키 코드.
+/// <see cref="LeftOnly"/>는 왼쪽 키만 인정하는 수정키 비트다(예: LCtrl+Space). Windows의 단축키 등록은 좌우를 구분하지 못하므로
+/// 눌렸을 때 왼쪽 키가 눌려 있는지 따로 확인한다.
+/// </summary>
+public sealed record HotkeySpec(uint Modifiers, uint VirtualKey, string Display, uint LeftOnly = 0);
 
 /// <summary>"Ctrl+Alt+V", "F9" 같은 글을 단축키로 바꾼다 (FR-VC-02)</summary>
 public static class HotkeyParser
@@ -29,7 +33,7 @@ public static class HotkeyParser
     public static HotkeySpec? Parse(string? text)
     {
         if (string.IsNullOrWhiteSpace(text)) return null;
-        uint mods = 0, vk = 0;
+        uint mods = 0, vk = 0, left = 0;
         string keyName = "";
         foreach (var part in text.Split('+', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
         {
@@ -39,6 +43,9 @@ public static class HotkeyParser
                 case "alt": mods |= Alt; break;
                 case "shift": mods |= Shift; break;
                 case "win" or "meta" or "cmd": mods |= Win; break;
+                case "lctrl" or "leftctrl" or "lcontrol": mods |= Ctrl; left |= Ctrl; break;     // 왼쪽만
+                case "lalt" or "leftalt": mods |= Alt; left |= Alt; break;
+                case "lshift" or "leftshift": mods |= Shift; left |= Shift; break;
                 default:
                     if (vk != 0 || !TryKey(part, out vk, out keyName)) return null;
                     break;
@@ -49,9 +56,11 @@ public static class HotkeyParser
         if (!isFunctionKey && (mods & (Ctrl | Alt | Win)) == 0) return null;
 
         var display = string.Concat(
-            (mods & Ctrl) != 0 ? "Ctrl+" : "", (mods & Alt) != 0 ? "Alt+" : "",
-            (mods & Shift) != 0 ? "Shift+" : "", (mods & Win) != 0 ? "Win+" : "", keyName);
-        return new HotkeySpec(mods, vk, display);
+            (mods & Ctrl) != 0 ? ((left & Ctrl) != 0 ? "LCtrl+" : "Ctrl+") : "",
+            (mods & Alt) != 0 ? ((left & Alt) != 0 ? "LAlt+" : "Alt+") : "",
+            (mods & Shift) != 0 ? ((left & Shift) != 0 ? "LShift+" : "Shift+") : "",
+            (mods & Win) != 0 ? "Win+" : "", keyName);
+        return new HotkeySpec(mods, vk, display, left);
     }
 
     private static bool TryKey(string s, out uint vk, out string name)
@@ -145,8 +154,18 @@ public sealed class HotkeyService(
     {
         var spec = _spec;   // 락 없이 읽는다: 창 스레드를 붙잡지 않는다
         if (spec == null) return;
+        if (!LeftModifiersHeld(spec)) return;   // 왼쪽 키만 인정하는 단축키인데 오른쪽 키로 눌렀다
         var mode = settings.Current.SttHotkeyMode;
         _ = Task.Run(() => HandleAsync(spec, mode));
+    }
+
+    /// <summary>"LCtrl+Space"처럼 왼쪽 수정키만 인정하는 단축키는, 눌린 순간 왼쪽 키가 눌려 있고 오른쪽 키는 눌려 있지 않아야 한다</summary>
+    private bool LeftModifiersHeld(HotkeySpec spec)
+    {
+        if (spec.LeftOnly == 0) return true;
+        foreach (var (bit, left, right) in new (uint, uint, uint)[] { (HotkeyParser.Ctrl, 0xA2, 0xA3), (HotkeyParser.Alt, 0xA4, 0xA5), (HotkeyParser.Shift, 0xA0, 0xA1) })
+            if ((spec.LeftOnly & bit) != 0 && (!keys.IsDown(left) || keys.IsDown(right))) return false;
+        return true;
     }
 
     internal async Task HandleAsync(HotkeySpec spec, string mode)

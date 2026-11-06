@@ -16,6 +16,13 @@ public sealed class SpacingRestorer
     private const double UnknownPerSyllable = 1.6;   // 모르는 글자는 한 음절마다 이만큼 비싸다
     private const int MaxWordLength = 12;
 
+    /// <summary>
+    /// 한 글자 낱말(한·두·더·분·명…)은 이웃과 합쳐 다른 낱말이 되는 경우가 많다("분명"이 "분 명"으로 나뉘면 안 된다).
+    /// 그래서 한 글자 낱말을 둘 이상 이어 쓰는 쪽은 모르는 두 글자 구간(4.2)보다 비싸게 해(2×약 2.3=4.6) 쪼개지 않는다.
+    /// 한 글자 낱말 하나를 아는 낱말 사이에 쓰는 것은 모르는 한 글자 구간(2.6)보다 싸다(약 2.3) — "분만 더 구합니다"는 그대로 나뉜다.
+    /// </summary>
+    private const double SingleSyllablePenalty = 1.6;
+
     private readonly Dictionary<string, double> _cost;
     private readonly int _maxKnown;
     private readonly int _glue;
@@ -32,7 +39,7 @@ public sealed class SpacingRestorer
         foreach (var (word, weight) in weights)
         {
             if (word.Length is < 1 or > MaxWordLength) continue;
-            _cost[word] = Math.Max(0.35, SegmentCost - Math.Min(0.6, 0.12 * Math.Log(1 + weight)));
+            _cost[word] = Math.Max(0.35, SegmentCost - Math.Min(0.6, 0.12 * Math.Log(1 + weight))) + (word.Length == 1 ? SingleSyllablePenalty : 0);
         }
         _maxKnown = _cost.Count == 0 ? 0 : _cost.Keys.Max(k => k.Length);
     }

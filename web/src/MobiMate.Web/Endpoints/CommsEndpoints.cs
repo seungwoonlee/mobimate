@@ -39,7 +39,11 @@ public static class CommsEndpoints
             var (status, entry) = await chat.SendAsync(req.Text, req.AutoEmote ?? s.Current.AutoEmoteDefault, source, ClientId.Of(ctx), ct);
             // 누적 학습 (FR-VC-08): 사람이 쓴 글(직접·음성)만 배운다. 한마디(아무말) 대사는 생성된 글이라 배우지 않는다.
             // 고치기 전 인식 글자는 음성 초안일 때만 받고, 로그·파일에는 남기지 않는다.
-            if (status == ChatSendStatus.Sent && (source == "직접" || source == "음성"))
+            // 학습은 이 PC의 화면에서 온 요청만: 인증이 없는 LAN의 다른 기기나 다른 웹페이지가 sttOriginal을 실어 학습 쌍을 주입하지 못하게
+            // (같은 쌍을 두 번 보내면 활성화되므로). 채팅 전송 자체는 어느 기기에서든 된다.
+            var mayLearn = ClientId.IsLocal(ctx) && ctx.Request.Headers[SttGuard.HeaderName] == "1"
+                && SttGuard.HostAllowed(ctx, ctx.RequestServices.GetRequiredService<ILanHosts>());
+            if (mayLearn && status == ChatSendStatus.Sent && (source == "직접" || source == "음성"))
                 vocab.Learn(req.Text ?? "", source == "음성" ? req.SttOriginal : null);
             return status switch
             {

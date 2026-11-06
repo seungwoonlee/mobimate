@@ -60,7 +60,7 @@ const ERRORS: Record<string, string> = {
   STT_MIC_REMOVED: '마이크 연결이 끊겨 듣기를 마쳤습니다.',
   STT_MIC_FAILED: '마이크를 열지 못했습니다.',
   STT_MODEL_MISSING: '음성 인식 모델이 설치되어 있지 않습니다.',
-  STT_LAN_DISABLED: '폰·태블릿에서 음성 시작은 PC 설정에서 켜야 합니다.',
+  PC_ONLY: '음성 입력은 게임 PC에서만 쓸 수 있습니다.',
   STT_BUSY: '이미 듣고 있습니다.',
   STT_FORBIDDEN: '요청이 거절되었습니다. 화면을 새로고침해 주세요.',
   STT_ENGINE_FAILED: '음성 인식을 시작하지 못했습니다.',
@@ -78,7 +78,6 @@ export function sttWarnMessage(warn?: string | null): string | null {
 export interface MicInput {
   /** 상태를 아직 못 받았으면 undefined */
   modelInstalled: boolean | undefined;
-  allowLanStart: boolean | undefined;
   kind: 'local' | 'lan' | undefined;
   voiceState: VoiceState;
   offline: boolean;
@@ -96,7 +95,7 @@ export function micAvailability(i: MicInput): MicAvailability {
   if (i.voiceState === 'listening') return { enabled: true, reason: null };
   if (i.voiceState !== 'idle') return { enabled: false, reason: '잠시만 기다려 주세요' };
   if (i.modelInstalled === false) return { enabled: false, reason: '음성 인식 모델이 설치되어 있지 않습니다' };
-  if (i.kind === 'lan' && i.allowLanStart === false) return { enabled: false, reason: 'PC 설정에서 "폰·태블릿 음성 시작"을 켜야 합니다' };
+  if (i.kind === 'lan') return { enabled: false, reason: '음성 입력은 게임 PC에서만 쓸 수 있습니다' };
   return { enabled: true, reason: null };
 }
 
@@ -114,17 +113,28 @@ export interface KeyComboInput {
 }
 
 /**
- * 눌린 키를 서버가 읽는 단축키 글("Ctrl+Alt+V")로 바꾼다 (FR-VC-02). 키 위치(code)로 읽어 자판 배열과 한/영 상태에 영향받지 않는다.
+ * 눌린 키를 서버가 읽는 단축키 글("Ctrl+Alt+V", "LCtrl+Space")로 바꾼다 (FR-VC-02). 키 위치(code)로 읽어 자판 배열과 한/영 상태에 영향받지 않는다.
+ * <paramref name="down"/>(지금 눌려 있는 키의 code 집합)을 주면 왼쪽만 눌린 Ctrl·Alt·Shift는 "LCtrl"처럼 왼쪽 전용으로 만든다
+ * (브라우저의 수정키 상태는 좌우를 구분하지 못해서 눌림을 따로 추적해야 한다). 양쪽을 다 눌렀거나 모르면 좌우 구분 없는 이름이다.
  * 아직 주 키를 안 눌렀거나(수정키만), Ctrl·Alt·Win 없이 글자·숫자·스페이스만(Shift만 포함) 누르면 null — 서버도 같은 규칙으로 거절한다.
  */
-export function comboFromKeyEvent(e: KeyComboInput): string | null {
+export function comboFromKeyEvent(e: KeyComboInput, down?: ReadonlySet<string>): string | null {
   let key: string | null = null;
   if (/^Key[A-Z]$/.test(e.code)) key = e.code.slice(3);
   else if (/^Digit[0-9]$/.test(e.code)) key = e.code.slice(5);
   else if (/^F([1-9]|1[0-9]|2[0-4])$/.test(e.code)) key = e.code;
   else if (NAMED_KEYS[e.code]) key = NAMED_KEYS[e.code];
   if (!key) return null;
-  const mods = [e.ctrlKey && 'Ctrl', e.altKey && 'Alt', e.shiftKey && 'Shift', e.metaKey && 'Win'].filter(Boolean) as string[];
+  const side = (on: boolean, name: string, left: string, right: string) => {
+    if (!on) return null;
+    return down && down.has(left) && !down.has(right) ? `L${name}` : name;
+  };
+  const mods = [
+    side(e.ctrlKey, 'Ctrl', 'ControlLeft', 'ControlRight'),
+    side(e.altKey, 'Alt', 'AltLeft', 'AltRight'),
+    side(e.shiftKey, 'Shift', 'ShiftLeft', 'ShiftRight'),
+    e.metaKey ? 'Win' : null,
+  ].filter(Boolean) as string[];
   const isFunctionKey = /^F\d+$/.test(key);
   // Ctrl·Alt·Win 중 하나가 있어야 한다. 수정키가 없거나 Shift뿐이면 그 글자·숫자·기호 입력이 모든 프로그램에서 가로채인다 (서버 규칙과 같다)
   if (!isFunctionKey && !(e.ctrlKey || e.altKey || e.metaKey)) return null;

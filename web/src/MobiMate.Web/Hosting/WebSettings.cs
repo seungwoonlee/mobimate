@@ -16,9 +16,6 @@ public sealed class WebSettings
     /// <summary>확정 즉시 게임 채팅으로 보낸다 (기본 끔: 오인식이 그대로 나가므로)</summary>
     public bool SttAutoSend { get; set; }
 
-    /// <summary>폰·태블릿(LAN 기기)이 음성 듣기를 시작할 수 있는가 (기본 끔: 무인증 LAN에서 마이크를 켜는 것을 막는다, FR-VC-10)</summary>
-    public bool SttAllowLanStart { get; set; }
-
     /// <summary>한 번 듣는 최대 시간(초)</summary>
     public int SttMaxSeconds { get; set; } = 15;
 
@@ -85,7 +82,6 @@ public sealed class WebSettingsStore
         LanEnabled = s.LanEnabled,
         ChatterPersona = s.ChatterPersona,
         SttAutoSend = s.SttAutoSend,
-        SttAllowLanStart = s.SttAllowLanStart,
         SttMaxSeconds = s.SttMaxSeconds,
         SttDeviceId = s.SttDeviceId,
         SttThreads = s.SttThreads,

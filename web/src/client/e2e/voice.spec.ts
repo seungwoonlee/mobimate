@@ -48,7 +48,7 @@ test('음성 입력: 눌러도 서버의 마이크가 켜지지 않고(비활성
   const status = await (await request.get('/api/stt/status')).json();
   expect(status.data.state).toBe('idle');
   expect(status.data.modelInstalled).toBe(false);
-  expect(status.data.allowLanStart).toBe(false);   // 폰·태블릿 시작은 기본 꺼짐
+  expect(status.data.allowLanStart).toBeUndefined();   // 폰·태블릿 시작 설정은 없다(음성 입력은 PC 전용)
   expect(status.data.autoSend).toBe(false);        // 자동 전송도 기본 꺼짐
 });
 
@@ -83,11 +83,10 @@ test('설정: 음성 입력 구역에 모델 설치·마이크·단축키·전�
   await expect(card.getByRole('button', { name: '마이크 테스트' })).toBeVisible();   // 누르지 않는다
   await expect(card.getByRole('button', { name: '단축키 지정' })).toBeVisible();
 
-  // 자동 전송·폰에서 시작은 기본 꺼짐 (켜져 있으면 안 된다)
+  // 자동 전송은 기본 꺼짐 (켜져 있으면 안 된다). 폰·태블릿 시작 설정은 없다(PC 전용)
   const autoSend = card.locator('.kv', { hasText: '말이 끝나면 바로 전송' });
   await expect(autoSend.getByRole('button', { name: '끄기' })).toHaveAttribute('aria-pressed', 'true');
-  const lan = card.locator('.kv', { hasText: '폰·태블릿에서 시작' });
-  await expect(lan.getByRole('button', { name: '허용 안 함' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(card.getByText('폰·태블릿에서 시작')).toHaveCount(0);
   const hotwords = card.locator('.kv', { hasText: '우선 인식' });
   await expect(hotwords.getByRole('button', { name: '끄기' })).toHaveAttribute('aria-pressed', 'true');
   // 누적 학습은 기본 켜짐이고 문장을 저장하지 않는다고 알린다

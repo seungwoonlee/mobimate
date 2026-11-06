@@ -331,4 +331,100 @@ public class VocabularyTests : IDisposable
         Assert.Equal("힐러구합니다", r.Text);
         Assert.Equal(new[] { "일러→힐러" }, r.Applied);
     }
+
+    // ── 리뷰 반영: 데이터 보호·상한·잔존 파일 ──
+
+    [Fact]
+    public void AFileThatCannotBeRead_IsNeverOverwritten_AndTheUserIsTold()
+    {
+        // 잠겨 있어서 읽지 못한 것을 "비어 있다"로 보고 빈 내용을 저장하면 원본(과 백업)이 사라진다
+        var seed = Make();
+        for (var i = 0; i < 2; i++) seed.Learn("힐러 구합니다", "일러구합니다");
+        var path = Path.Combine(_dir, "stt", "vocab.json");
+        var original = File.ReadAllText(path);
+
+        using (new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.None))   // 다른 프로그램이 쓰는 중
+        {
+            var v = Make();
+            Assert.NotNull(v.LoadWarning);
+            Assert.Contains("저장하지 않습니다", v.LoadWarning);
+            v.Learn("새로 배운 낱말입니다");   // 예외 없이 동작하되 저장은 하지 않는다
+            v.SetLearning(false);
+        }
+        Assert.Equal(original, File.ReadAllText(path));   // 원본이 그대로다
+        Assert.Contains("힐러", Make().Apply("일러구합니다").Text);   // 잠금이 풀리면 배운 것이 그대로 살아 있다
+    }
+
+    [Fact]
+    public void ValidJsonWithNullEntries_DoesNotStopStartup()
+    {
+        Directory.CreateDirectory(Path.Combine(_dir, "stt"));
+        File.WriteAllText(Path.Combine(_dir, "stt", "vocab.json"),
+            "{\"Version\":1,\"LearningOn\":true,\"Words\":{\"널값\":null,\"\":{\"Count\":1,\"Last\":\"2026-11-06T00:00:00Z\"}},\"Pairs\":[null,{\"From\":\"\",\"To\":\"가나\",\"Count\":2}]}");
+        var v = Make();   // 예외 없이 시작
+        Assert.Empty(v.View().Words);
+        Assert.Empty(v.View().Pairs);
+        v.Learn("정상으로 돌아왔습니다");
+        Assert.Contains(v.View().Words, w => w.Word == "정상으로");
+    }
+
+    [Fact]
+    public void HugeInputs_AreClipped_SoMemoryAndTimeStayBounded()
+    {
+        var v = Make();
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        v.Learn(new string('나', 50_000), new string('가', 50_000));   // 편집 거리 표가 5만×5만이면 수 GB
+        Assert.True(sw.Elapsed < TimeSpan.FromSeconds(2), $"오래 걸렸다: {sw.Elapsed}");
+        Assert.All(v.View().Words, w => Assert.True(w.Word.Length <= 8));
+        Assert.True(new FileInfo(Path.Combine(_dir, "stt", "vocab.json")).Length < 50_000);
+    }
+
+    [Fact]
+    public void ThePairList_IsCapped()
+    {
+        var v = Make();
+        for (var i = 0; i < VoiceVocabulary.MaxPairs + 40; i++)
+        {
+            string Syll(int n) => new(new[] { (char)(0xAC00 + n), (char)(0xAC00 + n + 1) });
+            v.Learn(Syll(5000 + 2 * i), Syll(2 * i));   // 서로 다른 두 음절 맞바꿈 쌍
+        }
+        Assert.True(v.View().Pairs.Count <= VoiceVocabulary.MaxPairs);
+    }
+
+    [Theory]
+    [InlineData("word")]
+    [InlineData("pair")]
+    [InlineData("clear")]
+    public void DeletingLearnedContent_AlsoRemovesBackupQuarantineAndHotwordFiles(string how)
+    {
+        // 저장소가 직전 내용을 vocab.json.bak으로 남기고, 핫워드 파일에는 낱말이 평문으로 있다. 지웠는데 남아 있으면 안 된다.
+        var v = Make();
+        for (var i = 0; i < 2; i++) v.Learn("힐러 구합니다", "일러구합니다");
+        var dir = Path.Combine(_dir, "stt");
+        File.WriteAllText(Path.Combine(dir, "hotwords.txt"), "힐 러");
+        File.WriteAllText(Path.Combine(dir, "vocab.json.corrupted.20260101_000000.bak"), "옛 내용 힐러");
+        Assert.True(File.Exists(Path.Combine(dir, "vocab.json.bak")), "시험 전제: 백업이 있어야 한다");
+
+        Assert.True(how switch { "word" => v.RemoveWord("힐러"), "pair" => v.RemovePair("일러", "힐러"), _ => Do(v.Clear) });
+
+        Assert.False(File.Exists(Path.Combine(dir, "vocab.json.bak")));
+        Assert.False(File.Exists(Path.Combine(dir, "hotwords.txt")));
+        Assert.Empty(Directory.GetFiles(dir, "vocab.json.corrupted.*"));
+        static bool Do(Action a) { a(); return true; }
+    }
+
+    [Fact]
+    public void ChangingTheLearnedPairs_IsPickedUpByTheCachedMatcher()
+    {
+        // Apply는 활성 쌍의 정규식을 캐시한다: 학습·켜기·끄기·지우기 뒤에는 새 내용이 바로 반영되어야 한다
+        var v = Make();
+        for (var i = 0; i < 2; i++) v.Learn("힐러 구합니다", "일러구합니다");
+        Assert.Equal("힐러구합니다", v.Apply("일러구합니다").Text);
+        v.SetPairOff("일러", "힐러", true);
+        Assert.Equal("일러구합니다", v.Apply("일러구합니다").Text);
+        v.SetPairOff("일러", "힐러", false);
+        Assert.Equal("힐러구합니다", v.Apply("일러구합니다").Text);
+        v.RemovePair("일러", "힐러");
+        Assert.Equal("일러구합니다", v.Apply("일러구합니다").Text);
+    }
 }
