@@ -66,9 +66,14 @@ export function VoiceSettings({ local }: { local: boolean }) {
           <Row label="띄어쓰기 넣기 (실험)">
             <Seg value={s.spacing ? 'on' : 'off'} options={[['off', '끄기'], ['on', '켜기']]} onChange={v => void save({ spacing: v === 'on' })} />
           </Row>
+          {s.spacing && (
+            <Row label="띄어쓰기 강도">
+              <Seg value={String(s.spacingLevel)} options={[['0', '보수적'], ['1', '보통'], ['2', '적극적']]} onChange={v => void save({ spacingLevel: Number(v) })} />
+            </Row>
+          )}
           <p className="faint small">
             인식 글자는 띄어쓰기 없이 나옵니다("지금레이드들어갑니다"). 켜면 아는 낱말 사이에 공백을 넣고, 모르는 부분은 붙여 둡니다.
-            처음 보는 문장에서는 공백의 약 5분의 4가 맞고 놓치는 곳도 있어서 기본은 끔입니다. 내가 보낸 낱말이 사전에 더해져 쓸수록 나아집니다.
+            높일수록 공백을 더 넣어 놓치는 곳이 줄지만(처음 보는 문장 기준 적극적: 넣은 공백의 80%가 맞고 62%를 찾음, 보수적: 85%·56%) 틀린 공백도 조금 늘어납니다. 게임의 채팅 확인창에서 최종 문장을 보고 취소할 수 있어 기본은 적극적입니다. 내가 보낸 낱말이 사전에 더해져 쓸수록 나아집니다.
           </p>
           <LearningSection />
           <Row label="자주 쓰는 낱말 우선 인식 (실험)">

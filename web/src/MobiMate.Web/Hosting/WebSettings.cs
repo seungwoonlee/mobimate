@@ -5,7 +5,12 @@ public sealed class WebSettings
 {
     public string? AiEngineId { get; set; }
     public int MaxRefreshSec { get; set; } = 30;
-    public bool AutoEmoteDefault { get; set; } = true;
+    /// <summary>
+    /// 자동 이모티콘(문장 끝 이모지 + 행동 명령) 기본값. **기본 끔** (2026-11-06 승운): 지금의 규칙은 키워드에 따라 같은 이모지(😊)를 붙일 뿐이라
+    /// 맥락에 맞지 않고 의미가 없다. 게임이 채팅마다 확인창을 띄우는데 행동 명령은 확인창을 한 번 더 만든다.
+    /// 맥락에 맞는 이모티콘 추천은 음성 입력 시험이 끝난 뒤에 추가한다.
+    /// </summary>
+    public bool AutoEmoteDefault { get; set; }
     public string? CliPath { get; set; }
     public bool LanEnabled { get; set; }
 
@@ -13,8 +18,8 @@ public sealed class WebSettings
     public string ChatterPersona { get; set; } = "Villainess";
 
     // ── 음성 입력 (FR-VC) ──
-    /// <summary>확정 즉시 게임 채팅으로 보낸다 (기본 끔: 오인식이 그대로 나가므로)</summary>
-    public bool SttAutoSend { get; set; }
+    /// <summary>확정 즉시 게임 채팅으로 보낸다 (기본 켬 — 승운 2026-11-06: 게임의 채팅 확인창이 최종 문장을 보여 주고 Space로 보내거나 ESC로 취소하므로 그 확인창이 안전장치다)</summary>
+    public bool SttAutoSend { get; set; } = true;
 
     /// <summary>한 번 듣는 최대 시간(초)</summary>
     public int SttMaxSeconds { get; set; } = 15;
@@ -26,19 +31,26 @@ public sealed class WebSettings
     public int SttThreads { get; set; } = 1;
 
     /// <summary>전역 단축키 (예: "Ctrl+Alt+V", "F9"). 없으면 단축키 없음</summary>
-    public string? SttHotkey { get; set; }
+    public string? SttHotkey { get; set; } = "LCtrl+Space";   // 승운 2026-11-06 기본: 왼쪽 Ctrl+Space
 
     /// <summary>"hold"(누르는 동안 듣기, 기본) 또는 "toggle"(눌러서 켜고 끄기)</summary>
-    public string SttHotkeyMode { get; set; } = "hold";
+    public string SttHotkeyMode { get; set; } = "toggle";
 
     /// <summary>듣기 시작·문장 확정 신호음 (게임 전체 화면에서 소리로 알린다)</summary>
     public bool SttCue { get; set; } = true;
 
     /// <summary>실험: 자주 쓰는 낱말(3회 이상)을 인식기의 핫워드로 넣는다. 기본 끔 — P0 측정에서 일부 낱말만 고쳐졌고 점수를 올리면 문장이 깨졌다. 인식기를 만들 때 한 번 읽으므로 앱을 다시 켜야 적용된다</summary>
-    public bool SttHotwords { get; set; }
+    public bool SttHotwords { get; set; } = true;
 
     /// <summary>인식 글자에 띄어쓰기를 넣어 본다 (FR-VC-09). 기본 끔 — 처음 보는 문장에서는 정확도가 높지 않아(경계 정밀도 약 83%) 선택 기능이다</summary>
-    public bool SttSpacing { get; set; }
+    public bool SttSpacing { get; set; } = true;
+
+    /// <summary>
+    /// 띄어쓰기 강도 0~2 (0 보수적 · 1 보통 · 2 적극적, 기본 2). 높을수록 공백을 더 많이 넣는다 — 놓치는 공백은 줄고 틀린 공백은 조금 는다.
+    /// 게임이 채팅마다 확인창에 최종 문장을 보여 주므로 사용자가 보고 취소할 수 있어, 놓치는 쪽을 줄이는 쪽을 기본으로 한다 (2026-11-06 승운).
+    /// 측정(보류 5겹 교차): 보수적 정밀도 85.1%·재현율 55.8%, 보통 83.3%·59.7%, 적극적 80.1%·62.4%.
+    /// </summary>
+    public int SttSpacingLevel { get; set; } = 2;
 }
 
 public sealed class WebSettingsStore
@@ -90,5 +102,6 @@ public sealed class WebSettingsStore
         SttCue = s.SttCue,
         SttHotwords = s.SttHotwords,
         SttSpacing = s.SttSpacing,
+        SttSpacingLevel = s.SttSpacingLevel,
     };
 }

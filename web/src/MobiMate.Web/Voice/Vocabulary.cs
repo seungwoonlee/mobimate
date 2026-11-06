@@ -428,20 +428,25 @@ public sealed class SpacingProvider(VoiceVocabulary vocab)
     });
 
     private readonly object _lock = new();
-    private SpacingRestorer? _restorer;
-    private int _builtFor = -1;
+    private readonly SpacingRestorer?[] _restorers = new SpacingRestorer?[3];
+    private readonly int[] _builtFor = { -1, -1, -1 };
 
-    public SpacingRestorer Get()
+    /// <summary>
+    /// 강도 0(보수적)~2(적극적)의 띄어쓰기 복원기. 강도는 "앞 낱말에 붙이는 모르는 조각의 길이"로 정한다(0→2음절, 1→1음절, 2→붙이지 않음).
+    /// 학습 내용이 바뀌었을 때만 다시 만든다.
+    /// </summary>
+    public SpacingRestorer Get(int level = 0)
     {
+        level = Math.Clamp(level, 0, 2);
         lock (_lock)
         {
             var v = vocab.Version;
-            if (_restorer == null || _builtFor != v)
+            if (_restorers[level] == null || _builtFor[level] != v)
             {
-                _restorer = SpacingRestorer.Build(Corpus.Value, SpacingRestorer.Curated, vocab.WordCounts());
-                _builtFor = v;
+                _restorers[level] = SpacingRestorer.Build(Corpus.Value, SpacingRestorer.Curated, vocab.WordCounts(), glueSyllables: SpacingRestorer.DefaultGlue - level);
+                _builtFor[level] = v;
             }
-            return _restorer;
+            return _restorers[level]!;
         }
     }
 }
@@ -455,7 +460,7 @@ public sealed class LearnedPostProcessor(VoiceVocabulary vocab, SpacingProvider 
     public VoicePostResult Process(string raw)
     {
         var (text, applied) = vocab.Apply(raw.Trim());
-        if (settings.Current.SttSpacing) text = spacing.Get().Restore(text);
+        if (settings.Current.SttSpacing) text = spacing.Get(settings.Current.SttSpacingLevel).Restore(text);
         return new VoicePostResult(text.Trim(), applied);
     }
 }

@@ -6,7 +6,7 @@ using MobiMate.Web.Voice;
 
 namespace MobiMate.Web.Endpoints;
 
-public sealed record SttSettingsRequest(bool? AutoSend, int? MaxSeconds, string? DeviceId, int? Threads, string? Hotkey, string? HotkeyMode, bool? Cue, bool? Hotwords, bool? Spacing);
+public sealed record SttSettingsRequest(bool? AutoSend, int? MaxSeconds, string? DeviceId, int? Threads, string? Hotkey, string? HotkeyMode, bool? Cue, bool? Hotwords, bool? Spacing, int? SpacingLevel);
 public sealed record VocabLearningRequest(bool? LearningOn);
 public sealed record VocabPairRequest(string? From, string? To, string? Action);
 public sealed record VocabWordRequest(string? Word);
@@ -212,6 +212,7 @@ public static class SttEndpoints
             if (SttGuard.CheckWrite(ctx) is { } bad) return bad;
             if (SttGuard.CheckPcOnly(ctx) is { } notPc) return notPc;
             if (req.MaxSeconds is < 1 or > 60) return ApiResults.Error(StatusCodes.Status400BadRequest, "VALIDATION", "듣는 시간은 1~60초입니다.");
+            if (req.SpacingLevel is < 0 or > 2) return ApiResults.Error(StatusCodes.Status400BadRequest, "VALIDATION", "띄어쓰기 강도는 0(보수적)~2(적극적)입니다.");
             if (req.Threads is < 1 or > 4) return ApiResults.Error(StatusCodes.Status400BadRequest, "VALIDATION", "스레드 수는 1~4입니다.");
             if (req.DeviceId is { Length: > 300 } || (req.DeviceId?.Any(char.IsControl) ?? false)) return ApiResults.Error(StatusCodes.Status400BadRequest, "VALIDATION", "마이크 ID가 올바르지 않습니다.");
             if (req.HotkeyMode is not (null or "hold" or "toggle")) return ApiResults.Error(StatusCodes.Status400BadRequest, "VALIDATION", "단축키 방식은 hold 또는 toggle입니다.");
@@ -236,6 +237,7 @@ public static class SttEndpoints
                 if (req.Cue != null) x.SttCue = req.Cue.Value;
                 if (req.Hotwords != null) x.SttHotwords = req.Hotwords.Value;
                 if (req.Spacing != null) x.SttSpacing = req.Spacing.Value;
+                if (req.SpacingLevel != null) x.SttSpacingLevel = req.SpacingLevel.Value;
             });
             // 단축키는 저장한 즉시 다시 등록한다. 다른 프로그램이 쓰는 조합이면 등록은 실패하지만 설정은 남기고 이유를 알려 준다.
             hk = ok && hotkeyChanged ? hotkeys.Apply(s.Current.SttHotkey) : hotkeys.Status;
@@ -257,5 +259,6 @@ public static class SttEndpoints
         cue = s.SttCue,
         hotwords = s.SttHotwords,
         spacing = s.SttSpacing,
+        spacingLevel = s.SttSpacingLevel,
     };
 }

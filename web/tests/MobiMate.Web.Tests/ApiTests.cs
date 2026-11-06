@@ -403,7 +403,7 @@ public class ApiTests
     {
         using var host = new TestHost();
         var c = await host.LocalAsync();
-        var entry = await TestHost.Data(await c.PostAsJsonAsync("/api/chat/game", new { text = "안녕하세요 여러분" }));
+        var entry = await TestHost.Data(await c.PostAsJsonAsync("/api/chat/game", new { text = "안녕하세요 여러분", autoEmote = true }));   // 기본은 끔이라 명시적으로 켠다
         Assert.Equal("안녕하세요 여러분 😊", entry.GetProperty("message").GetString());
         Assert.Equal("/손인사1", entry.GetProperty("behaviour").GetString());
 
@@ -411,7 +411,7 @@ public class ApiTests
         Assert.Contains("write_chat 안녕하세요 여러분 😊", host.CliCalls());
         Assert.Contains("write_chat /손인사1", host.CliCalls());
 
-        Assert.Equal(HttpStatusCode.Conflict, (await c.PostAsJsonAsync("/api/chat/game", new { text = "안녕하세요 여러분" })).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, (await c.PostAsJsonAsync("/api/chat/game", new { text = "안녕하세요 여러분", autoEmote = true })).StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest, (await c.PostAsJsonAsync("/api/chat/game", new { text = "   " })).StatusCode);
         Assert.Equal(1, (await TestHost.Data(await c.GetAsync("/api/chat/game/log"))).GetArrayLength());
 
@@ -435,7 +435,7 @@ public class ApiTests
         using var host = new TestHost();
         var c = await host.LocalAsync();
         var board = await TestHost.Data(await c.GetAsync("/api/homework"));
-        Assert.Equal(27, board.GetProperty("cards").GetArrayLength());   // 열려 있지 않은 레이드 2종은 목록에서 빠지고, 수치 입력(드릴 랭킹)은 카드가 아니다
+        Assert.Equal(26, board.GetProperty("cards").GetArrayLength());   // 열려 있지 않은 레이드 2종은 목록에서 빠지고, 수치 입력(드릴 랭킹)은 카드가 아니다
         Assert.Equal("pending", Card(board, "raid_cavrak").GetProperty("status").GetString());   // 계정 도전과제로 오탐 안 됨
 
         Assert.Equal(HttpStatusCode.OK, (await c.PutAsJsonAsync("/api/homework/raid_cavrak", new { completed = true })).StatusCode);

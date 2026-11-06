@@ -280,12 +280,12 @@ public class SpacingTests(ITestOutputHelper output)
     }
 
     [Fact]
-    public async Task InTheApp_SpacingIsOffByDefault_AndOnlyChangesTheFinalText_NotTheOriginal()
+    public async Task InTheApp_SpacingOffLeavesTheTextAlone_AndOnOnlyChangesTheFinalText_NotTheOriginal()
     {
         using var host = new TestHost();
         var c = await host.LocalAsync();
         Assert.False((await TestHost.Data(await c.GetAsync("/api/stt/settings"))).GetProperty("spacing").GetBoolean());
-        Assert.Equal("지금레이드들어갑니다", (await Listen(host, c, "지금레이드들어갑니다")).Text);   // 기본 끔: 붙은 채로
+        Assert.Equal("지금레이드들어갑니다", (await Listen(host, c, "지금레이드들어갑니다")).Text);   // 끈 상태: 붙은 채로
 
         var on = await c.SendAsync(Req(HttpMethod.Put, "/api/stt/settings", new { spacing = true }));
         Assert.Equal(HttpStatusCode.OK, on.StatusCode);
@@ -307,5 +307,58 @@ public class SpacingTests(ITestOutputHelper output)
         }
         var fin = await Listen(host, c, "일러구합니다");
         Assert.Equal("힐러 구합니다", fin.Text);   // 치환(일러→힐러)을 먼저, 그 뒤에 띄어쓰기
+    }
+
+    // ── 띄어쓰기 강도 (사용자 요청: 공백을 너무 적게 넣는다) ──
+
+    [Fact]
+    public void HigherLevels_InsertMoreSpaces_AndNeverFewer()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "mm-lvl-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            var provider = new SpacingProvider(new VoiceVocabulary(dir));
+            // 아는 낱말 뒤에 모르는 짧은 조각이 붙은 문장: 보수적이면 조사처럼 붙이고, 적극적이면 떼어 낸다
+            var text = "포션이부족해서마을에";
+            var l0 = provider.Get(0).Restore(text);
+            var l1 = provider.Get(1).Restore(text);
+            var l2 = provider.Get(2).Restore(text);
+            int Spaces(string s) => s.Count(c => c == ' ');
+            Assert.True(Spaces(l0) <= Spaces(l1) && Spaces(l1) <= Spaces(l2), $"{l0} | {l1} | {l2}");
+            Assert.True(Spaces(l2) > Spaces(l0), "강도를 올려도 달라지지 않는다");
+            Assert.Equal("포션이 부족해서 마을에", l0);   // 보수적: 조사로 보고 붙인다 (기존 동작)
+        }
+        finally { try { Directory.Delete(dir, true); } catch { } }
+    }
+
+    [Fact]
+    public void Measure_TheThreeLevels_RecallRisesAsPrecisionFalls()
+    {
+        var p = new List<(int Level, Score S)>();
+        foreach (var level in new[] { 0, 1, 2 })
+        {
+            var s = CrossValidate(SpacingRestorer.Curated, SpacingRestorer.DefaultGlue - level);
+            p.Add((level, s));
+            output.WriteLine($"[강도 {level}] " + s);
+        }
+        Assert.True(p[2].S.Recall > p[0].S.Recall, "강도를 올리면 재현율이 올라야 한다");
+        Assert.True(p[2].S.Precision >= 0.75, $"가장 높은 강도에서도 정밀도는 75% 이상: {p[2].S.Precision:P1}");
+    }
+
+    [Fact]
+    public async Task InTheApp_TheLevelSettingIsValidated_AndChangesTheOutput()
+    {
+        using var host = new TestHost();
+        var c = await host.LocalAsync();
+        Assert.Equal(2, (await TestHost.Data(await c.GetAsync("/api/stt/settings"))).GetProperty("spacingLevel").GetInt32());   // 기본은 적극적
+        Assert.Equal(HttpStatusCode.BadRequest, (await c.SendAsync(Req(HttpMethod.Put, "/api/stt/settings", new { spacingLevel = 3 }))).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await c.SendAsync(Req(HttpMethod.Put, "/api/stt/settings", new { spacingLevel = -1 }))).StatusCode);
+
+        await c.SendAsync(Req(HttpMethod.Put, "/api/stt/settings", new { spacing = true, spacingLevel = 0 }));
+        var conservative = (await Listen(host, c, "포션이부족해서마을에")).Text;
+        await c.SendAsync(Req(HttpMethod.Put, "/api/stt/settings", new { spacingLevel = 2 }));
+        var aggressive = (await Listen(host, c, "포션이부족해서마을에")).Text;
+        Assert.Equal("포션이 부족해서 마을에", conservative);
+        Assert.True(aggressive.Count(ch => ch == ' ') > conservative.Count(ch => ch == ' '), $"{conservative} | {aggressive}");
     }
 }
