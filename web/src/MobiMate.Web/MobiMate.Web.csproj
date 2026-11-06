@@ -30,6 +30,8 @@
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <SelfContained>false</SelfContained>
     <PublishSingleFile>true</PublishSingleFile>
+    <!-- sherpa-onnx 네이티브 DLL(onnxruntime 등)을 exe 안에 넣는다: 첫 실행 때 임시 폴더로 풀린다. 빼면 배포 zip에서 DLL이 빠진다 (FR-VC) -->
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
     <DebugType>none</DebugType>
     <CopyOutputSymbolsToPublishDirectory>false</CopyOutputSymbolsToPublishDirectory>
     <IsTransformWebConfigDisabled>true</IsTransformWebConfigDisabled>
@@ -83,6 +85,11 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="MobiMate.Web.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="NAudio" Version="2.2.1" />
+    <PackageReference Include="org.k2fsa.sherpa.onnx" Version="2.0.1" />
   </ItemGroup>
 
 </Project>

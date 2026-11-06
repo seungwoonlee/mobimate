@@ -22,6 +22,17 @@ public sealed class SseHub(ServerIdentity identity, MobiMateOptions options, IHo
         foreach (var c in _connections.Values) c.Channel.Writer.TryWrite(frame);
     }
 
+    /// <summary>
+    /// 이 PC(루프백)에서 연 연결에만 보낸다. 음성 입력 이벤트(인식 중인 글자·확정 글자)는 PC 마이크로 말한 내용이므로
+    /// 같은 와이파이의 다른 기기에 퍼뜨리지 않는다 (FR-VC-10).
+    /// </summary>
+    public void BroadcastLocal(string evt, object data)
+    {
+        var frame = Frame(evt, data);
+        foreach (var c in _connections.Values)
+            if (System.Net.IPAddress.TryParse(c.DeviceId, out var ip) && System.Net.IPAddress.IsLoopback(ip)) c.Channel.Writer.TryWrite(frame);
+    }
+
     public void SendTo(string deviceId, string evt, object data)
     {
         var frame = Frame(evt, data);

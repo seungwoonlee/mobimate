@@ -5,6 +5,31 @@ export interface ErrorBody { error: { code: string; message: string } }
 
 export interface Session { kind: 'local' | 'lan' }
 
+/** 음성 입력 (FR-VC) */
+export type SttStateName = 'idle' | 'starting' | 'listening' | 'finishing';
+export interface SttStatus {
+  state: SttStateName; sessionId: string | null; byDevice: string | null; device: string | null;
+  modelInstalled: boolean; install: SttInstall; autoSend: boolean; maxSeconds: number; hotkey: SttHotkeyStatus;
+}
+export interface SttStateEvent {
+  sessionId: string; state: SttStateName; byDevice?: string | null; error?: string | null; message?: string | null;
+  warn?: string | null; device?: string | null; fallback?: boolean;
+}
+export interface SttInstall { phase: 'idle' | 'downloading' | 'done' | 'failed'; done: number; total: number; file: string | null; error: string | null }
+export interface SttHotkeyStatus { key: string | null; registered: boolean; error: string | null; mode: 'hold' | 'toggle' }
+export interface SttSettings {
+  autoSend: boolean; maxSeconds: number; deviceId: string | null; threads: number;
+  hotkey: string | null; hotkeyMode: 'hold' | 'toggle'; cue: boolean; hotwords: boolean; spacing: boolean;
+}
+export interface SttVocabWord { word: string; count: number; last: string; hotword: boolean }
+export interface SttVocabPair { from: string; to: string; count: number; reverts: number; off: boolean; active: boolean; last: string }
+export interface SttVocab { learningOn: boolean; warning: string | null; words: SttVocabWord[]; pairs: SttVocabPair[] }
+export interface SttDevice { id: string; name: string; sampleRate: number; channels: number; isDefault: boolean }
+export interface SttDevices { devices: SttDevice[]; selectedId: string | null }
+export interface SttMicTest { device: string; fallback: boolean; peakDb: number; rmsDb: number; level: 'none' | 'low' | 'ok' | 'loud' }
+export interface SttFinalEvent { sessionId: string; text: string; original: string; applied: string[]; autoSent?: boolean }
+export interface SttLast extends SttFinalEvent { at: string }
+
 export interface LanView {
   enabled: boolean; active: boolean; hosts: string[]; mdnsName: string | null; port: number;
   error: string | null; networkPrivate: boolean | null;

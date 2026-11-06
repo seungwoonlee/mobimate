@@ -10,7 +10,7 @@ export interface SseHandlers {
   onState: (s: SseState, retryAt?: number) => void;
 }
 
-const EVENTS = ['hello', 'status', 'header', 'toast', 'gather', 'chat.logged', 'state.changed', 'homework.changed', 'ping'];
+const EVENTS = ['hello', 'status', 'header', 'toast', 'gather', 'chat.logged', 'state.changed', 'homework.changed', 'stt.state', 'stt.partial', 'stt.final', 'stt.install', 'ping'];
 const SILENCE_MS = 45_000;
 
 function connectDirect(h: SseHandlers): () => void {

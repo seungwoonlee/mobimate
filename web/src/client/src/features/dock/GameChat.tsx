@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { api, ApiError } from '../../api/http';
-import { keys, keys5, useChatLog, useEngines, usePersonas, useSettings } from '../../api/queries';
+import { keys, keys5, useChatLog, useEngines, usePersonas, useSession, useSettings, useSttStatus } from '../../api/queries';
 import type { ChatLogEntry, ChatPreview } from '../../api/types';
 import { Icon, Pill } from '../../components/ui';
 import { queryClient } from '../../lib/queryClient';
+import { micAvailability, sttErrorMessage, sttWarnMessage, VOICE_SOURCE } from '../../lib/voice';
 import { useDevice } from '../../state/device';
 import { isOffline, useUi } from '../../state/ui';
 import { PersonaManager } from './PersonaManager';
@@ -138,13 +139,13 @@ function LogItem({ e }: { e: ChatLogEntry }) {
 let sending = false;
 
 /** 게임 채팅 전송 (FR-GC-04·06). 성공·실패 로그는 서버가 SSE "chat.logged"로도 알린다. */
-async function sendChat(text: string, autoEmote: boolean, source: string | null = null): Promise<boolean> {
+async function sendChat(text: string, autoEmote: boolean, source: string | null = null, sttOriginal: string | null = null): Promise<boolean> {
   const ui = useUi.getState();
   if (isOffline(ui)) { ui.toast('PC와 연결이 끊겨 보내지 않았습니다', 'warn'); return false; }
   if (sending) return false;
   sending = true;
   try {
-    await api.post('/api/chat/game', { text, autoEmote, source: source ?? undefined });
+    await api.post('/api/chat/game', { text, autoEmote, source: source ?? undefined, sttOriginal: sttOriginal ?? undefined });
     return true;
   } catch (e) {
     const err = e as ApiError;
@@ -160,6 +161,12 @@ function Composer() {
   const draft = useUi(s => s.chatDraft);
   const source = useUi(s => s.chatDraftSource);
   const setDraft = useUi(s => s.setChatDraft);
+  const original = useUi(s => s.chatDraftOriginal);
+  const voice = useUi(s => s.voice);
+  const offline = useUi(s => isOffline(s));
+  const session = useSession();
+  const isLan = session.data?.kind === 'lan';   // 음성 입력은 게임 PC에서만: 폰·태블릿에서는 버튼도 상태 조회도 없다
+  const stt = useSttStatus(session.data?.kind === 'local');
   const devAuto = useDevice(s => s.autoEmote);
   const setDev = useDevice(s => s.set);
   const settings = useSettings();
@@ -182,13 +189,34 @@ function Composer() {
 
   // 본문 한도: 이모지를 붙이면 그만큼 줄어든다. 조합 중에는 자르지 않는다(iOS·삼성 키보드 글자 중복 방지)
   const limit = autoEmote ? MAX - 2 : MAX;
-  const clamp = (v: string) => (cp(v) > limit ? [...v].slice(0, limit).join('') : v);
+  // 평소에는 한도에서 자른다. 음성으로 채운 초안이 이미 한도를 넘었으면 자르지 않는다(글자를 잃지 않게): 더 늘리는 입력만 막고 줄이는 입력은 허용한다 (FR-VC-04)
+  const clamp = (v: string) => {
+    if (cp(v) <= limit) return v;
+    if (cp(v) > cp(draft)) return cp(draft) > limit ? draft : [...v].slice(0, limit).join('');
+    return v;
+  };
+  const over = cp(draft) > limit;
+
+  const mic = micAvailability({
+    modelInstalled: stt.data?.data.modelInstalled,
+    kind: session.data?.kind, voiceState: voice.state, offline,
+  });
+  const listening = voice.state === 'listening';
+  const toggleMic = async () => {
+    try {
+      await api.post(listening ? '/api/stt/stop' : '/api/stt/start', {});   // 본문 {}: 서버가 JSON 본문을 요구한다
+    } catch (e) {
+      const err = e as ApiError;
+      useUi.getState().toast(sttErrorMessage(err.code, err.message), 'warn');
+    }
+  };
+  const warnText = sttWarnMessage(voice.warn);
 
   const send = async () => {
     const text = draft.replace(/\s*\n\s*/g, ' ').trim();
-    if (!text || busy) return;
+    if (!text || busy || over) return;
     setBusy(true);
-    const ok = await sendChat(text, autoEmote, source);
+    const ok = await sendChat(text, autoEmote, source, source === VOICE_SOURCE ? original : null);
     setBusy(false);
     // 보내는 동안 새로 친 글자는 지우지 않는다 (보낸 문장 그대로일 때만 비운다)
     if (ok && useUi.getState().chatDraft === draft) { setDraft('', null); setPreview(null); }
@@ -197,6 +225,13 @@ function Composer() {
   const count = preview?.count ?? cp(draft);
   return (
     <div className="composer">
+      {voice.state !== 'idle' && (
+        <div className="voice-row" role="status" aria-live="polite">
+          <span className="rec-dot" aria-hidden="true" />
+          <span className="voice-text">{voice.partial || (voice.state === 'finishing' ? '정리하는 중…' : '듣는 중… 말씀하세요')}</span>
+          {warnText && <span className="voice-warn">{warnText}</span>}
+        </div>
+      )}
       <div className="comp-row">
         <input id="chatIn" type="text" autoComplete="off" enterKeyHint="send" placeholder="게임 전체 채팅으로 보낼 말 (Enter 전송)" aria-label="게임 채팅 입력"
           value={draft}
@@ -204,7 +239,11 @@ function Composer() {
           onCompositionEnd={e => { composing.current = false; setDraft(clamp(e.currentTarget.value)); }}
           onChange={e => setDraft(composing.current ? e.target.value : clamp(e.target.value))}
           onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); void send(); } }} />
-        <button type="button" className="send" onClick={send} disabled={busy || !draft.trim()} aria-label="게임으로 전송" data-needs-conn>
+        {!isLan && <button type="button" className={`mic${listening ? ' on' : ''}`} onClick={toggleMic} disabled={!mic.enabled} aria-pressed={listening}
+          aria-label={listening ? '음성 입력 끝내기' : '음성으로 입력'} title={mic.reason ?? (listening ? '누르면 듣기를 마칩니다' : '누르고 말하면 입력창에 적어 줍니다')}>
+          <Icon name="mic" />
+        </button>}
+        <button type="button" className="send" onClick={send} disabled={busy || !draft.trim() || over} aria-label="게임으로 전송" data-needs-conn>
           <Icon name="send" />
         </button>
       </div>
@@ -216,7 +255,7 @@ function Composer() {
           }} /> 자동 이모티콘</label>
           {preview && autoEmote && preview.emoji && <> · {preview.emoji}{preview.behaviour ? ` ${preview.behaviour}` : ''}</>}
         </span>
-        <span className={`cnt num ${count >= 45 ? 'warn' : ''}`} aria-label={`글자 수 ${count} / ${MAX}`}>{count} / {MAX}</span>
+        <span className={`cnt num ${over ? 'over' : count >= 45 ? 'warn' : ''}`} aria-label={`글자 수 ${count} / ${MAX}${over ? ', 한도를 넘어 줄여야 보낼 수 있습니다' : ''}`}>{over ? '줄여야 전송 · ' : ''}{count} / {MAX}</span>
       </div>
     </div>
   );

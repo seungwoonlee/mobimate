@@ -1,7 +1,7 @@
 import { useQuery, type UseQueryOptions } from '@tanstack/react-query';
 import { api } from './http';
 import type {
-  Characters, CharacterView, Currencies, Cutoffs, Envelope, Header, HomeworkBoard, Inventory, Life, Meta, Missions, Nearby, Overview, RankingSetup, Rankings, Status,
+  Characters, CharacterView, Currencies, Cutoffs, Envelope, Header, HomeworkBoard, Inventory, Life, Meta, Missions, Nearby, Overview, RankingSetup, Rankings, Status, SttStatus,
 } from './types';
 
 /** 쿼리 키 (상세설계 §4.3). SSE 이벤트가 이 키들을 무효화한다. */
@@ -52,8 +52,11 @@ export const keys5 = {
   personas: ['personas'] as const,
   engines: ['engines'] as const,
   session: ['session'] as const,
+  stt: ['stt'] as const,
 };
 
+/** 음성 입력은 게임 PC에서만 쓴다: 폰·태블릿(LAN)은 서버가 거절하므로 조회하지 않는다 */
+export const useSttStatus = (enabled = true) => q<SttStatus>(keys5.stt, '/api/stt/status', { staleTime: 30_000, enabled });
 export const useChatLog = () => q<ChatLogEntry[]>(keys5.chatLog, '/api/chat/game/log');
 export const usePersonas = () => q<CustomPersona[]>(keys5.personas, '/api/personas', { staleTime: 60_000 });
 export const useEngines = () => q<Engines>(keys5.engines, '/api/ai/engines', { staleTime: 60_000 });

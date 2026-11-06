@@ -4,7 +4,8 @@ import { useQuery } from '@tanstack/react-query';
 import { api, ApiError, session } from '../api/http';
 import { keys, useMeta, useSettings } from '../api/queries';
 import type { LanView } from '../api/types';
-import { CardHead, Pill } from '../components/ui';
+import { CardHead, Pill, Row, Seg } from '../components/ui';
+import { VoiceSettings } from './voiceSettings';
 import { queryClient } from '../lib/queryClient';
 import { PALETTES, useDevice, type Palette, type Theme } from '../state/device';
 import { useUi } from '../state/ui';
@@ -61,6 +62,10 @@ export function SettingsView() {
           {meta.data && <LanRow lan={meta.data.data.lan} canChange={local} />}
           {meta.data?.data.wpfRunning && <p className="warn-text small">WPF판 MobiMate가 함께 실행 중입니다. 게임 CLI를 같이 쓰므로 조회가 느려질 수 있습니다.</p>}
           <ServerSettings canChangeCli={local} />
+        </div>
+        <div className="card">
+          <CardHead title="음성 입력" />
+          <VoiceSettings local={local} />
         </div>
       </div>
     </>
@@ -151,17 +156,5 @@ function ScreenInfo() {
     <p className="faint small num" aria-label="화면 정보">
       화면 {window.innerWidth} × {window.innerHeight} · 배율 {window.devicePixelRatio} · {l.size}{l.posture !== 'flat' ? ` · ${l.posture}` : ''} · {l.coarse ? '터치' : '마우스'}
     </p>
-  );
-}
-
-function Row({ label, children }: { label: string; children: React.ReactNode }) {
-  return <div className="kv wrap"><span className="muted">{label}</span>{children}</div>;
-}
-
-function Seg({ value, options, onChange }: { value: string; options: [string, string][]; onChange: (v: string) => void }) {
-  return (
-    <span className="seg" role="group">
-      {options.map(([v, l]) => <button key={v} type="button" aria-pressed={value === v} onClick={() => onChange(v)}>{l}</button>)}
-    </span>
   );
 }
