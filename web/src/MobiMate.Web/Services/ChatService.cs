@@ -11,7 +11,7 @@ public enum ChatSendStatus { Sent, Failed, Empty, Duplicate }
 /// 전송 로그는 서버 메모리에 최근 200건을 두고 모든 기기에 SSE "chat.logged"로 알린다.
 /// 채팅 본문은 파일 로그에 쓰지 않는다 (NFR-15).
 /// </summary>
-public sealed class ChatService(IGameCli cli, SseHub hub)
+public sealed class ChatService(IGameCli cli, SseHub hub, IChatStylist stylist, MobiMate.Web.Hosting.WebSettingsStore settings, SnapshotManager snapshots)
 {
     public const int LogCapacity = 200;
     public static readonly TimeSpan DuplicateWindow = TimeSpan.FromSeconds(1);
@@ -20,6 +20,22 @@ public sealed class ChatService(IGameCli cli, SseHub hub)
     private readonly LinkedList<ChatLogEntry> _log = new();
     private readonly Dictionary<string, (string Text, DateTimeOffset At)> _lastByDevice = new();
     private readonly object _lock = new();
+
+    /// <summary>현재 아무말 페르소나("Villainess" 또는 "custom:&lt;id&gt;")의 말투 설명</summary>
+    private string ResolvePersonaDesc()
+    {
+        var value = settings.Current.ChatterPersona ?? "Villainess";
+        CustomPersona? custom = null;
+        ChatterPersona persona;
+        if (value.StartsWith("custom:", StringComparison.OrdinalIgnoreCase))
+        {
+            persona = ChatterPersona.Custom;
+            var id = value["custom:".Length..];
+            custom = snapshots.LoadCustomPersonas().FirstOrDefault(p => p.Id == id);
+        }
+        else if (!Enum.TryParse(value, true, out persona)) persona = ChatterPersona.Villainess;
+        return ChatterLineService.DescribePersona(persona, custom);
+    }
 
     public IReadOnlyList<ChatLogEntry> Log()
     {
@@ -56,15 +72,31 @@ public sealed class ChatService(IGameCli cli, SseHub hub)
             _lastByDevice[deviceId] = (clean, now);
         }
 
+        // 맥락 이모티콘·페르소나 말투 (AI). 실패하면 원문과 키워드 규칙을 그대로 쓴다.
+        var cfg = settings.Current;
+        var smart = autoEmote && cfg.ChatSmartEmote;
+        var tone = cfg.ChatPersonaTone;
+        var style = ChatStyleResult.Nothing;
+        if (smart || tone)
+        {
+            try { style = await stylist.StyleAsync(clean, new ChatStyleRequest(tone, smart, tone ? ResolvePersonaDesc() : ""), ct); }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+            catch { /* 꾸미기 실패는 원문으로 */ }
+        }
+        var body = style.Text ?? clean;
+
         string final;
         string? behaviour = null;
         if (autoEmote)
         {
-            var plan = ChatPlanService.BuildChatPlan(clean);
+            var rule = ChatPlanService.BuildChatPlan(clean);
+            ChatPlan plan;
+            if (smart && style.EmojiDecided) plan = ChatPlanService.BuildChatPlanWithEmoji(body, style.EmojiNone ? null : style.Emoji);
+            else plan = ChatPlanService.BuildChatPlanWithEmoji(body, rule.Emoji) with { BehaviourCommand = rule.BehaviourCommand };
             final = plan.FinalMessage;
             behaviour = plan.BehaviourCommand;
         }
-        else final = ChatText.Truncate(clean, ChatText.MaxLength);
+        else final = ChatText.Truncate(body, ChatText.MaxLength);
 
         var (ok, error) = await cli.SendGameChatAsync(final, ct);
         if (ok && sendBehaviour && behaviour != null)

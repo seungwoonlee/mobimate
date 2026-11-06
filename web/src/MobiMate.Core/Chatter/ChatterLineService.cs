@@ -62,9 +62,9 @@ public sealed class ChatterLineService
         return new ChatterLine(ChatPlanService.BuildChatPlan(line).FinalMessage, usedFallback, raw);
     }
 
-    internal static string BuildPersonaPrompt(ChatterPersona persona, CustomPersona? custom, ChatterContext ctx)
-    {
-        var personaDesc = persona == ChatterPersona.Custom && custom != null
+    /// <summary>페르소나의 말투 설명 (아무말 생성과 채팅 말투 바꾸기가 같이 쓴다)</summary>
+    public static string DescribePersona(ChatterPersona persona, CustomPersona? custom) =>
+        persona == ChatterPersona.Custom && custom != null
             ? $"{custom.Name}: {custom.SystemPrompt}"
             : persona switch
             {
@@ -75,6 +75,10 @@ public sealed class ChatterLineService
                 ChatterPersona.IdolDancer => "K-POP 무대를 사랑하는 열정 넘치는 아이돌 댄서. 비트, 리듬, 칼군무, 킬링 파트, 엔딩 요정 등 댄서 용어를 쓰며 텐션이 높음.",
                 _ => "밀레시안 방랑자"
             };
+
+    internal static string BuildPersonaPrompt(ChatterPersona persona, CustomPersona? custom, ChatterContext ctx)
+    {
+        var personaDesc = DescribePersona(persona, custom);
 
         var erinnStr = string.IsNullOrWhiteSpace(ctx.ErinnTime) ? "" : $", 시간:{ctx.ErinnTime}";
 

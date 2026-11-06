@@ -34,6 +34,27 @@ public static class ChatPlanService
     };
 
     public const string DefaultEmoji = "😊";
+
+    /// <summary>AI가 고를 수 있는 이모지 (키워드 규칙이 쓰는 8종). 이 밖의 것은 게임 채팅에서 안전하다고 확인되지 않았다.</summary>
+    public static readonly string[] AllowedEmojis = { "😊", "😓", "🥳", "😍", "😉", "🤣", "😢", "😎" };
+
+    /// <summary>이모지에 짝지은 소셜 액션(행동 명령). 없으면 null</summary>
+    public static string? BehaviourForEmoji(string emoji)
+    {
+        foreach (var (_, e, b) in Rules) if (e == emoji) return b;
+        return null;
+    }
+
+    /// <summary>
+    /// 이미 고른 이모지로 계획을 만든다 (맥락 이모티콘). emoji가 null이면 이모지 없이 본문만(50자 이내).
+    /// </summary>
+    public static ChatPlan BuildChatPlanWithEmoji(string message, string? emoji)
+    {
+        var trimmed = message.Trim();
+        if (string.IsNullOrEmpty(trimmed)) return new ChatPlan("", null, DefaultEmoji);
+        if (string.IsNullOrEmpty(emoji)) return new ChatPlan(ChatText.Truncate(trimmed, MaxChatLength), null, "");
+        return new ChatPlan(CombineSafe(trimmed, emoji), BehaviourForEmoji(emoji), emoji);
+    }
     public const int MaxChatLength = ChatText.MaxLength;
 
     public static ChatPlan BuildChatPlan(string rawMessage)

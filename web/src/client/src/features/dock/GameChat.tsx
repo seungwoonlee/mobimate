@@ -32,6 +32,17 @@ export function GameChatPanel() {
   );
 }
 
+/** 맥락 이모티콘·페르소나 말투 체크박스: 서버 설정에 저장한다(음성 자동 전송도 같은 설정을 쓰므로 기기별이 아니라 공유) */
+async function setStyle(body: { smartEmote?: boolean; personaTone?: boolean }) {
+  try {
+    await api.put('/api/settings', body);
+  } catch (e) {
+    useUi.getState().toast(e instanceof ApiError ? e.message : '설정을 바꾸지 못했습니다', 'warn');
+  } finally {
+    void queryClient.invalidateQueries({ queryKey: keys.settings });
+  }
+}
+
 /** 현재 페르소나를 서버 설정에 저장한다: 여러 기기가 같은 페르소나를 본다 (FR-MB-15) */
 export async function setPersona(value: string) {
   try {
@@ -171,6 +182,8 @@ function Composer() {
   const setDev = useDevice(s => s.set);
   const settings = useSettings();
   const autoEmote = devAuto ?? settings.data?.data.autoEmoteDefault ?? false;   // 기본 끔: 맥락과 무관하게 같은 이모지를 붙이는 것은 의미가 없다
+  const smartEmote = settings.data?.data.smartEmote ?? false;
+  const personaTone = settings.data?.data.personaTone ?? false;
   const [preview, setPreview] = useState<ChatPreview | null>(null);
   const [busy, setBusy] = useState(false);
   const composing = useRef(false);
@@ -253,7 +266,14 @@ function Composer() {
             setDev({ autoEmote: e.target.checked });
             if (e.target.checked && cp(draft) > MAX - 2) setDraft([...draft].slice(0, MAX - 2).join(''));   // 켜면 이모지 자리를 남긴다
           }} /> 자동 이모티콘</label>
-          {preview && autoEmote && preview.emoji && <> · {preview.emoji}{preview.behaviour ? ` ${preview.behaviour}` : ''}</>}
+          <label className="auto-emote" title={autoEmote ? 'AI가 문장의 감정에 맞는 이모지를 고릅니다. 감정이 뚜렷하지 않은 문장에는 붙이지 않습니다.' : '자동 이모티콘을 켜면 쓸 수 있습니다'}>
+            <input type="checkbox" checked={smartEmote && autoEmote} disabled={!autoEmote} onChange={e => void setStyle({ smartEmote: e.target.checked })} /> 맥락
+          </label>
+          <label className="auto-emote" title="보내기 전에 AI가 현재 페르소나(위에서 고른 말투)로 문장을 바꿉니다. 뜻이 달라지면 원문을 보냅니다.">
+            <input type="checkbox" checked={personaTone} onChange={e => void setStyle({ personaTone: e.target.checked })} /> 페르소나 말투
+          </label>
+          {preview && autoEmote && !smartEmote && preview.emoji && <> · {preview.emoji}{preview.behaviour ? ` ${preview.behaviour}` : ''}</>}
+          {(personaTone || (smartEmote && autoEmote)) && <span className="faint"> · 보낼 때 AI가 맞춰요</span>}
         </span>
         <span className={`cnt num ${over ? 'over' : count >= 45 ? 'warn' : ''}`} aria-label={`글자 수 ${count} / ${MAX}${over ? ', 한도를 넘어 줄여야 보낼 수 있습니다' : ''}`}>{over ? '줄여야 전송 · ' : ''}{count} / {MAX}</span>
       </div>

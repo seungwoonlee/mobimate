@@ -110,6 +110,7 @@ button.toast { border: 0; text-align: left; cursor: pointer; }
 /* S5: 도크·페어링 */
 .persona + .hint { margin: 8px 12px 0; }
 .auto-emote { display: inline-flex; align-items: center; gap: 4px; color: var(--text-2); font-weight: 500; cursor: pointer; }
+.pv { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 2px 12px; min-width: 0; }
 .auto-emote input { width: 14px; height: 14px; accent-color: var(--accent); }
 .send:disabled { opacity: .45; cursor: not-allowed; }
 .send.stop { background: var(--danger); color: var(--on-danger); }
