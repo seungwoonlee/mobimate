@@ -121,7 +121,7 @@ builder.Services.AddSingleton<SttService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<SttService>());
 builder.Services.AddSingleton<HotkeyService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<HotkeyService>());
-builder.Services.AddSingleton(_ => new AiEngineManager());
+builder.Services.AddSingleton(_ => new AiEngineManager(lmStudio: new LmStudioService()));
 builder.Services.AddSingleton(sp => new ChatterLineService(sp.GetRequiredService<AiEngineManager>()));
 builder.Services.AddSingleton<AiService>();
 builder.Services.AddSingleton<StatusMonitor>();

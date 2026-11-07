@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Threading;
@@ -8,6 +9,7 @@ namespace MobiMate;
 public enum AiEngineType
 {
     Ollama,         // 로컬 Ollama HTTP (완전 무료 로컬 LLM)
+    LmStudio,       // 로컬 LM Studio 서버 (OpenAI 호환 API, 무료 로컬 LLM)
     BuiltInGuide,   // 내장 마비 가이드 (100% 무료 무설치 오프라인 룰베이스/공략 DB)
     CliAgent        // agy, claude, codex 등 시스템 설치형 CLI 에이전트
 }
@@ -25,9 +27,14 @@ public record AiEngineInfo(
     public AiCostTier CostTier => Type switch
     {
         AiEngineType.BuiltInGuide => AiCostTier.Builtin,
-        AiEngineType.Ollama => AiCostTier.LocalFree,
+        AiEngineType.Ollama when IsCloudModel(TargetModel) => AiCostTier.Paid,   // Ollama 클라우드 모델(:cloud, -cloud)은 계정 요금이 나간다
+        AiEngineType.Ollama or AiEngineType.LmStudio => AiCostTier.LocalFree,
         _ => AiCostTier.Paid
     };
+
+    /// <summary>모델 이름이 :cloud 또는 -cloud로 끝나면 Ollama 클라우드(유료) 모델이다</summary>
+    public static bool IsCloudModel(string? model) =>
+        model != null && (model.EndsWith(":cloud", StringComparison.OrdinalIgnoreCase) || model.EndsWith("-cloud", StringComparison.OrdinalIgnoreCase));
 }
 
 public enum AiCostTier { Builtin, LocalFree, Paid }

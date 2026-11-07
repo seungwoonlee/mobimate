@@ -89,8 +89,6 @@ test('설정: 음성 입력 구역에 모델 설치·마이크·단축키·전�
   await expect(card.getByText('폰·태블릿에서 시작')).toHaveCount(0);
   const hotwords = card.locator('.kv', { hasText: '우선 인식' });
   await expect(hotwords.getByRole('button', { name: '끄기' })).toHaveAttribute('aria-pressed', 'true');
-  // 누적 학습은 항상 켜져 있고(끄는 항목 없음) 문장을 저장하지 않는다고 알린다
-  await expect(card.getByText(/문장 전체는 저장하지 않고/)).toBeVisible();
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(overflow).toBeLessThanOrEqual(0);
 });

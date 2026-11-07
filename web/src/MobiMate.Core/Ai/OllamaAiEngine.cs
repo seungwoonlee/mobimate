@@ -17,13 +17,14 @@ public class OllamaAiEngine : IAiEngine
     public OllamaAiEngine(string modelName, OllamaService service)
     {
         _service = service;
+        var cloud = AiEngineInfo.IsCloudModel(modelName);
         Info = new AiEngineInfo(
             Id: $"ollama:{modelName}",
-            DisplayName: $"[무료/로컬] 🦙 Ollama: {modelName}",
+            DisplayName: cloud ? $"[유료/클라우드] ☁️ Ollama: {modelName}" : $"[무료/로컬] 🦙 Ollama: {modelName}",
             Type: AiEngineType.Ollama,
             TargetModel: modelName,
-            Description: "완전 무료(0원), 로컬 PC GPU/CPU 기반 오프라인 LLM",
-            IsZeroCost: true
+            Description: cloud ? "Ollama 클라우드 모델: 계정 사용량·요금이 나가고 질문 내용이 외부로 전송됩니다" : "완전 무료(0원), 로컬 PC GPU/CPU 기반 오프라인 LLM",
+            IsZeroCost: !cloud
         );
     }
 
