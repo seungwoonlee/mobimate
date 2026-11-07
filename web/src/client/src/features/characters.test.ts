@@ -41,11 +41,13 @@ describe('시간 표시', () => {
   });
 
   it('멤버십 남은 시간은 자동으로 줄고, 3일 이내면 경고', () => {
-    expect(membershipLeft('2026-10-28T15:00:00Z', now)).toEqual({ text: '27일 3시간', urgent: false });
-    expect(membershipLeft('2026-10-04T12:00:00Z', now)).toEqual({ text: '3일 0시간', urgent: true });   // 정확히 3일 = 경고
-    expect(membershipLeft('2026-10-04T12:01:00Z', now)?.urgent).toBe(false);
-    expect(membershipLeft('2026-10-01T17:20:00Z', now)).toEqual({ text: '5시간 20분', urgent: true });
-    expect(membershipLeft('2026-10-01T12:00:30Z', now)).toEqual({ text: '1분', urgent: true });
+    expect(membershipLeft('2026-10-28T15:00:00Z', now)).toEqual({ text: '27일 3시간', urgent: false, blink: false });
+    expect(membershipLeft('2026-10-03T12:00:00Z', now)).toEqual({ text: '2일 0시간', urgent: true, blink: false });   // 정확히 2일 = 빨강
+    expect(membershipLeft('2026-10-03T12:01:00Z', now)?.urgent).toBe(false);
+    expect(membershipLeft('2026-10-02T12:00:00Z', now)).toEqual({ text: '1일 0시간', urgent: true, blink: true });   // 정확히 1일 = 깜빡임
+    expect(membershipLeft('2026-10-02T12:01:00Z', now)?.blink).toBe(false);
+    expect(membershipLeft('2026-10-01T17:20:00Z', now)).toEqual({ text: '5시간 20분', urgent: true, blink: true });
+    expect(membershipLeft('2026-10-01T12:00:30Z', now)).toEqual({ text: '1분', urgent: true, blink: true });
   });
 
   it('등록이 없거나 이미 끝났으면 null', () => {

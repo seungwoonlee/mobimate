@@ -155,7 +155,7 @@ export interface CharacterCard {
   /** get_my_info 스탯(접속 중이면 지금 값, 아니면 마지막 기록, 못 받았으면 null) */
   stats: CharStats;
   /** 어비스·레이드 추천(이 캐릭터의 전투력·마도저항 기준) */
-  recommend: { id: string; name: string; status: CutoffStatus; tier: string | null; maxEntry: string | null; entry?: number }[];
+  recommend: { id: string; name: string; status: CutoffStatus; tier: string | null; maxEntry: string | null; entry?: number; entryLevel?: number }[];
 }
 export interface CharStats { str: number | null; dex: number | null; int: number | null; will: number | null; luck: number | null; attack: number | null; defence: number | null; health: number | null; decor: number | null }
 export interface HomeworkAuto { id: string; title: string; period: 'daily' | 'weekly'; state: 'done' | 'todo' | 'unknown'; evidence: string | null; /** 남은 횟수 (뱅가드 등, 알 때만) */ remaining: number | null; category?: string; /** 클리어 추정: 주간 미션 카운터는 올랐는데 어느 항목인지 못 가렸다 */ guess?: boolean; /** 손으로 입력한 수치(랭킹 순위 등), 입력 전이면 없음 */ value?: number | null }

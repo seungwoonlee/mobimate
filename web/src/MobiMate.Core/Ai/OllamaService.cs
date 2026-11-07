@@ -51,7 +51,7 @@ public class OllamaService
 
     public bool IsOnline { get; private set; }
 
-    public async Task<List<string>> GetInstalledModelsAsync(CancellationToken ct = default)
+    public virtual async Task<List<string>> GetInstalledModelsAsync(CancellationToken ct = default)
     {
         try
         {

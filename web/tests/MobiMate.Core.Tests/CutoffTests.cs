@@ -19,9 +19,10 @@ public class CutoffTests
         Assert.Equal(new CutoffTier("지옥 3", 102500, 108000, 124000, 7200, 7800), abyss.Tiers[6]);
         Assert.Equal(new CutoffTier("지옥 4", 110000, 116000, 133500, 8500, 9000), abyss.Tiers[7]);
         Assert.Equal(2, Catalog.Contents[1].Tiers.Count);
-        Assert.Equal(0, Catalog.Contents[1].Tiers[0].MinCombat);
+        Assert.Equal(new CutoffTier("어려움", 27000, 27000, 31100, 0, 0, 65), Catalog.Contents[1].Tiers[0]);         // 화이트 서큐버스 (승운 2026-11-07): 마도저항 제한 없음
+        Assert.Equal(new CutoffTier("매우 어려움", 50000, 57500, 64000, 0, 0, 85), Catalog.Contents[1].Tiers[1]);
         Assert.Equal(3000, Catalog.Contents[2].Tiers[1].MinMdef);
-        Assert.Equal(new CutoffTier("고난이도", 104500, 110000, 126500, 0, 0), Catalog.Contents[3].Tiers.Single());   // 적월의 스카스 (승운 실측 2026-11-07)
+        Assert.Equal(new CutoffTier("고난이도", 104500, 110000, 126500, 3400, 4000), Catalog.Contents[3].Tiers.Single());   // 적월의 스카스 (승운 실측 2026-11-07)
         Assert.Equal(3100, Catalog.Contents[4].Tiers[1].MinMdef);
     }
 

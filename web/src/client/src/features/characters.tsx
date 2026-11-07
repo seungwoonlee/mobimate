@@ -49,13 +49,13 @@ export function cardTone(c: Pick<CharacterCard, 'silver' | 'tribute' | 'stale'>)
 }
 
 /** 멤버십 남은 시간: "27일 3시간" / "5시간 20분". 이미 끝났으면 null */
-export function membershipLeft(expiresAt: string | null, now = Date.now()): { text: string; urgent: boolean } | null {
+export function membershipLeft(expiresAt: string | null, now = Date.now()): { text: string; urgent: boolean; blink: boolean } | null {
   if (!expiresAt) return null;
   const ms = new Date(expiresAt).getTime() - now;
   if (ms <= 0) return null;
   const min = Math.floor(ms / 60000), h = Math.floor(min / 60), d = Math.floor(h / 24);
   const text = d > 0 ? `${d}일 ${h % 24}시간` : h > 0 ? `${h}시간 ${min % 60}분` : `${Math.max(1, min)}분`;
-  return { text, urgent: ms <= 3 * 86_400_000 };   // 3일 이내면 붉은색으로 경고
+  return { text, urgent: ms <= 2 * 86_400_000, blink: ms <= 86_400_000 };   // 2일 이내면 붉은색, 1일 이내면 붉은색으로 깜빡인다
 }
 
 type SortMode = 'combat' | 'urgency' | 'manual';
@@ -171,7 +171,7 @@ function AccountSection({ a, sort, now, move }: { a: AccountGroup; sort: SortMod
         </h3>
         <span className="acct-meta small muted">
           {servers.length > 1 && <>서버 {servers.join('·')} · </>}데카 <b className="num">{fmt(a.deca)}</b> · M캐시 <b className="num">{fmt(a.mcash)}</b>
-          {left ? <> · <span className={left.urgent ? 'danger-text' : ''}>멤버십 {left.text} 남음</span></> : <> · 멤버십 미등록</>}
+          {left ? <> · <span className={left.urgent ? `danger-text${left.blink ? ' blink' : ''}` : ''}>멤버십 {left.text} 남음</span></> : <> · 멤버십 미등록</>}
         </span>
       </div>
       <div className="chars">

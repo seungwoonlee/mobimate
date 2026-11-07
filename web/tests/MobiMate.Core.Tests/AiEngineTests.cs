@@ -50,10 +50,52 @@ public class AiEngineTests
         Assert.DoesNotContain("💡 팁:", warehouseRes.Reply);
     }
 
+    /// <summary>설치된 모델을 정해 주는 가짜 Ollama (이 PC의 실제 Ollama와 무관하게 시험한다)</summary>
+    private sealed class FakeOllama(params string[] models) : OllamaService
+    {
+        public override Task<List<string>> GetInstalledModelsAsync(CancellationToken ct = default) => Task.FromResult(models.ToList());
+    }
+
+    private static AiEngineManager Manager(params string[] models) => new(new FakeOllama(models), (_, _) => Task.FromResult<string?>(null));
+
+    [Fact]
+    public async Task Default_IsGemma4E4b_WhenOllamaHasIt_AndNothingWasUsedBefore()
+    {
+        var m = Manager("qwen3.5:9b", "gemma4:e4b", "gemma4:31b-cloud");
+        await m.DiscoverEnginesAsync(CancellationToken.None, null);
+        Assert.Equal("ollama:gemma4:e4b", m.CurrentEngine!.Info.Id);
+    }
+
+    [Fact]
+    public async Task Default_IsTheLastUsedEngine_EvenIfAnotherIsPreferredByTheAutoRule()
+    {
+        var m = Manager("gemma4:e4b", "qwen3.5:9b");
+        await m.DiscoverEnginesAsync(CancellationToken.None, "ollama:qwen3.5:9b");
+        Assert.Equal("ollama:qwen3.5:9b", m.CurrentEngine!.Info.Id);
+    }
+
+    [Fact]
+    public async Task Default_FallsBackToTheAutoRule_WhenTheLastUsedEngineIsGoneOrPaid_AndNeverPicksCloud()
+    {
+        var gone = Manager("gemma4:e4b");
+        await gone.DiscoverEnginesAsync(CancellationToken.None, "ollama:없는모델");
+        Assert.Equal("ollama:gemma4:e4b", gone.CurrentEngine!.Info.Id);
+
+        var cloudOnly = Manager("qwen3.5:cloud", "glm-5.3:cloud", "qwen2.5-coder:7b");
+        await cloudOnly.DiscoverEnginesAsync(CancellationToken.None, null);
+        Assert.Equal("builtin:guide", cloudOnly.CurrentEngine!.Info.Id);   // 클라우드·코드 전용 모델은 자동으로 고르지 않는다
+    }
+
+    [Theory]
+    [InlineData("gemma4:e4b", "gemma4:12b", "gemma4:e4b")]
+    [InlineData("qwen3.5:9b", "gemma4:e2b", "qwen3.5:9b")]
+    [InlineData("gemma4:e2b", "x:cloud", "gemma4:e2b")]
+    public void PickAutoOllama_FollowsThePriorityList(string a, string b, string expect) => Assert.Equal(expect, AiEngineManager.PickAutoOllama(new[] { b, a }));
+
     [Fact]
     public async Task DiscoverEngines_AlwaysIncludesBuiltInGuide_AndGuaranteesZeroCostDefault()
     {
-        var manager = new AiEngineManager(probeCli: (_, _) => Task.FromResult<string?>(null));
+        var manager = Manager();
         var engines = await manager.DiscoverEnginesAsync(CancellationToken.None);
 
         Assert.NotEmpty(engines);
@@ -84,7 +126,7 @@ public class AiEngineTests
     [Fact]
     public async Task SetCurrentEngine_SwitchesEngineCorrectly()
     {
-        var manager = new AiEngineManager(probeCli: (_, _) => Task.FromResult<string?>(null));
+        var manager = Manager();
         var engines = await manager.DiscoverEnginesAsync(CancellationToken.None);
 
         Assert.NotEmpty(engines);

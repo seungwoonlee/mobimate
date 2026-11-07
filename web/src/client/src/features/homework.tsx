@@ -24,12 +24,12 @@ type State = 'done' | 'todo' | 'unknown' | 'locked';
 interface Cell { key: string; label: string; state: State; note?: string; /** 클리어 추정(미션 카운터는 올랐는데 어느 항목인지 모름): 눌러서 확인 */ guess?: boolean; /** 남은 횟수 (뱅가드, 미완료일 때) */ left?: number; /** 여러 번 해야 끝나는 숙제의 목표 횟수와 지금 횟수: 누를 때마다 0→1→…→목표→0 */ steps?: number; step?: number; /** 손으로 입력하는 수치 칸(랭킹): 단위와 지금 값 */ unit?: string; value?: number; toggleId?: string; boss?: boolean }
 
 /** 한 캐릭터의 칸들: 일반 숙제 8개 + 필드 보스 1개 */
-export function cellsOf(c: Pick<CharacterCard, 'homework' | 'fieldBoss'> & Partial<Pick<CharacterCard, 'combat' | 'recommend'>>): Cell[] {
+export function cellsOf(c: Pick<CharacterCard, 'homework' | 'fieldBoss'> & Partial<Pick<CharacterCard, 'combat' | 'level' | 'recommend'>>): Cell[] {
   const byId = new Map<string, HomeworkAuto>(c.homework.map(h => [h.id, h]));
   const cells: Cell[] = HW_GROUPS.flatMap(g => g.cells.map(x => {
     const h = byId.get(x.id);
-    const need = entryShort(c, x.id);
-    if (need != null) return { key: x.id, label: x.label, state: 'locked', note: `입장 전투력 ${need.toLocaleString()} 필요 (현재 ${(c.combat ?? 0).toLocaleString()})` } as Cell;
+    const why = entryShort(c, x.id);
+    if (why != null) return { key: x.id, label: x.label, state: 'locked', note: why } as Cell;
     const state = h?.state ?? 'unknown';
     const steps = STEP_GOALS[x.id];
     const left = state === 'todo' && h?.remaining != null ? h.remaining : undefined;
