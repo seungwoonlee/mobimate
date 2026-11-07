@@ -940,3 +940,6 @@ button.hw-cell:focus-visible { outline: 2px solid var(--accent); outline-offset:
 .app[data-size="large"] .tip-line{display:inline-flex}
 @keyframes tip-in{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){.tip-line .tip-text{animation:none}}
+/* 팁이 남는 공간을 쓰도록 이름 영역은 내용 폭만 차지한다 (넓은 화면) */
+.app[data-size="large"] .who-txt{flex:0 1 auto}
+.app[data-size="large"] .tip-line{flex:1 1 0;max-width:min(100%,900px)}
