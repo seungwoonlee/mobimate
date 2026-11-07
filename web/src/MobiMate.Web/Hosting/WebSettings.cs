@@ -45,6 +45,9 @@ public sealed class WebSettings
     /// <summary>인식 스레드 수 (기본 1: 게임 부하를 줄인다, FR-VC-06)</summary>
     public int SttThreads { get; set; } = 1;
 
+    /// <summary>말한 뒤 이만큼(밀리초) 조용하면 문장이 끝난 것으로 본다. 기본 500 (2026-11-07 이전 고정값 800). 인식기를 만들 때 읽는다.</summary>
+    public int SttEndSilenceMs { get; set; } = 500;
+
     /// <summary>전역 단축키 (예: "Ctrl+Alt+V", "F9"). 없으면 단축키 없음</summary>
     public string? SttHotkey { get; set; } = "LCtrl+Space";   // 승운 2026-11-06 기본: 왼쪽 Ctrl+Space
 
@@ -126,6 +129,7 @@ public sealed class WebSettingsStore
         SttMaxSeconds = s.SttMaxSeconds,
         SttDeviceId = s.SttDeviceId,
         SttThreads = s.SttThreads,
+        SttEndSilenceMs = s.SttEndSilenceMs,
         SttHotkey = s.SttHotkey,
         SttHotkeyMode = s.SttHotkeyMode,
         SttCue = s.SttCue,

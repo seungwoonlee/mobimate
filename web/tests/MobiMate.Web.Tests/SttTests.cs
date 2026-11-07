@@ -532,9 +532,24 @@ public class SttTests
         Assert.False(d.TryGetProperty("allowLanStart", out _));   // 폰·태블릿 시작 설정은 없다(PC 전용)
         Assert.Equal(15, d.GetProperty("maxSeconds").GetInt32());
         Assert.Equal(1, d.GetProperty("threads").GetInt32());
+        Assert.Equal(500, d.GetProperty("endSilenceMs").GetInt32());   // 기본 0.5초
 
         Assert.Equal(HttpStatusCode.BadRequest, (await c.SendAsync(Req(HttpMethod.Put, "/api/stt/settings", new { maxSeconds = 0 }))).StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest, (await c.SendAsync(Req(HttpMethod.Put, "/api/stt/settings", new { threads = 9 }))).StatusCode);
+    }
+
+    [Fact]
+    public async Task Settings_EndSilence_ValidatesAndReportsRestart()
+    {
+        using var host = new TestHost();
+        var c = await host.LocalAsync();
+        Assert.Equal(HttpStatusCode.BadRequest, (await c.SendAsync(Req(HttpMethod.Put, "/api/stt/settings", new { endSilenceMs = 100 }))).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await c.SendAsync(Req(HttpMethod.Put, "/api/stt/settings", new { endSilenceMs = 5000 }))).StatusCode);
+        var same = await TestHost.Data(await c.SendAsync(Req(HttpMethod.Put, "/api/stt/settings", new { endSilenceMs = 500 })));
+        Assert.False(same.GetProperty("restartRequired").GetBoolean());
+        var changed = await TestHost.Data(await c.SendAsync(Req(HttpMethod.Put, "/api/stt/settings", new { endSilenceMs = 800 })));
+        Assert.True(changed.GetProperty("restartRequired").GetBoolean());
+        Assert.Equal(800, changed.GetProperty("settings").GetProperty("endSilenceMs").GetInt32());
     }
 
     [Fact]

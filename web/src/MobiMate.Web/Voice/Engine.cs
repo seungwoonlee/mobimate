@@ -86,7 +86,7 @@ public sealed class SherpaSttEngine : ISttEngine
 {
     private readonly OnlineRecognizer _recognizer;
 
-    public SherpaSttEngine(SttModelLocator model, int threads, string? hotwordsFile = null)
+    public SherpaSttEngine(SttModelLocator model, int threads, string? hotwordsFile = null, int endSilenceMs = 500)
     {
         var c = new OnlineRecognizerConfig();
         c.FeatConfig.SampleRate = AudioConverter.TargetRate;
@@ -101,7 +101,7 @@ public sealed class SherpaSttEngine : ISttEngine
         c.MaxActivePaths = 8;
         c.EnableEndpoint = 1;
         c.Rule1MinTrailingSilence = 2.4f;   // 아직 말하지 않았을 때
-        c.Rule2MinTrailingSilence = 0.8f;   // 말한 뒤 이만큼 조용하면 문장 끝 (P0 실측)
+        c.Rule2MinTrailingSilence = Math.Clamp(endSilenceMs, 300, 2000) / 1000f;   // 말한 뒤 이만큼 조용하면 문장 끝 (설정, 기본 0.5초. P0 실측 때는 0.8초)
         c.Rule3MinUtteranceLength = 20f;
         if (hotwordsFile != null)
         {
@@ -156,7 +156,7 @@ public sealed class SherpaEngineProvider(SttModelLocator model, WebSettingsStore
             if (!model.IsInstalled) throw new InvalidOperationException("음성 인식 모델이 설치되어 있지 않습니다.");
             var clock = System.Diagnostics.Stopwatch.StartNew();
             var hotwords = settings.Current.SttHotwords ? HotwordFile.Write(model, vocab, log) : null;
-            var engine = new SherpaSttEngine(model, settings.Current.SttThreads, hotwords);
+            var engine = new SherpaSttEngine(model, settings.Current.SttThreads, hotwords, settings.Current.SttEndSilenceMs);
             log.LogInformation("음성 인식기를 올렸습니다 ({Ms}ms, {Threads}스레드)", clock.ElapsedMilliseconds, settings.Current.SttThreads);
             return _engine = engine;
         }

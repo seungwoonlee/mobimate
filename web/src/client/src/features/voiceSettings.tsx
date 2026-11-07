@@ -30,7 +30,7 @@ export function VoiceSettings({ local }: { local: boolean }) {
     try {
       const r = await api.put<{ restartRequired: boolean; hotkey: { registered: boolean; error: string | null; key: string | null } }>('/api/stt/settings', body);
       await queryClient.invalidateQueries({ queryKey: keys5.stt });
-      if (r.data.restartRequired) toast('스레드 수는 앱을 다시 켠 뒤에 적용됩니다', 'info');
+      if (r.data.restartRequired) toast('이 설정은 앱을 다시 켠 뒤에 적용됩니다', 'info');
       if ('hotkey' in body && body.hotkey && !r.data.hotkey.registered) toast(r.data.hotkey.error ?? '단축키를 등록하지 못했습니다', 'warn');
       return true;
     } catch (e) {
@@ -59,6 +59,10 @@ export function VoiceSettings({ local }: { local: boolean }) {
           <Row label="한 번 듣는 시간">
             <Seg value={String(s.maxSeconds)} options={[['10', '10초'], ['15', '15초'], ['30', '30초'], ['60', '60초']]} onChange={v => void save({ maxSeconds: Number(v) })} />
           </Row>
+          <Row label="말 끝 무음 시간">
+            <Seg value={String(s.endSilenceMs)} options={[['300', '0.3초'], ['500', '0.5초'], ['800', '0.8초'], ['1200', '1.2초']]} onChange={v => void save({ endSilenceMs: Number(v) })} />
+          </Row>
+          <p className="faint small">말한 뒤 이만큼 조용하면 한 문장이 끝난 것으로 봅니다. 짧을수록 빨리 끊기고, 말하다 쉬면 문장이 쪼개질 수 있습니다. 바꾸면 앱을 다시 켠 뒤에 적용됩니다.</p>
           <Row label="말이 끝나면 바로 전송">
             <Seg value={s.autoSend ? 'on' : 'off'} options={[['off', '끄기'], ['on', '켜기']]} onChange={v => void save({ autoSend: v === 'on' })} />
           </Row>

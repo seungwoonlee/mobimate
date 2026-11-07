@@ -6,7 +6,7 @@ using MobiMate.Web.Voice;
 
 namespace MobiMate.Web.Endpoints;
 
-public sealed record SttSettingsRequest(bool? AutoSend, int? MaxSeconds, string? DeviceId, int? Threads, string? Hotkey, string? HotkeyMode, bool? Cue, bool? Hotwords, bool? Spacing, int? SpacingLevel, bool? Refine = null, string? RefineModel = null, int? RefineMs = null, bool? History = null);
+public sealed record SttSettingsRequest(bool? AutoSend, int? MaxSeconds, string? DeviceId, int? Threads, string? Hotkey, string? HotkeyMode, bool? Cue, bool? Hotwords, bool? Spacing, int? SpacingLevel, bool? Refine = null, string? RefineModel = null, int? RefineMs = null, bool? History = null, int? EndSilenceMs = null);
 public sealed record VocabLearningRequest(bool? LearningOn);
 public sealed record VocabPairRequest(string? From, string? To, string? Action);
 public sealed record VocabWordRequest(string? Word);
@@ -257,6 +257,7 @@ public static class SttEndpoints
             if (req.SpacingLevel is < 0 or > 2) return ApiResults.Error(StatusCodes.Status400BadRequest, "VALIDATION", "띄어쓰기 강도는 0(보수적)~2(적극적)입니다.");
             if (req.RefineMs is < 500 or > 10000) return ApiResults.Error(StatusCodes.Status400BadRequest, "VALIDATION", "다듬기 제한 시간은 0.5~10초입니다.");
             if (req.RefineModel is { Length: > 100 } || (req.RefineModel?.Any(c => char.IsControl(c) || char.IsWhiteSpace(c)) ?? false)) return ApiResults.Error(StatusCodes.Status400BadRequest, "VALIDATION", "모델 이름이 올바르지 않습니다.");
+            if (req.EndSilenceMs is < 300 or > 2000) return ApiResults.Error(StatusCodes.Status400BadRequest, "VALIDATION", "말 끝 무음 시간은 0.3~2초입니다.");
             if (req.Threads is < 1 or > 4) return ApiResults.Error(StatusCodes.Status400BadRequest, "VALIDATION", "스레드 수는 1~4입니다.");
             if (req.DeviceId is { Length: > 300 } || (req.DeviceId?.Any(char.IsControl) ?? false)) return ApiResults.Error(StatusCodes.Status400BadRequest, "VALIDATION", "마이크 ID가 올바르지 않습니다.");
             if (req.HotkeyMode is not (null or "hold" or "toggle")) return ApiResults.Error(StatusCodes.Status400BadRequest, "VALIDATION", "단축키 방식은 hold 또는 toggle입니다.");
@@ -268,13 +269,15 @@ public static class SttEndpoints
             lock (SettingsGate)
             {
             // 스레드 수와 핫워드는 인식기를 만들 때 한 번 읽으므로 바뀌면 앱을 다시 켜야 적용된다
-            threadsChanged = (req.Threads != null && req.Threads != s.Current.SttThreads) || (req.Hotwords != null && req.Hotwords != s.Current.SttHotwords);
+            threadsChanged = (req.Threads != null && req.Threads != s.Current.SttThreads) || (req.Hotwords != null && req.Hotwords != s.Current.SttHotwords)
+                || (req.EndSilenceMs != null && req.EndSilenceMs != s.Current.SttEndSilenceMs);
             var hotkeyChanged = req.Hotkey != null;
             ok = s.Update(x =>
             {
                 if (req.AutoSend != null) x.SttAutoSend = req.AutoSend.Value;
                 if (req.MaxSeconds != null) x.SttMaxSeconds = req.MaxSeconds.Value;
                 if (req.Threads != null) x.SttThreads = req.Threads.Value;
+                if (req.EndSilenceMs != null) x.SttEndSilenceMs = req.EndSilenceMs.Value;
                 if (req.DeviceId != null) x.SttDeviceId = req.DeviceId.Length == 0 ? null : req.DeviceId;   // 빈 문자열 = 시스템 기본 마이크
                 if (req.Hotkey != null) x.SttHotkey = string.IsNullOrWhiteSpace(req.Hotkey) ? null : HotkeyParser.Parse(req.Hotkey)!.Display;
                 if (req.HotkeyMode != null) x.SttHotkeyMode = req.HotkeyMode;
@@ -308,6 +311,7 @@ public static class SttEndpoints
         maxSeconds = s.SttMaxSeconds,
         deviceId = s.SttDeviceId,
         threads = s.SttThreads,
+        endSilenceMs = s.SttEndSilenceMs,
         hotkey = s.SttHotkey,
         hotkeyMode = s.SttHotkeyMode,
         cue = s.SttCue,
