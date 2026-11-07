@@ -943,3 +943,6 @@ button.hw-cell:focus-visible { outline: 2px solid var(--accent); outline-offset:
 /* 팁이 남는 공간을 쓰도록 이름 영역은 내용 폭만 차지한다 (넓은 화면) */
 .app[data-size="large"] .who-txt{flex:0 1 auto}
 .app[data-size="large"] .tip-line{flex:1 1 0;max-width:min(100%,900px)}
+/* 빈 공간이 좁으면 말줄임표 대신 두 줄까지 보인다 */
+.tip-line{border-radius:14px;line-height:1.3}
+.tip-line .tip-text{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
