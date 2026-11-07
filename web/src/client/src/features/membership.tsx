@@ -23,7 +23,7 @@ export function MembershipChip() {
   const left = membershipLeft(acct.membership.expiresAt, now);
   return (
     <>
-      <button type="button" className={`mem-chip ${left ? (left.urgent ? 'urgent' : 'ok') : 'none'}`} onClick={() => setOpen(true)}
+      <button type="button" className={`mem-chip ${left ? (left.urgent ? 'urgent' : 'ok') : 'none'}${left?.blink ? ' blink' : ''}`} onClick={() => setOpen(true)}
         aria-label={left ? `멤버십 ${left.text} 남음. 눌러서 남은 기간 고치기` : '멤버십 미등록. 눌러서 등록하기'}>
         {left ? <>멤버십 <b>{left.text}</b> 남음{left.urgent && ' · 곧 끝나요'}</> : <>멤버십 미등록</>}
       </button>

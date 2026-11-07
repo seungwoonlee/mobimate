@@ -36,11 +36,16 @@ describe('단계 카운터와 뒤로 가기', () => {
 });
 
 describe('입장 전투력 미달 비활성화', () => {
-  const rec = [{ id: 'scars', name: '적월의 스카스', status: 'locked' as const, tier: null, maxEntry: null, entry: 104500 }, { id: 'cavrak', name: '카브락', status: 'near' as const, tier: '입문', maxEntry: '입문', entry: 65000 }];
+  const rec = [{ id: 'scars', name: '적월의 스카스', status: 'locked' as const, tier: null, maxEntry: null, entry: 104500, entryLevel: 0 }, { id: 'cavrak', name: '카브락', status: 'near' as const, tier: '입문', maxEntry: '입문', entry: 65000 }];
   it('입장 전투력에 못 미치면 필요한 전투력을 돌려준다', () => {
-    expect(entryShort({ combat: 100000, recommend: rec }, 'raid_scars')).toBe(104500);
+    expect(entryShort({ combat: 100000, recommend: rec }, 'raid_scars')).toBe('입장 전투력 104,500 필요 (현재 100,000)');
     expect(entryShort({ combat: 104500, recommend: rec }, 'raid_scars')).toBeNull();
     expect(entryShort({ combat: 100000, recommend: rec }, 'raid_cavrak')).toBeNull();
+  });
+  it('입장 레벨에 못 미쳐도 비활성화한다', () => {
+    const ws = [{ id: 'white_succubus', name: '화이트 서큐버스', status: 'locked' as const, tier: null, maxEntry: null, entry: 27000, entryLevel: 65 }];
+    expect(entryShort({ combat: 50000, level: 60, recommend: ws }, 'raid_white_succubus')).toBe('입장 레벨 65 필요 (현재 60)');
+    expect(entryShort({ combat: 50000, level: 65, recommend: ws }, 'raid_white_succubus')).toBeNull();
   });
   it('전투력을 모르거나 전투력과 무관한 숙제는 건드리지 않는다', () => {
     expect(entryShort({ combat: 0, recommend: rec }, 'raid_scars')).toBeNull();

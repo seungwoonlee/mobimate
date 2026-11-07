@@ -14,15 +14,15 @@
       { "name": "지옥 4",      "minCombat": 110000, "recCombat": 116000, "overCombat": 133500, "minMdef": 8500, "overMdef": 9000 }
     ]},
     { "id": "white_succubus", "name": "화이트 서큐버스", "icon": "succubus", "tiers": [
-      { "name": "어려움",      "minCombat": 0,      "recCombat": 27000,  "overCombat": 31100,  "minMdef": 0, "overMdef": 0 },
-      { "name": "매우 어려움", "minCombat": 50000,  "recCombat": 57500,  "overCombat": 64000,  "minMdef": 0, "overMdef": 0 }
+      { "name": "어려움",      "minLevel": 65, "minCombat": 27000,  "recCombat": 27000,  "overCombat": 31100,  "minMdef": 0, "overMdef": 0 },
+      { "name": "매우 어려움", "minLevel": 85, "minCombat": 50000,  "recCombat": 57500,  "overCombat": 64000,  "minMdef": 0, "overMdef": 0 }
     ]},
     { "id": "airel", "name": "에이렐", "icon": "airel", "tiers": [
       { "name": "어려움",      "minCombat": 43500,  "recCombat": 50000,  "overCombat": 57500,  "minMdef": 0,    "overMdef": 0 },
       { "name": "매우 어려움", "minCombat": 88500,  "recCombat": 93000,  "overCombat": 107000, "minMdef": 3000, "overMdef": 3500 }
     ]},
     { "id": "scars", "name": "적월의 스카스", "icon": "cavrak", "tiers": [
-      { "name": "고난이도",    "minCombat": 104500, "recCombat": 110000, "overCombat": 126500, "minMdef": 0,    "overMdef": 0 }
+      { "name": "고난이도",    "minCombat": 104500, "recCombat": 110000, "overCombat": 126500, "minMdef": 3400, "overMdef": 4000 }
     ]},
     { "id": "cavrak", "name": "카브락", "icon": "cavrak", "tiers": [
       { "name": "입문",        "minCombat": 65000,  "recCombat": 72000,  "overCombat": 82500,  "minMdef": 2000, "overMdef": 2500 },

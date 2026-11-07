@@ -155,15 +155,13 @@ test('긴급 정지: Esc 한 번으로 바로 요청된다 (FR-AC-01·03)', asyn
   await expect(toast(page, '행동 정지를 요청했습니다')).toBeVisible();
 });
 
-test('AI 도우미: 채집 명령은 확인 카드를 거쳐야 시작된다 (FR-AI-05, D-07)', async ({ page }) => {
+test('AI 도우미: 채집 명령은 확인 카드 없이 바로 시작되고, 무엇을 하는지만 알린다', async ({ page }) => {
   await openDock(page, 'AI 도우미');
   const input = page.locator('#aiIn');
   await input.fill('사과 20개 채집해줘');
   await input.press('Enter');
-  const card = page.locator('.intent').filter({ hasText: '사과 채집' }).last();
-  await expect(card).toContainText('정령의 날개 5개');
-  await card.getByRole('button', { name: '채집 시작' }).click();
-  await expect(card).toContainText('채집을 시작했습니다');
+  await expect(page.locator('.ai-note').filter({ hasText: '사과 채집 시작' }).last()).toContainText('정령의 날개 5개');
+  await expect(page.locator('.intent')).toHaveCount(0);   // 확인 카드는 없다
   await expect(toast(page, /사과 채집/)).toBeVisible();
 });
 
@@ -250,16 +248,17 @@ test('임무 탭 제작: 목표 개수를 넣으면 필요한 재료 합계와 �
   await expect(page.getByText('목표 개수(퀘스트가 요구하는 개수)를 넣으면')).toBeVisible();
 });
 
-test('AI 도우미 바로 가기: 한 줄에 하나, 가로 스크롤 없이 화면으로 바로 이동한다 (FR-AI-20·21)', async ({ page }) => {
+test('AI 도우미 빠른 실행: 최대 5개, 한 줄에 하나, 가로 스크롤 없이 게임 동작만 있다', async ({ page }) => {
   await openDock(page, 'AI 도우미');
-  const nav = page.locator('.guide-nav').first();
+  const nav = page.getByRole('navigation', { name: '빠른 실행' });
   await expect(nav).toBeVisible();
   const box = await nav.evaluate(el => ({ sw: el.scrollWidth, cw: el.clientWidth }));
   expect(box.sw).toBeLessThanOrEqual(box.cw);                           // 가로 스크롤 없음
-  const tops = await nav.locator('button').evaluateAll(bs => bs.map(b => Math.round(b.getBoundingClientRect().left)));
-  expect(new Set(tops).size).toBe(1);                                   // 모두 같은 열 = 한 줄에 하나
-  await nav.getByRole('button', { name: /^재화/ }).click();
-  await expect(page).toHaveURL(/\/currencies/);
+  expect(await nav.locator('button').count()).toBeLessThanOrEqual(5);
+  const lefts = await nav.locator('button').evaluateAll(bs => bs.map(b => Math.round(b.getBoundingClientRect().left)));
+  expect(new Set(lefts).size).toBe(1);                                  // 모두 같은 열 = 한 줄에 하나
+  await expect(nav.getByRole('button', { name: /행동 정지/ })).toBeVisible();
+  await expect(nav.getByRole('button', { name: /^재화/ })).toHaveCount(0);   // 앱 안 화면으로 가는 버튼은 없다
 });
 
 test('다크 모드 색상 패턴을 고를 수 있다 (FR-LY-05)', async ({ page }) => {

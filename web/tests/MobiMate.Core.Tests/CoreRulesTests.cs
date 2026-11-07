@@ -215,10 +215,15 @@ public class GameStateCacheTests
 
 public class AiEngineManagerTests
 {
+    private sealed class EmptyOllama : OllamaService
+    {
+        public override Task<List<string>> GetInstalledModelsAsync(CancellationToken ct = default) => Task.FromResult(new List<string>());
+    }
+
     [Fact]
     public async Task PaidCliEngine_IsListed_ButNeverRestoredAutomatically()
     {
-        var manager = new AiEngineManager(probeCli: (cmd, _) => Task.FromResult<string?>(cmd == "claude" ? @"C:\fake\claude.exe" : null));
+        var manager = new AiEngineManager(new EmptyOllama(), (cmd, _) => Task.FromResult<string?>(cmd == "claude" ? @"C:\fake\claude.exe" : null));
         await manager.DiscoverEnginesAsync(preferredEngineId: "cli:claude");
 
         Assert.Contains(manager.AvailableEngines, e => e.Info.Id == "cli:claude" && e.Info.CostTier == AiCostTier.Paid);
@@ -231,7 +236,7 @@ public class AiEngineManagerTests
     public async Task FailingLlm_CustomPersona_FallsBackToNeutralLines_WithFlag()
     {
         // D-03: 커스텀 페르소나 + LLM 실패 → 악덕영애가 아닌 중립 대사, UsedFallback=true
-        var manager = new AiEngineManager(probeCli: (cmd, _) => Task.FromResult<string?>(cmd == "claude" ? @"Z:\없는\claude.exe" : null));
+        var manager = new AiEngineManager(new NoOllamaForTest(), (cmd, _) => Task.FromResult<string?>(cmd == "claude" ? @"Z:\없는\claude.exe" : null));
         await manager.DiscoverEnginesAsync();
         manager.SetCurrentEngine("cli:claude");
         var service = new ChatterLineService(manager);

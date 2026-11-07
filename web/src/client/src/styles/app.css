@@ -403,6 +403,9 @@ button.toast { border: 0; text-align: left; cursor: pointer; }
 .mem-chip.ok b{color:var(--ok)}
 .mem-chip.urgent{background:var(--danger-soft);border-color:var(--danger);color:var(--danger)}
 .mem-chip.urgent b{color:var(--danger)}
+.mem-chip.blink,.danger-text.blink{animation:mem-blink 1s steps(2,jump-none) infinite}   /* 1일 이내: 깜빡임 */
+@keyframes mem-blink{50%{opacity:.25}}
+@media (prefers-reduced-motion:reduce){.mem-chip.blink,.danger-text.blink{animation:none;text-decoration:underline}}
 .mem-chip.none{border-style:dashed}
 .mem-inputs{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .assign-list{display:grid;gap:8px;max-height:50vh;overflow-y:auto}

@@ -141,7 +141,7 @@ public class InGameChatterTests
     [Fact]
     public async Task ChatterLineService_BuiltInEngine_ReturnsPersonaLineUnder50_WithoutFallbackFlag()
     {
-        var aiManager = new AiEngineManager(probeCli: (_, _) => Task.FromResult<string?>(null));
+        var aiManager = new AiEngineManager(new NoOllamaForTest(), (_, _) => Task.FromResult<string?>(null));
         await aiManager.DiscoverEnginesAsync();
         var service = new ChatterLineService(aiManager);
         var ctx = new ChatterContext("류트", "격투가", 100, 88000, "채집 중", "두갈드 아일", "가방 무게 50%", "100,000");
@@ -158,7 +158,7 @@ public class InGameChatterTests
     [InlineData(ChatterPersona.GyeongsangAhjussi, null)]
     public async Task ChatterLineService_PersonaSwitch_UsesThatPersonasPool(ChatterPersona persona, string? mustContain)
     {
-        var aiManager = new AiEngineManager(probeCli: (_, _) => Task.FromResult<string?>(null));
+        var aiManager = new AiEngineManager(new NoOllamaForTest(), (_, _) => Task.FromResult<string?>(null));
         await aiManager.DiscoverEnginesAsync();
         var service = new ChatterLineService(aiManager);
         var ctx = new ChatterContext("류트", "격투가", 100, 88000, "휴식", "티르코네일", "정상", "1000");
@@ -185,7 +185,7 @@ public class InGameChatterTests
     [Fact]
     public async Task ChatterLineService_GenerateLineAsync_ReturnsValidLineUnder50Chars()
     {
-        var aiManager = new AiEngineManager(probeCli: (_, _) => Task.FromResult<string?>(null));
+        var aiManager = new AiEngineManager(new NoOllamaForTest(), (_, _) => Task.FromResult<string?>(null));
         await aiManager.DiscoverEnginesAsync();
         var service = new ChatterLineService(aiManager);
         var dummyCtx = new ChatterContext("아이라", "빙결술사", 100, 99000, "휴식 중", "던바튼", "가방: 400/1000", "5,000,000 골드");

@@ -9,10 +9,15 @@ namespace MobiMate.Tests;
 
 public class InteractiveFeaturesTests
 {
+    private sealed class NoOllama : OllamaService
+    {
+        public override Task<List<string>> GetInstalledModelsAsync(CancellationToken ct = default) => Task.FromResult(new List<string>());
+    }
+
     [Fact]
     public async Task AiEngineManager_DiscoversEngines_WithCorrectPriorityOrder()
     {
-        var manager = new AiEngineManager(probeCli: (_, _) => Task.FromResult<string?>(null));
+        var manager = new AiEngineManager(new NoOllama(), (_, _) => Task.FromResult<string?>(null));
         var engines = await manager.DiscoverEnginesAsync(CancellationToken.None);
 
         Assert.NotEmpty(engines);

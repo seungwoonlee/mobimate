@@ -89,6 +89,7 @@ public sealed class TestHost : WebApplicationFactory<Program>
         builder.ConfigureServices(s => s.AddSingleton<IStartupFilter, RemoteIpStartupFilter>());
         builder.ConfigureTestServices(s =>
         {
+            s.AddSingleton(new AiEngineManager(new NoOllama(), (_, _) => System.Threading.Tasks.Task.FromResult<string?>(null)));   // 이 PC의 Ollama·CLI와 무관하게 내장 가이드로 시작한다
             s.AddSingleton<INetworkProfileSource>(Network);
             s.AddSingleton<IPortProbe>(Probe);
             s.AddSingleton<IMdnsAdvertiser>(Mdns);
@@ -236,4 +237,9 @@ public static class FakeCli
         if (!File.Exists(exe)) throw new FileNotFoundException("가짜 CLI가 빌드되지 않았습니다.", exe);
         return exe;
     }
+}
+
+internal sealed class NoOllama : OllamaService
+{
+    public override System.Threading.Tasks.Task<System.Collections.Generic.List<string>> GetInstalledModelsAsync(System.Threading.CancellationToken ct = default) => System.Threading.Tasks.Task.FromResult(new System.Collections.Generic.List<string>());
 }

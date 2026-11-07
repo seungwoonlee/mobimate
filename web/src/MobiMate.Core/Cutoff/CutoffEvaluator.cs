@@ -3,8 +3,8 @@ using System.Text.Json;
 
 namespace MobiMate;
 
-/// <summary>난이도 하나의 기준 (REQUIREMENTS §5.12 FR-CO-01). 마도저항 0 = 조건 없음.</summary>
-public sealed record CutoffTier(string Name, long MinCombat, long RecCombat, long OverCombat, long MinMdef, long OverMdef)
+/// <summary>난이도 하나의 기준 (REQUIREMENTS §5.12 FR-CO-01). 마도저항 0 = 조건 없음, 입장 레벨 0 = 모름(조건 없음으로 본다).</summary>
+public sealed record CutoffTier(string Name, long MinCombat, long RecCombat, long OverCombat, long MinMdef, long OverMdef, int MinLevel = 0)
 {
     public bool CanEnter(long combat, long mdef) => combat >= MinCombat && mdef >= MinMdef;
 
@@ -166,7 +166,7 @@ public sealed class CutoffCatalog
                 continue;
             }
             var content = new CutoffContent(c.Id ?? "", c.Name ?? c.Id ?? "", c.Icon ?? "",
-                (c.Tiers ?? new()).Select(t => new CutoffTier(t.Name ?? "", t.MinCombat, t.RecCombat, t.OverCombat, t.MinMdef, t.OverMdef)).ToList());
+                (c.Tiers ?? new()).Select(t => new CutoffTier(t.Name ?? "", t.MinCombat, t.RecCombat, t.OverCombat, t.MinMdef, t.OverMdef, t.MinLevel)).ToList());
             if (Validate(content) is { } why) warnings.Add($"[{source}] {content.Id} 제외: {why}");
             else result.Add(content);
         }
@@ -194,5 +194,6 @@ public sealed class CutoffCatalog
         public long OverCombat { get; set; }
         public long MinMdef { get; set; }
         public long OverMdef { get; set; }
+        public int MinLevel { get; set; }
     }
 }
