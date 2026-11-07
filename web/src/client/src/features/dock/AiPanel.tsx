@@ -3,7 +3,7 @@ import { create } from 'zustand';
 import { api, ApiError } from '../../api/http';
 import { keys, keys5, useEngines, useLife } from '../../api/queries';
 import type { AskEvent, Engine, Envelope, Life } from '../../api/types';
-import { Dialog, Icon, Pill } from '../../components/ui';
+import { Icon, Pill } from '../../components/ui';
 import { collectAll, startGather } from '../../lib/actions';
 import { WINGS_PER_BATCH, gatherBatches } from '../life';
 import { Markdown } from '../../lib/markdown';
@@ -231,21 +231,19 @@ function MsgView({ m }: { m: Msg }) {
   }
 }
 
-/** 엔진 선택 (FR-AI-01~03): 비용 배지, 유료 엔진은 1회 확인, 다시 찾기. 전환 알림은 토스트로만 (FR-AI-09). */
+/** 엔진 선택 (FR-AI-01~03): 비용 배지, 다시 찾기. 전환 알림은 토스트로만 (FR-AI-09). */
 function EnginePicker() {
   const q = useEngines();
   const toast = useUi(s => s.toast);
   const [open, setOpen] = useState(false);
-  const [confirm, setConfirm] = useState<Engine | null>(null);
   const [busy, setBusy] = useState(false);
   const d = q.data?.data;
   const cur = d?.engines.find(e => e.id === d.current);
 
-  const pick = async (e: Engine, confirmPaid = false) => {
-    if (e.costTier === 'paid' && !confirmPaid) { setConfirm(e); setOpen(false); return; }
+  const pick = async (e: Engine) => {
     setBusy(true);
     try {
-      await api.put('/api/ai/engines/current', { id: e.id, confirmPaid });
+      await api.put('/api/ai/engines/current', { id: e.id, confirmPaid: true });
       await queryClient.invalidateQueries({ queryKey: keys5.engines });
       toast(`AI 엔진: ${e.name}`, 'info');
     } catch (err) {
@@ -253,7 +251,6 @@ function EnginePicker() {
     } finally {
       setBusy(false);
       setOpen(false);
-      setConfirm(null);
     }
   };
 
@@ -288,14 +285,6 @@ function EnginePicker() {
           )}
           <button type="button" onClick={rediscover}><Icon name="refresh" /><span className="nm">엔진 다시 찾기</span></button>
         </div>
-      )}
-      {confirm && (
-        <Dialog title="계정 과금 엔진" onClose={() => setConfirm(null)} actions={<>
-          <button type="button" className="btn" onClick={() => setConfirm(null)}>취소</button>
-          <button type="button" className="btn primary" onClick={() => pick(confirm, true)}>사용하기</button>
-        </>}>
-          <p><b>{confirm.name}</b>은(는) 로그인한 계정의 사용량·요금이 나갈 수 있습니다. 이 엔진을 쓸까요?</p>
-        </Dialog>
       )}
     </div>
   );

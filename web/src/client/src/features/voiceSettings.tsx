@@ -2,10 +2,10 @@ import { useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api, ApiError } from '../api/http';
 import { keys5, useSttStatus } from '../api/queries';
-import type { SttDevices, SttElevation, SttHistoryItem, SttMicTest, SttRefineModels, SttRefineStatus, SttSettings, SttVocab } from '../api/types';
+import type { SttDevices, SttElevation, SttHistoryItem, SttMicTest, SttRefineModels, SttRefineStatus, SttSettings } from '../api/types';
 import { Pill, Row, Seg } from '../components/ui';
 import { queryClient } from '../lib/queryClient';
-import { comboFromKeyEvent, elevationNotice, formatMb, installPercent, micLevelMessage, pairState, sttErrorMessage } from '../lib/voice';
+import { comboFromKeyEvent, elevationNotice, formatMb, installPercent, micLevelMessage, sttErrorMessage } from '../lib/voice';
 import { useUi } from '../state/ui';
 
 const SETTINGS_KEY = [...keys5.stt, 'settings'] as const;
@@ -82,7 +82,6 @@ export function VoiceSettings({ local }: { local: boolean }) {
             인식 글자는 띄어쓰기 없이 나옵니다("지금레이드들어갑니다"). 켜면 아는 낱말 사이에 공백을 넣고, 모르는 부분은 붙여 둡니다.
             높일수록 공백을 더 넣어 놓치는 곳이 줄지만(처음 보는 문장 기준 적극적: 넣은 공백의 80%가 맞고 62%를 찾음, 보수적: 85%·56%) 틀린 공백도 조금 늘어납니다. 게임의 채팅 확인창에서 최종 문장을 보고 취소할 수 있어 기본은 적극적입니다. 내가 보낸 낱말이 사전에 더해져 쓸수록 나아집니다.
           </p>
-          <LearningSection />
           <HistorySection enabled={s.history} onToggle={on => void save({ history: on })} />
           <Row label="자주 쓰는 낱말 우선 인식 (실험)">
             <Seg value={s.hotwords ? 'on' : 'off'} options={[['off', '끄기'], ['on', '켜기']]} onChange={v => void save({ hotwords: v === 'on' })} />
@@ -336,73 +335,6 @@ function HistorySection({ enabled, onToggle }: { enabled: boolean; onToggle: (on
                 <button type="button" className="btn primary" onClick={() => void clear()}>모두 지우기</button></div>
             : <div className="acts"><button type="button" className="btn" onClick={() => setConfirmClear(true)}>기록 모두 지우기</button></div>)}
         </details>
-      )}
-    </>
-  );
-}
-
-/** 누적 학습 (FR-VC-08): 쓸수록 내 말투와 게임 용어에 맞춰진다. 보기·끄기·지우기는 게임 PC에서만 */
-function LearningSection() {
-  const toast = useUi(s => s.toast);
-  const q = useQuery({ queryKey: VOCAB_KEY, queryFn: () => api.get<SttVocab>('/api/stt/vocab'), retry: false });
-  const [confirmClear, setConfirmClear] = useState(false);
-  const v = q.data?.data;
-  if (!v) return null;
-
-  const run = async (call: () => Promise<{ data: SttVocab }>) => {
-    try {
-      queryClient.setQueryData(VOCAB_KEY, await call());
-    } catch (e) {
-      toast(e instanceof ApiError ? e.message : '학습 내용을 바꾸지 못했습니다', 'warn');
-    }
-  };
-  const pair = (p: { from: string; to: string }, action: 'on' | 'off' | 'delete') => run(() => api.post<SttVocab>('/api/stt/vocab/pair', { from: p.from, to: p.to, action }));
-
-  return (
-    <>
-      <p className="faint small">
-        보낸 채팅의 낱말을 세고, 인식된 글자를 고쳐 보내면 그 고친 부분을 배웁니다. 같은 부분을 두 번 고치면 다음부터 자동으로 고쳐 줍니다.
-        문장 전체는 저장하지 않고 낱말과 고친 부분만 이 PC에 남기며, 90일 안 쓴 것은 지웁니다.
-      </p>
-      {v.warning && <p className="warn-text small" role="status">{v.warning}</p>}
-
-      {v.pairs.length > 0 && (
-        <ul className="vocab-list" aria-label="고친 부분">
-          {v.pairs.map(p => {
-            const st = pairState(p);
-            return (
-              <li key={`${p.from}>${p.to}`}>
-                <span className="num">{p.from} → {p.to}</span> <Pill tone={st.tone === 'ok' ? 'ok' : st.tone === 'warn' ? 'warn' : undefined}>{st.text}</Pill>
-                <span className="acts">
-                  <button type="button" className="btn" onClick={() => void pair(p, p.off ? 'on' : 'off')}>{p.off ? '켜기' : '끄기'}</button>
-                  <button type="button" className="btn" onClick={() => void pair(p, 'delete')} aria-label={`${p.from}→${p.to} 지우기`}>지우기</button>
-                </span>
-              </li>
-            );
-          })}
-        </ul>
-      )}
-
-      {v.words.length > 0 && (
-        <details className="vocab-words">
-          <summary>자주 쓰는 낱말 {v.words.length}개</summary>
-          <ul className="vocab-chips">
-            {v.words.slice(0, 60).map(w => (
-              <li key={w.word}>
-                <span>{w.word}</span> <span className="faint num">{w.count}</span>
-                <button type="button" className="chip-x" aria-label={`${w.word} 지우기`} onClick={() => void run(() => api.post<SttVocab>('/api/stt/vocab/word', { word: w.word }))}>×</button>
-              </li>
-            ))}
-          </ul>
-        </details>
-      )}
-
-      {(v.pairs.length > 0 || v.words.length > 0) && (
-        confirmClear
-          ? <div className="acts"><span className="warn-text small">학습한 내용을 모두 지울까요?</span>
-              <button type="button" className="btn" onClick={() => setConfirmClear(false)}>아니요</button>
-              <button type="button" className="btn primary" onClick={() => { setConfirmClear(false); void run(() => api.post<SttVocab>('/api/stt/vocab/clear', {})); }}>모두 지우기</button></div>
-          : <div className="acts"><button type="button" className="btn" onClick={() => setConfirmClear(true)}>학습 내용 모두 지우기</button></div>
       )}
     </>
   );

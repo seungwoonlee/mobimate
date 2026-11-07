@@ -16,8 +16,12 @@ public class AiEngineManager
     private readonly OllamaService _ollamaService;
     private readonly Func<string, CancellationToken, Task<string?>> _probeCli;
 
-    public AiEngineManager(OllamaService? ollama = null, Func<string, CancellationToken, Task<string?>>? probeCli = null)
+    private readonly LmStudioService? _lmStudio;
+
+    /// <param name="lmStudio">LM Studio 서버 연결. null이면 LM Studio는 찾지 않는다(테스트용)</param>
+    public AiEngineManager(OllamaService? ollama = null, Func<string, CancellationToken, Task<string?>>? probeCli = null, LmStudioService? lmStudio = null)
     {
+        _lmStudio = lmStudio;
         _ollamaService = ollama ?? new OllamaService();
         _probeCli = probeCli ?? ProbeCliAsync;
     }
@@ -67,6 +71,18 @@ public class AiEngineManager
             }
         }
         catch { }
+
+        // 3-2. [무료 AI] 로컬 LM Studio 모델 (Local Server가 켜져 있을 때만 보인다). 자동 선택 대상은 아니고, 직접 고르면 다음에도 복원한다.
+        if (_lmStudio != null)
+        {
+            try
+            {
+                using var lmCts = new CancellationTokenSource(TimeSpan.FromSeconds(1.5));
+                using var linkedLm = CancellationTokenSource.CreateLinkedTokenSource(ct, lmCts.Token);
+                foreach (var model in await _lmStudio.GetModelsAsync(linkedLm.Token)) _engines.Add(new LmStudioAiEngine(model, _lmStudio));
+            }
+            catch { }
+        }
 
         // 4. 기본 엔진 선정: ① 가장 최근에 사용한 엔진(유료 포함: 사용자가 직접 골랐던 것) ② 없으면 로컬 Ollama의 gemma4:e4b 또는 4B급 이하 모델 ③ 없으면 내장 가이드.
         //    처음 쓰는 PC에서 자동으로 고르는 것은 로컬 무료 모델뿐이다(유료 CLI·클라우드 모델은 자동 선택하지 않는다).
