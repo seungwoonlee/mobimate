@@ -20,7 +20,7 @@ export interface SttElevation { app: boolean; game: boolean | null; mismatch: bo
 export interface SttInstall { phase: 'idle' | 'downloading' | 'done' | 'failed'; done: number; total: number; file: string | null; error: string | null }
 export interface SttHotkeyStatus { key: string | null; registered: boolean; error: string | null; mode: 'hold' | 'toggle' }
 export interface SttSettings {
-  autoSend: boolean; maxSeconds: number; deviceId: string | null; threads: number;
+  autoSend: boolean; maxSeconds: number; deviceId: string | null; threads: number; endSilenceMs: number;
   hotkey: string | null; hotkeyMode: 'hold' | 'toggle'; cue: boolean; hotwords: boolean; spacing: boolean; spacingLevel: 0 | 1 | 2;
   refine: boolean; refineModel: string; refineMs: number; history: boolean;
 }
