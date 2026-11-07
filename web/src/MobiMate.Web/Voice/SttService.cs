@@ -299,7 +299,7 @@ public sealed class SttService(
                 else if (p.Text.Length > 0 && p.Text != s.LastPartial)
                 {
                     s.LastPartial = p.Text;
-                    hub.BroadcastLocal("stt.partial", new { sessionId = s.Id, text = post.Process(p.Text).Text });
+                    hub.BroadcastLocal("stt.partial", new { sessionId = s.Id, text = post.Process(VoiceNoise.Strip(p.Text)).Text });
                 }
             }
 
@@ -336,6 +336,7 @@ public sealed class SttService(
 
     private void EmitFinal(Session s, string raw)
     {
+        raw = VoiceNoise.Strip(raw);   // "NO:)안녕"처럼 소음이 이모티콘 글자로 읽힌 것을 뺀다
         var r = post.Process(raw);
         if (r.Text.Length == 0) return;   // 빈 결과는 초안을 바꾸지 않는다 (FR-VC-03)
         r = Refine(raw, r);
