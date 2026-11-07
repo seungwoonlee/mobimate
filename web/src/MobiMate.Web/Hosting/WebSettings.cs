@@ -59,6 +59,8 @@ public sealed class WebSettings
 
     /// <summary>인식 글자에 띄어쓰기를 넣어 본다 (FR-VC-09). 기본 끔 — 처음 보는 문장에서는 정확도가 높지 않아(경계 정밀도 약 83%) 선택 기능이다</summary>
     public bool SttSpacing { get; set; } = true;
+    /// <summary>지난 음성 기록 보관 (FR-VC-16): 켜면 인식한 문장을 최근 100개·7일만 이 PC에 둔다</summary>
+    public bool SttHistory { get; set; } = true;
 
     /// <summary>
     /// 띄어쓰기 강도 0~2 (0 보수적 · 1 보통 · 2 적극적, 기본 2). 높을수록 공백을 더 많이 넣는다 — 놓치는 공백은 줄고 틀린 공백은 조금 는다.
@@ -129,6 +131,7 @@ public sealed class WebSettingsStore
         SttCue = s.SttCue,
         SttHotwords = s.SttHotwords,
         SttSpacing = s.SttSpacing,
+        SttHistory = s.SttHistory,
         SttSpacingLevel = s.SttSpacingLevel,
         SttRefine = s.SttRefine,
         ChatSmartEmote = s.ChatSmartEmote,

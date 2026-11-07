@@ -109,6 +109,7 @@ builder.Services.AddSingleton<IAudioSource, WasapiAudioSource>();
 builder.Services.AddSingleton(sp => new SttModelLocator(Dir(sp)));
 builder.Services.AddSingleton<ISttEngineProvider, SherpaEngineProvider>();
 builder.Services.AddSingleton(sp => new VoiceVocabulary(Dir(sp)));
+builder.Services.AddSingleton(sp => new VoiceHistory(Dir(sp)));
 builder.Services.AddSingleton<SpacingProvider>();
 builder.Services.AddSingleton<IVoicePostProcessor, LearnedPostProcessor>();
 builder.Services.AddSingleton<IVoiceRefiner, OllamaVoiceRefiner>();

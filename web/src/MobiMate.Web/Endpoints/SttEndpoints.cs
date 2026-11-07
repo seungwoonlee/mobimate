@@ -6,10 +6,12 @@ using MobiMate.Web.Voice;
 
 namespace MobiMate.Web.Endpoints;
 
-public sealed record SttSettingsRequest(bool? AutoSend, int? MaxSeconds, string? DeviceId, int? Threads, string? Hotkey, string? HotkeyMode, bool? Cue, bool? Hotwords, bool? Spacing, int? SpacingLevel, bool? Refine = null, string? RefineModel = null, int? RefineMs = null);
+public sealed record SttSettingsRequest(bool? AutoSend, int? MaxSeconds, string? DeviceId, int? Threads, string? Hotkey, string? HotkeyMode, bool? Cue, bool? Hotwords, bool? Spacing, int? SpacingLevel, bool? Refine = null, string? RefineModel = null, int? RefineMs = null, bool? History = null);
 public sealed record VocabLearningRequest(bool? LearningOn);
 public sealed record VocabPairRequest(string? From, string? To, string? Action);
 public sealed record VocabWordRequest(string? Word);
+public sealed record HistoryCorrectRequest(string? Id, string? Text);
+public sealed record HistoryIdRequest(string? Id);
 
 /// <summary>
 /// 음성 입력 요청 검사 (FR-VC-10). 요구사양 Q8로 Host·Origin 검사를 없앴지만, 마이크를 켜는 요청은 예외로 둔다:
@@ -194,6 +196,35 @@ public static class SttEndpoints
             return v.RemoveWord(req.Word) ? ApiResults.Ok(v.View()) : ApiResults.Error(StatusCodes.Status404NotFound, "NOT_FOUND", "그런 낱말이 없습니다.");
         });
 
+        // ── 지난 음성 기록 보정 (FR-VC-16): 보고, 직접 고쳐서 배우고, 지운다. 이 PC에서만 ──
+        api.MapGet("/history", (VoiceHistory h) => ApiResults.Ok(h.List().Select(HistoryView)));
+
+        api.MapPost("/history/correct", (HttpContext ctx, HistoryCorrectRequest req, VoiceHistory h, VoiceVocabulary v) =>
+        {
+            if (SttGuard.CheckWrite(ctx) is { } bad) return bad;
+            var text = ChatText.Sanitize(req.Text);
+            if (text.Length == 0 || text.Length > VoiceHistory.MaxTextChars)
+                return ApiResults.Error(StatusCodes.Status400BadRequest, "VALIDATION", $"고친 문장은 1~{VoiceHistory.MaxTextChars}자입니다.");
+            if (string.IsNullOrEmpty(req.Id) || h.Get(req.Id) is not { } e) return ApiResults.Error(StatusCodes.Status404NotFound, "NOT_FOUND", "그 기록이 없습니다(7일이 지났거나 지웠습니다).");
+            var learned = v.LearnCorrection(text, e.Original);
+            if (learned < 0) return ApiResults.Error(StatusCodes.Status409Conflict, "LEARNING_OFF", "누적 학습이 꺼져 있어 배우지 못했습니다. 학습을 켜 주세요.");
+            h.MarkCorrected(e.Id, text);
+            return ApiResults.Ok(new { learned, entry = HistoryView(h.Get(e.Id)!) });
+        });
+
+        api.MapPost("/history/delete", (HttpContext ctx, HistoryIdRequest req, VoiceHistory h) =>
+        {
+            if (SttGuard.CheckWrite(ctx) is { } bad) return bad;
+            return !string.IsNullOrEmpty(req.Id) && h.Delete(req.Id) ? ApiResults.Ok(new { }) : ApiResults.Error(StatusCodes.Status404NotFound, "NOT_FOUND", "그 기록이 없습니다.");
+        });
+
+        api.MapPost("/history/clear", (HttpContext ctx, VoiceHistory h) =>
+        {
+            if (SttGuard.CheckWrite(ctx) is { } bad) return bad;
+            h.Clear();
+            return ApiResults.Ok(new { });
+        });
+
         api.MapPost("/vocab/clear", (HttpContext ctx, VoiceVocabulary v) =>
         {
             if (SttGuard.CheckWrite(ctx) is { } bad) return bad;
@@ -250,6 +281,7 @@ public static class SttEndpoints
                 if (req.Cue != null) x.SttCue = req.Cue.Value;
                 if (req.Hotwords != null) x.SttHotwords = req.Hotwords.Value;
                 if (req.Spacing != null) x.SttSpacing = req.Spacing.Value;
+                if (req.History != null) x.SttHistory = req.History.Value;
                 if (req.SpacingLevel != null) x.SttSpacingLevel = req.SpacingLevel.Value;
                 if (req.Refine != null) x.SttRefine = req.Refine.Value;
                 if (req.RefineModel != null) x.SttRefineModel = req.RefineModel.Length == 0 ? null : req.RefineModel;
@@ -265,6 +297,11 @@ public static class SttEndpoints
         });
     }
 
+    private static object HistoryView(HistoryEntry e) => new
+    {
+        id = e.Id, at = new DateTimeOffset(DateTime.SpecifyKind(e.At, DateTimeKind.Utc)), original = e.Original, text = e.Text, autoSent = e.AutoSent, corrected = e.Corrected,
+    };
+
     private static object ToDto(WebSettings s) => new
     {
         autoSend = s.SttAutoSend,
@@ -276,6 +313,7 @@ public static class SttEndpoints
         cue = s.SttCue,
         hotwords = s.SttHotwords,
         spacing = s.SttSpacing,
+        history = s.SttHistory,
         spacingLevel = s.SttSpacingLevel,
         refine = s.SttRefine,
         refineModel = s.SttRefineModel ?? OllamaVoiceRefiner.DefaultModel,

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api, ApiError } from '../api/http';
 import { keys5, useSttStatus } from '../api/queries';
-import type { SttDevices, SttElevation, SttMicTest, SttRefineModels, SttRefineStatus, SttSettings, SttVocab } from '../api/types';
+import type { SttDevices, SttElevation, SttHistoryItem, SttMicTest, SttRefineModels, SttRefineStatus, SttSettings, SttVocab } from '../api/types';
 import { Pill, Row, Seg } from '../components/ui';
 import { queryClient } from '../lib/queryClient';
 import { comboFromKeyEvent, elevationNotice, formatMb, installPercent, micLevelMessage, pairState, sttErrorMessage } from '../lib/voice';
@@ -11,6 +11,7 @@ import { useUi } from '../state/ui';
 const SETTINGS_KEY = [...keys5.stt, 'settings'] as const;
 const DEVICES_KEY = [...keys5.stt, 'devices'] as const;
 const VOCAB_KEY = [...keys5.stt, 'vocab'] as const;
+const HISTORY_KEY = [...keys5.stt, 'history'] as const;
 const REFINE_MODELS_KEY = [...keys5.stt, 'refine-models'] as const;
 
 /**
@@ -78,6 +79,7 @@ export function VoiceSettings({ local }: { local: boolean }) {
             높일수록 공백을 더 넣어 놓치는 곳이 줄지만(처음 보는 문장 기준 적극적: 넣은 공백의 80%가 맞고 62%를 찾음, 보수적: 85%·56%) 틀린 공백도 조금 늘어납니다. 게임의 채팅 확인창에서 최종 문장을 보고 취소할 수 있어 기본은 적극적입니다. 내가 보낸 낱말이 사전에 더해져 쓸수록 나아집니다.
           </p>
           <LearningSection />
+          <HistorySection enabled={s.history} onToggle={on => void save({ history: on })} />
           <Row label="자주 쓰는 낱말 우선 인식 (실험)">
             <Seg value={s.hotwords ? 'on' : 'off'} options={[['off', '끄기'], ['on', '켜기']]} onChange={v => void save({ hotwords: v === 'on' })} />
           </Row>
@@ -239,6 +241,95 @@ function HotkeyRow({ s, status, elevation, onSave }: { s: SttSettings; status: {
       {s.hotkey && !status.registered && status.error && <p className="warn-text small">{status.error}</p>}
       <p className="faint small">게임은 채팅을 보낼 때마다 확인창을 띄우고 Space로 보내고 ESC로 취소합니다. 단축키에 Space가 있으면 Ctrl을 누른 채 확인하려는 순간 보내기 대신 새 녹음이 시작될 수 있으니, Space가 없는 조합(예: LCtrl+Alt+V)이 더 안전합니다. 게임이 쓰지 않는 조합을 고르세요. 왼쪽 Ctrl만 누르면 "LCtrl+…"로 저장되어 오른쪽 Ctrl로는 동작하지 않습니다. 등록한 조합은 모든 프로그램에서 이 기능이 먼저 가져갑니다(예: Ctrl+Space는 한/영 전환이나 편집기 자동완성과 겹칠 수 있습니다).</p>
     </div>
+  );
+}
+
+/**
+ * 지난 음성 기록 보정 (FR-VC-16): 인식된 문장을 보고 직접 고치면 "인식 글자 → 고친 글자"를 바로 배운다.
+ * 문장을 저장하는 것이라 최근 100개·7일만 이 PC에 두고, 끄거나 지울 수 있다.
+ */
+function HistorySection({ enabled, onToggle }: { enabled: boolean; onToggle: (on: boolean) => void }) {
+  const toast = useUi(s => s.toast);
+  const q = useQuery({ queryKey: HISTORY_KEY, queryFn: () => api.get<SttHistoryItem[]>('/api/stt/history'), retry: false, refetchInterval: 15_000 });
+  const vocab = useQuery({ queryKey: VOCAB_KEY, queryFn: () => api.get<SttVocab>('/api/stt/vocab'), retry: false });
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const [busy, setBusy] = useState<string | null>(null);
+  const [confirmClear, setConfirmClear] = useState(false);
+  const items = q.data?.data ?? [];
+  const learningOn = vocab.data?.data.learningOn ?? true;
+  const refresh = () => Promise.all([queryClient.invalidateQueries({ queryKey: HISTORY_KEY }), queryClient.invalidateQueries({ queryKey: VOCAB_KEY })]);
+
+  const learn = async (it: SttHistoryItem, text: string) => {
+    setBusy(it.id);
+    try {
+      const r = await api.post<{ learned: number }>('/api/stt/history/correct', { id: it.id, text });
+      toast(r.data.learned > 0 ? `배웠어요 (고친 부분 ${r.data.learned}곳, 다음부터 바로 적용)` : '낱말을 바꾼 부분이 없어 배울 것이 없습니다(띄어쓰기만 다른 경우)', r.data.learned > 0 ? 'info' : 'warn');
+      setDrafts(d => { const { [it.id]: _gone, ...rest } = d; return rest; });
+      await refresh();
+    } catch (e) {
+      toast(e instanceof ApiError ? e.message : '배우지 못했습니다', 'warn');
+    } finally { setBusy(null); }
+  };
+  const remove = async (id: string) => {
+    try { await api.post('/api/stt/history/delete', { id }); await refresh(); } catch (e) { toast(e instanceof ApiError ? e.message : '지우지 못했습니다', 'warn'); }
+  };
+  const clear = async () => {
+    setConfirmClear(false);
+    try { await api.post('/api/stt/history/clear', {}); await refresh(); } catch (e) { toast(e instanceof ApiError ? e.message : '지우지 못했습니다', 'warn'); }
+  };
+  const when = (iso: string) => {
+    const d = new Date(iso), t = new Date();
+    const hm = d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false });
+    return d.toDateString() === t.toDateString() ? hm : `${d.getMonth() + 1}/${d.getDate()} ${hm}`;
+  };
+
+  return (
+    <>
+      <Row label="지난 음성 기록 보정">
+        <Seg value={enabled ? 'on' : 'off'} options={[['on', '켜기'], ['off', '끄기']]} onChange={v => onToggle(v === 'on')} />
+      </Row>
+      <p className="faint small">
+        인식한 문장을 최근 100개, 7일까지만 이 PC에 보관합니다(폰에서는 볼 수 없습니다). 잘못 알아들은 문장을 직접 고쳐서 [배우기]를 누르면 다음부터 바로 고쳐 줍니다.
+        {!learningOn && <> <b className="warn-text">누적 학습이 꺼져 있어 배울 수 없습니다.</b></>}
+      </p>
+      {enabled && (
+        <details className="hist">
+          <summary>지난 음성 {items.length}개 — 보고 고치기</summary>
+          {items.length === 0
+            ? <p className="faint small">아직 기록이 없습니다. 음성으로 말하면 여기에 쌓입니다.</p>
+            : (
+              <ul className="hist-list" aria-label="지난 음성 기록">
+                {items.map(it => {
+                  const base = it.corrected ?? it.text;
+                  const val = drafts[it.id] ?? base;
+                  const changed = val.trim() !== '' && val.trim() !== base;
+                  return (
+                    <li key={it.id}>
+                      <div className="hist-meta small">
+                        <span className="num faint">{when(it.at)}</span>
+                        {it.autoSent ? <Pill>전송됨</Pill> : <Pill tone="warn">초안</Pill>}
+                        {it.corrected && <Pill tone="ok">배움</Pill>}
+                        <button type="button" className="chip-x" aria-label="이 기록 지우기" onClick={() => void remove(it.id)}>×</button>
+                      </div>
+                      <div className="hist-edit">
+                        <input type="text" value={val} maxLength={200} aria-label={`${it.text} 고치기`} onChange={e => setDrafts(d => ({ ...d, [it.id]: e.target.value }))}
+                          onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing && changed) void learn(it, val); }} />
+                        <button type="button" className="btn primary" disabled={!changed || busy === it.id || !learningOn} onClick={() => void learn(it, val)}>배우기</button>
+                      </div>
+                      <p className="faint small m0">인식한 글자: <span className="num">{it.original}</span></p>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          {items.length > 0 && (confirmClear
+            ? <div className="acts"><span className="warn-text small">지난 음성 기록을 모두 지울까요? (배운 내용은 남습니다)</span>
+                <button type="button" className="btn" onClick={() => setConfirmClear(false)}>아니요</button>
+                <button type="button" className="btn primary" onClick={() => void clear()}>모두 지우기</button></div>
+            : <div className="acts"><button type="button" className="btn" onClick={() => setConfirmClear(true)}>기록 모두 지우기</button></div>)}
+        </details>
+      )}
+    </>
   );
 }
 
