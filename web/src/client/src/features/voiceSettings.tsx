@@ -255,12 +255,10 @@ function HotkeyRow({ s, status, elevation, onSave }: { s: SttSettings; status: {
 function HistorySection({ enabled, onToggle }: { enabled: boolean; onToggle: (on: boolean) => void }) {
   const toast = useUi(s => s.toast);
   const q = useQuery({ queryKey: HISTORY_KEY, queryFn: () => api.get<SttHistoryItem[]>('/api/stt/history'), retry: false, refetchInterval: 15_000 });
-  const vocab = useQuery({ queryKey: VOCAB_KEY, queryFn: () => api.get<SttVocab>('/api/stt/vocab'), retry: false });
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState<string | null>(null);
   const [confirmClear, setConfirmClear] = useState(false);
   const items = q.data?.data ?? [];
-  const learningOn = vocab.data?.data.learningOn ?? true;
   const refresh = () => Promise.all([queryClient.invalidateQueries({ queryKey: HISTORY_KEY }), queryClient.invalidateQueries({ queryKey: VOCAB_KEY })]);
 
   const learn = async (it: SttHistoryItem, text: string) => {
@@ -294,7 +292,6 @@ function HistorySection({ enabled, onToggle }: { enabled: boolean; onToggle: (on
       </Row>
       <p className="faint small">
         인식한 문장을 최근 100개, 7일까지만 이 PC에 보관합니다(폰에서는 볼 수 없습니다). 잘못 알아들은 문장을 직접 고쳐서 [배우기]를 누르면 다음부터 바로 고쳐 줍니다.
-        {!learningOn && <> <b className="warn-text">누적 학습이 꺼져 있어 배울 수 없습니다.</b></>}
       </p>
       {enabled && (
         <details className="hist">
@@ -318,7 +315,7 @@ function HistorySection({ enabled, onToggle }: { enabled: boolean; onToggle: (on
                       <div className="hist-edit">
                         <input type="text" value={val} maxLength={200} aria-label={`${it.text} 고치기`} onChange={e => setDrafts(d => ({ ...d, [it.id]: e.target.value }))}
                           onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing && changed) void learn(it, val); }} />
-                        <button type="button" className="btn primary" disabled={!changed || busy === it.id || !learningOn} onClick={() => void learn(it, val)}>배우기</button>
+                        <button type="button" className="btn primary" disabled={busy === it.id} onClick={() => (changed ? void learn(it, val) : toast('문장을 먼저 고쳐 주세요', 'warn'))}>배우기</button>
                       </div>
                       <p className="faint small m0">인식한 글자: <span className="num">{it.original}</span></p>
                     </li>
@@ -356,9 +353,6 @@ function LearningSection() {
 
   return (
     <>
-      <Row label="누적 학습">
-        <Seg value={v.learningOn ? 'on' : 'off'} options={[['on', '켜기'], ['off', '끄기']]} onChange={x => void run(() => api.put<SttVocab>('/api/stt/vocab', { learningOn: x === 'on' }))} />
-      </Row>
       <p className="faint small">
         보낸 채팅의 낱말을 세고, 인식된 글자를 고쳐 보내면 그 고친 부분을 배웁니다. 같은 부분을 두 번 고치면 다음부터 자동으로 고쳐 줍니다.
         문장 전체는 저장하지 않고 낱말과 고친 부분만 이 PC에 남기며, 90일 안 쓴 것은 지웁니다.
