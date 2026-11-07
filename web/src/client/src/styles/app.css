@@ -931,3 +931,12 @@ button.hw-cell:focus-visible { outline: 2px solid var(--accent); outline-offset:
 .app[data-touch="true"] .hw-cell.value-cell .hw-cell-state input { min-height: 36px; }
 .hw-cell.season.todo { border-color: var(--ok); background: var(--ok-soft); }   /* 시즌제 구역 칸: 진행 중이어도 주황으로 튀지 않게 녹색 */
 .hw-cell.season.todo .hw-cell-state { color: var(--ok); }
+
+/* 상단 팁 한 줄: 이름 오른쪽의 남는 공간에 돌아가며 보인다. 폭 1200 이상(large)에서만 */
+.tip-line{display:none;flex:1 1 0;min-width:0;align-items:center;gap:8px;margin-left:clamp(10px,1.6vw,28px);padding:6px 12px;border-radius:999px;border:1px solid transparent;background:transparent;color:var(--text-2);font-size:clamp(12px,.85vw,14px);text-align:left;cursor:pointer}
+.tip-line:hover,.tip-line:focus-visible{background:var(--bg-2);border-color:var(--line);color:var(--text-1)}
+.tip-line .ic{flex:none;color:var(--accent)}
+.tip-line .tip-text{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;animation:tip-in .5s ease}
+.app[data-size="large"] .tip-line{display:inline-flex}
+@keyframes tip-in{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.tip-line .tip-text{animation:none}}
