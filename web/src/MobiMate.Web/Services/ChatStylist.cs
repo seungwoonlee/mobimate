@@ -234,7 +234,7 @@ public sealed class OllamaChatStylist(WebSettingsStore settings, ILogger<OllamaC
 
     private static async Task<string?> ChatAsync(string model, List<object> messages, double temperature, int numPredict, CancellationToken ct)
     {
-        var body = new { model, stream = false, think = false, keep_alive = "30m", options = new { temperature, num_predict = numPredict }, messages };
+        var body = new { model, stream = false, think = false, keep_alive = "4h", options = new { temperature, num_predict = numPredict, num_ctx = OllamaContext.NumCtx }, messages };
         using var res = await Http.PostAsJsonAsync("api/chat", body, ct);
         res.EnsureSuccessStatusCode();
         using var doc = JsonDocument.Parse(await res.Content.ReadAsStringAsync(ct));

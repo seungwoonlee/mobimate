@@ -130,7 +130,7 @@ public sealed class OllamaVoiceRefiner(WebSettingsStore settings, VoiceVocabular
                 new { role = "user", content = "딜러가부족해요" }, new { role = "assistant", content = "딜러가 부족해요" },
                 new { role = "user", content = text },
             };
-            var body = new { model, stream = false, think = false, keep_alive = "30m", options = new { temperature = 0, num_predict = 120 }, messages };
+            var body = new { model, stream = false, think = false, keep_alive = "4h", options = new { temperature = 0, num_predict = 120, num_ctx = OllamaContext.NumCtx }, messages };
             using var res = await Http.PostAsJsonAsync("api/chat", body, cts.Token);
             if (!res.IsSuccessStatusCode)
             {
@@ -168,7 +168,7 @@ public sealed class OllamaVoiceRefiner(WebSettingsStore settings, VoiceVocabular
         try
         {
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
-            using var res = await Http.PostAsJsonAsync("api/generate", new { model = Model, prompt = "", keep_alive = "30m", stream = false }, cts.Token);
+            using var res = await Http.PostAsJsonAsync("api/generate", new { model = Model, prompt = "", keep_alive = "4h", stream = false, options = new { num_ctx = OllamaContext.NumCtx } }, cts.Token);
             lock (_lock)
             {
                 if (res.IsSuccessStatusCode) { _lastError = null; _pausedUntil = DateTime.MinValue; }
