@@ -88,9 +88,27 @@ public class AiEngineTests
 
     [Theory]
     [InlineData("gemma4:e4b", "gemma4:12b", "gemma4:e4b")]
-    [InlineData("qwen3.5:9b", "gemma4:e2b", "qwen3.5:9b")]
+    [InlineData("qwen3.5:9b", "gemma4:e2b", "gemma4:e2b")]      // 9B·12B급은 자동으로 고르지 않는다 (4B급 이하만)
     [InlineData("gemma4:e2b", "x:cloud", "gemma4:e2b")]
     public void PickAutoOllama_FollowsThePriorityList(string a, string b, string expect) => Assert.Equal(expect, AiEngineManager.PickAutoOllama(new[] { b, a }));
+
+    [Fact]
+    public async Task Default_NeverAutoPicksABigModel_OnlyFourBillionClassOrSmaller()
+    {
+        var m = Manager("qwen3.5:9b", "gemma4:12b", "exaone3.5:7.8b");
+        await m.DiscoverEnginesAsync(CancellationToken.None, null);
+        Assert.Equal("builtin:guide", m.CurrentEngine!.Info.Id);
+    }
+
+    [Fact]
+    public async Task Default_RestoresThePaidEngineTheUserUsedLast()
+    {
+        var m = new AiEngineManager(new FakeOllama("gemma4:e4b"), (cmd, _) => Task.FromResult<string?>(cmd == "claude" ? @"C:ake\claude.exe" : null));
+        await m.DiscoverEnginesAsync(CancellationToken.None, "cli:claude");
+        Assert.Equal("cli:claude", m.CurrentEngine!.Info.Id);
+        await m.DiscoverEnginesAsync(CancellationToken.None, null);   // 기록이 없으면 유료는 자동으로 고르지 않는다
+        Assert.Equal("ollama:gemma4:e4b", m.CurrentEngine!.Info.Id);
+    }
 
     [Fact]
     public async Task DiscoverEngines_AlwaysIncludesBuiltInGuide_AndGuaranteesZeroCostDefault()

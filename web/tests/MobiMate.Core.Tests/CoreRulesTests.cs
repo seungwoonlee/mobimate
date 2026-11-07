@@ -227,7 +227,7 @@ public class AiEngineManagerTests
         await manager.DiscoverEnginesAsync(preferredEngineId: "cli:claude");
 
         Assert.Contains(manager.AvailableEngines, e => e.Info.Id == "cli:claude" && e.Info.CostTier == AiCostTier.Paid);
-        Assert.Equal("builtin:guide", manager.CurrentEngine!.Info.Id); // FR-AI-02: 유료 엔진은 자동 복원 안 함
+        Assert.Equal("cli:claude", manager.CurrentEngine!.Info.Id);    // 가장 최근에 쓴 엔진은 유료여도 복원한다 (승운 2026-11-07)
         Assert.True(manager.SetCurrentEngine("cli:claude"));           // 사용자가 직접 고르면 선택된다
         Assert.False(manager.SetCurrentEngine("없는:엔진"));
     }

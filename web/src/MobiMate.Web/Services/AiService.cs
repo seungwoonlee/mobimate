@@ -40,11 +40,16 @@ public sealed class AiService(AiEngineManager engines, WebSettingsStore settings
     public object Describe() => new
     {
         current = engines.CurrentEngine?.Info.Id,
+        recommendedModel = AiEngineManager.RecommendedOllamaModel,
+        recommendedInstalled = engines.AvailableEngines.Any(IsRecommended),
         engines = engines.AvailableEngines.Select(e => new
         {
             id = e.Info.Id, name = e.Info.DisplayName, type = e.Info.Type, costTier = e.Info.CostTier, description = e.Info.Description,
+            recommended = IsRecommended(e),
         }),
     };
+
+    private static bool IsRecommended(IAiEngine e) => e.Info.Type == AiEngineType.Ollama && string.Equals(e.Info.TargetModel, AiEngineManager.RecommendedOllamaModel, StringComparison.OrdinalIgnoreCase);
 
     public SelectEngineResult Select(string id, bool confirmPaid)
     {

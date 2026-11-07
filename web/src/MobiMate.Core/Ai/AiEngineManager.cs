@@ -68,11 +68,11 @@ public class AiEngineManager
         }
         catch { }
 
-        // 4. 기본 엔진 선정: ① 가장 최근에 사용한 무료 엔진 ② 없으면 로컬 Ollama의 gemma4:e4b 또는 비슷한 수준 모델 ③ 없으면 내장 가이드.
-        //    유료 CLI는 과금 방지를 위해 자동 선택하지 않고, 외부로 글을 보내는 클라우드 모델(:cloud)도 자동으로 고르지 않는다(사용자가 직접 고른 것만 복원).
+        // 4. 기본 엔진 선정: ① 가장 최근에 사용한 엔진(유료 포함: 사용자가 직접 골랐던 것) ② 없으면 로컬 Ollama의 gemma4:e4b 또는 4B급 이하 모델 ③ 없으면 내장 가이드.
+        //    처음 쓰는 PC에서 자동으로 고르는 것은 로컬 무료 모델뿐이다(유료 CLI·클라우드 모델은 자동 선택하지 않는다).
         _currentEngine = builtInGuide;
         var preferred = _engines.FirstOrDefault(e => e.Info.Id == preferredEngineId);
-        if (preferred != null && preferred.Info.IsZeroCost)
+        if (preferred != null)
         {
             _currentEngine = preferred;
         }
@@ -84,9 +84,11 @@ public class AiEngineManager
         return _engines;
     }
 
-    /// <summary>자동 선택 후보(앞이 우선): gemma4:e4b와 비슷한 크기·수준의 로컬 모델. 클라우드·코드 전용 모델은 제외한다.</summary>
-    private static readonly string[] AutoOllamaOrder =
-        { "gemma4:e4b", "gemma4:12b", "qwen3.5:9b", "exaone3.5:7.8b", "gemma4:e2b", "qwen3.5:4b", "exaone3.5:2.4b", "qwen3.5:2b" };
+    /// <summary>추천 모델: 일반 PC에서도 돌아가는 4B급이고 한국어 답이 쓸 만하다. 엔진 목록에 "추천"으로 보인다.</summary>
+    public const string RecommendedOllamaModel = "gemma4:e4b";
+
+    /// <summary>자동 선택 후보(앞이 우선): 4B급 이하(용량 4GB 안팎)의 로컬 모델. 더 큰 모델·클라우드·코드 전용 모델은 자동으로 고르지 않는다.</summary>
+    private static readonly string[] AutoOllamaOrder = { RecommendedOllamaModel, "qwen3.5:4b", "gemma4:e2b", "exaone3.5:2.4b", "qwen3.5:2b" };
 
     /// <summary>설치된 Ollama 모델 중 자동으로 쓸 것. 후보 목록에 있는 첫 모델, 없으면 null(내장 가이드).</summary>
     public static string? PickAutoOllama(IEnumerable<string?> installed)
