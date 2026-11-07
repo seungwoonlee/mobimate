@@ -547,6 +547,25 @@ public class ApiTests
         throw new TimeoutException($"SSE 이벤트 '{name}'를 받지 못했습니다.");
     }
 
+    [Fact]
+    public async Task LocalTab_LeavesAMarker_WhileConnected_AndClearsItWhenTheTabCloses()
+    {
+        using var host = new TestHost();
+        var hub = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<MobiMate.Web.Infrastructure.SseHub>(host.Services);
+        var marker = Path.Combine(host.StorageDir, "tab-open.marker");
+        Assert.False(hub.HadLocalTabRecently(TimeSpan.FromMinutes(5)));          // 아직 탭이 없다 → 새 탭을 바로 연다
+
+        var c = await host.LocalAsync();
+        var sse = await c.GetAsync("/api/events", HttpCompletionOption.ResponseHeadersRead);
+        await WaitFor(() => hub.LocalConnectionCount == 1);
+        Assert.True(File.Exists(marker));
+        Assert.True(hub.HadLocalTabRecently(TimeSpan.FromMinutes(5)));           // 재시작·재배포 직후면 이 탭이 다시 붙기를 기다린다
+
+        sse.Dispose();                                                            // 사용자가 탭을 닫음
+        await WaitFor(() => hub.LocalConnectionCount == 0 && !File.Exists(marker), 8000);
+        Assert.False(hub.HadLocalTabRecently(TimeSpan.FromMinutes(5)));          // 닫았으면 다음 실행은 새 탭을 연다
+    }
+
     private static async Task WaitFor(Func<bool> cond, int ms = 5000)
     {
         var sw = Stopwatch.StartNew();

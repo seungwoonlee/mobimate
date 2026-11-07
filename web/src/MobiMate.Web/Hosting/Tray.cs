@@ -8,8 +8,27 @@ using WinForms = System.Windows.Forms;
 namespace MobiMate.Web.Hosting;
 
 /// <summary>기본 브라우저로 화면을 연다. 트레이·두 번째 실행·기동 작업이 같이 쓴다.</summary>
-public sealed class BrowserLauncher(ServerIdentity identity, ILogger<BrowserLauncher> log)
+public sealed class BrowserLauncher(ServerIdentity identity, Infrastructure.SseHub hub, ILogger<BrowserLauncher> log)
 {
+    /// <summary>
+    /// 이미 열린 탭이 없을 때만 새 탭을 연다 (기동·두 번째 실행용). 방금까지 탭이 붙어 있었으면(재시작·재배포) 그 탭이 다시 붙기를 기다린다.
+    /// 트레이의 "브라우저 열기"는 사용자가 직접 누른 것이라 이 검사 없이 항상 연다(Open).
+    /// </summary>
+    public async Task OpenIfNoTabAsync(bool tellIfOpen, CancellationToken ct = default)
+    {
+        var wait = hub.LocalConnectionCount == 0 && hub.HadLocalTabRecently(TimeSpan.FromSeconds(90)) ? TimeSpan.FromSeconds(30) : TimeSpan.Zero;
+        var until = DateTime.UtcNow + wait;
+        try { while (hub.LocalConnectionCount == 0 && DateTime.UtcNow < until) await Task.Delay(250, ct); }
+        catch (OperationCanceledException) { return; }
+        if (hub.LocalConnectionCount > 0)
+        {
+            log.LogInformation("이미 열린 탭이 있어 새 탭을 열지 않았습니다");
+            if (tellIfOpen) hub.BroadcastLocal("toast", new { level = "info", message = "이미 열려 있는 화면이 있습니다. 새 탭을 열지 않았어요." });
+            return;
+        }
+        Open();
+    }
+
     public string Url(string fragment = "") => $"http://127.0.0.1:{identity.Port}/{fragment}";
 
     public void Open(string fragment = "")
@@ -90,7 +109,7 @@ public sealed class InstancePipeListener(BrowserLauncher browser, MobiMateOption
                 await pipe.WaitForConnectionAsync(ct);
                 var buf = new byte[64];
                 var n = await pipe.ReadAsync(buf, ct);
-                if (Encoding.UTF8.GetString(buf, 0, n) == SingleInstance.OpenBrowserCommand) browser.Open();
+                if (Encoding.UTF8.GetString(buf, 0, n) == SingleInstance.OpenBrowserCommand) _ = browser.OpenIfNoTabAsync(tellIfOpen: true, ct);
             }
             catch (OperationCanceledException) { break; }
             catch (Exception ex)

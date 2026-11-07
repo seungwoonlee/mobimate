@@ -16,6 +16,7 @@ const SILENCE_MS = 45_000;
 function connectDirect(h: SseHandlers): () => void {
   let es: EventSource | null = null;
   let delay = 1;
+  let attempts = 0;
   let timer: number | undefined;
   let watchdog: number | undefined;
   let gen = 0;
@@ -35,7 +36,7 @@ function connectDirect(h: SseHandlers): () => void {
     const src = new EventSource('/api/events');
     es = src;
     kick(g);   // 연결 중에 멈춘 경우도 잡는다
-    src.onopen = () => { if (g !== gen) return; delay = 1; h.onState('open'); kick(g); };
+    src.onopen = () => { if (g !== gen) return; delay = 1; attempts = 0; h.onState('open'); kick(g); };
     for (const t of EVENTS) {
       src.addEventListener(t, ev => {
         if (g !== gen) return;
@@ -57,7 +58,8 @@ function connectDirect(h: SseHandlers): () => void {
     es = null;
     h.onState('retrying', Date.now() + delay * 1000);
     timer = window.setTimeout(open, delay * 1000);
-    delay = Math.min(30, delay * 2);
+    attempts++;
+    delay = Math.min(attempts < 10 ? 3 : 30, delay * 2);   // 앱을 다시 띄울 때 열려 있던 탭이 곧바로 다시 붙게 처음엔 짧게 재시도한다
   };
 
   const onVisible = () => {
