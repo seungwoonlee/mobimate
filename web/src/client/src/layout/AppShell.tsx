@@ -28,6 +28,7 @@ const TAB_ROUTES: RouteName[] = ['characters', 'homework', 'overview', 'inventor
 export function AppShell({ children }: { children: ReactNode }) {
   const layout = useLayout();
   const scale = useDevice(s => s.scale);
+  const dockPx = useDevice(s => s.dockPx);
   // 선택자로 필요한 값만 구독한다(토스트마다 셸 전체를 다시 그리지 않게)
   const dockOpen = useUi(s => s.dockOpen);
   const dockPref = useUi(s => s.dockPref);
@@ -85,7 +86,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div
       className="app"
-      style={{ ['--scale' as string]: scale }}
+      style={{ ['--scale' as string]: scale, ...(dockPx > 0 && dockMode !== 'split' ? { ['--dock-w' as string]: `${dockPx}px` } : {}) }}
       data-size={layout.size}
       data-short={layout.short}
       data-touch={layout.coarse}

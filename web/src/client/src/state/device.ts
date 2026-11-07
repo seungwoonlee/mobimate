@@ -13,6 +13,8 @@ export interface DevicePrefs {
   scale: 1 | 1.15 | 1.3;
   glance: boolean;
   dockWidth: number;
+  /** 채팅 도크 폭(px). 0이면 화면 크기에 맞춘 기본 폭. 사용자가 끌어서 바꾼다 */
+  dockPx: number;
   /** 게임 채팅 자동 이모티콘 (없으면 서버 기본값) */
   autoEmote: boolean | null;
   /** 별칭 안내 말풍선을 이미 닫았는가 */
@@ -22,7 +24,7 @@ export interface DevicePrefs {
 }
 
 const KEY = 'mobimate.device.v1';
-const DEFAULTS: DevicePrefs = { theme: 'system', palette: 'navy', scale: 1, glance: true, dockWidth: 360, autoEmote: null, nickHintSeen: false, charSort: 'combat' };
+const DEFAULTS: DevicePrefs = { theme: 'system', palette: 'navy', scale: 1, glance: true, dockWidth: 360, dockPx: 0, autoEmote: null, nickHintSeen: false, charSort: 'combat' };
 
 function load(): DevicePrefs {
   try {
@@ -41,7 +43,7 @@ export const useDevice = create<DeviceState>((set, get) => ({
   ...load(),
   set: p => {
     set(p);
-    const { theme, palette, scale, glance, dockWidth, autoEmote, nickHintSeen, charSort } = { ...get(), ...p };
-    try { localStorage.setItem(KEY, JSON.stringify({ theme, palette, scale, glance, dockWidth, autoEmote, nickHintSeen, charSort })); } catch { /* 저장 불가: 이번 세션만 */ }
+    const { theme, palette, scale, glance, dockWidth, dockPx, autoEmote, nickHintSeen, charSort } = { ...get(), ...p };
+    try { localStorage.setItem(KEY, JSON.stringify({ theme, palette, scale, glance, dockWidth, dockPx, autoEmote, nickHintSeen, charSort })); } catch { /* 저장 불가: 이번 세션만 */ }
   },
 }));

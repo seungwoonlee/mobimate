@@ -13,8 +13,8 @@ button{cursor:pointer}
   grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr) auto;grid-template-areas:"top" "main" "tabs"}
 .app[data-size="medium"]{grid-template-columns:72px minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);grid-template-areas:"top top" "rail main"}
 .app[data-size="expanded"],.app[data-size="large"]{grid-template-columns:72px minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);grid-template-areas:"top top" "rail main"}
-.app[data-dock-mode="side"][data-dock-open="true"][data-size="expanded"]{grid-template-columns:72px minmax(0,1fr) 320px;grid-template-areas:"top top top" "rail main dock"}
-.app[data-dock-mode="side"][data-dock-open="true"][data-size="large"]{grid-template-columns:76px minmax(0,1fr) 360px;grid-template-areas:"top top top" "rail main dock"}
+.app[data-dock-mode="side"][data-dock-open="true"][data-size="expanded"]{grid-template-columns:72px minmax(0,1fr) var(--dock-w,360px);grid-template-areas:"top top top" "rail main dock"}
+.app[data-dock-mode="side"][data-dock-open="true"][data-size="large"]{grid-template-columns:76px minmax(0,1fr) var(--dock-w,460px);grid-template-areas:"top top top" "rail main dock"}
 .app[data-posture="book"]{grid-template-columns:72px minmax(0,1fr) minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);grid-template-areas:"top top top" "rail main dock"}
 .app[data-posture="tabletop"]{grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr) 16px minmax(0,1fr);grid-template-areas:"top" "main" "hinge" "dock"}
 
@@ -227,11 +227,11 @@ button{cursor:pointer}
 .stepper .v{min-width:56px;text-align:center;font-size:17px;font-weight:600;border-inline:1px solid var(--line);line-height:34px}
 
 /* 도크 */
-.dock{grid-area:dock;display:flex;flex-direction:column;min-height:0;background:var(--bg-1);border-left:1px solid var(--line)}
+.dock{position:relative;grid-area:dock;display:flex;flex-direction:column;min-height:0;background:var(--bg-1);border-left:1px solid var(--line)}
 .app[data-dock-mode="side"][data-dock-open="false"] .dock{display:none}
 .app[data-dock-mode="sheet"] .dock{position:absolute;z-index:60;border:1px solid var(--line);box-shadow:var(--shadow);transition:transform .22s ease,opacity .22s ease}
 .app[data-dock-mode="sheet"][data-size="compact"] .dock{left:0;right:0;bottom:0;top:0;border-radius:0}   /* 폰: 채팅은 한 화면 가득 */
-.app[data-dock-mode="sheet"]:not([data-size="compact"]) .dock{top:0;right:0;bottom:0;width:min(420px,90%);border-radius:18px 0 0 18px}
+.app[data-dock-mode="sheet"]:not([data-size="compact"]) .dock{top:0;right:0;bottom:0;width:min(var(--dock-w,460px),90%);border-radius:18px 0 0 18px}
 .app[data-dock-mode="sheet"][data-dock-open="false"] .dock{transform:translateY(105%);opacity:0;pointer-events:none}
 .app[data-dock-mode="sheet"]:not([data-size="compact"])[data-dock-open="false"] .dock{transform:translateX(105%)}
 .app[data-posture="tabletop"] .dock,.app[data-posture="book"] .dock{border-left:0}
@@ -239,6 +239,11 @@ button{cursor:pointer}
 .scrim{display:none}
 .app[data-dock-mode="sheet"][data-dock-open="true"] .scrim{display:block;position:absolute;inset:0;background:var(--scrim);z-index:55}
 .dock-stop{display:none}
+/* 폭 조절 손잡이: 도크 왼쪽 가장자리. 옆 패널·태블릿 시트에서만 보인다 */
+.dock-resize{display:none;position:absolute;left:-4px;top:0;bottom:0;width:9px;cursor:col-resize;z-index:5;touch-action:none}
+.dock-resize::after{content:"";position:absolute;left:4px;top:0;bottom:0;width:2px;background:transparent;transition:background .15s}
+.dock-resize:hover::after,.dock-resize:focus-visible::after,.dock-resize.drag::after{background:var(--accent,#4FC4BA)}
+.app[data-dock-mode="side"] .dock-resize,.app[data-dock-mode="sheet"]:not([data-size="compact"]) .dock-resize{display:block}
 .app[data-dock-mode="split"] .dock-h [data-act="dock-close"]{display:none}
 .app[data-dock-mode="sheet"] .dock-stop{display:inline-flex;height:38px;padding:0 12px}
 .app[data-touch="true"] .icon-btn,.app[data-touch="true"] .refresh,.app[data-touch="true"] .stop-btn{height:44px}
