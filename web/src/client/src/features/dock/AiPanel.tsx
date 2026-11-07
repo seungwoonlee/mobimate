@@ -272,6 +272,7 @@ function EnginePicker() {
     <div className="engine">
       <button type="button" className="engine-btn" aria-haspopup="listbox" aria-expanded={open} onClick={() => setOpen(v => !v)} disabled={busy || isOffline(useUi.getState())}>
         <Icon name="spark" /><span className="nm">{cur?.name ?? '엔진 확인 중…'}</span>
+        {cur?.recommended && <Pill tone="ok">추천</Pill>}
         {cur && <Pill tone={COST[cur.costTier][1]}>{COST[cur.costTier][0]}</Pill>}
         <Icon name="down" />
       </button>
@@ -279,9 +280,12 @@ function EnginePicker() {
         <div className="engine-menu" role="listbox" aria-label="AI 엔진" onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); setOpen(false); } }}>
           {d.engines.map(e => (
             <button key={e.id} type="button" role="option" aria-selected={e.id === d.current} onClick={() => pick(e)} title={e.description}>
-              <span className="nm">{e.name}</span><Pill tone={COST[e.costTier][1]}>{COST[e.costTier][0]}</Pill>{e.id === d.current && <Icon name="check" />}
+              <span className="nm">{e.name}</span>{e.recommended && <Pill tone="ok">추천</Pill>}<Pill tone={COST[e.costTier][1]}>{COST[e.costTier][0]}</Pill>{e.id === d.current && <Icon name="check" />}
             </button>
           ))}
+          {d.recommendedInstalled === false && (
+            <p className="engine-rec small muted m0">추천: Ollama의 <b>{d.recommendedModel ?? 'gemma4:e4b'}</b> (4B급, 무료·로컬). 설치: <code>ollama pull {d.recommendedModel ?? 'gemma4:e4b'}</code></p>
+          )}
           <button type="button" onClick={rediscover}><Icon name="refresh" /><span className="nm">엔진 다시 찾기</span></button>
         </div>
       )}

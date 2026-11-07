@@ -184,8 +184,8 @@ export interface CustomPersona { id: string; name: string; tagEmoji: string; sys
 export interface PersonaDraft { name: string; emoji: string; prompt: string; fromAi: boolean }
 
 export type CostTier = 'builtin' | 'localFree' | 'paid';
-export interface Engine { id: string; name: string; type: string; costTier: CostTier; description: string }
-export interface Engines { current: string | null; engines: Engine[] }
+export interface Engine { id: string; name: string; type: string; costTier: CostTier; description: string; /** 추천 모델(gemma4:e4b) */ recommended?: boolean }
+export interface Engines { current: string | null; engines: Engine[]; recommendedModel?: string; recommendedInstalled?: boolean }
 
 /** 폰·태블릿 접속 주소 (QR용) */
 /** 방화벽: Missing = 포트 허용 규칙 없음, Blocked = 막는 규칙 있음 (폰에서 "응답 시간이 너무 오래 걸립니다"로 보인다). script = 앱 옆에 allow-lan-firewall.bat가 있음 */
