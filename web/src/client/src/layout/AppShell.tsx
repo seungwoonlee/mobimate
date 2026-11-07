@@ -17,6 +17,7 @@ import { api } from '../api/http';
 import { stopAction } from '../lib/actions';
 import { fmt } from '../lib/format';
 import { scoreClass } from '../lib/score';
+import { tipsFor } from '../lib/tips';
 import { LocationScene } from '../components/Scenery';
 import { Dock } from './Dock';
 import { PairDialog } from '../features/pairing';
@@ -201,6 +202,25 @@ const TIP_REFRESH = (period: number) => `지금 새로고침 — 자동 갱신�
 const TIP_PALETTE = '빠른 실행 (Ctrl+K) — 화면 이동·채집·페르소나를 검색해서 바로 실행합니다';
 const TIP_PAIR = 'QR코드로 모바일 접속이 가능합니다';
 
+/** 상단 빈 공간에 돌아가며 보이는 한 줄 팁. 누르면 다음 팁, 마우스를 올리면 멈춘다. 넓은 화면(폭 1200 이상)에서만 보인다. */
+function TipLine({ local }: { local: boolean }) {
+  const list = tipsFor(local);
+  const [i, setI] = useState(() => Math.floor(Math.random() * list.length));
+  const hold = useRef(false);
+  useEffect(() => {
+    const id = window.setInterval(() => { if (!hold.current) setI(n => n + 1); }, 15000);
+    return () => window.clearInterval(id);
+  }, []);
+  if (list.length === 0) return null;
+  const text = list[i % list.length].text;
+  return (
+    <button type="button" className="tip-line" title={`${text} (누르면 다음 팁)`} aria-label={`팁: ${text}. 누르면 다음 팁`}
+      onClick={() => setI(n => n + 1)} onMouseEnter={() => { hold.current = true; }} onMouseLeave={() => { hold.current = false; }}>
+      <Icon name="spark" size={14} /><span key={i} className="tip-text">{text}</span>
+    </button>
+  );
+}
+
 function TopBar({ compact, actions, showActions }: { compact: boolean; actions: Actions; showActions: boolean }) {
   const header = useHeader();
   const status = useStatus();
@@ -228,6 +248,7 @@ function TopBar({ compact, actions, showActions }: { compact: boolean; actions: 
             </div>
           )}
         </div>
+        {!compact && <TipLine local={actions.local} />}
       </div>
       {h && (
         <div className="hero-scores" title="이번 접속 누적 변화">
