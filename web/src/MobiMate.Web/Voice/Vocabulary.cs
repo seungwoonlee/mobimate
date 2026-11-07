@@ -134,11 +134,29 @@ public sealed class VoiceVocabulary
         }
     }
 
-    private void LearnPairs(string original, string sent, DateTime now)
+    /// <summary>
+    /// 사용자가 지난 기록을 보고 직접 고친 문장으로 배운다 (FR-VC-16). 직접 고친 것은 확실한 신호라 같은 쌍이 한 번만 확인돼도 바로 적용한다.
+    /// 낱말은 세지 않는다(그 문장은 이미 보낼 때 셌다). 학습이 꺼져 있으면 -1, 아니면 배운 쌍의 수(0 = 낱말을 바꾼 부분이 없음).
+    /// </summary>
+    public int LearnCorrection(string corrected, string original)
+    {
+        if (string.IsNullOrWhiteSpace(corrected) || string.IsNullOrWhiteSpace(original)) return 0;
+        corrected = Clip(corrected);
+        original = Clip(original);
+        lock (_lock)
+        {
+            if (!_data.LearningOn) return -1;
+            var n = LearnPairs(original, corrected, _now(), atLeast: ActivateAt);
+            if (n > 0) { Prune(); Save(); }
+            return n;
+        }
+    }
+
+    private int LearnPairs(string original, string sent, DateTime now, int atLeast = 0)
     {
         var a = Normalize(original);
         var b = Normalize(sent);
-        if (a.Length == 0 || b.Length == 0) return;
+        if (a.Length == 0 || b.Length == 0) return 0;
 
         // 적용되었던 치환을 되돌려 보냈는지: 인식 글자에 from이 있었는데 보낸 글에는 to 없이 from이 남아 있다
         foreach (var p in _data.Pairs)
@@ -151,13 +169,18 @@ public sealed class VoiceVocabulary
             }
         }
 
+        var learned = 0;
         foreach (var (from, to) in ExtractPairs(a, b))
         {
             var pair = _data.Pairs.FirstOrDefault(x => x.From == from && x.To == to);
             if (pair == null) _data.Pairs.Add(pair = new VocabPair { From = from, To = to });
             pair.Count++;
+            if (pair.Count < atLeast) pair.Count = atLeast;
+            if (atLeast > 0) { pair.Off = false; pair.Reverts = 0; }   // 직접 고친 것은 이전에 꺼 둔 쌍도 다시 켠다
             pair.Last = now;
+            learned++;
         }
+        return learned;
     }
 
     // ───────── 치환 ─────────

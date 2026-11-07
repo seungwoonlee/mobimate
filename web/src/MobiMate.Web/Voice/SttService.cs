@@ -30,7 +30,7 @@ public sealed record MicTestOutcome(bool Busy, MicTestResult? Result, AudioFailu
 /// </summary>
 public sealed class SttService(
     IAudioSource audio, ISttEngineProvider engines, IVoicePostProcessor post, IVoiceRefiner refiner, ISttCue cue, ChatService chat, VoiceVocabulary vocab,
-    WebSettingsStore settings, SseHub hub, ILogger<SttService> log) : IHostedService
+    VoiceHistory history, WebSettingsStore settings, SseHub hub, ILogger<SttService> log) : IHostedService
 {
     /// <summary>마지막 확정 결과를 보관하는 시간 (연결이 끊겼다 돌아온 기기용, FR-VC-12)</summary>
     public static readonly TimeSpan LastKeep = TimeSpan.FromSeconds(60);
@@ -345,6 +345,7 @@ public sealed class SttService(
         var autoSent = cur.SttAutoSend && FitsInChat(r.Text, cur.AutoEmoteDefault);
         var fin = new SttFinal(s.Id, r.Text, raw, r.Applied, DateTimeOffset.UtcNow, autoSent);
         lock (_gate) _last = fin;
+        if (cur.SttHistory) history.Add(raw, r.Text, autoSent);   // 지난 기록 보정용 (FR-VC-16)
         hub.BroadcastLocal("stt.final", new { sessionId = fin.SessionId, text = fin.Text, original = fin.Original, applied = fin.Applied, autoSent });
         s.EmittedFinal = true;
         if (autoSent) _ = Task.Run(() => AutoSendAsync(fin));

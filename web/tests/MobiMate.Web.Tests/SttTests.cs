@@ -586,6 +586,31 @@ public class SttTests
     }
 
     [Fact]
+    public async Task Recognized_Sentence_IsKeptInTheHistory_ForManualCorrection()
+    {
+        using var host = new TestHost();
+        var c = await host.LocalAsync();
+        await TestHost.Data(await Post(c, "/api/stt/start"));
+        host.Audio.Current!.PushVoice(4);
+        Assert.True(await Eventually(async () => (await TestHost.Data(await c.GetAsync("/api/stt/history"))).GetArrayLength() == 1));
+        var e = (await TestHost.Data(await c.GetAsync("/api/stt/history")))[0];
+        Assert.Equal("힐러한분만더구합니다", e.GetProperty("original").GetString());   // 인식기가 낸 글자 그대로
+        Assert.False(string.IsNullOrEmpty(e.GetProperty("text").GetString()));
+    }
+
+    [Fact]
+    public async Task HistoryOff_KeepsNothing()
+    {
+        using var host = new TestHost();
+        var c = await host.LocalAsync();
+        await c.SendAsync(Req(HttpMethod.Put, "/api/stt/settings", new { history = false }));
+        await TestHost.Data(await Post(c, "/api/stt/start"));
+        host.Audio.Current!.PushVoice(4);
+        Assert.True(await Eventually(async () => (await Last(c)).ValueKind == JsonValueKind.Object));
+        Assert.Equal(0, (await TestHost.Data(await c.GetAsync("/api/stt/history"))).GetArrayLength());
+    }
+
+    [Fact]
     public async Task AutoSendOff_NeverSends()
     {
         using var host = new TestHost();

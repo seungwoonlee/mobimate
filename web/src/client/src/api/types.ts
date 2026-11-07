@@ -22,8 +22,10 @@ export interface SttHotkeyStatus { key: string | null; registered: boolean; erro
 export interface SttSettings {
   autoSend: boolean; maxSeconds: number; deviceId: string | null; threads: number;
   hotkey: string | null; hotkeyMode: 'hold' | 'toggle'; cue: boolean; hotwords: boolean; spacing: boolean; spacingLevel: 0 | 1 | 2;
-  refine: boolean; refineModel: string; refineMs: number;
+  refine: boolean; refineModel: string; refineMs: number; history: boolean;
 }
+/** 지난 음성 기록 한 건 (FR-VC-16): original = 인식기가 낸 글자, text = 다듬은 문장, corrected = 내가 고친 문장 */
+export interface SttHistoryItem { id: string; at: string; original: string; text: string; autoSent: boolean; corrected: string | null }
 /** AI로 다듬기 상태: lastError가 있으면 마지막 시도가 실패해 사전 방식으로 보냈다는 뜻 */
 export interface SttRefineStatus { enabled: boolean; model: string | null; cloud: boolean; lastError: string | null; lastMs: number | null }
 export interface SttRefineModels { online: boolean; models: { name: string; cloud: boolean }[]; selected: string }
