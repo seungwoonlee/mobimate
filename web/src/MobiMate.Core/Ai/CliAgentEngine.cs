@@ -17,6 +17,9 @@ public class CliAgentEngine : IAiEngine
     private readonly string _commandName;
     private static readonly SemaphoreSlim _cliLock = new(1, 1);
 
+    /// <summary>응답 제한 시간. agy는 실행마다 약 40초가 기본으로 걸려(2026-11-07 실측, 모델·effort와 무관) 길게 잡는다.</summary>
+    private TimeSpan Timeout => _commandName == "agy" ? TimeSpan.FromSeconds(120) : TimeSpan.FromSeconds(60);
+
     public AiEngineInfo Info { get; }
 
     public CliAgentEngine(string commandName, string executablePath, string friendlyName)
@@ -75,7 +78,7 @@ public class CliAgentEngine : IAiEngine
             }
 
             using var proc = new Process { StartInfo = psi };
-            using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+            using var timeoutCts = new CancellationTokenSource(Timeout);
             using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct, timeoutCts.Token);
 
             try
@@ -120,7 +123,7 @@ public class CliAgentEngine : IAiEngine
                 }
                 catch { }
 
-                return new AiResponse(false, "", "에이전트 응답 대기 시간이 초과되었습니다 (20초).");
+                return new AiResponse(false, "", $"에이전트 응답 대기 시간이 초과되었습니다 ({(int)Timeout.TotalSeconds}초).");
             }
             catch (Exception ex)
             {

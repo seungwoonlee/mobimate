@@ -256,9 +256,14 @@ function HistorySection({ enabled, onToggle }: { enabled: boolean; onToggle: (on
   const toast = useUi(s => s.toast);
   const q = useQuery({ queryKey: HISTORY_KEY, queryFn: () => api.get<SttHistoryItem[]>('/api/stt/history'), retry: false, refetchInterval: 15_000 });
   const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const [pickedId, setPickedId] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
   const [confirmClear, setConfirmClear] = useState(false);
   const items = q.data?.data ?? [];
+  const cur = items.find(i => i.id === pickedId);
+  const base = cur ? (cur.corrected ?? cur.text) : '';
+  const val = cur ? (drafts[cur.id] ?? base) : '';
+  const changed = !!cur && val.trim() !== '' && val.trim() !== base;
   const refresh = () => Promise.all([queryClient.invalidateQueries({ queryKey: HISTORY_KEY }), queryClient.invalidateQueries({ queryKey: VOCAB_KEY })]);
 
   const learn = async (it: SttHistoryItem, text: string) => {
@@ -267,6 +272,7 @@ function HistorySection({ enabled, onToggle }: { enabled: boolean; onToggle: (on
       const r = await api.post<{ learned: number }>('/api/stt/history/correct', { id: it.id, text });
       toast(r.data.learned > 0 ? `배웠어요 (고친 부분 ${r.data.learned}곳, 다음부터 바로 적용)` : '낱말을 바꾼 부분이 없어 배울 것이 없습니다(띄어쓰기만 다른 경우)', r.data.learned > 0 ? 'info' : 'warn');
       setDrafts(d => { const { [it.id]: _gone, ...rest } = d; return rest; });
+      setPickedId('');
       await refresh();
     } catch (e) {
       toast(e instanceof ApiError ? e.message : '배우지 못했습니다', 'warn');
@@ -299,29 +305,30 @@ function HistorySection({ enabled, onToggle }: { enabled: boolean; onToggle: (on
           {items.length === 0
             ? <p className="faint small">아직 기록이 없습니다. 음성으로 말하면 여기에 쌓입니다.</p>
             : (
-              <ul className="hist-list" aria-label="지난 음성 기록">
-                {items.map(it => {
-                  const base = it.corrected ?? it.text;
-                  const val = drafts[it.id] ?? base;
-                  const changed = val.trim() !== '' && val.trim() !== base;
-                  return (
-                    <li key={it.id}>
-                      <div className="hist-meta small">
-                        <span className="num faint">{when(it.at)}</span>
-                        {it.autoSent ? <Pill>전송됨</Pill> : <Pill tone="warn">초안</Pill>}
-                        {it.corrected && <Pill tone="ok">배움</Pill>}
-                        <button type="button" className="chip-x" aria-label="이 기록 지우기" onClick={() => void remove(it.id)}>×</button>
-                      </div>
-                      <div className="hist-edit">
-                        <input type="text" value={val} maxLength={200} aria-label={`${it.text} 고치기`} onChange={e => setDrafts(d => ({ ...d, [it.id]: e.target.value }))}
-                          onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing && changed) void learn(it, val); }} />
-                        <button type="button" className="btn primary" disabled={busy === it.id} onClick={() => (changed ? void learn(it, val) : toast('문장을 먼저 고쳐 주세요', 'warn'))}>배우기</button>
-                      </div>
-                      <p className="faint small m0">인식한 글자: <span className="num">{it.original}</span></p>
-                    </li>
-                  );
-                })}
-              </ul>
+              <>
+                <select className="hist-pick" aria-label="고칠 문장 고르기" value={cur?.id ?? ''} onChange={e => setPickedId(e.target.value)}>
+                  <option value="" disabled>고칠 문장을 고르세요 ({items.length}개)</option>
+                  {items.map(it => (
+                    <option key={it.id} value={it.id}>{when(it.at)} · {it.corrected ?? it.text}{it.corrected ? ' (배움)' : it.autoSent ? '' : ' (초안)'}</option>
+                  ))}
+                </select>
+                {cur && (
+                  <div className="hist-one">
+                    <div className="hist-meta small">
+                      <span className="num faint">{when(cur.at)}</span>
+                      {cur.autoSent ? <Pill>전송됨</Pill> : <Pill tone="warn">초안</Pill>}
+                      {cur.corrected && <Pill tone="ok">배움</Pill>}
+                      <button type="button" className="chip-x" aria-label="이 기록 지우기" onClick={() => { setPickedId(''); void remove(cur.id); }}>×</button>
+                    </div>
+                    <div className="hist-edit">
+                      <input type="text" value={val} maxLength={200} aria-label={`${cur.text} 고치기`} onChange={e => setDrafts(d => ({ ...d, [cur.id]: e.target.value }))}
+                        onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing && changed) void learn(cur, val); }} />
+                      <button type="button" className="btn primary" disabled={busy === cur.id} onClick={() => (changed ? void learn(cur, val) : toast('문장을 먼저 고쳐 주세요', 'warn'))}>배우기</button>
+                    </div>
+                    <p className="faint small m0">인식한 글자: <span className="num">{cur.original}</span></p>
+                  </div>
+                )}
+              </>
             )}
           {items.length > 0 && (confirmClear
             ? <div className="acts"><span className="warn-text small">지난 음성 기록을 모두 지울까요? (배운 내용은 남습니다)</span>
