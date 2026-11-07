@@ -74,6 +74,7 @@ public sealed class VoiceVocabulary
         _path = Path.Combine(storageDir, "stt", "vocab.json");
         var status = _store.TryLoad<VocabData>(_path, out var loaded);
         _data = loaded ?? new VocabData();
+        _data.LearningOn = true;   // 2026-11-07: 누적 학습은 끄는 기능을 없앴다. 예전에 꺼 둔 파일도 켠다.
         Sanitize();
         if (status == LoadStatus.Quarantined) LoadWarning = "학습 파일이 손상되어 따로 보관하고 새로 시작했습니다.";
         else if (status == LoadStatus.Failed)
