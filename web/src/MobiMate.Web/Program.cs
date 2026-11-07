@@ -233,7 +233,7 @@ namespace MobiMate.Web.Hosting
             if (options.OpenBrowser)
             {
                 // 기동 작업은 서버가 포트를 열기 전에 돈다. 먼저 열면 첫 접속이 거부되므로 서버가 준비된 뒤에 연다
-                sp.GetRequiredService<IHostApplicationLifetime>().ApplicationStarted.Register(() => sp.GetRequiredService<BrowserLauncher>().Open());
+                sp.GetRequiredService<IHostApplicationLifetime>().ApplicationStarted.Register(() => _ = sp.GetRequiredService<BrowserLauncher>().OpenIfNoTabAsync(tellIfOpen: false));
             }
             var id = sp.GetRequiredService<ServerIdentity>();
             log.LogInformation("MobiMate 서버 시작 {Version}: http://127.0.0.1:{Port}", id.Version, id.Port);

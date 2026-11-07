@@ -16,6 +16,32 @@ public sealed class SseHub(ServerIdentity identity, MobiMateOptions options, IHo
 
     public int ConnectionCount => _connections.Count;
 
+    /// <summary>이 PC(루프백)의 브라우저 탭이 붙어 있는 연결 수. 새 탭을 또 열지 판단할 때 쓴다.</summary>
+    public int LocalConnectionCount => _connections.Values.Count(c => IsLoopback(c.DeviceId));
+
+    private static bool IsLoopback(string deviceId) => System.Net.IPAddress.TryParse(deviceId, out var ip) && System.Net.IPAddress.IsLoopback(ip);
+
+    // ── "방금까지 탭이 붙어 있었다" 표시 파일: 재시작·재배포(강제 종료)로 연결이 끊겨도 새 탭을 또 열지 않게 한다 ──
+    private string MarkerPath => Path.Combine(options.StorageDir, "tab-open.marker");
+
+    private void TouchMarker()
+    {
+        try { Directory.CreateDirectory(options.StorageDir); File.WriteAllText(MarkerPath, DateTimeOffset.UtcNow.ToString("O")); }
+        catch (Exception ex) { log.LogDebug(ex, "탭 표시 파일 쓰기 실패"); }
+    }
+
+    private void ClearMarker()
+    {
+        try { File.Delete(MarkerPath); } catch (Exception ex) { log.LogDebug(ex, "탭 표시 파일 지우기 실패"); }
+    }
+
+    /// <summary>이 앱이 뜨기 직전(within 이내)까지 이 PC의 탭이 붙어 있었는가. 탭을 직접 닫았으면 표시 파일이 지워져 있다.</summary>
+    public bool HadLocalTabRecently(TimeSpan within)
+    {
+        try { return File.Exists(MarkerPath) && DateTime.UtcNow - File.GetLastWriteTimeUtc(MarkerPath) <= within; }
+        catch { return false; }
+    }
+
     public void Broadcast(string evt, object data)
     {
         var frame = Frame(evt, data);
@@ -56,6 +82,8 @@ public sealed class SseHub(ServerIdentity identity, MobiMateOptions options, IHo
         var conn = new Connection(Guid.NewGuid().ToString("N")[..12], deviceId, ctx.Connection.LocalIpAddress,
             Channel.CreateBounded<string>(new BoundedChannelOptions(256) { FullMode = BoundedChannelFullMode.DropOldest }));
         _connections[conn.Id] = conn;
+        var local = IsLoopback(deviceId);
+        if (local) TouchMarker();
         // 앱을 끌 때 열려 있는 연결이 종료를 붙잡지 않게 한다 (브라우저 탭이 열려 있으면 Kestrel이 연결이 끝나기를 기다린다)
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(ctx.RequestAborted, life.ApplicationStopping);
         var ct = linked.Token;
@@ -79,6 +107,7 @@ public sealed class SseHub(ServerIdentity identity, MobiMateOptions options, IHo
                 if (done == pingTask)
                 {
                     if (!await pingTask) break;
+                    if (local) TouchMarker();
                     await ctx.Response.WriteAsync(": ping\n\nevent: ping\ndata: {}\n\n", ct);
                     await ctx.Response.Body.FlushAsync(ct);
                     pingTask = ping.WaitForNextTickAsync(ct).AsTask();
@@ -99,6 +128,8 @@ public sealed class SseHub(ServerIdentity identity, MobiMateOptions options, IHo
         finally
         {
             _connections.TryRemove(conn.Id, out _);
+            // 마지막 탭이 닫혔고 앱이 끝나는 중이 아니면(= 사용자가 탭을 닫음) 표시를 지운다. 앱이 끝나는 중이면 남겨 둬서 다음 실행이 알게 한다.
+            if (local && LocalConnectionCount == 0 && !life.ApplicationStopping.IsCancellationRequested) ClearMarker();
         }
     }
 
