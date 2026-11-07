@@ -87,12 +87,16 @@ public sealed class SttService(
 
         try
         {
+            var startClock = Stopwatch.StartNew();
             s.Stream = engines.GetEngine().CreateStream();
+            var tEngine = startClock.ElapsedMilliseconds;
             if (Stopped(s)) return Cancel(s);
             // 시작 신호음은 마이크를 열기 전에 끝까지 재생한다: 신호음이 인식에 섞이지 않게 (FR-VC-02)
             if (settings.Current.SttCue) cue.Play(SttCueKind.Start);
+            var tCue = startClock.ElapsedMilliseconds;
             if (Stopped(s)) return Cancel(s);
             s.Capture = audio.Open(settings.Current.SttDeviceId);
+            var tOpen = startClock.ElapsedMilliseconds;
             s.Capture.Samples += block =>
             {
                 try
@@ -108,6 +112,7 @@ public sealed class SttService(
             s.Capture.Failed += f => { s.Failure = f; RequestStop(s); };
             if (Stopped(s)) return Cancel(s);   // 열고 있는 동안 중지가 왔다
             s.Capture.Start();
+            log.LogInformation("듣기 준비 시간: 엔진 {Engine}ms, 신호음 끝 {Cue}ms, 마이크 열기 끝 {Open}ms, 시작 끝 {Total}ms", tEngine, tCue, tOpen, startClock.ElapsedMilliseconds);
         }
         catch (AudioException ex)
         {
