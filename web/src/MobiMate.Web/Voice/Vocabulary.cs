@@ -484,7 +484,7 @@ public sealed class LearnedPostProcessor(VoiceVocabulary vocab, SpacingProvider 
     public VoicePostResult Process(string raw)
     {
         var (text, applied) = vocab.Apply(raw.Trim());
-        if (settings.Current.SttSpacing) text = spacing.Get(settings.Current.SttSpacingLevel).Restore(text);
+        if (settings.Current.SttSpacing && settings.Current.SttEngine != "qwen3") text = spacing.Get(settings.Current.SttSpacingLevel).Restore(text);
         return new VoicePostResult(text.Trim(), applied);
     }
 }

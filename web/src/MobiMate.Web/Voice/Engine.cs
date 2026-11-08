@@ -64,11 +64,24 @@ public sealed class SttModelLocator
 
     public string Dir { get; }
 
-    public SttModelLocator(string storageDir, IReadOnlyList<SttModelFile>? files = null)
+    /// <summary>Qwen3-ASR 0.6B int8 (sherpa-onnx 변환본). 이름의 "/"는 하위 폴더. 저장소 커밋을 고정한다.</summary>
+    public static readonly IReadOnlyList<SttModelFile> Qwen3Files = new[]
+    {
+        new SttModelFile("conv_frontend.onnx", 44148281L, "d22dc4423e0940e49884e903d2ea2f7e5567c14fc1aed97e4e26d6b8f208ef9e"),
+        new SttModelFile("encoder.int8.onnx", 182491662L, "60748d3e6744a57c9c91e1b17424a6c2990567e8adceb0783940c03ed98fa9d9"),
+        new SttModelFile("decoder.int8.onnx", 755914231L, "4f6885be5959ae26af3089d38ee7972c5fafbeeb1cf8d5e76eab6d8b61ca5771"),
+        new SttModelFile("tokenizer/merges.txt", 1671853L, "8831e4f1a044471340f7c0a83d7bd71306a5b867e95fd870f74d0c5308a904d5"),
+        new SttModelFile("tokenizer/tokenizer_config.json", 12487L, "4942d005604266809309cabc9f4e9cb89ce855d59b14681fdc0e1cc62ea26c4c"),
+        new SttModelFile("tokenizer/vocab.json", 2776833L, "ca10d7e9fb3ed18575dd1e277a2579c16d108e32f27439684afa0e10b1440910"),
+    };
+
+    /// <param name="subDir">stt 폴더 아래 모델 폴더 이름</param>
+    /// <param name="envOverride">개발·시험용 환경변수 MOBIMATE_STT_MODEL_DIR을 따를지 (기본 모델만)</param>
+    public SttModelLocator(string storageDir, IReadOnlyList<SttModelFile>? files = null, string subDir = "model", bool envOverride = true)
     {
         Files = files ?? DefaultFiles;
-        var over = Environment.GetEnvironmentVariable("MOBIMATE_STT_MODEL_DIR");
-        Dir = !string.IsNullOrWhiteSpace(over) ? over : Path.Combine(storageDir, "stt", "model");
+        var over = envOverride ? Environment.GetEnvironmentVariable("MOBIMATE_STT_MODEL_DIR") : null;
+        Dir = !string.IsNullOrWhiteSpace(over) ? over : Path.Combine(storageDir, "stt", subDir);
     }
 
     public string PathOf(string name) => Path.Combine(Dir, name);
@@ -141,17 +154,30 @@ public sealed class SherpaSttEngine : ISttEngine
 }
 
 /// <summary>실제 엔진 공급자: 처음 요청할 때 모델을 올리고 이후 재사용한다.</summary>
-public sealed class SherpaEngineProvider(SttModelLocator model, WebSettingsStore settings, VoiceVocabulary vocab, ILogger<SherpaEngineProvider> log) : ISttEngineProvider, IDisposable
+public sealed class SherpaEngineProvider(SttModelLocator model, WebSettingsStore settings, VoiceVocabulary vocab, ILogger<SherpaEngineProvider> log, SttModelLocator? qwen3 = null) : ISttEngineProvider, IDisposable
 {
     private readonly object _lock = new();
     private SherpaSttEngine? _engine;
+    private Qwen3SttEngine? _qwen;   // 엔진을 바꿔도 이미 올린 쪽은 해제하지 않는다: 듣는 중인 세션이 쓰고 있을 수 있다
 
-    public bool IsInstalled => model.IsInstalled;
+    private bool UseQwen => qwen3 != null && settings.Current.SttEngine == "qwen3";
+
+    public bool IsInstalled => UseQwen ? qwen3!.IsInstalled : model.IsInstalled;
 
     public ISttEngine GetEngine()
     {
         lock (_lock)
         {
+            if (UseQwen)
+            {
+                if (_qwen != null) return _qwen;
+                if (!qwen3!.IsInstalled) throw new InvalidOperationException("Qwen3 음성 인식 모델이 설치되어 있지 않습니다.");
+                var qclock = System.Diagnostics.Stopwatch.StartNew();
+                var words = settings.Current.SttHotwords ? vocab.HotwordCandidates(Qwen3SttEngine.MaxHotwords).ToList() : new List<string>();
+                var qe = new Qwen3SttEngine(qwen3, Math.Max(settings.Current.SttThreads, 4), words, () => settings.Current.SttEndSilenceMs);
+                log.LogInformation("Qwen3 음성 인식기를 올렸습니다 ({Ms}ms)", qclock.ElapsedMilliseconds);
+                return _qwen = qe;
+            }
             if (_engine != null) return _engine;
             if (!model.IsInstalled) throw new InvalidOperationException("음성 인식 모델이 설치되어 있지 않습니다.");
             var clock = System.Diagnostics.Stopwatch.StartNew();
@@ -162,7 +188,7 @@ public sealed class SherpaEngineProvider(SttModelLocator model, WebSettingsStore
         }
     }
 
-    public Task WarmUpAsync() => !model.IsInstalled ? Task.CompletedTask : Task.Run(() =>
+    public Task WarmUpAsync() => !IsInstalled ? Task.CompletedTask : Task.Run(() =>
     {
         try { GetEngine(); }
         catch (Exception ex) { log.LogWarning(ex, "음성 인식기를 미리 올리지 못했습니다"); }
@@ -170,7 +196,7 @@ public sealed class SherpaEngineProvider(SttModelLocator model, WebSettingsStore
 
     public void Dispose()
     {
-        lock (_lock) { _engine?.Dispose(); _engine = null; }
+        lock (_lock) { _engine?.Dispose(); _engine = null; _qwen?.Dispose(); _qwen = null; }
     }
 }
 

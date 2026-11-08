@@ -107,7 +107,9 @@ builder.Services.AddSingleton<IChatStylist, OllamaChatStylist>();
 builder.Services.AddSingleton<ChatService>();
 builder.Services.AddSingleton<IAudioSource, WasapiAudioSource>();
 builder.Services.AddSingleton(sp => new SttModelLocator(Dir(sp)));
-builder.Services.AddSingleton<ISttEngineProvider, SherpaEngineProvider>();
+builder.Services.AddKeyedSingleton("qwen3", (sp, _) => new SttModelLocator(Dir(sp), SttModelLocator.Qwen3Files, "qwen3", envOverride: false));
+builder.Services.AddSingleton<ISttEngineProvider>(sp => new SherpaEngineProvider(sp.GetRequiredService<SttModelLocator>(), sp.GetRequiredService<WebSettingsStore>(), sp.GetRequiredService<VoiceVocabulary>(),
+    sp.GetRequiredService<ILogger<SherpaEngineProvider>>(), sp.GetRequiredKeyedService<SttModelLocator>("qwen3")));
 builder.Services.AddSingleton(sp => new VoiceVocabulary(Dir(sp)));
 builder.Services.AddSingleton(sp => new VoiceHistory(Dir(sp)));
 builder.Services.AddSingleton<SpacingProvider>();
@@ -117,6 +119,8 @@ builder.Services.AddSingleton<ISttCue, SoundCue>();
 builder.Services.AddSingleton<IKeyState, Win32KeyState>();
 builder.Services.AddSingleton<IHotkeyRegistrar, Win32HotkeyRegistrar>();
 builder.Services.AddSingleton<SttModelInstaller>();
+builder.Services.AddKeyedSingleton("qwen3", (sp, _) => new SttModelInstaller(sp.GetRequiredKeyedService<SttModelLocator>("qwen3"), sp.GetRequiredService<SseHub>(),
+    sp.GetRequiredService<ILogger<SttModelInstaller>>(), sp.GetRequiredService<IHostApplicationLifetime>(), null, SttModelInstaller.Qwen3BaseUri, "stt.qwen3.install"));
 builder.Services.AddSingleton<SttService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<SttService>());
 builder.Services.AddSingleton<HotkeyService>();

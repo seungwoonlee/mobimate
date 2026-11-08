@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api, ApiError } from '../api/http';
 import { keys5, useSttStatus } from '../api/queries';
-import type { SttDevices, SttElevation, SttHistoryItem, SttMicTest, SttRefineModels, SttRefineStatus, SttSettings } from '../api/types';
+import type { SttDevices, SttElevation, SttHistoryItem, SttMicTest, SttRefineModels, SttRefineStatus, SttSettings, SttStatus, SttEngineName } from '../api/types';
 import { Pill, Row, Seg } from '../components/ui';
 import { queryClient } from '../lib/queryClient';
 import { comboFromKeyEvent, elevationNotice, formatMb, installPercent, micLevelMessage, sttErrorMessage } from '../lib/voice';
@@ -47,6 +47,7 @@ export function VoiceSettings({ local }: { local: boolean }) {
       <ModelRow local={local} />
       {local && s && (
         <>
+          <EngineRow s={s} st={st} onPick={engine => void save({ engine })} />
           <MicRow s={s} devices={devicesQ.data?.data} onPick={id => void save({ deviceId: id })} />
           <HotkeyRow s={s} status={st.hotkey} elevation={st.elevation} onSave={save} />
           <Row label="단축키 방식">
@@ -62,7 +63,7 @@ export function VoiceSettings({ local }: { local: boolean }) {
           <Row label="말 끝 무음 시간">
             <Seg value={String(s.endSilenceMs)} options={[['300', '0.3초 (아주 빠름)'], ['400', '0.4초'], ['500', '0.5초 (기본)'], ['600', '0.6초'], ['700', '0.7초 (느긋)']]} onChange={v => void save({ endSilenceMs: Number(v) })} />
           </Row>
-          <p className="faint small">말한 뒤 이만큼 조용하면 한 문장이 끝난 것으로 봅니다. 짧을수록 빨리 끊기고, 말하다 쉬면 문장이 쪼개질 수 있습니다. 바꾸면 앱을 다시 켠 뒤에 적용됩니다.</p>
+          <p className="faint small">말한 뒤 이만큼 조용하면 한 문장이 끝난 것으로 봅니다. 짧을수록 빨리 끊기고, 말하다 쉬면 문장이 쪼개질 수 있습니다. 기본 엔진은 바꾸면 앱을 다시 켠 뒤에 적용됩니다(Qwen3는 0.5초 아래로는 내려가지 않고 바로 적용됩니다).</p>
           <Row label="말이 끝나면 바로 전송">
             <Seg value={s.autoSend ? 'on' : 'off'} options={[['off', '끄기'], ['on', '켜기']]} onChange={v => void save({ autoSend: v === 'on' })} />
           </Row>
@@ -131,6 +132,54 @@ function ModelRow({ local }: { local: boolean }) {
         ? <button type="button" className="btn primary mt-8" onClick={start}>모델 설치 (약 160MB, 이 PC에만 저장)</button>
         : <p className="faint small">모델 설치는 게임 PC에서 하세요.</p>)}
       {!st.modelInstalled && <p className="faint small">처음 한 번만 내려받습니다. 인식은 이 PC 안에서만 합니다.</p>}
+    </>
+  );
+}
+
+/** 인식 엔진 고르기 (기본 Zipformer / Qwen3). Qwen3는 처음 쓸 때 모델을 내려받는다. */
+function EngineRow({ s, st, onPick }: { s: SttSettings; st: SttStatus; onPick: (e: SttEngineName) => void }) {
+  const toast = useUi(s2 => s2.toast);
+  const engine = s.engine ?? 'zipformer';
+  const q = st.qwen3;
+  const downloading = q?.install.phase === 'downloading';
+  const start = async () => {
+    try {
+      await api.post('/api/stt/qwen3/install', {});
+      await queryClient.invalidateQueries({ queryKey: keys5.stt });
+    } catch (e) {
+      const err = e as ApiError;
+      toast(sttErrorMessage(err.code, err.message), 'warn');
+    }
+  };
+  return (
+    <>
+      <Row label="인식 엔진">
+        <Seg value={engine} options={[['zipformer', '기본 (실시간)'], ['qwen3', 'Qwen3 (잡음에 강함)']]} onChange={v => onPick(v as SttEngineName)} />
+      </Row>
+      <p className="faint small">
+        {engine === 'qwen3'
+          ? '말이 끝난 뒤 한 문장을 한 번에 인식합니다(말하는 도중에는 글자가 보이지 않고, 끝난 뒤 1~2초 걸립니다). 띄어쓰기·문장부호가 알아서 붙고 잡음에 더 강합니다. 인식하는 동안 CPU를 4스레드까지 씁니다. 바로 다음 듣기부터 적용됩니다.'
+          : '말하는 도중에 글자가 실시간으로 나타납니다. 가볍고 빠르지만 잡음이 있으면 틀리기 쉽습니다.'}
+      </p>
+      {engine === 'qwen3' && q && !q.installed && (
+        <>
+          <div className="kv">
+            <span className="muted">Qwen3 모델</span>
+            <span>{downloading ? <Pill tone="warn">내려받는 중</Pill> : <Pill tone="warn">설치 필요</Pill>}</span>
+          </div>
+          {downloading && (
+            <>
+              <div className="bar" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={installPercent(q.install.done, q.install.total)} aria-label="Qwen3 모델 내려받기 진행률">
+                <i style={{ width: `${installPercent(q.install.done, q.install.total)}%` }} />
+              </div>
+              <p className="faint small num">{formatMb(q.install.done)} / {formatMb(q.install.total)}</p>
+            </>
+          )}
+          {q.install.phase === 'failed' && <p className="warn-text small">설치하지 못했습니다: {q.install.error} 다시 시도해 주세요.</p>}
+          {!downloading && <button type="button" className="btn primary mt-8" onClick={start}>Qwen3 모델 설치 (약 {formatMb(q.totalBytes)}, 이 PC에만 저장)</button>}
+          <p className="faint small">설치하기 전에는 듣기가 켜지지 않습니다. 처음 한 번만 내려받습니다.</p>
+        </>
+      )}
     </>
   );
 }
