@@ -111,7 +111,8 @@ export function useServerEvents() {
         case 'chat.logged':
           void queryClient.invalidateQueries({ queryKey: keys5.chatLog });
           break;
-        case 'stt.install':   // 모델 내려받기 진행: 상태를 다시 읽어 진행 막대를 갱신한다 (서버가 0.25초마다만 보낸다)
+        case 'stt.install':
+        case 'stt.qwen3.install':   // 모델 내려받기 진행: 상태를 다시 읽어 진행 막대를 갱신한다 (서버가 0.25초마다만 보낸다)
           void queryClient.invalidateQueries({ queryKey: keys5.stt });
           break;
         case 'stt.state':

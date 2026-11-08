@@ -18,8 +18,16 @@ public enum SttInstallStart { Started, AlreadyRunning, AlreadyInstalled }
 /// - 동시에 하나만 설치한다.
 /// 학습 자료(KsponSpeech·AIHub)의 약관은 확인하지 못했다 — 개인 PC에서 쓰는 범위로 한정한다.
 /// </summary>
-public sealed class SttModelInstaller(SttModelLocator model, SseHub hub, ILogger<SttModelInstaller> log, IHostApplicationLifetime life, Func<HttpMessageHandler>? handler = null)
+public sealed class SttModelInstaller(SttModelLocator model, SseHub hub, ILogger<SttModelInstaller> log, IHostApplicationLifetime life, Func<HttpMessageHandler>? handler = null,
+    Uri? baseUri = null, string eventName = "stt.install")
 {
+    /// <summary>Qwen3-ASR 저장소 (커밋 고정). sherpa-onnx 제작자가 올린 변환본이다.</summary>
+    public const string Qwen3Repo = "csukuangfj2/sherpa-onnx-qwen3-asr-0.6B-int8-2026-03-25";
+    public const string Qwen3Revision = "68818b2313fe77bd06f6a7c5068ff3ef59d02b8a";
+    public static readonly Uri Qwen3BaseUri = new($"https://huggingface.co/{Qwen3Repo}/resolve/{Qwen3Revision}/");
+
+    private readonly Uri _baseUri = baseUri ?? new($"https://huggingface.co/{Repo}/resolve/{Revision}/");
+
     public const string Repo = "kangkyu/icefall-asr-ko-streaming-zipformer-174m";
     public const string Revision = "f0e73b1653c3ea75898c6d949dd71c690c9121da";
     public static readonly Uri BaseUri = new($"https://huggingface.co/{Repo}/resolve/{Revision}/");
@@ -70,7 +78,7 @@ public sealed class SttModelInstaller(SttModelLocator model, SseHub hub, ILogger
         try
         {
             Directory.CreateDirectory(model.Dir);
-            foreach (var stale in Directory.GetFiles(model.Dir, "*.part")) TryDelete(stale);
+            foreach (var stale in Directory.GetFiles(model.Dir, "*.part", SearchOption.AllDirectories)) TryDelete(stale);
 
             var total = model.Files.Sum(f => f.Size);
             var need = model.Files.Where(f => !File.Exists(model.PathOf(f.Name)) || new FileInfo(model.PathOf(f.Name)).Length != f.Size).Sum(f => f.Size);
@@ -99,9 +107,10 @@ public sealed class SttModelInstaller(SttModelLocator model, SseHub hub, ILogger
         var part = dest + ".part";
         try
         {
+            Directory.CreateDirectory(Path.GetDirectoryName(dest)!);
             using var head = CancellationTokenSource.CreateLinkedTokenSource(ct);
             head.CancelAfter(IdleTimeout);   // 응답 머리까지
-            using var resp = await GetFollowingAsync(http, new Uri(BaseUri, f.Name), head.Token);
+            using var resp = await GetFollowingAsync(http, new Uri(_baseUri, f.Name), head.Token);
             if (resp.Content.Headers.ContentLength is { } len && len != f.Size)
                 throw new InvalidDataException($"{f.Name}: 크기가 다릅니다 ({len} ≠ {f.Size}).");
 
@@ -191,7 +200,7 @@ public sealed class SttModelInstaller(SttModelLocator model, SseHub hub, ILogger
             publish = force || next.Phase != SttInstallPhase.Downloading || now - _lastPublish >= 250;   // 진행률은 0.25초마다만
             if (publish) _lastPublish = now;
         }
-        if (publish) hub.BroadcastLocal("stt.install", Dto(next));
+        if (publish) hub.BroadcastLocal(eventName, Dto(next));
     }
 
     public static object Dto(SttInstallState s) => new

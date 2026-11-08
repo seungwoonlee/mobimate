@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Mvc;
 using System.Net;
 using MobiMate.Web.Hosting;
 using MobiMate.Web.Infrastructure;
@@ -6,7 +7,7 @@ using MobiMate.Web.Voice;
 
 namespace MobiMate.Web.Endpoints;
 
-public sealed record SttSettingsRequest(bool? AutoSend, int? MaxSeconds, string? DeviceId, int? Threads, string? Hotkey, string? HotkeyMode, bool? Cue, bool? Hotwords, bool? Spacing, int? SpacingLevel, bool? Refine = null, string? RefineModel = null, int? RefineMs = null, bool? History = null, int? EndSilenceMs = null);
+public sealed record SttSettingsRequest(bool? AutoSend, int? MaxSeconds, string? DeviceId, int? Threads, string? Hotkey, string? HotkeyMode, bool? Cue, bool? Hotwords, bool? Spacing, int? SpacingLevel, bool? Refine = null, string? RefineModel = null, int? RefineMs = null, bool? History = null, int? EndSilenceMs = null, string? Engine = null);
 public sealed record VocabLearningRequest(bool? LearningOn);
 public sealed record VocabPairRequest(string? From, string? To, string? Action);
 public sealed record VocabWordRequest(string? Word);
@@ -84,7 +85,8 @@ public static class SttEndpoints
             return await next(ctx);
         });
 
-        api.MapGet("/status", (SttService stt, ISttEngineProvider engines, HotkeyService hotkeys, SttModelInstaller installer, WebSettingsStore s, IVoiceRefiner refiner) =>
+        api.MapGet("/status", (SttService stt, ISttEngineProvider engines, HotkeyService hotkeys, SttModelInstaller installer, WebSettingsStore s, IVoiceRefiner refiner,
+            [FromKeyedServices("qwen3")] SttModelLocator qwenModel, [FromKeyedServices("qwen3")] SttModelInstaller qwenInstaller) =>
         {
             var snap = stt.Snapshot();
             var cur = s.Current;
@@ -98,6 +100,8 @@ public static class SttEndpoints
                 device = snap.DeviceName,
                 modelInstalled = engines.IsInstalled,
                 install = SttModelInstaller.Dto(installer.State),
+                engine = cur.SttEngine,
+                qwen3 = new { installed = qwenModel.IsInstalled, totalBytes = qwenModel.Files.Sum(f => f.Size), install = SttModelInstaller.Dto(qwenInstaller.State) },
                 autoSend = cur.SttAutoSend,
                 maxSeconds = cur.SttMaxSeconds,
                 hotkey = new { key = hk.Key, registered = hk.Registered, error = hk.Error, mode = cur.SttHotkeyMode },
@@ -151,6 +155,14 @@ public static class SttEndpoints
 
         api.MapGet("/model", (SttModelLocator locator, SttModelInstaller installer) =>
             ApiResults.Ok(new { installed = locator.IsInstalled, missing = locator.Missing(), totalBytes = locator.Files.Sum(f => f.Size), install = SttModelInstaller.Dto(installer.State) }));
+
+        api.MapPost("/qwen3/install", (HttpContext ctx, [FromKeyedServices("qwen3")] SttModelInstaller installer) =>
+        {
+            if (SttGuard.CheckWrite(ctx) is { } bad) return bad;
+            if (SttGuard.CheckPcOnly(ctx) is { } notPc) return notPc;
+            var r = installer.Start();
+            return ApiResults.Ok(new { started = r == SttInstallStart.Started, alreadyInstalled = r == SttInstallStart.AlreadyInstalled, install = SttModelInstaller.Dto(installer.State) });
+        });
 
         api.MapPost("/model/install", (HttpContext ctx, SttModelInstaller installer) =>
         {
@@ -249,7 +261,7 @@ public static class SttEndpoints
             return ApiResults.Ok(ToDto(s.Current));
         });
 
-        api.MapPut("/settings", (HttpContext ctx, SttSettingsRequest req, WebSettingsStore s, HotkeyService hotkeys, IVoiceRefiner refiner) =>
+        api.MapPut("/settings", (HttpContext ctx, SttSettingsRequest req, WebSettingsStore s, HotkeyService hotkeys, IVoiceRefiner refiner, ISttEngineProvider engines) =>
         {
             if (SttGuard.CheckWrite(ctx) is { } bad) return bad;
             if (SttGuard.CheckPcOnly(ctx) is { } notPc) return notPc;
@@ -258,6 +270,7 @@ public static class SttEndpoints
             if (req.RefineMs is < 500 or > 10000) return ApiResults.Error(StatusCodes.Status400BadRequest, "VALIDATION", "다듬기 제한 시간은 0.5~10초입니다.");
             if (req.RefineModel is { Length: > 100 } || (req.RefineModel?.Any(c => char.IsControl(c) || char.IsWhiteSpace(c)) ?? false)) return ApiResults.Error(StatusCodes.Status400BadRequest, "VALIDATION", "모델 이름이 올바르지 않습니다.");
             if (req.EndSilenceMs is < 300 or > 2000) return ApiResults.Error(StatusCodes.Status400BadRequest, "VALIDATION", "말 끝 무음 시간은 0.3~2초입니다.");
+            if (req.Engine is not (null or "zipformer" or "qwen3")) return ApiResults.Error(StatusCodes.Status400BadRequest, "VALIDATION", "인식 엔진은 zipformer 또는 qwen3입니다.");
             if (req.Threads is < 1 or > 4) return ApiResults.Error(StatusCodes.Status400BadRequest, "VALIDATION", "스레드 수는 1~4입니다.");
             if (req.DeviceId is { Length: > 300 } || (req.DeviceId?.Any(char.IsControl) ?? false)) return ApiResults.Error(StatusCodes.Status400BadRequest, "VALIDATION", "마이크 ID가 올바르지 않습니다.");
             if (req.HotkeyMode is not (null or "hold" or "toggle")) return ApiResults.Error(StatusCodes.Status400BadRequest, "VALIDATION", "단축키 방식은 hold 또는 toggle입니다.");
@@ -278,6 +291,7 @@ public static class SttEndpoints
                 if (req.MaxSeconds != null) x.SttMaxSeconds = req.MaxSeconds.Value;
                 if (req.Threads != null) x.SttThreads = req.Threads.Value;
                 if (req.EndSilenceMs != null) x.SttEndSilenceMs = req.EndSilenceMs.Value;
+                if (req.Engine != null) x.SttEngine = req.Engine;
                 if (req.DeviceId != null) x.SttDeviceId = req.DeviceId.Length == 0 ? null : req.DeviceId;   // 빈 문자열 = 시스템 기본 마이크
                 if (req.Hotkey != null) x.SttHotkey = string.IsNullOrWhiteSpace(req.Hotkey) ? null : HotkeyParser.Parse(req.Hotkey)!.Display;
                 if (req.HotkeyMode != null) x.SttHotkeyMode = req.HotkeyMode;
@@ -294,6 +308,7 @@ public static class SttEndpoints
             hk = ok && hotkeyChanged ? hotkeys.Apply(s.Current.SttHotkey) : hotkeys.Status;
             }
             if (!ok) return ApiResults.Error(StatusCodes.Status500InternalServerError, "SAVE_FAILED", "설정을 저장하지 못했습니다.");
+            if (req.Engine != null) _ = Task.Run(engines.WarmUpAsync);   // 고른 엔진을 미리 올려 첫 문장이 느리지 않게 (설치돼 있을 때만)
             if (req.Refine == true || req.RefineModel != null) _ = Task.Run(refiner.WarmUpAsync);   // 새로 고른 모델을 미리 올려 첫 문장이 느리지 않게
             // 스레드 수는 인식 엔진을 만들 때 한 번 읽으므로 앱을 다시 켜야 적용된다
             return ApiResults.Ok(new { settings = ToDto(s.Current), restartRequired = threadsChanged, hotkey = new { key = hk.Key, registered = hk.Registered, error = hk.Error } });
@@ -312,6 +327,7 @@ public static class SttEndpoints
         deviceId = s.SttDeviceId,
         threads = s.SttThreads,
         endSilenceMs = s.SttEndSilenceMs,
+        engine = s.SttEngine,
         hotkey = s.SttHotkey,
         hotkeyMode = s.SttHotkeyMode,
         cue = s.SttCue,

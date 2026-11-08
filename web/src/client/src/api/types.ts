@@ -9,7 +9,7 @@ export interface Session { kind: 'local' | 'lan' }
 export type SttStateName = 'idle' | 'starting' | 'listening' | 'finishing';
 export interface SttStatus {
   state: SttStateName; sessionId: string | null; byDevice: string | null; device: string | null;
-  modelInstalled: boolean; install: SttInstall; autoSend: boolean; maxSeconds: number; hotkey: SttHotkeyStatus; elevation: SttElevation; refine?: SttRefineStatus;
+  modelInstalled: boolean; install: SttInstall; engine?: SttEngineName; qwen3?: { installed: boolean; totalBytes: number; install: SttInstall }; autoSend: boolean; maxSeconds: number; hotkey: SttHotkeyStatus; elevation: SttElevation; refine?: SttRefineStatus;
 }
 export interface SttStateEvent {
   sessionId: string; state: SttStateName; byDevice?: string | null; error?: string | null; message?: string | null;
@@ -17,10 +17,11 @@ export interface SttStateEvent {
 }
 /** 이 앱과 게임의 관리자 권한 여부. game은 게임이 꺼져 있거나 알 수 없으면 null */
 export interface SttElevation { app: boolean; game: boolean | null; mismatch: boolean }
+export type SttEngineName = 'zipformer' | 'qwen3';
 export interface SttInstall { phase: 'idle' | 'downloading' | 'done' | 'failed'; done: number; total: number; file: string | null; error: string | null }
 export interface SttHotkeyStatus { key: string | null; registered: boolean; error: string | null; mode: 'hold' | 'toggle' }
 export interface SttSettings {
-  autoSend: boolean; maxSeconds: number; deviceId: string | null; threads: number; endSilenceMs: number;
+  autoSend: boolean; maxSeconds: number; deviceId: string | null; threads: number; endSilenceMs: number; engine?: SttEngineName;
   hotkey: string | null; hotkeyMode: 'hold' | 'toggle'; cue: boolean; hotwords: boolean; spacing: boolean; spacingLevel: 0 | 1 | 2;
   refine: boolean; refineModel: string; refineMs: number; history: boolean;
 }
