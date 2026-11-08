@@ -63,7 +63,7 @@ public static class GameEndpoints
             var days = req.Days ?? 0;
             if (days is < 0 or > 400) return ApiResults.Error(400, "VALIDATION", "남은 일수는 0~400으로 입력해 주세요.");
             if (!v.IsKnownCharacter(req.Character)) return ApiResults.Error(404, "NOT_FOUND", "기록에 없는 캐릭터입니다.");
-            // 남은 일수만 받는다: 만료는 (오늘 + 남은 일수 − 1일) 다음 새벽 6시. 0일 = 등록 해제
+            // 남은 일수만 받는다: 만료는 (오늘 + 남은 일수) 다음 새벽 6시. 0일 = 등록 해제
             DateTime? expires = days == 0 ? null : MembershipClock.ExpiryLocal(DateTime.Now, days).ToUniversalTime();
             if (!accounts.Update(d => { AccountGrouper.SetMembership(d, req.Character!, expires); return true; }))
                 return ApiResults.Error(503, "STORAGE_UNAVAILABLE", "멤버십을 저장하지 못했습니다.");

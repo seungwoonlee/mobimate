@@ -61,7 +61,7 @@ function MembershipDialog({ character, onClose }: { character: string; onClose: 
       <form id="mem-form" className="form" onSubmit={e => { e.preventDefault(); if (valid) void save(d); }}>
         <p className="small muted">
           <b>게임 안 캐시샵 메뉴</b>에서 멤버십 <b>남은 일수</b>를 확인해 그 숫자만 입력해 주세요. 멤버십은 계정 단위라 같은 계정의 모든 캐릭터에 적용됩니다.
-          남은 시간은 <b>오늘 + 남은 일수 − 1일</b>이 지난 뒤 첫 <b>새벽 6시</b>까지로 계산해 자동으로 줄어듭니다.
+          남은 시간은 <b>오늘 + 남은 일수</b>가 지난 뒤 첫 <b>새벽 6시</b>까지로 계산해 자동으로 줄어듭니다.
           멤버십이면 은동전은 150개, 마족 공물은 15개까지, 미가입이면 100개 / 10개까지 충전됩니다.
         </p>
         <label>남은 일수 <input inputMode="numeric" value={days} onChange={e => setDays(e.target.value.replace(/\D/g, '').slice(0, 3))} placeholder="예: 27" autoFocus /></label>
