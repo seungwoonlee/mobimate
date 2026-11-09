@@ -32,7 +32,7 @@ export function cellsOf(c: Pick<CharacterCard, 'homework' | 'fieldBoss'> & Parti
     if (why != null) return { key: x.id, label: x.label, state: 'locked', note: why } as Cell;
     const state = h?.state ?? 'unknown';
     const steps = STEP_GOALS[x.id];
-    const left = state === 'todo' && h?.remaining != null ? h.remaining : undefined;
+    const left = state === 'todo' && h?.remaining != null && h.remaining > 1 ? h.remaining : undefined;   // "남은 1회"는 보이지 않는다
     const unit = VALUE_UNITS[x.id];
     return { key: x.id, label: x.label, state, left, guess: h?.guess, toggleId: x.id, steps, step: steps ? stepOf(steps, state === 'done', left) : undefined, unit, value: unit ? (h?.value ?? 0) : undefined } as Cell;
   }));
