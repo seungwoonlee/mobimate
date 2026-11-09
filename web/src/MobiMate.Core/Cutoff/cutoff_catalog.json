@@ -27,6 +27,9 @@
     { "id": "cavrak", "name": "카브락", "icon": "cavrak", "tiers": [
       { "name": "입문",        "minCombat": 65000,  "recCombat": 72000,  "overCombat": 82500,  "minMdef": 2000, "overMdef": 2500 },
       { "name": "어려움",      "minCombat": 90000,  "recCombat": 95000,  "overCombat": 109000, "minMdef": 3100, "overMdef": 3700 }
+    ]},
+    { "id": "vanguard_breach", "name": "뱅가드 브리치", "icon": "breach", "tiers": [
+      { "name": "일반", "minCombat": 30000, "recCombat": 42900, "overCombat": 49300, "minMdef": 0, "overMdef": 0 }
     ]}
   ]
 }
