@@ -180,7 +180,7 @@ public sealed class HomeworkService
                 st.CompletedAtUtc = runDone ? now : null;
                 st.Auto = false;
                 st.Suggestion = null;
-                st.RemainingCount = runDone ? null : def.RunGoal - run;
+                st.RemainingCount = runDone || def.RunGoal <= 1 ? null : def.RunGoal - run;
                 st.Evidence = $"수동 설정: 이번 주 {run}/{def.RunGoal}";   // 미완료 확인으로도 쓰인다(전체 탭 카드가 "남은 N회"를 보인다)
                 st.ManualOverride = runDone;
                 st.ManualAtUtc = now;

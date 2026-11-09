@@ -6,7 +6,7 @@ describe('숙제 수동 횟수 순환', () => {
     for (let i = 0; i < 4; i++) seq.push(nextStep(seq[i], 3));
     expect(seq).toEqual([0, 1, 2, 3, 0]);
   });
-  it('뱅가드는 주 1회다', () => expect(STEP_GOALS.weekly_vanguard_breach).toBe(1));
+  it('뱅가드는 주 1회라 횟수 칸이 아니다', () => expect(STEP_GOALS.weekly_vanguard_breach).toBeUndefined());
   it('현재 횟수: 완료면 목표, 남은 횟수가 있으면 목표에서 뺀 값, 모르면 0', () => {
     expect(stepOf(3, true, null)).toBe(3);
     expect(stepOf(3, false, 2)).toBe(1);

@@ -48,14 +48,14 @@ public class HomeworkVanguardRunTests : IDisposable
     // 2026-11-10부터 주 1회: 칸을 누르면 0 → 1(완료) → 0으로 돈다.
 
     [Fact]
-    public void ManualCount_Zero_IsTodoWithOneRunLeft()
+    public void ManualCount_Zero_IsTodo_WithoutARemainingCount()
     {
         var svc = NewService();
         svc.Set(Main, Id, count: 0);
         Assert.Equal(HomeworkCardStatus.Pending, Card(svc).Status);
         Assert.Equal("todo", Auto(svc).State);
-        Assert.Equal(1, Auto(svc).Remaining);
-        Assert.Equal(1, Card(svc).Remaining);
+        Assert.Null(Auto(svc).Remaining);
+        Assert.Null(Card(svc).Remaining);
     }
 
     [Fact]
@@ -67,7 +67,7 @@ public class HomeworkVanguardRunTests : IDisposable
         Assert.Equal("done", Auto(svc).State);
         svc.Set(Main, Id, count: 0);
         Assert.Equal(HomeworkCardStatus.Pending, Card(svc).Status);
-        Assert.Equal(1, Auto(svc).Remaining);
+        Assert.Null(Auto(svc).Remaining);
     }
 
     [Fact]
@@ -77,7 +77,7 @@ public class HomeworkVanguardRunTests : IDisposable
         svc.Set(Main, Id, count: 99);
         Assert.Equal(HomeworkCardStatus.ManualDone, Card(NewService()).Status);
         svc.Set(Main, Id, count: -5);
-        Assert.Equal(1, Auto(NewService()).Remaining);
+        Assert.Null(Auto(NewService()).Remaining);
     }
 
     [Fact]
@@ -87,7 +87,7 @@ public class HomeworkVanguardRunTests : IDisposable
         svc.Set(Main, Id, completed: true);
         Assert.Equal(HomeworkCardStatus.ManualDone, Card(svc).Status);
         svc.Set(Main, Id, completed: false);
-        Assert.Equal(1, Auto(svc).Remaining);
+        Assert.Null(Auto(svc).Remaining);
     }
 
     [Fact]
@@ -95,7 +95,7 @@ public class HomeworkVanguardRunTests : IDisposable
     {
         var svc = NewService();
         svc.Evaluate(Main, Obs(Town, Weekly(0), Other));
-        Assert.Equal(1, Auto(svc).Remaining);
+        Assert.Null(Auto(svc).Remaining);
         for (var i = 0; i < 5; i++)
         {
             _now += TimeSpan.FromMinutes(5);
@@ -103,7 +103,7 @@ public class HomeworkVanguardRunTests : IDisposable
         }
         Assert.Equal(HomeworkCardStatus.Pending, Card(svc).Status);
         Assert.Equal("todo", Auto(svc).State);
-        Assert.Equal(1, Auto(svc).Remaining);
+        Assert.Null(Auto(svc).Remaining);
     }
 
     [Fact]
@@ -125,24 +125,20 @@ public class HomeworkVanguardRunTests : IDisposable
         _now += TimeSpan.FromMinutes(1);
         _gold += 500_000;   // 마을에서 판매
         svc.Evaluate(Main, Obs(Town, Other));
-        Assert.Equal(1, Auto(svc).Remaining);
+        Assert.Null(Auto(svc).Remaining);
         Assert.Equal(HomeworkCardStatus.Pending, Card(svc).Status);
     }
 
     [Fact]
-    public void RightAfterTheRun_AStaleQuestDoesNotReopen_ButALaterOneDoes()
+    public void AfterTheRun_AStaleQuestListDoesNotReopenTheWeek()
     {
         var svc = NewService();
         svc.Evaluate(Main, Obs(Town, Weekly(0), Other));
         Run(svc);
         Assert.Equal(HomeworkCardStatus.AutoDone, Card(svc).Status);
-        _now += TimeSpan.FromSeconds(30);
-        svc.Evaluate(Main, Obs(Town, Weekly(0), Other));   // 목록이 아직 갱신 전
-        Assert.Equal(HomeworkCardStatus.AutoDone, Card(svc).Status);
         _now += TimeSpan.FromMinutes(10);
-        svc.Evaluate(Main, Obs(Town, Weekly(0), Other));   // 한참 뒤에도 0/1이면 게임 값이 맞다
-        Assert.Equal(HomeworkCardStatus.Pending, Card(svc).Status);
-        Assert.Equal(1, Auto(svc).Remaining);
+        svc.Evaluate(Main, Obs(Town, Weekly(0), Other));   // 주 1회라 한 번 끝나면 이번 주는 끝이다 (다시 열려면 손으로 미완료)
+        Assert.Equal(HomeworkCardStatus.AutoDone, Card(svc).Status);
     }
 
     [Fact]
