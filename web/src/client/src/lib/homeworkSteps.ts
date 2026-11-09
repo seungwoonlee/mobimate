@@ -1,9 +1,9 @@
 import type { CharacterCard } from '../api/types';
 /**
  * 여러 번 해야 끝나는 숙제의 수동 횟수 (2026-10-24 승운): 일부만 했을 수 있어, 칸을 누를 때마다 0 → 1 → 2 → … → 목표(완료) → 0으로 돈다.
- * 서버(HomeworkDefinition.RunGoal)의 값과 같아야 한다. 뱅가드 브리치 주 3회가 첫 사례다.
+ * 서버(HomeworkDefinition.RunGoal)의 값과 같아야 한다. 뱅가드 브리치가 첫 사례다(주 3회였다가 2026-11-10부터 주 1회).
  */
-export const STEP_GOALS: Readonly<Record<string, number>> = { weekly_vanguard_breach: 3, weekly_barrier_1_7: 7, weekly_black_hole_1_7: 14, weekly_nightmare_drill: 30 };
+export const STEP_GOALS: Readonly<Record<string, number>> = { weekly_vanguard_breach: 1, weekly_barrier_1_7: 7, weekly_black_hole_1_7: 14, weekly_nightmare_drill: 30 };
 
 /** 단계 칸의 단위 (없으면 `N/목표`로 보인다): 나이트메어 드릴은 `12구역` */
 export const STEP_UNITS: Readonly<Record<string, string>> = { weekly_nightmare_drill: '구역' };
@@ -33,6 +33,7 @@ export const SEASON_IDS: ReadonlySet<string> = new Set(['weekly_nightmare_drill'
 
 /** 숙제 칸 → 추천(전투력 기준) 콘텐츠. 입장 전투력에 못 미치는 캐릭터는 그 칸을 비활성화한다 */
 export const HW_CUTOFF: Record<string, string> = {
+  weekly_vanguard_breach: 'vanguard_breach',
   raid_scars: 'scars', raid_cavrak: 'cavrak', raid_airel: 'airel', raid_white_succubus: 'white_succubus',
   abyss_illusory_anchorage: 'abyss', abyss_madness_cave: 'abyss', abyss_scattered_waterway: 'abyss',
 };

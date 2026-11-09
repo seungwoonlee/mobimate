@@ -47,7 +47,7 @@ public class ApiTests
         Assert.Equal(System.Text.Json.JsonValueKind.Null, cavrak.GetProperty("entryShort").ValueKind);
 
         var ov = await TestHost.Data(await c.GetAsync("/api/overview"));
-        Assert.Equal(5, ov.GetProperty("cutoffs").GetProperty("contents").GetArrayLength());
+        Assert.Equal(6, ov.GetProperty("cutoffs").GetProperty("contents").GetArrayLength());
     }
 
     [Fact]
