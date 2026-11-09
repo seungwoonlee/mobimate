@@ -246,7 +246,7 @@ public static partial class HomeworkEvaluator
             Complete(st, def.Goal, $"이번 주 {def.Title} {n}/{def.RunGoal} 클리어", now);
             return;
         }
-        st.RemainingCount = def.RunGoal - n;
+        st.RemainingCount = def.RunGoal > 1 ? def.RunGoal - n : null;   // 1회짜리는 "남은 1회"를 보이지 않는다(완료/미완료만)
     }
 
     private static bool RecentlyClearedByGame(HomeworkItemState st, DateTimeOffset now) =>
@@ -329,7 +329,7 @@ public static partial class HomeworkEvaluator
             if (!sightings.TryGetValue(def.Id, out var at) || at < cycleStart) sightings[def.Id] = now;   // 주기당 한 번만 기록(저장 횟수를 줄인다)
             if (broken) character.QuestContinuityBroken!.Remove(def.Id);   // 다시 보인다: 여기서부터 끊김 없이 지켜본다
             character.QuestVanishPending?.Remove(def.Id);                  // 잠깐 안 보였을 뿐: 사라짐 확인을 처음부터 다시 한다
-            st.RemainingCount = def.ShowRemaining ? RemainingOf(visible) : null;
+            st.RemainingCount = def.ShowRemaining && def.RunGoal != 1 ? RemainingOf(visible) : null;
             st.Evidence = $"퀘스트 '{HomeworkText.StripTags(visible.QuestTitle)}'가 아직 목록에 있음: 이번 주기 미완료" + (st.RemainingCount is { } r ? $" (남은 {r}회)" : "");
             if (def.RunGoal > 0 && st.RemainingCount is { } left)   // 게임이 보여 주는 N/M이 이번 주 횟수의 정답이다
                 (character.RunCounts ??= new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase))[def.Id] = Math.Max(0, def.RunGoal - left);

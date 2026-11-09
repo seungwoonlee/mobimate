@@ -25,7 +25,7 @@ public class HomeworkVanguardRunTests : IDisposable
 
     private static QuestItem Weekly(int done) =>
         new("[긴급 의뢰] 뱅가드 브리치", "auto_register_sub", "",
-            new List<QuestObjective> { new($"<color=orange>작전 장소</color>로 이동 {done}/3", false, done, 3) });
+            new List<QuestObjective> { new($"<color=orange>작전 장소</color>로 이동 {done}/1", false, done, 1) });
     private static readonly QuestItem Other = new("[주간 목표] 모험가 길드의 정기 의뢰 (2)", "main", "메인", new List<QuestObjective> { new("사냥터 클리어 0/5", false, 0, 5) });
 
     private HomeworkObservation Obs(string space, params QuestItem[] quests) => new(
@@ -46,11 +46,11 @@ public class HomeworkVanguardRunTests : IDisposable
     }
 
     [Fact]
-    public void QuestDisappearing_IsNeverACompletion_TheLastKnownCountStays()
+    public void QuestDisappearing_IsNeverACompletion()
     {
         var svc = NewService();
-        svc.Evaluate(Main, Obs(Town, Weekly(1), Other));
-        Assert.Equal(2, Auto(svc).Remaining);
+        svc.Evaluate(Main, Obs(Town, Weekly(0), Other));
+        Assert.Null(Auto(svc).Remaining);   // 주 1회라 "남은 1회"는 보이지 않는다
         for (var i = 0; i < 5; i++)
         {
             _now += TimeSpan.FromMinutes(5);
@@ -58,70 +58,47 @@ public class HomeworkVanguardRunTests : IDisposable
         }
         Assert.Equal(HomeworkCardStatus.Pending, Card(svc).Status);
         Assert.Equal("todo", Auto(svc).State);
-        Assert.Equal(2, Auto(svc).Remaining);
     }
 
     [Fact]
-    public void EachGoldRewardInsideTheVanguardArea_CountsOneRun_AndTheThirdCompletes()
+    public void AGoldRewardInsideTheVanguardArea_CompletesTheWeek()
     {
         var svc = NewService();
-        svc.Evaluate(Main, Obs(Town, Weekly(1), Other));
-        Run(svc);
-        Assert.Equal(1, Auto(svc).Remaining);
-        Assert.Equal(HomeworkCardStatus.Pending, Card(svc).Status);
+        svc.Evaluate(Main, Obs(Town, Weekly(0), Other));
         Run(svc);
         var card = Card(svc);
         Assert.Equal(HomeworkCardStatus.AutoDone, card.Status);
-        Assert.Contains("3/3", card.Evidence);
+        Assert.Contains("1/1", card.Evidence);
     }
 
     [Fact]
     public void GoldEarnedOutsideTheArea_IsNotARun()
     {
         var svc = NewService();
-        svc.Evaluate(Main, Obs(Town, Weekly(1), Other));
+        svc.Evaluate(Main, Obs(Town, Weekly(0), Other));
         _now += TimeSpan.FromMinutes(1);
         _gold += 500_000;   // 마을에서 판매
         svc.Evaluate(Main, Obs(Town, Other));
-        Assert.Equal(2, Auto(svc).Remaining);
+        Assert.Equal(HomeworkCardStatus.Pending, Card(svc).Status);
     }
 
     [Fact]
-    public void TheQuestsCount_IsTheTruth_OverCountedRuns()
+    public void AfterTheRun_AStaleQuestListDoesNotReopenTheWeek()
     {
         var svc = NewService();
         svc.Evaluate(Main, Obs(Town, Weekly(0), Other));
         Run(svc);
-        Assert.Equal(2, Auto(svc).Remaining);
-        _now += TimeSpan.FromMinutes(1);
-        svc.Evaluate(Main, Obs(Town, Weekly(1), Other));   // 게임도 1/3
-        Assert.Equal(2, Auto(svc).Remaining);
-        _now += TimeSpan.FromMinutes(1);
-        svc.Evaluate(Main, Obs(Town, Weekly(2), Other));   // 앱이 못 본 한 판(예: 앱이 꺼져 있었다)도 게임 값으로 맞춘다
-        Assert.Equal(1, Auto(svc).Remaining);
-    }
-
-    [Fact]
-    public void RightAfterTheThirdRun_AStaleQuestDoesNotReopen_ButALaterOneDoes()
-    {
-        var svc = NewService();
-        svc.Evaluate(Main, Obs(Town, Weekly(2), Other));
-        Run(svc);
-        Assert.Equal(HomeworkCardStatus.AutoDone, Card(svc).Status);
-        _now += TimeSpan.FromSeconds(30);
-        svc.Evaluate(Main, Obs(Town, Weekly(2), Other));   // 목록이 아직 갱신 전
         Assert.Equal(HomeworkCardStatus.AutoDone, Card(svc).Status);
         _now += TimeSpan.FromMinutes(10);
-        svc.Evaluate(Main, Obs(Town, Weekly(2), Other));   // 한참 뒤에도 2/3이면 게임 값이 맞다
-        Assert.Equal(HomeworkCardStatus.Pending, Card(svc).Status);
-        Assert.Equal(1, Auto(svc).Remaining);
+        svc.Evaluate(Main, Obs(Town, Weekly(0), Other));
+        Assert.Equal(HomeworkCardStatus.AutoDone, Card(svc).Status);
     }
 
     [Fact]
     public void CountsResetEveryWeek()
     {
         var svc = NewService();
-        svc.Evaluate(Main, Obs(Town, Weekly(1), Other));
+        svc.Evaluate(Main, Obs(Town, Weekly(0), Other));
         Run(svc);
         _now = new DateTimeOffset(2026, 10, 26, 6, 30, 0, TimeSpan.FromHours(9)).ToUniversalTime();   // 다음 주 월요일
         svc.Evaluate(Main, Obs(Town, Other));
