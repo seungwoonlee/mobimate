@@ -551,9 +551,9 @@ public class HomeworkAutoCheckTests : IDisposable
         // 사고 재현 (2026-10-03): 판을 하는 동안 "뱅가드 브리치 클리어"(적 처치하기 0/1) 퀘스트가 따로 생겨 남은 횟수가 (1)로 읽혔다
         var svc = NewService();
         var inRun = Counted("뱅가드 브리치 클리어", (0, 1));
-        var weekly = Counted(Vanguard, (1, 3));
+        var weekly = Counted(Vanguard, (0, 1));
         svc.Evaluate(Main, Quests(inRun, weekly));
-        Assert.Equal(2, Auto(svc, Main, "weekly_vanguard_breach").Remaining);
+        Assert.Null(Auto(svc, Main, "weekly_vanguard_breach").Remaining);
 
         var other = NewService();   // 새 저장소로: 판 퀘스트만 보이면 주간 퀘스트를 본 것이 아니다
         System.IO.Directory.Delete(_dir, true); System.IO.Directory.CreateDirectory(_dir);
@@ -566,15 +566,15 @@ public class HomeworkAutoCheckTests : IDisposable
     {
         // 사고 재현 (2026-10-02): 화염술사 카드의 "뱅가드(3)"이 다른 캐릭터로 접속하자 "뱅가드"로 돌아갔다
         var svc = NewService();
-        svc.Evaluate(Main, Quests(Counted(Vanguard, (0, 3))));
-        Assert.Equal(3, Auto(svc, Main, "weekly_vanguard_breach").Remaining);
+        svc.Evaluate(Main, Quests(Counted(Vanguard, (0, 1))));
+        Assert.Null(Auto(svc, Main, "weekly_vanguard_breach").Remaining);
         _now += TimeSpan.FromMinutes(1);
         svc.Evaluate(Alt, Quests(Other));
         _now += TimeSpan.FromMinutes(1);
         svc.Evaluate(Alt, Quests(Other));
         var a = Auto(svc, Main, "weekly_vanguard_breach");
         Assert.Equal("todo", a.State);
-        Assert.Equal(3, a.Remaining);
+        Assert.Null(a.Remaining);
         Assert.Equal("todo", Auto(NewService(), Main, "weekly_vanguard_breach").State);   // 재기동 뒤에도
     }
 
@@ -614,7 +614,7 @@ public class HomeworkAutoCheckTests : IDisposable
     public void Vanguard_AbsentWhileTheMapIsLoading_IsIgnored()
     {
         var svc = NewService();
-        svc.Evaluate(Main, Quests(Counted(Vanguard, (0, 3))));
+        svc.Evaluate(Main, Quests(Counted(Vanguard, (0, 1))));
         _now += TimeSpan.FromMinutes(1);
         var loading = new HomeworkObservation(Quests: new List<QuestItem> { Other }, Environment: new EnvironmentInfo(null, null, null, ""));
         svc.Evaluate(Main, loading);
@@ -628,22 +628,20 @@ public class HomeworkAutoCheckTests : IDisposable
         new(title, "main", "메인", objs.Select(o => new QuestObjective($"<color=orange>클리어</color> {o.Count}/{o.Goal}", o.Count >= o.Goal, o.Count, o.Goal)).ToList());
 
     [Theory]
-    [InlineData(0, 3, 3)]
-    [InlineData(1, 3, 2)]
-    [InlineData(2, 3, 1)]
+    [InlineData(0, 1, 1)]
     public void Vanguard_RemainingCount_FromObjectiveCountAndGoal(int count, int goal, int remaining)
     {
         var svc = NewService();
         svc.Evaluate(Main, Quests(Counted(Vanguard, (count, goal))));
         var a = Auto(svc, Main, "weekly_vanguard_breach");
         Assert.Equal("todo", a.State);
-        Assert.Equal(remaining, a.Remaining);
-        Assert.Contains($"남은 {remaining}회", Card(svc.GetBoard(Main), "weekly_vanguard_breach").Evidence);
+        Assert.Null(a.Remaining);
+        Assert.DoesNotContain("남은", Card(svc.GetBoard(Main), "weekly_vanguard_breach").Evidence);
     }
 
     [Theory]
-    [InlineData("[긴급 의뢰] 뱅가드 브리치 (3)", 3)]
-    [InlineData("[긴급 의뢰] 뱅가드 브리치(2)", 2)]
+    [InlineData("[긴급 의뢰] 뱅가드 브리치 (1)", 1)]
+    [InlineData("[긴급 의뢰] 뱅가드 브리치(1)", 1)]
     [InlineData("<color=orange>[긴급 의뢰]</color> 뱅가드 브리치 (1)", 1)]
     public void Vanguard_NameSuffixIsTheRemainingCount_AndStaysTheSameQuest(string title, int remaining)
     {
@@ -652,17 +650,17 @@ public class HomeworkAutoCheckTests : IDisposable
         svc.Evaluate(Main, Quests(Quest(title, false), Other));
         var a = Auto(svc, Main, "weekly_vanguard_breach");
         Assert.Equal("todo", a.State);
-        Assert.Equal(remaining, a.Remaining);
+        Assert.Null(a.Remaining);
         Assert.Equal(HomeworkCardStatus.Pending, Card(svc.GetBoard(Main), "weekly_vanguard_breach").Status);
-        Assert.Contains($"남은 {remaining}회", Card(svc.GetBoard(Main), "weekly_vanguard_breach").Evidence);
+        Assert.DoesNotContain("남은", Card(svc.GetBoard(Main), "weekly_vanguard_breach").Evidence);
     }
 
     [Fact]
     public void Vanguard_NameSuffix_WinsOverObjectiveCounts()
     {
         var svc = NewService();
-        svc.Evaluate(Main, Quests(Counted($"{Vanguard} (2)", (0, 10))));   // 목표 숫자(0/10)는 횟수가 아니다
-        Assert.Equal(2, Auto(svc, Main, "weekly_vanguard_breach").Remaining);
+        svc.Evaluate(Main, Quests(Counted($"{Vanguard} (1)", (0, 10))));   // 목표 숫자(0/10)는 횟수가 아니다
+        Assert.Null(Auto(svc, Main, "weekly_vanguard_breach").Remaining);
     }
 
     [Fact]

@@ -81,7 +81,7 @@ public static class HomeworkBoardLayout
             }
             byId.TryGetValue(def.Id, out var h);
             var st = StateOf(h?.State);
-            list.Add(new CellData(def, st, st == CellState.Todo ? h?.Remaining : null, h?.Evidence, null,
+            list.Add(new CellData(def, st, st == CellState.Todo && h?.Remaining > 1 ? h.Remaining : null, h?.Evidence, null,
                 st == CellState.Done ? null : h?.Suggestion, c.InProgressIds.Contains(def.Id, StringComparer.OrdinalIgnoreCase)));
         }
         return list;
