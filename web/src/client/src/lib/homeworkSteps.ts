@@ -1,9 +1,9 @@
 import type { CharacterCard } from '../api/types';
 /**
  * 여러 번 해야 끝나는 숙제의 수동 횟수 (2026-10-24 승운): 일부만 했을 수 있어, 칸을 누를 때마다 0 → 1 → 2 → … → 목표(완료) → 0으로 돈다.
- * 서버(HomeworkDefinition.RunGoal)의 값과 같아야 한다. 뱅가드 브리치가 첫 사례다(주 3회였다가 2026-11-10부터 주 1회).
+ * 서버(HomeworkDefinition.RunGoal)의 값과 같아야 한다. 뱅가드 브리치는 2026-11-10부터 주 1회라 여기서 뺐다(완료/미완료 칸).
  */
-export const STEP_GOALS: Readonly<Record<string, number>> = { weekly_vanguard_breach: 1, weekly_barrier_1_7: 7, weekly_black_hole_1_7: 14, weekly_nightmare_drill: 30 };
+export const STEP_GOALS: Readonly<Record<string, number>> = { weekly_barrier_1_7: 7, weekly_black_hole_1_7: 14, weekly_nightmare_drill: 30 };
 
 /** 단계 칸의 단위 (없으면 `N/목표`로 보인다): 나이트메어 드릴은 `12구역` */
 export const STEP_UNITS: Readonly<Record<string, string>> = { weekly_nightmare_drill: '구역' };
