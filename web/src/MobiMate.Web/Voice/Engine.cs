@@ -158,7 +158,14 @@ public sealed class SherpaEngineProvider(SttModelLocator model, WebSettingsStore
 {
     private readonly object _lock = new();
     private SherpaSttEngine? _engine;
-    private Qwen3SttEngine? _qwen;   // 엔진을 바꿔도 이미 올린 쪽은 해제하지 않는다: 듣는 중인 세션이 쓰고 있을 수 있다
+    private Qwen3SttEngine? _qwen;
+    private long _zipHandedAt, _qwenHandedAt;   // 각 엔진을 마지막으로 내어 준 시각 (Environment.TickCount64)
+
+    /// <summary>쓰지 않는 엔진을 내리기 전에 기다리는 시간: 그 엔진으로 듣던 세션(최대 60초)이 끝날 여유</summary>
+    internal const long ReleaseAfterMs = 90_000;
+
+    /// <summary>쓰지 않는 엔진을 지금 해제해도 되는가: 내어 준 지 충분히 지났을 때만 (듣는 중인 세션이 쓰고 있을 수 있다)</summary>
+    internal static bool CanRelease(long handedAtMs, long nowMs) => nowMs - handedAtMs >= ReleaseAfterMs;
 
     private bool UseQwen => qwen3 != null && settings.Current.SttEngine == "qwen3";
 
@@ -170,6 +177,8 @@ public sealed class SherpaEngineProvider(SttModelLocator model, WebSettingsStore
         {
             if (UseQwen)
             {
+                ReleaseUnused(zip: true);
+                _qwenHandedAt = Environment.TickCount64;
                 if (_qwen != null) return _qwen;
                 if (!qwen3!.IsInstalled) throw new InvalidOperationException("Qwen3 음성 인식 모델이 설치되어 있지 않습니다.");
                 var qclock = System.Diagnostics.Stopwatch.StartNew();
@@ -178,6 +187,8 @@ public sealed class SherpaEngineProvider(SttModelLocator model, WebSettingsStore
                 log.LogInformation("Qwen3 음성 인식기를 올렸습니다 ({Ms}ms)", qclock.ElapsedMilliseconds);
                 return _qwen = qe;
             }
+            ReleaseUnused(zip: false);
+            _zipHandedAt = Environment.TickCount64;
             if (_engine != null) return _engine;
             if (!model.IsInstalled) throw new InvalidOperationException("음성 인식 모델이 설치되어 있지 않습니다.");
             var clock = System.Diagnostics.Stopwatch.StartNew();
@@ -186,6 +197,14 @@ public sealed class SherpaEngineProvider(SttModelLocator model, WebSettingsStore
             log.LogInformation("음성 인식기를 올렸습니다 ({Ms}ms, {Threads}스레드)", clock.ElapsedMilliseconds, settings.Current.SttThreads);
             return _engine = engine;
         }
+    }
+
+    /// <summary>고르지 않은 쪽 엔진의 모델을 메모리에서 내린다 (Qwen3는 약 1GB, 게임을 하는 PC라 아껴 둔다). 호출하는 쪽이 _lock을 쥔다.</summary>
+    private void ReleaseUnused(bool zip)
+    {
+        var now = Environment.TickCount64;
+        if (zip && _engine != null && CanRelease(_zipHandedAt, now)) { _engine.Dispose(); _engine = null; log.LogInformation("쓰지 않는 기본 인식기를 메모리에서 내렸습니다"); }
+        if (!zip && _qwen != null && CanRelease(_qwenHandedAt, now)) { _qwen.Dispose(); _qwen = null; log.LogInformation("쓰지 않는 Qwen3 인식기를 메모리에서 내렸습니다"); }
     }
 
     public Task WarmUpAsync() => !IsInstalled ? Task.CompletedTask : Task.Run(() =>
