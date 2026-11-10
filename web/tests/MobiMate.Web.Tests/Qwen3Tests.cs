@@ -183,3 +183,15 @@ public class Qwen3IntegrationTests
         Assert.True(finals[0].Contains("레이드") && finals[2].Contains("클리어"), all);
     }
 }
+
+public class EngineReleaseTests
+{
+    [Fact]
+    public void UnusedEngine_IsReleasedOnlyAfterItHadTimeToFinishASession()
+    {
+        Assert.False(MobiMate.Web.Voice.SherpaEngineProvider.CanRelease(handedAtMs: 1_000, nowMs: 1_000 + 89_999));   // 방금까지 듣던 세션이 있을 수 있다
+        Assert.True(MobiMate.Web.Voice.SherpaEngineProvider.CanRelease(handedAtMs: 1_000, nowMs: 1_000 + 90_000));
+        Assert.True(MobiMate.Web.Voice.SherpaEngineProvider.CanRelease(handedAtMs: 0, nowMs: 5_000_000));              // 한 번도 내어 준 적 없다
+        Assert.True(MobiMate.Web.Voice.SherpaEngineProvider.ReleaseAfterMs > 60_000);                                  // 듣기 최대 시간(60초)보다 길어야 한다
+    }
+}
