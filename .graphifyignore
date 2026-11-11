@@ -1,0 +1,10 @@
+# graphify 제외 목록: 시험·산출물은 구조 질의를 흐리므로 뺀다 (TestHost가 허브가 되는 문제)
+web/tests/
+web/src/client/e2e/
+web/src/client/test-results/
+web/src/client/playwright-report/
+**/*.test.ts
+**/*.test.tsx
+**/*.spec.ts
+web/dist/
+web/src/client/dist/
