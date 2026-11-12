@@ -49,12 +49,30 @@ async function collectOne(name?: string): Promise<boolean> {
   }
 }
 
-/** 완료된 가공물을 모두 수거한다 (퀵 액션 📥). 하나씩 차례로 보낸다. */
+/**
+ * 시설마다 하나씩만 고른다: 게임의 수거 명령은 "그 시설의 완료된 가공물 전부"를 한 번에 거둔다.
+ * 같은 시설의 두 번째 이름으로 또 보내면 거둘 게 없어 실패로 보이고, 이동 때문에 시간도 두 배가 든다.
+ * 시설을 모르는 이름은 그대로 둔다.
+ */
+export function onePerFacility(names: string[], works: { name: string; facility?: string }[] | undefined): string[] {
+  const seen = new Set<string>();
+  return names.filter(n => {
+    const f = works?.find(w => w.name === n)?.facility;
+    if (!f) return true;
+    if (seen.has(f)) return false;
+    seen.add(f);
+    return true;
+  });
+}
+
+/** 완료된 가공물을 모두 수거한다 (퀵 액션 📥). 시설마다 한 번씩 차례로 보낸다. */
 export async function collectAll(names: string[]): Promise<boolean> {
   if (!names.length) { toast('완료된 가공물이 없습니다', 'info'); return false; }
+  const works = queryClient.getQueryData<Envelope<Life>>(keys.life)?.data.works ?? undefined;
+  const picks = onePerFacility(names, works);
   return (await runExclusive('collect', async () => {
     let any = false;
-    for (const n of names) any = (await collectOne(n)) || any;
+    for (const n of picks) any = (await collectOne(n)) || any;
     return any;
   })) ?? false;
 }

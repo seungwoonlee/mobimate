@@ -157,6 +157,20 @@ public class ApiTests
         Assert.Null(r.Error);
     }
 
+    [Theory]
+    [InlineData("""{"status":"accepted","body":{"result":"completed","gained":100,"target":100}}""", "completed", 100, null)]
+    [InlineData("""{"status":"accepted","body":{"error":"overweight","message":"full","gained":10,"target":100}}""", "completed", 10, "overweight")]
+    [InlineData("""{"status":"rejected","body":{"error":"not_in_field","message":"town"}}""", "completed", 0, "not_in_field")]
+    [InlineData("""{"status":"rejected"}""", "error", 0, "rejected")]
+    [InlineData("""{"pipe":"disconnected","reason":"game_off","message":"off"}""", "error", 0, "cli_error")]
+    public void ParseGather_ReadsTheSpecEnvelope_AndConnectionLoss(string stdout, string result, int gained, string? error)
+    {
+        var r = MobiMate.Web.Services.GameActions.ParseGather(stdout);
+        Assert.Equal(gained, r.Gained);
+        Assert.Equal(error, r.Error);
+        if (error == null) Assert.Equal(result, r.Result);
+    }
+
     [Fact]
     public void ParseGather_ErrorBody_IsNotCompleted()
     {

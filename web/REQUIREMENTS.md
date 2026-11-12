@@ -819,3 +819,9 @@ WPF판 v1.2.0의 판정 규칙을 그대로 따른다. 판정은 Core의 순수 
 
 - 뱅가드 브리치가 **주 3회에서 주 1회**로 바뀌었다(숙제 `weekly_vanguard_breach`의 `runGoal` 3 → 1). 퀘스트 `[긴급 의뢰] 뱅가드 브리치`가 사라지거나 뱅가드 지역 안에서 골드 보상이 들어오면 이번 주 완료이고, 칸은 다른 1회성 숙제처럼 완료/미완료 토글이고 "남은 1회"는 보이지 않는다(2026-11-10 후속 요청).
 - 입장·권장·압도 전투력을 추천 목록에 넣었다(`vanguard_breach`, 여신의 뜰 일반): **30,000 / 42,900 / 49,300**, 마도저항 제한 없음. 입장 전투력에 못 미치는 캐릭터는 숙제 칸이 "입장 불가"로 잠긴다(`HW_CUTOFF`). 입장 레벨 제한은 아직 모른다.
+
+### FR-AC-06 변경 명령 결과 확인 (2026-11-12)
+
+- 게임 CLI의 변경 명령(수거·정지·채집)은 프로세스가 정상 종료해도 게임이 거절·중단했을 수 있다. 응답 형식 `{"status":"accepted|rejected|invalid_body","body":{…}}`에서 `status`가 rejected·invalid_body이거나 `body.error`(blocked·timeout·overweight·not_completed_yet 등)가 있으면, 연결 끊김(`pipe: disconnected`)이면, `body.result`가 `stopped_by_user`이면 **실패로 알린다**(`CliEnvelope.ActionError`). 이전에는 최상위 `error`만 봐서 게임이 아무것도 하지 않았는데 "수거했습니다"로 나갔다.
+- 수거 응답은 처음 몇 번의 원인 파악을 위해 로그에 앞 300자를 남긴다.
+- 수거는 시설 하나에 한 번만 보낸다: 게임이 그 시설의 완료분을 한 번에 거두므로, 같은 시설의 두 번째 이름으로 또 보내면 거둘 게 없다(`onePerFacility`).
