@@ -243,7 +243,7 @@ public static partial class HomeworkEvaluator
         if (n >= def.RunGoal)
         {
             st.RemainingCount = null;
-            Complete(st, def.Goal, $"이번 주 {def.Title} {n}/{def.RunGoal} 클리어", now);
+            Complete(st, def.Goal, $"이번 주 {def.Title} {Math.Min(n, def.RunGoal)}/{def.RunGoal} 클리어", now);   // 3회 시절에 쌓인 값(2/1)이 그대로 보이지 않게
             return;
         }
         st.RemainingCount = def.RunGoal > 1 ? def.RunGoal - n : null;   // 1회짜리는 "남은 1회"를 보이지 않는다(완료/미완료만)
