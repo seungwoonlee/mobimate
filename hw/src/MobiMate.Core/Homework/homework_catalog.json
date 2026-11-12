@@ -41,7 +41,7 @@
       "title": "모험가 길드 정기 의뢰", "subtitle": "[주간 목표] 퀘스트 — 클리어하면 이름 뒤에 (1)이 붙는다", "icon": "guild", "goal": 1,
       "questTitles": ["[주간 목표] 모험가 길드의 정기 의뢰"] },
     { "id": "weekly_vanguard_breach", "category": "weekly", "period": "weekly", "share": "character", "mode": "questVanish", "autoCheck": true, "cardLabel": "뱅가드",
-      "title": "뱅가드 브리치", "subtitle": "콘텐츠 가이드 주간 뱅가드 브리치 (주 1회 · 2026-11-10부터 3회에서 1회로 바뀜 · 퀘스트가 사라지거나 뱅가드 지역 안 골드 보상이 들어오면 완료 · 퀘스트가 안 보이는 것만으로는 완료하지 않음)", "icon": "breach", "goal": 1,
+      "title": "뱅가드 브리치", "subtitle": "콘텐츠 가이드 주간 뱅가드 브리치 (주 1회 · 2026-11-10부터 3회에서 1회로 바뀜 · 뱅가드 지역 안에서 골드 보상이 들어오면 완료 · 퀘스트가 안 보이는 것만으로는 완료하지 않음)", "icon": "breach", "goal": 1,
       "questTitles": ["[긴급 의뢰] 뱅가드 브리치"], "continuous": true, "showRemaining": true,
       "runGoal": 1, "entrySpacePrefixes": ["뱅가드 브리치"], "entryCompletes": false, "areaRewards": { "골드": 50000 } },
 
