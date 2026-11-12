@@ -1,0 +1,211 @@
+<title>모비메이트 식당 이야기</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;500;700&display=swap">
+<style>
+  /* 방향: 식당 비유. 큰 그림 한 장 → 등장인물 → 장면 네 컷 → 한 줄 요약. 글은 짧게, 그림이 말한다. */
+  :root {
+    --bg: #f3f7fb; --card: #ffffff; --ink: #1c2b3a; --mute: #5c6f82; --line: #d6e0ea;
+    --sky: #2b7bd6; --sky-bg: #e3f0fd;
+    --sun: #f2b01e; --sun-bg: #fff4d1;
+    --leaf: #2f9e6e; --leaf-bg: #ddf4e8;
+    --pink: #e0577a; --pink-bg: #fde6ec;
+    --plum: #7a5bd1; --plum-bg: #ece6fb;
+    --fire: #e8743b;
+    --font-title: "Jua", "Noto Sans KR", "Malgun Gothic", system-ui, sans-serif;
+    --font-body: "Noto Sans KR", "Malgun Gothic", system-ui, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0f1823; --card: #172433; --ink: #e8f0f8; --mute: #9db0c3; --line: #2a3b4e;
+      --sky: #6db0ff; --sky-bg: #16304d; --sun: #ffd25a; --sun-bg: #3d3214;
+      --leaf: #55d6a0; --leaf-bg: #143a2c; --pink: #ff8fab; --pink-bg: #43202b;
+      --plum: #b7a2ff; --plum-bg: #2a2349; --fire: #ff9a63; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0f1823; --card: #172433; --ink: #e8f0f8; --mute: #9db0c3; --line: #2a3b4e;
+    --sky: #6db0ff; --sky-bg: #16304d; --sun: #ffd25a; --sun-bg: #3d3214;
+    --leaf: #55d6a0; --leaf-bg: #143a2c; --pink: #ff8fab; --pink-bg: #43202b;
+    --plum: #b7a2ff; --plum-bg: #2a2349; --fire: #ff9a63; color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 17px/1.55 var(--font-body);
+    padding-block: 20px 56px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  .wrap { max-width: 920px; margin: 0 auto; }
+  h1, h2, h3 { font-family: var(--font-title); font-weight: 400; margin: 0; text-wrap: balance; }
+  h1 { font-size: clamp(30px, 6vw, 46px); line-height: 1.15; }
+  h2 { font-size: clamp(24px, 4.4vw, 32px); margin: 52px 0 6px; }
+  h3 { font-size: 21px; }
+  p { margin: 6px 0; }
+  .sub { color: var(--mute); font-size: 18px; margin-top: 8px; }
+  .big { font-size: 19px; }
+  svg { display: block; max-width: 100%; height: auto; }
+
+  .hero { background: var(--card); border: 2px solid var(--line); border-radius: 22px; padding: 14px 10px 8px; margin-top: 22px; }
+  .hero svg text { font-family: var(--font-title); }
+
+  .cast { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); margin-top: 16px; }
+  .who { background: var(--card); border: 2px solid var(--line); border-radius: 18px; padding: 14px 14px 16px; min-width: 0; }
+  .who .pic { height: 92px; border-radius: 12px; display: grid; place-items: center; margin-bottom: 10px; }
+  .who h3 { margin-bottom: 2px; }
+  .who p { color: var(--mute); font-size: 15.5px; }
+  .who .real { display: inline-block; margin-top: 8px; font-size: 12.5px; background: var(--bg); border: 1px solid var(--line); border-radius: 999px; padding: 1px 10px; color: var(--mute); }
+
+  .strip { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); margin-top: 16px; counter-reset: k; }
+  .cut { background: var(--card); border: 2px solid var(--line); border-radius: 18px; padding: 12px; min-width: 0; counter-increment: k; position: relative; }
+  .cut::before { content: counter(k); position: absolute; top: -12px; left: 12px; width: 28px; height: 28px; border-radius: 50%; background: var(--ink); color: var(--bg); font: 18px/28px var(--font-title); text-align: center; }
+  .cut .pic { height: 112px; border-radius: 12px; display: grid; place-items: center; margin-bottom: 8px; }
+  .cut p { font-size: 15.5px; margin: 0; }
+  .cut b { font-weight: 700; }
+  .cut.bad { border-color: var(--pink); }
+  .cut.bad::before { background: var(--pink); color: #fff; }
+  .tone-sky { background: var(--sky-bg); } .tone-sun { background: var(--sun-bg); } .tone-leaf { background: var(--leaf-bg); }
+  .tone-pink { background: var(--pink-bg); } .tone-plum { background: var(--plum-bg); }
+
+  .story { background: var(--pink-bg); border: 2px solid var(--pink); border-radius: 18px; padding: 14px 16px; margin-top: 14px; }
+  .story h3 { color: var(--pink); }
+  .oneline { background: var(--ink); color: var(--bg); border-radius: 22px; padding: 22px 20px; margin-top: 44px; }
+  .oneline h2 { margin: 0 0 8px; color: var(--sun); }
+  .oneline p { font-size: 19px; }
+  .oneline .small { font-size: 14px; opacity: .8; margin-top: 12px; }
+  .pair { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); margin-top: 16px; }
+  .ear { background: var(--card); border: 2px solid var(--line); border-radius: 18px; padding: 14px; min-width: 0; }
+  .ear .pic { height: 96px; border-radius: 12px; display: grid; place-items: center; margin-bottom: 8px; }
+  .ear p { font-size: 15.5px; color: var(--mute); }
+  a.link { color: var(--sky); }
+  @media (prefers-reduced-motion: no-preference) {
+    .flowdash { stroke-dasharray: 7 7; animation: dash 1.2s linear infinite; }
+    @keyframes dash { to { stroke-dashoffset: -14; } }
+  }
+</style>
+
+<div class="wrap">
+  <h1>모비메이트는<br>작은 식당이에요</h1>
+  <p class="sub">컴퓨터를 몰라도 괜찮아요. 그림만 따라오면 전체 구조가 보여요.</p>
+
+  <!-- 큰 그림 -->
+  <div class="hero">
+    <svg viewBox="0 0 800 340" role="img" aria-label="손님 테이블에서 매니저, 창구를 거쳐 주방(게임)까지 주문이 가는 그림">
+      <defs>
+        <marker id="ah" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="var(--mute)"/></marker>
+      </defs>
+      <!-- 1 손님 -->
+      <g transform="translate(20 40)">
+        <rect x="0" y="120" width="150" height="14" rx="7" fill="var(--sun)"/>
+        <rect x="14" y="134" width="8" height="52" fill="var(--sun)"/><rect x="128" y="134" width="8" height="52" fill="var(--sun)"/>
+        <rect x="14" y="62" width="52" height="58" rx="8" fill="var(--sky)"/><rect x="21" y="72" width="38" height="34" rx="3" fill="var(--sky-bg)"/><circle cx="40" cy="112" r="3" fill="var(--sky-bg)"/>
+        <rect x="80" y="82" width="62" height="38" rx="5" fill="var(--plum)"/><rect x="86" y="88" width="50" height="26" rx="2" fill="var(--plum-bg)"/>
+        <text x="75" y="22" text-anchor="middle" font-size="26" fill="var(--ink)">손님 테이블</text>
+        <text x="75" y="44" text-anchor="middle" font-size="16" fill="var(--mute)" style="font-family:var(--font-body)">폰 · 노트북 · 태블릿</text>
+      </g>
+      <!-- 2 매니저 -->
+      <g transform="translate(250 40)">
+        <circle cx="75" cy="86" r="26" fill="var(--sun)"/><circle cx="66" cy="82" r="3" fill="var(--ink)"/><circle cx="84" cy="82" r="3" fill="var(--ink)"/><path d="M65 94 Q75 103 85 94" stroke="var(--ink)" stroke-width="3" fill="none" stroke-linecap="round"/>
+        <path d="M49 74 Q75 38 101 74 Z" fill="var(--leaf)"/>
+        <rect x="45" y="114" width="60" height="62" rx="14" fill="var(--leaf)"/><rect x="62" y="124" width="26" height="44" rx="3" fill="var(--card)"/>
+        <text x="75" y="22" text-anchor="middle" font-size="26" fill="var(--ink)">홀 매니저</text>
+        <text x="75" y="44" text-anchor="middle" font-size="16" fill="var(--mute)" style="font-family:var(--font-body)">게임 PC 안의 서버</text>
+      </g>
+      <!-- 3 창구 -->
+      <g transform="translate(470 40)">
+        <rect x="10" y="70" width="110" height="110" rx="10" fill="var(--plum)"/><rect x="26" y="94" width="78" height="40" rx="4" fill="var(--plum-bg)"/><rect x="20" y="138" width="90" height="10" rx="3" fill="var(--sun)"/>
+        <text x="65" y="22" text-anchor="middle" font-size="26" fill="var(--ink)">배식 창구</text>
+        <text x="65" y="44" text-anchor="middle" font-size="16" fill="var(--mute)" style="font-family:var(--font-body)">CLI (쪽지만 오가요)</text>
+      </g>
+      <!-- 4 주방 -->
+      <g transform="translate(630 40)">
+        <rect x="6" y="110" width="130" height="70" rx="10" fill="var(--pink)"/>
+        <path d="M30 110 Q30 70 71 70 Q112 70 112 110 Z" fill="var(--card)" stroke="var(--pink)" stroke-width="4"/>
+        <path d="M58 70 Q50 48 66 34 Q64 52 78 54 Q92 58 82 70 Z" fill="var(--fire)"/>
+        <text x="71" y="22" text-anchor="middle" font-size="26" fill="var(--ink)">주방</text>
+        <text x="71" y="44" text-anchor="middle" font-size="16" fill="var(--mute)" style="font-family:var(--font-body)">= 게임</text>
+        <text x="71" y="205" text-anchor="middle" font-size="16" fill="var(--mute)" style="font-family:var(--font-body)">꺼지면 불도 꺼져요</text>
+      </g>
+      <!-- 화살표 -->
+      <path class="flowdash" d="M178 150 H262" stroke="var(--mute)" stroke-width="3" fill="none" marker-end="url(#ah)"/>
+      <path class="flowdash" d="M398 150 H486" stroke="var(--mute)" stroke-width="3" fill="none" marker-end="url(#ah)"/>
+      <path class="flowdash" d="M598 150 H644" stroke="var(--mute)" stroke-width="3" fill="none" marker-end="url(#ah)"/>
+      <text x="219" y="136" text-anchor="middle" font-size="18" fill="var(--mute)" style="font-family:var(--font-body)">주문</text>
+      <text x="442" y="136" text-anchor="middle" font-size="18" fill="var(--mute)" style="font-family:var(--font-body)">쪽지</text>
+      <!-- 기록 노트 -->
+      <g transform="translate(250 262)">
+        <rect x="0" y="0" width="150" height="48" rx="10" fill="var(--sun-bg)" stroke="var(--sun)" stroke-width="3"/>
+        <path d="M14 14 H136 M14 26 H110 M14 38 H124" stroke="var(--sun)" stroke-width="3" stroke-linecap="round"/>
+      </g>
+      <path d="M325 232 V262" stroke="var(--mute)" stroke-width="3" marker-end="url(#ah)" fill="none"/>
+      <text x="420" y="292" font-size="22" fill="var(--ink)">기록 노트 (숙제 · 설정)</text>
+    </svg>
+    <p class="big" style="text-align:center; margin:2px 0 8px">손님은 <b>매니저에게만</b> 말해요. 매니저가 창구로 쪽지를 넣으면, 주방이 일해요.</p>
+  </div>
+
+  <!-- 등장인물 -->
+  <h2>등장인물</h2>
+  <div class="cast">
+    <div class="who">
+      <div class="pic tone-sky"><svg width="120" height="76" viewBox="0 0 120 76"><rect x="10" y="12" width="34" height="56" rx="7" fill="var(--sky)"/><rect x="15" y="20" width="24" height="34" rx="2" fill="var(--sky-bg)"/><rect x="54" y="26" width="56" height="38" rx="5" fill="var(--plum)"/><rect x="59" y="31" width="46" height="26" rx="2" fill="var(--plum-bg)"/></svg></div>
+      <h3>손님</h3><p>화면을 보는 사람. 숙제가 어디까지 됐나 구경하고, 부탁도 해요.</p><span class="real">브라우저 화면</span>
+    </div>
+    <div class="who">
+      <div class="pic tone-leaf"><svg width="90" height="80" viewBox="0 0 90 80"><circle cx="45" cy="32" r="18" fill="var(--sun)"/><path d="M27 24 Q45 -2 63 24Z" fill="var(--leaf)"/><rect x="26" y="50" width="38" height="28" rx="10" fill="var(--leaf)"/><circle cx="39" cy="31" r="2.5" fill="var(--ink)"/><circle cx="51" cy="31" r="2.5" fill="var(--ink)"/></svg></div>
+      <h3>홀 매니저</h3><p>손님 말을 듣고, 주방에 물어보고, 결과를 전해 줘요. 쉬지 않고 일해요.</p><span class="real">서버 (MobiMate.Web)</span>
+    </div>
+    <div class="who">
+      <div class="pic tone-plum"><svg width="100" height="76" viewBox="0 0 100 76"><rect x="8" y="8" width="84" height="60" rx="8" fill="var(--plum)"/><rect x="20" y="24" width="60" height="22" rx="3" fill="var(--plum-bg)"/><rect x="14" y="50" width="72" height="8" rx="3" fill="var(--sun)"/></svg></div>
+      <h3>배식 창구</h3><p>주방과 이야기하는 유일한 통로. 쪽지를 넣으면 쪽지로 답이 나와요.</p><span class="real">게임 CLI</span>
+    </div>
+    <div class="who">
+      <div class="pic tone-pink"><svg width="100" height="80" viewBox="0 0 100 80"><rect x="8" y="46" width="84" height="30" rx="8" fill="var(--pink)"/><path d="M22 46 Q22 22 50 22 Q78 22 78 46Z" fill="var(--card)" stroke="var(--pink)" stroke-width="3"/><path d="M42 22 Q36 8 46 0 Q46 12 56 14 Q64 18 58 22Z" fill="var(--fire)"/></svg></div>
+      <h3>주방</h3><p>진짜 일은 여기서 해요. 게임이 꺼져 있으면 주방 불도 꺼져 있어요.</p><span class="real">마비노기 모바일</span>
+    </div>
+    <div class="who">
+      <div class="pic tone-sun"><svg width="100" height="76" viewBox="0 0 100 76"><rect x="14" y="6" width="72" height="64" rx="8" fill="var(--sun-bg)" stroke="var(--sun)" stroke-width="3"/><path d="M26 22 H74 M26 36 H62 M26 50 H70" stroke="var(--sun)" stroke-width="4" stroke-linecap="round"/></svg></div>
+      <h3>기록 노트</h3><p>어제까지 한 숙제를 적어 둬요. 앱을 껐다 켜도 안 잊어요.</p><span class="real">저장 파일 (APPDATA)</span>
+    </div>
+    <div class="who">
+      <div class="pic tone-sky"><svg width="110" height="76" viewBox="0 0 110 76"><circle cx="28" cy="34" r="16" fill="var(--sun)"/><rect x="14" y="52" width="28" height="20" rx="8" fill="var(--leaf)"/><circle cx="80" cy="34" r="16" fill="var(--pink)"/><rect x="66" y="52" width="28" height="20" rx="8" fill="var(--sky)"/><path d="M46 38 H64" stroke="var(--mute)" stroke-width="3" stroke-dasharray="4 4"/><rect x="40" y="6" width="30" height="20" rx="6" fill="var(--sun-bg)" stroke="var(--sun)" stroke-width="2"/></svg></div>
+      <h3>옆 가게</h3><p>같은 노트를 같이 쓰는 형제 가게(숙제 앱). 숙제만 전문이에요.</p><span class="real">MobiMateHomeWork</span>
+    </div>
+  </div>
+
+  <!-- 장면 1: 수거 -->
+  <h2>장면 1 · “수거해줘!”</h2>
+  <p class="sub">노트북(GRAM)에서 말해도, 일은 게임 PC의 주방에서 해요.</p>
+  <div class="strip">
+    <div class="cut"><div class="pic tone-sky"><svg width="120" height="84" viewBox="0 0 120 84"><rect x="12" y="10" width="96" height="58" rx="7" fill="var(--plum)"/><rect x="18" y="16" width="84" height="46" rx="3" fill="var(--plum-bg)"/><rect x="26" y="26" width="52" height="14" rx="7" fill="var(--sky)"/><text x="52" y="37" text-anchor="middle" font-size="11" fill="#fff" style="font-family:var(--font-body)">수거해줘</text></svg></div><p>손님이 <b>“수거해줘”</b>라고 입력해요.</p></div>
+    <div class="cut"><div class="pic tone-leaf"><svg width="120" height="84" viewBox="0 0 120 84"><circle cx="46" cy="34" r="18" fill="var(--sun)"/><path d="M28 26 Q46 2 64 26Z" fill="var(--leaf)"/><rect x="28" y="52" width="36" height="26" rx="10" fill="var(--leaf)"/><rect x="70" y="30" width="38" height="28" rx="4" fill="var(--card)" stroke="var(--ink)" stroke-width="2"/><path d="M76 40 H102 M76 48 H96" stroke="var(--ink)" stroke-width="2"/></svg></div><p>매니저가 <b>쪽지</b>를 써요. “시설마다 한 번씩만!”</p></div>
+    <div class="cut"><div class="pic tone-pink"><svg width="120" height="84" viewBox="0 0 120 84"><rect x="6" y="40" width="108" height="36" rx="8" fill="var(--pink)"/><path d="M26 40 Q26 14 60 14 Q94 14 94 40Z" fill="var(--card)" stroke="var(--pink)" stroke-width="3"/><path d="M52 14 Q46 2 54 -4 Q54 6 64 8 Q70 12 66 14Z" fill="var(--fire)"/></svg></div><p>주방이 <b>“했어요”</b> 또는 <b>“지금은 못 해요”</b>라고 답해요.</p></div>
+    <div class="cut bad"><div class="pic tone-pink"><svg width="120" height="84" viewBox="0 0 120 84"><circle cx="60" cy="42" r="32" fill="var(--pink)"/><path d="M44 26 L76 58 M76 26 L44 58" stroke="#fff" stroke-width="7" stroke-linecap="round"/></svg></div><p>예전엔 “못 해요”를 못 읽고 <b>“했어요!”</b>라고 거짓말했어요. 이제는 이유를 그대로 전해요.</p></div>
+  </div>
+  <div class="story"><h3>이번에 고친 버그, 한 줄로</h3><p>주방이 “손님이 먼저 창을 닫아 주세요”라고 쪽지로 답했는데, 매니저는 <b>쪽지를 안 읽고</b> “다 됐어요!” 했어요. 이제 쪽지를 끝까지 읽어요.</p></div>
+
+  <!-- 장면 2: 숙제 자동 체크 -->
+  <h2>장면 2 · 숙제가 저절로 체크돼요</h2>
+  <p class="sub">매니저가 1초마다 주방을 슬쩍 들여다봐요.</p>
+  <div class="strip">
+    <div class="cut"><div class="pic tone-leaf"><svg width="120" height="84" viewBox="0 0 120 84"><circle cx="60" cy="42" r="30" fill="var(--card)" stroke="var(--leaf)" stroke-width="5"/><path d="M60 42 V22 M60 42 L74 50" stroke="var(--ink)" stroke-width="4" stroke-linecap="round"/><circle cx="60" cy="42" r="4" fill="var(--ink)"/></svg></div><p><b>1초마다</b> 지금 뭐 하는지 봐요.</p></div>
+    <div class="cut"><div class="pic tone-plum"><svg width="120" height="84" viewBox="0 0 120 84"><rect x="14" y="14" width="92" height="56" rx="8" fill="var(--card)" stroke="var(--plum)" stroke-width="3"/><path d="M26 30 H70 M26 44 H84 M26 58 H60" stroke="var(--plum)" stroke-width="4" stroke-linecap="round"/></svg></div><p>“퀘스트가 사라졌네? 보상이 들어왔네?” <b>규칙표</b>와 맞춰 봐요.</p></div>
+    <div class="cut"><div class="pic tone-sun"><svg width="120" height="84" viewBox="0 0 120 84"><rect x="20" y="10" width="80" height="64" rx="8" fill="var(--sun-bg)" stroke="var(--sun)" stroke-width="3"/><path d="M36 42 L52 58 L84 24" stroke="var(--leaf)" stroke-width="9" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></div><p>맞으면 <b>기록 노트에 체크</b>해요.</p></div>
+    <div class="cut"><div class="pic tone-sky"><svg width="120" height="84" viewBox="0 0 120 84"><rect x="6" y="22" width="30" height="46" rx="6" fill="var(--sky)"/><rect x="45" y="14" width="30" height="54" rx="6" fill="var(--plum)"/><rect x="84" y="24" width="30" height="44" rx="6" fill="var(--pink)"/><path d="M60 4 Q48 -2 40 8 M60 4 Q72 -2 80 8" stroke="var(--sun)" stroke-width="3" fill="none" stroke-linecap="round"/></svg></div><p>열려 있는 <b>모든 화면</b>에 “바뀌었어요!” 하고 알려요.</p></div>
+  </div>
+
+  <!-- 장면 3: 음성 -->
+  <h2>장면 3 · 말하면 글자가 돼요</h2>
+  <p class="sub">귀가 두 종류예요. 마이크가 있는 게임 PC 앞에서만 켜져요.</p>
+  <div class="pair">
+    <div class="ear"><div class="pic tone-sky"><svg width="150" height="76" viewBox="0 0 150 76"><path d="M10 40 H30 L36 20 L46 62 L56 28 L64 48 L72 40 H140" stroke="var(--sky)" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></div><h3>바로 듣는 귀</h3><p>말하는 <b>도중에</b> 글자가 나타나요. 빠르고 가벼워요. 시끄러운 곳에선 가끔 틀려요.</p></div>
+    <div class="ear"><div class="pic tone-plum"><svg width="150" height="76" viewBox="0 0 150 76"><path d="M10 44 H38 L44 24 L54 62 L64 30 L72 48 L80 44 H96" stroke="var(--plum)" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/><rect x="104" y="22" width="36" height="32" rx="6" fill="var(--plum-bg)" stroke="var(--plum)" stroke-width="3"/><path d="M111 33 H133 M111 43 H127" stroke="var(--plum)" stroke-width="3" stroke-linecap="round"/></svg></div><h3>끝까지 듣는 귀 (Qwen3)</h3><p>말이 <b>끝난 뒤</b> 한 번에 받아 적어요. 시끄러운 곳에 더 강하지만 1~2초 기다려요.</p></div>
+  </div>
+  <div class="strip">
+    <div class="cut"><div class="pic tone-sun"><svg width="120" height="84" viewBox="0 0 120 84"><rect x="44" y="6" width="32" height="46" rx="16" fill="var(--sun)"/><path d="M30 38 Q30 66 60 66 Q90 66 90 38 M60 66 V78" stroke="var(--ink)" stroke-width="4" fill="none" stroke-linecap="round"/></svg></div><p>단축키를 누르고 <b>말해요</b>.</p></div>
+    <div class="cut"><div class="pic tone-leaf"><svg width="120" height="84" viewBox="0 0 120 84"><path d="M12 42 H34 L40 22 L50 62 L60 28 L68 48 L76 42 H108" stroke="var(--leaf)" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></div><p>소리를 <b>글자로</b> 바꿔요.</p></div>
+    <div class="cut"><div class="pic tone-plum"><svg width="120" height="84" viewBox="0 0 120 84"><path d="M24 24 H96 M24 42 H80" stroke="var(--plum)" stroke-width="6" stroke-linecap="round"/><path d="M84 52 L96 64 L112 40" stroke="var(--leaf)" stroke-width="7" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></div><p>이상한 글자를 <b>고쳐요</b>. 배운 단어를 기억해요.</p></div>
+    <div class="cut"><div class="pic tone-sky"><svg width="120" height="84" viewBox="0 0 120 84"><rect x="10" y="14" width="100" height="44" rx="12" fill="var(--sky)"/><path d="M30 58 L26 74 L46 58Z" fill="var(--sky)"/><path d="M26 30 H94 M26 42 H76" stroke="#fff" stroke-width="5" stroke-linecap="round"/></svg></div><p>게임 <b>채팅</b>으로 보내요.</p></div>
+  </div>
+
+  <!-- 한 줄 -->
+  <div class="oneline">
+    <h2>한 줄로</h2>
+    <p>손님은 매니저에게만 말하고, 매니저는 창구로만 주방과 이야기하고, 기억은 노트에 적어요.</p>
+    <p class="small">어른용 자세한 구조도는 <code>web/design/architecture.html</code>에 있어요.</p>
+  </div>
+</div>
