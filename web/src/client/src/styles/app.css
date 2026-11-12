@@ -216,8 +216,7 @@ button.toast { border: 0; text-align: left; cursor: pointer; }
 /* 같은 종류의 카드는 가로·세로가 같다: 열 수는 창 폭으로 정하고(auto-fill) 계정마다 같은 열 폭을 쓴다 */
 .chars{display:grid;gap:14px;grid-template-columns:repeat(auto-fill,minmax(280px,1fr))}
 .chars-all{display:grid;gap:14px}
-.card.char{min-height:var(--cc-h,0)}
-.card.char{display:grid;gap:8px;align-content:start;padding:16px 18px;text-decoration:none;color:inherit}
+.card.char{display:grid;gap:8px;align-content:start;padding:16px 18px calc(16px + var(--cc-pad,0px));text-decoration:none;color:inherit}   /* --cc-pad: 같은 계정에서 더 큰 카드와 높이를 맞추는 아래 여백 */
 .card.char.cur{border-color:var(--accent)}
 .cc-name{font-size:calc(19px * var(--scale));font-weight:700;color:var(--text-1);letter-spacing:-.01em}
 .cc-job{font-size:13.5px;color:var(--text-2);font-weight:500}

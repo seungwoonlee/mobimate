@@ -395,6 +395,18 @@ test('전체 현황: 가득 = 빨강 + 설명, 80% 이상 = 노랑, 데카·M캐
   await expect(priest.locator('.coins')).toContainText(/은동전 8\d\/100/);   // 82 + 2시간분 = 약 84
 });
 
+test('전체 현황: 카드 높이는 같은 계정 캐릭터끼리 같고, 안내가 긴 카드가 다른 계정 카드를 늘리지 않는다 (2026-11-13)', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('section.acct').first()).toBeVisible();
+  const read = () => page.locator('section.acct').evaluateAll(secs => secs.map(s => [...s.querySelectorAll('.card.char')].map(c => Math.round(c.getBoundingClientRect().height))));
+  // 값이 들어오고 높이가 맞춰질 때까지 기다린다(ResizeObserver가 한 박자 늦게 맞춘다)
+  await expect.poll(async () => (await read()).every(hs => new Set(hs).size === 1)).toBe(true);   // 같은 계정은 모두 같다
+  const heights = await read();
+  expect(heights.length).toBeGreaterThan(1);
+  // 안내가 많은 도적(빨강) 계정과 안내가 없는 계정은 높이가 다를 수 있다 = 계정 사이를 억지로 맞추지 않는다
+  expect(new Set(heights.map(h => h[0])).size).toBeGreaterThan(1);
+});
+
 test('전체 현황: 접속 시급 순으로 바꾸면 가득 찬 캐릭터가 먼저 온다', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: '접속 시급 순' }).click();
@@ -414,12 +426,12 @@ test('멤버십: 상단에 남은 시간이 보이고, 3일 이내면 붉게, �
   await expect(dlg).toContainText('새벽 6시');
   await dlg.getByLabel('남은 일수').fill('27');
   await dlg.getByRole('button', { name: '저장' }).click();
-  await expect(chip).toContainText(/멤버십 2[67]일 \d+시간/);       // (오늘 + 27일 − 1일) 다음 새벽 6시까지: 시각에 따라 26~27일
+  await expect(chip).toContainText(/멤버십 2[78]일 \d+시간/);       // (오늘 + 27일) 다음 새벽 6시까지: 시각에 따라 27~28일 (2026-11-08에 하루 늘렸다)
   await expect(chip).not.toHaveClass(/urgent/);
   await chip.click();
-  await page.getByRole('dialog').getByLabel('남은 일수').fill('2');
+  await page.getByRole('dialog').getByLabel('남은 일수').fill('1');
   await page.getByRole('dialog').getByRole('button', { name: '저장' }).click();
-  await expect(chip).toHaveClass(/urgent/);                     // 3일 이내 = 붉은 경고
+  await expect(chip).toHaveClass(/urgent/);                     // 2일 이내 = 붉은 경고 (1일 입력 → 1일 N시간)
   await chip.click();
   await page.getByRole('dialog').getByRole('button', { name: '등록 해제' }).click();
   await expect(chip).toContainText('멤버십 미등록');
