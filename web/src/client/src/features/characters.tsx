@@ -273,13 +273,17 @@ function CharacterCardView({ c, now }: { c: CharacterCard; now: number }) {
   const body = (
     <>
       <CardHead
-        title={<span className="cc-name"><span className="cc-nm">{name}</span><NameBadge badge={c.rankBadge} />
-          {!c.isCurrent && <button type="button" className="cc-del" aria-label={`${name} 삭제`} title="이 캐릭터 삭제" onClick={() => setAsking(true)}><Icon name="x" size={12} /></button>}
+        title={<span className="cc-ttl">
+          <span className="cc-name"><span className="cc-nm">{name}</span><NameBadge badge={c.rankBadge} />
+            {!c.isCurrent && <button type="button" className="cc-del" aria-label={`${name} 삭제`} title="이 캐릭터 삭제" onClick={() => setAsking(true)}><Icon name="x" size={12} /></button>}
+          </span>
+          {/* 마지막 접속은 이름 바로 아랫줄: 오른쪽 열(은동전·마족공물·골드)과 높이를 맞춰 자리를 아낀다 */}
+          {c.isCurrent ? <Pill tone="ok">접속 중</Pill> : <span className={`cc-seen small ${days >= 7 ? 'danger-text' : 'faint'}`}>{seen} 접속</span>}
         </span>}
         right={
           <span className="cc-right">
-            {c.isCurrent ? <Pill tone="ok">접속 중</Pill> : <span className={`seen small ${days >= 7 ? 'danger-text' : 'faint'}`}>{seen} 접속</span>}
             <span className="coins"><CoinChip label="은동전" c={c.silver} /><CoinChip label="마족공물" c={c.tribute} /></span>
+            <span className="cc-gold" title="골드"><Icon name="coins" size={14} /><b className="num gold-text">{fmt(c.gold)}</b> G</span>
           </span>
         }
       />
@@ -291,9 +295,6 @@ function CharacterCardView({ c, now }: { c: CharacterCard; now: number }) {
       <div className="cc-sub">
         <span><Icon name="hammer" size={14} />생활력 <b className="num">{fmt(c.living)}</b></span>
         <span><Icon name="heart" size={14} />매력 <b className="num">{fmt(c.attract)}</b></span>
-      </div>
-      <div className="cc-wallet">
-        <span><Icon name="coins" size={14} /><b className="num gold-text">{fmt(c.gold)}</b> G</span>
       </div>
       {c.homework.length > 0 && <HwRows list={withFieldBossChip(c.homework, c.fieldBoss).filter(h => entryShort(c, h.id) == null)} />}   {/* 입장 전투력 미달 레이드·어비스 칩은 감춘다 */}
       {notes.length > 0 && <ul className="cc-notes small">{notes.map(n => <li key={n}>{n}</li>)}</ul>}
