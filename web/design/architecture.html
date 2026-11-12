@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MobiMate 전체 구조도</title>
+<style>
+  :root {
+    --bg: #f5f6fa; --card: #ffffff; --ink: #1b1f2a; --mute: #5d6577; --line: #d9dde8;
+    --pc: #2f6fed; --pc-bg: #e8f0ff;
+    --core: #7a4bd8; --core-bg: #f0e9ff;
+    --web: #0f9d77; --web-bg: #e3f7f0;
+    --game: #d9822b; --game-bg: #fff1e0;
+    --ext: #6b7280; --ext-bg: #eef0f4;
+    --data: #c2410c; --data-bg: #ffeee4;
+    --warn: #b42318; --warn-bg: #fdecea;
+    --radius: 12px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #12141b; --card: #1b1f2a; --ink: #e8ebf3; --mute: #9aa3b8; --line: #2d3345;
+      --pc: #7aa5ff; --pc-bg: #1a2644;
+      --core: #b69cff; --core-bg: #271f45;
+      --web: #4fd1a8; --web-bg: #13322b;
+      --game: #f0a85c; --game-bg: #3a2814;
+      --ext: #a1a8b8; --ext-bg: #262b38;
+      --data: #ff9a6b; --data-bg: #3a2216;
+      --warn: #ff8f84; --warn-bg: #3a1c19;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #12141b; --card: #1b1f2a; --ink: #e8ebf3; --mute: #9aa3b8; --line: #2d3345;
+    --pc: #7aa5ff; --pc-bg: #1a2644; --core: #b69cff; --core-bg: #271f45; --web: #4fd1a8; --web-bg: #13322b;
+    --game: #f0a85c; --game-bg: #3a2814; --ext: #a1a8b8; --ext-bg: #262b38; --data: #ff9a6b; --data-bg: #3a2216;
+    --warn: #ff8f84; --warn-bg: #3a1c19;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.6 "Segoe UI", "Malgun Gothic", system-ui, sans-serif; }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 24px 16px 64px; }
+  h1 { font-size: 24px; margin: 0 0 4px; }
+  h2 { font-size: 19px; margin: 40px 0 6px; padding-top: 8px; }
+  h3 { font-size: 15px; margin: 0 0 4px; }
+  .lead { color: var(--mute); margin: 0 0 20px; }
+  p { margin: 6px 0; }
+  .small { font-size: 13px; color: var(--mute); }
+  nav.toc { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0 8px; }
+  nav.toc a { text-decoration: none; color: var(--ink); background: var(--card); border: 1px solid var(--line); border-radius: 999px; padding: 4px 12px; font-size: 13px; }
+  nav.toc a:hover { border-color: var(--pc); color: var(--pc); }
+
+  /* 층 구조 */
+  .stack { display: grid; gap: 10px; }
+  .layer { border: 2px solid var(--line); border-radius: var(--radius); padding: 12px 14px; background: var(--card); }
+  .layer > .tag { display: inline-block; font-size: 12px; font-weight: 700; border-radius: 999px; padding: 1px 10px; margin-bottom: 6px; }
+  .layer.dev { border-color: var(--pc); } .layer.dev > .tag { background: var(--pc-bg); color: var(--pc); }
+  .layer.cli { border-color: var(--game); } .layer.cli > .tag { background: var(--game-bg); color: var(--game); }
+  .layer.web { border-color: var(--web); } .layer.web > .tag { background: var(--web-bg); color: var(--web); }
+  .layer.core { border-color: var(--core); } .layer.core > .tag { background: var(--core-bg); color: var(--core); }
+  .layer.data { border-color: var(--data); } .layer.data > .tag { background: var(--data-bg); color: var(--data); }
+  .arrow { text-align: center; color: var(--mute); font-size: 13px; line-height: 1.2; margin: -2px 0; }
+  .arrow b { color: var(--ink); }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+  .chip { border-radius: 8px; padding: 3px 10px; font-size: 13px; border: 1px solid var(--line); background: var(--bg); }
+  .chip small { color: var(--mute); }
+  .grid { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); margin-top: 8px; }
+  .box { border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; background: var(--bg); }
+  .box h3 { display: flex; align-items: center; gap: 6px; }
+  .box ul { margin: 4px 0 0; padding-left: 18px; font-size: 13.5px; }
+  .box li { margin: 2px 0; }
+  code { font-family: Consolas, "Cascadia Mono", monospace; font-size: 12.5px; background: var(--ext-bg); border-radius: 4px; padding: 0 5px; }
+
+  /* 흐름 */
+  .flow { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 14px; margin-top: 10px; }
+  .steps { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; counter-reset: s; }
+  .steps li { counter-increment: s; display: grid; grid-template-columns: 28px 1fr; gap: 8px; align-items: start; }
+  .steps li::before { content: counter(s); background: var(--pc); color: #fff; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 700; margin-top: 1px; }
+  .steps li.hl::before { background: var(--warn); }
+  .who { font-weight: 700; }
+  .who.c { color: var(--pc); } .who.s { color: var(--web); } .who.k { color: var(--core); } .who.g { color: var(--game); } .who.d { color: var(--data); }
+
+  .note { border-left: 4px solid var(--warn); background: var(--warn-bg); border-radius: 6px; padding: 8px 12px; margin-top: 10px; font-size: 14px; }
+  .good { border-left-color: var(--web); background: var(--web-bg); }
+
+  table { width: 100%; border-collapse: collapse; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; margin-top: 8px; }
+  th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); vertical-align: top; font-size: 14px; }
+  th { background: var(--ext-bg); font-size: 13px; }
+  tr:last-child td { border-bottom: 0; }
+  td:first-child { white-space: nowrap; font-weight: 600; }
+  @media (max-width: 640px) { td:first-child { white-space: normal; } }
+  .legend { display: flex; flex-wrap: wrap; gap: 10px; font-size: 13px; margin: 8px 0 14px; }
+  .legend span::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; background: var(--c); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>MobiMate 전체 구조도</h1>
+  <p class="lead">마비노기 모바일 도우미(웹앱). 게임이 돌아가는 PC에서 작은 서버가 돌고, PC·폰·태블릿의 브라우저가 그 서버에 접속해 화면을 봅니다. 2026-11-13 기준, 코드를 읽어 정리했습니다.</p>
+
+  <nav class="toc">
+    <a href="#big">1. 큰 그림</a><a href="#layers">2. 층별 안내</a><a href="#flows">3. 데이터가 움직이는 길</a>
+    <a href="#data">4. 저장 위치</a><a href="#family">5. 형제 프로젝트</a><a href="#where">6. 무엇을 고치려면?</a>
+  </nav>
+
+  <!-- 1. 큰 그림 -->
+  <h2 id="big">1. 큰 그림 — 누가 누구와 이야기하나</h2>
+  <div class="legend">
+    <span style="--c:var(--pc)">보는 쪽(브라우저)</span><span style="--c:var(--web)">서버(웹앱)</span><span style="--c:var(--core)">공용 라이브러리</span>
+    <span style="--c:var(--game)">게임·CLI</span><span style="--c:var(--data)">저장 파일</span><span style="--c:var(--ext)">외부 서비스</span>
+  </div>
+
+  <div class="stack">
+    <div class="layer dev">
+      <span class="tag">보는 쪽</span>
+      <h3>브라우저 화면 (React · TypeScript)</h3>
+      <div class="chips">
+        <span class="chip">게임 PC 브라우저 <small>음성 입력은 여기서만</small></span>
+        <span class="chip">GRAM 노트북 등 LAN의 다른 컴 <small>192.168.0.x:17800</small></span>
+        <span class="chip">폰·태블릿 <small>아이폰12 · 아이패드에어4 · 탭S10 울트라 · 트라이폴드</small></span>
+      </div>
+    </div>
+    <div class="arrow">▲ ▼ <b>HTTP 요청</b>(조회·명령) + <b>SSE</b>(서버가 먼저 알려 주는 실시간 알림)</div>
+
+    <div class="layer web">
+      <span class="tag">서버 · 게임 PC에서 상시 실행</span>
+      <h3>MobiMate.Web — 트레이 아이콘으로 떠 있는 작은 서버 (포트 17800)</h3>
+      <p class="small">화면 파일도 이 실행 파일 안에 들어 있습니다(별도 설치 없음). LAN에서 접속하려면 PC 설정에서 LAN 모드를 켜야 합니다.</p>
+      <div class="chips">
+        <span class="chip">주소창구 <small>Endpoints</small></span><span class="chip">일꾼들 <small>Services</small></span>
+        <span class="chip">음성 <small>Voice</small></span><span class="chip">LAN 문지기 <small>Lan</small></span><span class="chip">알림 방송 <small>SseHub</small></span>
+      </div>
+    </div>
+    <div class="arrow">▲ ▼ 같은 프로그램 안에서 함께 씀</div>
+
+    <div class="layer core">
+      <span class="tag">공용 라이브러리</span>
+      <h3>MobiMate.Core — 게임 규칙과 계산 (화면·서버를 모름)</h3>
+      <div class="chips">
+        <span class="chip">CLI 호출 <small>Cli</small></span><span class="chip">숙제 판정 <small>Homework</small></span><span class="chip">전투력 컷오프 <small>Cutoff</small></span>
+        <span class="chip">저장·스냅샷 <small>Storage</small></span><span class="chip">AI 엔진 <small>Ai</small></span><span class="chip">채팅 말투 <small>Chatter</small></span><span class="chip">자연어 명령 <small>Intent</small></span>
+      </div>
+    </div>
+    <div class="arrow">▼ <b>CLI 명령 실행</b> (프로그램을 띄워 JSON 한 번 주고받기)</div>
+
+    <div class="layer cli">
+      <span class="tag">게임</span>
+      <h3>MabinogiMobile_CLI.exe → 게임 클라이언트 (AI 커넥터 파이프)</h3>
+      <p class="small">앱은 게임을 직접 건드리지 않고 이 CLI에게만 부탁합니다. 게임이 꺼져 있으면 CLI가 “연결 끊김”으로 답합니다.</p>
+    </div>
+
+    <div class="layer data">
+      <span class="tag">저장</span>
+      <h3>%APPDATA%\MobiMateWeb\ — 설정·숙제 기록·캐릭터 기록·계정·음성 모델·로그</h3>
+    </div>
+  </div>
+
+  <!-- 2. 층별 -->
+  <h2 id="layers">2. 층별 안내 — 폴더마다 하는 일</h2>
+  <p class="small">경로는 모두 <code>web/src/</code> 아래입니다.</p>
+
+  <h3 style="margin-top:14px">서버 <code>MobiMate.Web</code></h3>
+  <div class="grid">
+    <div class="box"><h3>📮 Endpoints — 주소 창구</h3><ul>
+      <li><code>GameEndpoints</code> 캐릭터·숙제·가방·채집·수거·정지</li>
+      <li><code>CommsEndpoints</code> 채팅·AI 도우미·설정</li>
+      <li><code>SttEndpoints</code> 음성 입력 설정·설치</li>
+      <li><code>AuthEndpoints</code> 세션·LAN 모드</li>
+      <li><code>RankingEndpoints</code> 랭킹 북마크릿</li></ul></div>
+    <div class="box"><h3>🧰 Services — 일꾼들</h3><ul>
+      <li><code>GameQueries</code>+<code>QueryCache</code> 게임 조회(잠깐 기억해 둠)</li>
+      <li><code>GameActions</code> 채집·수거·정지 실행</li>
+      <li><code>AutoWatcher</code> 1초마다 숙제 자동 판정 입력 수집</li>
+      <li><code>CharacterWatcher/Recorder</code> 캐릭터 전환 감지·기록</li>
+      <li><code>StatusMonitor</code> 게임 연결 상태 · <code>CliChangeWatcher</code> CLI 업데이트 감지</li>
+      <li><code>ChatService</code> 게임 채팅 전송 · <code>AiService</code> AI 도우미</li></ul></div>
+    <div class="box"><h3>🎙 Voice — 음성 입력</h3><ul>
+      <li><code>Audio</code> 마이크(WASAPI) · <code>Hotkey</code> 단축키</li>
+      <li><code>SttService</code> 듣기 한 판의 지휘자</li>
+      <li>엔진: Zipformer(실시간) / Qwen3(끝난 뒤 한 번에)</li>
+      <li><code>Vocabulary</code> 학습·교정 · <code>Refiner</code> AI 다듬기</li>
+      <li><code>ModelInstaller</code> 모델 내려받기(해시 검증)</li></ul></div>
+    <div class="box"><h3>📡 Lan · Hosting · Infrastructure</h3><ul>
+      <li><code>LanService/LanGate</code> 같은 공유기 기기만 허용</li>
+      <li><code>MdnsResponder</code> 이름으로 접속</li>
+      <li><code>TrayHost</code> 트레이 · <code>WebSettings</code> 설정 저장</li>
+      <li><code>SseHub</code> 실시간 알림 방송</li></ul></div>
+  </div>
+
+  <h3 style="margin-top:18px">공용 <code>MobiMate.Core</code></h3>
+  <div class="grid">
+    <div class="box"><h3>⚙ Cli</h3><ul><li><code>GameCli</code> CLI 실행(레인: 일반·장시간·채팅·긴급)</li><li><code>CliEnvelope</code> 응답 해석(실패·연결끊김)</li></ul></div>
+    <div class="box"><h3>✅ Homework</h3><ul><li><code>Catalog</code> 숙제 목록(JSON)</li><li><code>Evaluator</code> 완료 판정 규칙</li><li><code>Service/Records</code> 기록·수동 체크</li></ul></div>
+    <div class="box"><h3>📊 Cutoff</h3><ul><li>입장/권장/압도 전투력·마도저항</li><li><code>cutoff_catalog.json</code></li></ul></div>
+    <div class="box"><h3>💾 Storage · Game · Account</h3><ul><li><code>SnapshotManager</code> 캐릭터 기록</li><li><code>SharedStorage</code> 두 앱이 파일 같이 쓰기</li><li><code>AutoSuspicionTracker</code> 오토 의심</li><li>계정 묶기·멤버십</li></ul></div>
+    <div class="box"><h3>🤖 Ai · Chatter · Intent</h3><ul><li>엔진: 내장 가이드·Ollama·LM Studio·CLI 에이전트</li><li>채팅 페르소나 말투</li><li>“수거해줘” 같은 말을 명령으로</li></ul></div>
+  </div>
+
+  <h3 style="margin-top:18px">화면 <code>client/src</code> (React)</h3>
+  <div class="grid">
+    <div class="box"><h3>🖥 features</h3><ul><li>개요·캐릭터·숙제·가방·생활·통계</li><li>컷오프·랭킹·멤버십·설정·음성 설정</li><li><code>dock/</code> AI 도우미·채팅 패널</li></ul></div>
+    <div class="box"><h3>🔌 api · hooks</h3><ul><li><code>api/</code> 서버 요청(TanStack Query)</li><li><code>useServerEvents</code> SSE를 받아 화면 갱신</li></ul></div>
+    <div class="box"><h3>🧩 lib · state · layout</h3><ul><li><code>lib/actions.ts</code> 버튼이 보내는 명령 모음</li><li><code>state/</code> 기기별 설정(zustand)</li><li><code>layout/</code> 반응형 틀·상단 팁·도크</li></ul></div>
+  </div>
+
+  <!-- 3. 흐름 -->
+  <h2 id="flows">3. 데이터가 움직이는 길 — 네 가지 장면</h2>
+
+  <div class="flow">
+    <h3>① 화면을 열면 — “읽기”</h3>
+    <ol class="steps">
+      <li><span><span class="who c">브라우저</span>가 <code>GET /api/…</code>로 캐릭터·숙제·가방을 요청</span></li>
+      <li><span><span class="who s">서버</span>의 <code>GameViews</code>가 <code>QueryCache</code>를 먼저 확인(몇 초 이내면 재사용)</span></li>
+      <li><span>없으면 <span class="who k">GameCli</span>가 <code>get_my_info</code> 등을 실행</span></li>
+      <li><span><span class="who g">게임</span>이 JSON을 돌려줌 → 오류·연결끊김 응답은 여기서 걸러짐</span></li>
+      <li><span>서버가 화면용으로 가공해서 응답 → 브라우저가 그림</span></li>
+    </ol>
+  </div>
+
+  <div class="flow">
+    <h3>② “수거해줘” 같은 명령을 내리면 — “쓰기”</h3>
+    <ol class="steps">
+      <li><span><span class="who c">브라우저</span> AI 도우미에 말하면 서버가 <code>CommandIntentParser</code>로 “수거” 의도를 판정</span></li>
+      <li><span>화면이 가공물 목록에서 <b>시설마다 하나씩</b> 골라 <code>POST /api/actions/collect</code> (LAN의 다른 컴이어도 서버는 <b>게임 PC</b>에서 실행)</span></li>
+      <li><span><span class="who s">GameActions</span>가 <code>complete_altering_work</code>를 CLI로 실행</span></li>
+      <li class="hl"><span><span class="who g">게임</span>이 “수락/거절/중단”을 답함 → <code>CliEnvelope.ActionError</code>가 거절(blocked·timeout·가방 가득 …)을 읽어 <b>실패로 알림</b> (11-12 수정 전에는 이걸 보지 않고 “성공”이라 했음)</span></li>
+      <li><span>성공하면 숙제 판정에 “앱이 수거함”을 알리고, 캐시를 비워 화면을 새로 읽음</span></li>
+    </ol>
+    <div class="note">채집·행동 정지도 같은 길을 씁니다. 채팅은 별도 레인(<code>write_chat</code>)이라 오래 걸리는 채집이 막지 않습니다.</div>
+  </div>
+
+  <div class="flow">
+    <h3>③ 숙제가 저절로 체크되는 길 — “자동 판정”</h3>
+    <ol class="steps">
+      <li><span><span class="who s">AutoWatcher</span>가 1초마다, <span class="who s">CharacterWatcher</span>가 캐릭터 전환을 살핌</span></li>
+      <li><span>퀘스트·미션·재화·현재 지역을 <code>HomeworkObservation</code> 한 묶음으로 만듦</span></li>
+      <li><span><span class="who k">HomeworkEvaluator</span>가 카탈로그 규칙(퀘스트 사라짐, 지역 안 보상, 증표 증가 …)으로 판정</span></li>
+      <li><span><span class="who d">homework_records.json</span>에 저장 (바뀐 항목만)</span></li>
+      <li><span><code>SseHub</code>가 <code>homework.changed</code>를 방송 → 열려 있는 모든 화면이 다시 읽음</span></li>
+    </ol>
+  </div>
+
+  <div class="flow">
+    <h3>④ 마이크로 말하면 — “음성 → 채팅”</h3>
+    <ol class="steps">
+      <li><span><span class="who c">게임 PC</span>에서 단축키(왼쪽 Ctrl+Space) → <code>SttService.Start</code> · 신호음 → 마이크 열기</span></li>
+      <li><span>소리를 100ms씩 <b>선택한 엔진</b>에 넘김: Zipformer는 말하는 도중 글자를 보여 주고, Qwen3는 말이 끝나길 기다렸다 한 번에 인식</span></li>
+      <li><span>문장 확정 → 학습된 교정 → (켜져 있으면) Ollama로 <b>AI 다듬기</b></span></li>
+      <li><span>자동 전송이 켜져 있으면 <code>ChatService</code>→<code>write_chat</code>으로 게임에, 아니면 입력창 초안으로</span></li>
+      <li><span>결과·진행은 <code>stt.partial/final</code> 이벤트로 이 PC 화면에만 방송</span></li>
+    </ol>
+    <div class="note good">음성은 보안상 <b>게임 PC 본체</b>에서만 켜고 설정할 수 있습니다. LAN 폰·노트북에서는 안 되는 것이 정상입니다.</div>
+  </div>
+
+  <!-- 4. 데이터 -->
+  <h2 id="data">4. 저장 위치 — 무엇이 어디에 남나</h2>
+  <table>
+    <tr><th>위치</th><th>내용</th><th>누가 쓰나</th></tr>
+    <tr><td>homework_records.json</td><td>숙제 체크·횟수·판정 근거</td><td>웹앱 + 숙제 앱(공유)</td></tr>
+    <tr><td>accounts.json</td><td>계정 묶기·멤버십 만료</td><td>웹앱 + 숙제 앱(공유)</td></tr>
+    <tr><td>character_snapshots.json<br>character_history_db.json</td><td>캐릭터 기록·변화 이력</td><td>웹앱 + 숙제 앱(공유)</td></tr>
+    <tr><td>web_settings.json</td><td>음성·AI·LAN 등 웹앱 설정</td><td>웹앱 전용</td></tr>
+    <tr><td>stt\model · stt\qwen3</td><td>음성 인식 모델(160MB · 940MB)</td><td>웹앱 전용</td></tr>
+    <tr><td>stt\vocab.json · history.json</td><td>음성 학습 낱말·최근 기록(7일)</td><td>웹앱 전용</td></tr>
+    <tr><td>logs\*.log · watch-*.jsonl</td><td>실행 로그·관찰 기록</td><td>웹앱 전용</td></tr>
+  </table>
+  <p class="small">공유 파일은 “폴더당 뮤텍스(Local\MobiMate.Data) + 읽고-고치고-쓰기 한 묶음” 규칙으로 두 앱이 동시에 써도 깨지지 않게 합니다. 공유 파일의 형식을 바꿀 때는 두 브랜치에 같은 변경을 넣어야 합니다.</p>
+
+  <!-- 5. 형제 -->
+  <h2 id="family">5. 형제 프로젝트와 저장소(브랜치) 규칙</h2>
+  <div class="grid">
+    <div class="box"><h3>🌐 webapp <small>(지금 이 구조)</small></h3><ul><li>웹앱 전용 · Claude가 담당</li><li>작업 폴더 <code>V:\workspace\MobiMate\webapp</code></li><li>작업 브랜치 → <code>webapp</code> 병합 → Gitea 푸시</li></ul></div>
+    <div class="box"><h3>🗂 MobiMateHomeWork</h3><ul><li>WPF 숙제 전용 데스크톱 앱</li><li>Core를 <b>복사본</b>으로 가짐(웹앱과 따로)</li><li>저장 폴더는 웹앱과 <b>공유</b></li><li>판정 로직을 고치면 두 쪽에 같이 반영</li></ul></div>
+    <div class="box"><h3>🖼 master</h3><ul><li>예전 WPF판 · Antigravity가 담당</li><li>웹앱과 <b>병합하지 않음</b>(문서만 공유)</li></ul></div>
+  </div>
+  <p class="small">세 폴더는 한 저장소의 git worktree라, 한 폴더에서 브랜치를 바꾸지 않고 폴더마다 자기 브랜치를 씁니다.</p>
+
+  <h3 style="margin-top:18px">바깥 서비스</h3>
+  <div class="chips">
+    <span class="chip">Ollama <small>:11434 · 채팅 다듬기·AI 도우미</small></span>
+    <span class="chip">LM Studio <small>로컬 AI</small></span>
+    <span class="chip">CLI 에이전트 <small>agy 등</small></span>
+    <span class="chip">Hugging Face <small>음성 모델 내려받기만</small></span>
+    <span class="chip">넥슨 랭킹 페이지 <small>사용자 브라우저 북마크릿으로만</small></span>
+  </div>
+
+  <!-- 6. 어디를 고치나 -->
+  <h2 id="where">6. 무엇을 고치려면 어디를 보나</h2>
+  <table>
+    <tr><th>이런 일이면</th><th>여기부터</th></tr>
+    <tr><td>숙제가 잘못 체크됨</td><td><code>Core/Homework/homework_catalog.json</code>(규칙) → <code>HomeworkEvaluator.cs</code>(판정)</td></tr>
+    <tr><td>새 숙제·횟수 변경</td><td>카탈로그 + 화면 <code>lib/homeworkSteps.ts</code>, 숙제 앱에도 같이</td></tr>
+    <tr><td>입장 전투력 표</td><td><code>Core/Cutoff/cutoff_catalog.json</code></td></tr>
+    <tr><td>게임에 명령이 안 먹음</td><td><code>Services/GameActions.cs</code> → <code>Core/Cli/GameCli.cs</code>, 응답 해석은 <code>CliEnvelope.cs</code></td></tr>
+    <tr><td>음성 인식·단축키</td><td><code>Voice/SttService.cs</code>, 엔진은 <code>Voice/Engine.cs</code>·<code>Qwen3Engine.cs</code></td></tr>
+    <tr><td>LAN 접속·보안</td><td><code>Lan/</code>, <code>Endpoints/SttEndpoints.cs</code>의 <code>SttGuard</code>, <code>CommsEndpoints.cs</code></td></tr>
+    <tr><td>AI 도우미 동작</td><td><code>Services/AiService.cs</code>, <code>Core/Intent/</code>, <code>client/features/dock/AiPanel.tsx</code></td></tr>
+    <tr><td>화면 모양·반응형</td><td><code>client/src/styles/</code>, <code>layout/</code></td></tr>
+    <tr><td>멤버십·계정</td><td><code>Core/Account/</code>, <code>client/features/membership.tsx</code></td></tr>
+  </table>
+
+  <p class="small" style="margin-top:28px">더 깊게: 요구사양 <code>web/REQUIREMENTS.md</code>, 설계 <code>web/DESIGN.md</code>, 코드 관계 그래프 <code>graphify-out/graph.html</code>(브라우저로 열기), CLI 명령 표 <code>docs/CLI_COMMAND_TABLE.md</code>.</p>
+</div>
+</body>
+</html>
