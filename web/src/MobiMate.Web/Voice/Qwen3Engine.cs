@@ -70,8 +70,15 @@ public sealed class UtteranceStream(Func<float[], string> decode, Func<int> endS
     /// <summary>문장 끝으로 보는 최소 무음 (설정이 이보다 짧아도 이만큼은 기다린다: 이 방식은 한 번 끊으면 되돌릴 수 없다)</summary>
     internal const int MinEndSilenceMs = 500;
 
+    /// <summary>말하는 중에는 말소리 평균 크기의 이 비율을 넘어야 계속 말하는 것으로 본다 (음악·팬 소리가 깔려 있어도 말이 끝나면 문장이 끝난다)</summary>
+    internal const float SpeechRelative = 0.2f;
+
+    /// <summary>말이 이만큼 이어진 뒤부터 말소리 크기 대비 판정을 쓴다 (말 첫머리의 큰 소리 하나로 기준이 쏠리지 않게)</summary>
+    private const double RelativeAfterSeconds = 0.6;
+
     private readonly List<float> _buf = new();
     private float _floor = -1;          // 주변 소음 추정 (rms)
+    private float _speechLevel;         // 말소리 평균 크기 (rms, 이동 평균)
     private bool _speech;               // 말이 시작됨
     private int _lastVoice;             // 마지막으로 소리가 있던 샘플 위치 (_buf 기준)
     private int _firstVoice;            // 처음 소리가 있던 샘플 위치
@@ -82,7 +89,10 @@ public sealed class UtteranceStream(Func<float[], string> decode, Func<int> endS
         if (samples.Length == 0) return;
         var rms = Rms(samples);
         if (_floor < 0) _floor = Math.Min(rms, MinSpeechRms);   // 첫 블록부터 말이어도 소음으로 잡지 않는다
-        var voiced = rms > Math.Max(MinSpeechRms, _floor * NoiseMargin);
+        var threshold = Math.Max(MinSpeechRms, _floor * NoiseMargin);
+        if (_speech && _lastVoice - _firstVoice >= RelativeAfterSeconds * AudioConverter.TargetRate) threshold = Math.Max(threshold, _speechLevel * SpeechRelative);
+        var voiced = rms > threshold;
+        if (voiced) _speechLevel = _speechLevel <= 0 ? rms : _speechLevel * 0.9f + rms * 0.1f;
         if (!voiced) _floor = _floor * 0.9f + rms * 0.1f;   // 소음 추정은 조용할 때만 갱신한다
         else if (!_speech) _floor *= 1.02f;                 // 말이 시작되기 전에 계속 시끄러우면 그건 소음이다: 천천히 받아들인다
 
@@ -120,6 +130,7 @@ public sealed class UtteranceStream(Func<float[], string> decode, Func<int> endS
         _buf.Clear();
         _speech = false;
         _ended = false;
+        _speechLevel = 0;
         _lastVoice = _firstVoice = 0;
     }
 
@@ -138,6 +149,7 @@ public sealed class UtteranceStream(Func<float[], string> decode, Func<int> endS
         _buf.Clear();
         _speech = false;
         _ended = false;
+        _speechLevel = 0;
         _lastVoice = _firstVoice = 0;
         if (voiced < AudioConverter.TargetRate / 5) return "";   // 소리가 0.2초도 안 되면 책상 치는 소리 같은 것이다
         return decode(seg);

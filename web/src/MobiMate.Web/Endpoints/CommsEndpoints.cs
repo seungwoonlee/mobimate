@@ -161,13 +161,17 @@ public static class CommsEndpoints
             MaxRefreshSec = Math.Min(30, s.Current.MaxRefreshSec), s.Current.AutoEmoteDefault, s.Current.LanEnabled, s.Current.ChatterPersona, smartEmote = s.Current.ChatSmartEmote, personaTone = s.Current.ChatPersonaTone, cliPath = cli.CliPath, cliAvailable = cli.IsAvailable,
         }));
 
-        api.MapPut("/settings", async (HttpContext ctx, SettingsRequest req, WebSettingsStore s, GameCli cli, StatusMonitor status, SseHub hub) =>
+        api.MapPut("/settings", async (HttpContext ctx, SettingsRequest req, WebSettingsStore s, GameCli cli, StatusMonitor status, SseHub hub, ILanHosts lanHosts) =>
         {
             if (req.MaxRefreshSec is < 15 or > 30) return ApiResults.Error(400, "VALIDATION", "자동 갱신 최대 주기는 15~30초입니다.");
             if (req.ChatterPersona != null && !IsPersonaValue(req.ChatterPersona)) return ApiResults.Error(400, "VALIDATION", "알 수 없는 페르소나입니다.");
             if (req.CliPath != null)
             {
                 if (!ClientId.IsLocal(ctx)) return ApiResults.Error(403, "LOOPBACK_ONLY", "CLI 경로는 게임 PC에서만 바꿀 수 있습니다.");
+                // 실행 파일을 바꾸는 요청이라 원격 IP만으로는 부족하다: 다른 웹페이지가 도메인을 이 PC로 돌려 붙여도(DNS 리바인딩) 원격 IP는 루프백이다.
+                // Host가 이 서버 주소여야 하고, 앱 화면만 보내는 헤더·JSON 형식·같은 Origin을 요구한다 (보안 감사 H-1, 음성 입력과 같은 가드).
+                if (!SttGuard.HostAllowed(ctx, lanHosts)) return ApiResults.Error(403, "HOST_NOT_ALLOWED", "허용되지 않은 주소로 접속했습니다.");
+                if (SttGuard.CheckWrite(ctx) is { } guard) return guard;
                 if (CliPathValidator.Validate(req.CliPath) is { } why) return ApiResults.Error(400, "VALIDATION", why);
             }
             if (!s.Update(x =>
@@ -197,7 +201,7 @@ public static class CommsEndpoints
             var now = DateTimeOffset.UtcNow;
             var cur = ClientErrorRate.AddOrUpdate(id, _ => (1, now), (_, v) => now - v.Window > TimeSpan.FromMinutes(1) ? (1, now) : (v.Count + 1, v.Window));
             if (cur.Count > 10) return ApiResults.Error(429, "RATE_LIMITED", "오류 보고가 너무 많습니다.");
-            log.LogWarning("클라이언트 오류 [{Device}] {Source}: {Message}", id, Trim(req.Source, 100), Trim(req.Message, 300));
+            log.LogWarning("클라이언트 오류 [{Device}] {Source}: {Message}", id, OneLine(Trim(req.Source, 100)), OneLine(Trim(req.Message, 300)));
             return ApiResults.Ok(new { received = true });
         });
 
@@ -218,17 +222,28 @@ public static class CommsEndpoints
 
     private static string Emoji(string? e) => string.IsNullOrWhiteSpace(e) ? "🎭" : ChatText.Truncate(e.Trim(), 4);
 
+    /// <summary>제어 문자(줄바꿈 등)를 공백으로: 같은 LAN 기기가 로그 줄을 위조하지 못하게 한다 (보안 감사 L-2)</summary>
+    internal static string OneLine(string s) => new(s.Select(c => char.IsControl(c) ? ' ' : c).ToArray());
+
     private static string Trim(string? s, int max) => string.IsNullOrEmpty(s) ? "" : s.Length <= max ? s : s[..max];
 }
 
 /// <summary>CLI 경로 검증 (SEC-09): 로컬 고정 드라이브의 존재하는 .exe만. UNC·네트워크 드라이브·상대 경로·링크 우회 거부.</summary>
 public static class CliPathValidator
 {
+    /// <summary>인자를 명령으로 해석하는 프로그램: CLI 자리에 두면 채팅 본문 같은 인자가 명령이 된다 (보안 감사 H-1)</summary>
+    private static readonly HashSet<string> Interpreters = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "powershell", "pwsh", "cmd", "wscript", "cscript", "mshta", "wsl", "bash", "sh", "python", "pythonw", "py", "node", "java", "javaw",
+        "rundll32", "regsvr32", "msiexec", "cmstp", "certutil", "bitsadmin", "msbuild", "installutil", "forfiles", "pcalua", "explorer",
+    };
+
     public static string? Validate(string path)
     {
         if (string.IsNullOrWhiteSpace(path) || path.StartsWith(@"\\") || path.StartsWith("//") || !Path.IsPathFullyQualified(path))
             return "로컬 드라이브의 절대 경로만 쓸 수 있습니다.";
         if (!path.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)) return ".exe 파일만 지정할 수 있습니다.";
+        if (Interpreters.Contains(Path.GetFileNameWithoutExtension(path))) return "명령을 해석하는 프로그램은 CLI로 지정할 수 없습니다.";
         try
         {
             var root = Path.GetPathRoot(path);

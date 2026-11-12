@@ -166,7 +166,7 @@ public sealed class HomeworkService
 
             if (def.RunGoal > 0 && def.Share == HomeworkShare.Character)
             {
-                // 여러 번 깨는 콘텐츠(뱅가드 3회): 횟수(0~RunGoal)를 손으로 맞춘다. 횟수를 주면 그 값으로, 완료/미완료만 주면 끝/0으로 본다.
+                // 여러 번 깨는 콘텐츠(RunGoal): 횟수(0~RunGoal)를 손으로 맞춘다. 횟수를 주면 그 값으로, 완료/미완료만 주면 끝/0으로 본다.
                 // 일부만 한 상태(횟수 < 목표)는 수동 고정(ManualOverride)을 걸지 않는다: 이어서 자동 판정이 횟수를 세게 하려는 것이다
                 // (퀘스트가 보이면 게임의 N/M이, 전용 지역 보상이 들어오면 +1이 이 값에서 이어진다).
                 var run = count.HasValue ? Math.Clamp(count.Value, 0, def.RunGoal) : completed == true ? def.RunGoal : 0;

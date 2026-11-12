@@ -60,6 +60,29 @@ public class Qwen3Tests
     }
 
     [Fact]
+    public void Utterance_SustainedBackgroundSound_DoesNotKeepTheSentenceOpen()
+    {
+        // 코드 리뷰 I-1: 말하는 동안 계속 들리는 소리(음악·팬)가 임계를 넘어도, 말소리보다 훨씬 작으면 말이 끝난 것으로 본다
+        using var s = new UtteranceStream(_ => "끝났어요", () => 500);
+        Feed(s, Quiet(0.3));
+        Feed(s, Tone(1.0, 0.3f));        // 말 (rms 약 0.21)
+        Feed(s, Tone(1.2, 0.04f));       // 이어서 깔리는 소리 (rms 약 0.028 = 기준 0.012 위, 말소리의 13%)
+        var p = s.Poll();
+        Assert.True(p.IsEndpoint);
+        Assert.Equal("끝났어요", p.Text);
+    }
+
+    [Fact]
+    public void Utterance_NormalSpeechWithQuietPartsInside_StaysOneSentence()
+    {
+        using var s = new UtteranceStream(_ => "x", () => 500);
+        Feed(s, Tone(0.6, 0.3f));
+        Feed(s, Quiet(0.3));             // 숨 쉬는 짧은 쉼
+        Feed(s, Tone(0.6, 0.3f));
+        Assert.False(s.Poll().IsEndpoint);
+    }
+
+    [Fact]
     public void Utterance_OnlyNoise_NeverEnds()
     {
         var called = false;
@@ -193,5 +216,18 @@ public class EngineReleaseTests
         Assert.True(MobiMate.Web.Voice.SherpaEngineProvider.CanRelease(handedAtMs: 1_000, nowMs: 1_000 + 90_000));
         Assert.True(MobiMate.Web.Voice.SherpaEngineProvider.CanRelease(handedAtMs: 0, nowMs: 5_000_000));              // 한 번도 내어 준 적 없다
         Assert.True(MobiMate.Web.Voice.SherpaEngineProvider.ReleaseAfterMs > 60_000);                                  // 듣기 최대 시간(60초)보다 길어야 한다
+    }
+}
+
+public class LiveStreamsTests
+{
+    [Fact]
+    public void LiveStreams_CountsOpenAndClose()
+    {
+        var l = new MobiMate.Web.Voice.SherpaEngineProvider.LiveStreams();
+        l.Open(); l.Open();
+        Assert.Equal(2, l.Count);
+        l.Close();
+        Assert.Equal(1, l.Count);
     }
 }

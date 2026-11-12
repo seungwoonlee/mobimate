@@ -160,12 +160,33 @@ public sealed class SherpaEngineProvider(SttModelLocator model, WebSettingsStore
     private SherpaSttEngine? _engine;
     private Qwen3SttEngine? _qwen;
     private long _zipHandedAt, _qwenHandedAt;   // 각 엔진을 마지막으로 내어 준 시각 (Environment.TickCount64)
+    private readonly LiveStreams _zipLive = new(), _qwenLive = new();   // 지금 듣고 있는(해제되지 않은) 스트림 수
+    private ISttEngine? _zipWrap, _qwenWrap;   // 스트림 수를 세는 겉 껍데기 (엔진 하나당 하나)
 
     /// <summary>쓰지 않는 엔진을 내리기 전에 기다리는 시간: 그 엔진으로 듣던 세션(최대 60초)이 끝날 여유</summary>
     internal const long ReleaseAfterMs = 90_000;
 
     /// <summary>쓰지 않는 엔진을 지금 해제해도 되는가: 내어 준 지 충분히 지났을 때만 (듣는 중인 세션이 쓰고 있을 수 있다)</summary>
     internal static bool CanRelease(long handedAtMs, long nowMs) => nowMs - handedAtMs >= ReleaseAfterMs;
+
+    /// <summary>열려 있는 스트림 수: 0일 때만 엔진을 내린다. 시간 여유(90초)에 더해 쓰는 중인 엔진을 절대 해제하지 않는 장치다 (코드 리뷰 I-2).</summary>
+    internal sealed class LiveStreams { private int _n; public int Count => Volatile.Read(ref _n); public void Open() => Interlocked.Increment(ref _n); public void Close() => Interlocked.Decrement(ref _n); }
+
+    private sealed class CountingEngine(ISttEngine inner, LiveStreams live) : ISttEngine
+    {
+        public ISttStream CreateStream() { live.Open(); try { return new CountingStream(inner.CreateStream(), live); } catch { live.Close(); throw; } }
+        public void Dispose() { }   // 해제는 공급자가 속 엔진에 직접 한다
+    }
+
+    private sealed class CountingStream(ISttStream inner, LiveStreams live) : ISttStream
+    {
+        private int _closed;
+        public void Accept(float[] samples) => inner.Accept(samples);
+        public SttPartial Poll() => inner.Poll();
+        public void Reset() => inner.Reset();
+        public string Finish() => inner.Finish();
+        public void Dispose() { try { inner.Dispose(); } finally { if (Interlocked.Exchange(ref _closed, 1) == 0) live.Close(); } }
+    }
 
     private bool UseQwen => qwen3 != null && settings.Current.SttEngine == "qwen3";
 
@@ -179,23 +200,25 @@ public sealed class SherpaEngineProvider(SttModelLocator model, WebSettingsStore
             {
                 ReleaseUnused(zip: true);
                 _qwenHandedAt = Environment.TickCount64;
-                if (_qwen != null) return _qwen;
+                if (_qwen != null) return _qwenWrap ??= new CountingEngine(_qwen, _qwenLive);
                 if (!qwen3!.IsInstalled) throw new InvalidOperationException("Qwen3 음성 인식 모델이 설치되어 있지 않습니다.");
                 var qclock = System.Diagnostics.Stopwatch.StartNew();
                 var words = settings.Current.SttHotwords ? vocab.HotwordCandidates(Qwen3SttEngine.MaxHotwords).ToList() : new List<string>();
                 var qe = new Qwen3SttEngine(qwen3, Math.Max(settings.Current.SttThreads, 4), words, () => settings.Current.SttEndSilenceMs);
                 log.LogInformation("Qwen3 음성 인식기를 올렸습니다 ({Ms}ms)", qclock.ElapsedMilliseconds);
-                return _qwen = qe;
+                _qwen = qe;
+                return _qwenWrap = new CountingEngine(qe, _qwenLive);
             }
             ReleaseUnused(zip: false);
             _zipHandedAt = Environment.TickCount64;
-            if (_engine != null) return _engine;
+            if (_engine != null) return _zipWrap ??= new CountingEngine(_engine, _zipLive);
             if (!model.IsInstalled) throw new InvalidOperationException("음성 인식 모델이 설치되어 있지 않습니다.");
             var clock = System.Diagnostics.Stopwatch.StartNew();
             var hotwords = settings.Current.SttHotwords ? HotwordFile.Write(model, vocab, log) : null;
             var engine = new SherpaSttEngine(model, settings.Current.SttThreads, hotwords, settings.Current.SttEndSilenceMs);
             log.LogInformation("음성 인식기를 올렸습니다 ({Ms}ms, {Threads}스레드)", clock.ElapsedMilliseconds, settings.Current.SttThreads);
-            return _engine = engine;
+            _engine = engine;
+            return _zipWrap = new CountingEngine(engine, _zipLive);
         }
     }
 
@@ -203,8 +226,8 @@ public sealed class SherpaEngineProvider(SttModelLocator model, WebSettingsStore
     private void ReleaseUnused(bool zip)
     {
         var now = Environment.TickCount64;
-        if (zip && _engine != null && CanRelease(_zipHandedAt, now)) { _engine.Dispose(); _engine = null; log.LogInformation("쓰지 않는 기본 인식기를 메모리에서 내렸습니다"); }
-        if (!zip && _qwen != null && CanRelease(_qwenHandedAt, now)) { _qwen.Dispose(); _qwen = null; log.LogInformation("쓰지 않는 Qwen3 인식기를 메모리에서 내렸습니다"); }
+        if (zip && _engine != null && _zipLive.Count == 0 && CanRelease(_zipHandedAt, now)) { _engine.Dispose(); _engine = null; _zipWrap = null; log.LogInformation("쓰지 않는 기본 인식기를 메모리에서 내렸습니다"); }
+        if (!zip && _qwen != null && _qwenLive.Count == 0 && CanRelease(_qwenHandedAt, now)) { _qwen.Dispose(); _qwen = null; _qwenWrap = null; log.LogInformation("쓰지 않는 Qwen3 인식기를 메모리에서 내렸습니다"); }
     }
 
     public Task WarmUpAsync() => !IsInstalled ? Task.CompletedTask : Task.Run(() =>

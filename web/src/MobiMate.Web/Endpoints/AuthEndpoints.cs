@@ -34,8 +34,10 @@ public static class AuthEndpoints
         }));
 
         // LAN 모드 켜기/끄기 (NFR-03)
-        app.MapPut("/api/lan", async (LanRequest req, LanService lan, CancellationToken ct) =>
+        app.MapPut("/api/lan", async (HttpContext ctx, LanRequest req, LanService lan, CancellationToken ct) =>
         {
+            // 같은 와이파이의 기기가 LAN 모드를 꺼 버리면 다시 켜는 것은 PC에서만 된다: 끄고 켜는 것은 PC 본체에서만 (보안 감사 M-2)
+            if (!ClientId.IsLocal(ctx)) return ApiResults.Error(StatusCodes.Status403Forbidden, "PC_ONLY", "LAN 모드는 PC 본체에서만 바꿀 수 있습니다.");
             if (req.Enabled == null) return ApiResults.Error(StatusCodes.Status400BadRequest, "VALIDATION", "enabled가 필요합니다.");
             var s = await lan.SetEnabledAsync(req.Enabled.Value, ct);
             return s == null ? ApiResults.Error(503, "STORAGE_UNAVAILABLE", "설정을 저장하지 못했습니다.") : ApiResults.Ok(LanView(s));
