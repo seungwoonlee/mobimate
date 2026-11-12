@@ -393,6 +393,10 @@ button.toast { border: 0; text-align: left; cursor: pointer; }
 .cc-right{display:inline-flex;flex-direction:column;align-items:flex-end;gap:4px;text-align:right}
 .coins{display:inline-flex;flex-wrap:wrap;justify-content:flex-end;gap:2px 10px;font-size:12.5px;color:var(--text-2)}
 .coin b{color:var(--text-1);font-size:14px}
+.cc-ttl{display:flex;flex-direction:column;align-items:flex-start;gap:2px;min-width:0}
+.cc-seen{white-space:nowrap;font-weight:400}
+.cc-gold{display:inline-flex;align-items:center;gap:4px;font-size:12.5px;color:var(--text-2);white-space:nowrap}
+.cc-gold .gold-text{color:var(--gold);font-size:14px}
 .coin.near b,.coin.near{color:var(--warn)}
 .coin.full b,.coin.full{color:var(--danger);font-weight:700}
 .cc-notes{margin:2px 0 0;padding:8px 10px 8px 24px;border-radius:10px;background:rgba(0,0,0,.18);color:var(--text-1);display:grid;gap:3px;line-height:1.4}
@@ -483,12 +487,12 @@ button.toast { border: 0; text-align: left; cursor: pointer; }
 .cc-nm{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}   /* 긴 이름만 …로 줄이고 삭제 ×는 늘 보인다 */
 .cc-name .cc-del{flex:none}
 
-/* ── 전체 현황 카드 정렬: 은동전·마족공물은 늘 한 줄씩 쌓고, 같은 줄의 카드는 구역(머리·직업·점수·생활력·재화·알림) 높이를 맞춘다 ── */
+/* ── 전체 현황 카드 정렬: 은동전·마족공물은 늘 한 줄씩 쌓고, 같은 줄의 카드는 구역(머리·직업·점수·생활력·숙제·알림) 높이를 맞춘다 ── */
 .card.char .card-h{align-items:flex-start;margin-bottom:0}
 .coins{flex-direction:column;flex-wrap:nowrap;align-items:flex-end;gap:2px}
 .coin,.seen{white-space:nowrap}
 @supports (grid-template-rows: subgrid) {
-  .card.char{grid-row:span 7;grid-template-rows:subgrid;row-gap:0}
+  .card.char{grid-row:span 6;grid-template-rows:subgrid;row-gap:0}
   .card.char>*+*{margin-top:8px}
 }
 

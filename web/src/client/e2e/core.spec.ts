@@ -362,6 +362,7 @@ test('채팅 기본값: 가로 화면은 열려 있고 세로 화면·폰은 닫
 test('전체 현황: 같은 계정끼리 묶고 계정 머리글에 공통 재화를 우선순위 순으로 보인다', async ({ page }) => {
   await page.goto('/');
   const sections = page.locator('section.acct');
+  await expect(sections.first().locator('.acct-shared .sh').first()).toBeVisible();   // 데이터가 올 때까지 기다린다
   const shared = await sections.first().locator('.acct-shared .sh').allTextContents();
   expect(shared[0]).toContain('M캐시');   // 우선순위: M캐시, 데카, 길드 토큰, 패키지 포인트, 캐시샵 포인트, 환생석, 웨카
   expect(shared[1]).toContain('데카');
