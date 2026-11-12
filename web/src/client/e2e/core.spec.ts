@@ -43,23 +43,17 @@ test('숙제: 지금 접속한 캐릭터의 칸을 누르면 수동 완료, 다�
   await expect(cell).toHaveAttribute('aria-pressed', 'false');
 });
 
-test('숙제: 뱅가드는 일부만 했을 수 있어 누를 때마다 0 → 1 → 2 → 3(완료) → 0으로 돈다 (2026-10-24)', async ({ page }) => {
+test('숙제: 뱅가드는 주 1회라 다른 1회성 숙제처럼 완료/미완료 토글이다 (2026-11-10)', async ({ page }) => {
   await page.goto('/homework');
   const cell = page.locator('.hw-row.current').getByRole('button', { name: /^뱅가드 / });
-  const reset = async () => { for (let i = 0; i < 4 && !(await cell.textContent())!.includes('0/3'); i++) await cell.click(); };
-  await reset();
-  await expect(cell).toContainText('0/3');
+  if ((await cell.getAttribute('aria-pressed')) === 'true') await cell.click();
   await expect(cell).toHaveAttribute('aria-pressed', 'false');
+  await expect(cell).not.toContainText('/3');   // 횟수 칸이 아니다
+  await expect(cell).not.toContainText('남은');
   await cell.click();
-  await expect(cell).toContainText('1/3');
-  await expect(cell).toHaveAttribute('aria-pressed', 'false');
-  await cell.click();
-  await expect(cell).toContainText('2/3');
-  await cell.click();
-  await expect(cell).toContainText('3/3');
   await expect(cell).toHaveAttribute('aria-pressed', 'true');
+  await expect(cell).toContainText('완료');
   await cell.click();
-  await expect(cell).toContainText('0/3');
   await expect(cell).toHaveAttribute('aria-pressed', 'false');
 });
 

@@ -61,9 +61,9 @@ export function VoiceSettings({ local }: { local: boolean }) {
             <Seg value={String(s.maxSeconds)} options={[['10', '10초'], ['15', '15초'], ['30', '30초'], ['60', '60초']]} onChange={v => void save({ maxSeconds: Number(v) })} />
           </Row>
           <Row label="말 끝 무음 시간">
-            <Seg value={String(s.endSilenceMs)} options={[['300', '0.3초 (아주 빠름)'], ['400', '0.4초'], ['500', '0.5초 (기본)'], ['600', '0.6초'], ['700', '0.7초 (느긋)']]} onChange={v => void save({ endSilenceMs: Number(v) })} />
+            <Seg value={String(Math.max(s.endSilenceMs, s.engine === 'qwen3' ? 500 : 0))} options={s.engine === 'qwen3' ? [['500', '0.5초 (기본)'], ['600', '0.6초'], ['700', '0.7초 (느긋)']] : [['300', '0.3초 (아주 빠름)'], ['400', '0.4초'], ['500', '0.5초 (기본)'], ['600', '0.6초'], ['700', '0.7초 (느긋)']]} onChange={v => void save({ endSilenceMs: Number(v) })} />
           </Row>
-          <p className="faint small">말한 뒤 이만큼 조용하면 한 문장이 끝난 것으로 봅니다. 짧을수록 빨리 끊기고, 말하다 쉬면 문장이 쪼개질 수 있습니다. 기본 엔진은 바꾸면 앱을 다시 켠 뒤에 적용됩니다(Qwen3는 0.5초 아래로는 내려가지 않고 바로 적용됩니다).</p>
+          <p className="faint small">말한 뒤 이만큼 조용하면 한 문장이 끝난 것으로 봅니다. 짧을수록 빨리 끊기고, 말하다 쉬면 문장이 쪼개질 수 있습니다. 기본 엔진은 바꾸면 앱을 다시 켠 뒤에 적용됩니다(Qwen3는 0.5초부터 고를 수 있고 바로 적용됩니다).</p>
           <Row label="말이 끝나면 바로 전송">
             <Seg value={s.autoSend ? 'on' : 'off'} options={[['off', '끄기'], ['on', '켜기']]} onChange={v => void save({ autoSend: v === 'on' })} />
           </Row>
