@@ -164,6 +164,8 @@ export interface CharStats { str: number | null; dex: number | null; int: number
 export interface HomeworkAuto { id: string; title: string; period: 'daily' | 'weekly'; state: 'done' | 'todo' | 'unknown'; evidence: string | null; /** 남은 횟수 (뱅가드 등, 알 때만) */ remaining: number | null; category?: string; /** 클리어 추정: 주간 미션 카운터는 올랐는데 어느 항목인지 못 가렸다 */ guess?: boolean; /** 손으로 입력한 수치(랭킹 순위 등), 입력 전이면 없음 */ value?: number | null }
 export interface AccountGroup {
   id: string; name: string; solo: boolean; deca: number; mcash: number;
+  /** 계정 공통 재화(우선순위 순) · 그 값을 마지막으로 읽은 시각과 캐릭터. sub는 패키지 포인트의 시즌 이름 */
+  shared: { name: string; label: string; sub: string | null; amount: number }[]; sharedAt: string | null; sharedBy: string | null;
   membership: { expiresAt: string | null; active: boolean }; caps: { silver: number; tribute: number };
   hasCurrent: boolean; topCombat: number; manualRank: number; members: CharacterCard[];
 }

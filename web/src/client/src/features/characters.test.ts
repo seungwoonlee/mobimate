@@ -1,8 +1,8 @@
-import { cardTone, lastSeenText, membershipLeft, splitHwRows, waitText, fillText } from './characters';
+import { cardTone, lastSeenText, membershipLeft, sharedStamp, splitHwRows, waitText, fillText } from './characters';
 import type { CoinView, HomeworkAuto } from '../api/types';
 
 const coin = (level: CoinView['level']): CoinView => ({ held: 1, expected: 1, cap: 100, percent: 0.5, level, minutesToFull: 60 });
-const card = (silver: CoinView['level'], tribute: CoinView['level'], stale = false) => ({ silver: coin(silver), tribute: coin(tribute), stale });
+const card = (silver: CoinView['level'], tribute: CoinView['level'], _stale = false) => ({ silver: coin(silver), tribute: coin(tribute) });
 
 // 요청 4·5: 가득 = 빨강, 80% 이상 = 노랑, 데카·M캐시가 어긋남 = 진회색 (우선순위 순)
 describe('전체 현황 카드 색', () => {
@@ -17,9 +17,27 @@ describe('전체 현황 카드 색', () => {
     expect(cardTone(card('ok', 'near', true))).toBe('yellow');
   });
 
-  it('데카·M캐시가 어긋났고 충전 재화는 여유로우면 진회색', () => {
-    expect(cardTone(card('ok', 'ok', true))).toBe('gray');
+  it('데카·M캐시가 어긋나도 카드 색은 바뀌지 않는다 (계정 공통 재화는 계정 머리줄에서 보인다)', () => {
+    expect(cardTone(card('ok', 'ok', true))).toBe('none');
     expect(cardTone(card('ok', 'ok', false))).toBe('none');
+  });
+});
+
+describe('계정 공통 재화 안내', () => {
+  const now = new Date('2026-11-13T12:00:00Z').getTime();
+  it('지금 접속 중인 계정은 안내하지 않는다', () => {
+    expect(sharedStamp({ hasCurrent: true, sharedAt: '2026-11-13T11:59:00Z', sharedBy: '아이라 힐러' }, now)).toBeNull();
+  });
+  it('읽은 적이 없으면 안내하지 않는다', () => {
+    expect(sharedStamp({ hasCurrent: false, sharedAt: null, sharedBy: null }, now)).toBeNull();
+  });
+  it('하루 안이면 평범하게, 하루가 넘으면 오래됨으로 알린다', () => {
+    const fresh = sharedStamp({ hasCurrent: false, sharedAt: '2026-11-13T06:00:00Z', sharedBy: '실비아 궁수' }, now)!;
+    expect(fresh.old).toBe(false);
+    expect(fresh.text).toContain('실비아 궁수');
+    const old = sharedStamp({ hasCurrent: false, sharedAt: '2026-11-09T12:00:00Z', sharedBy: null }, now)!;
+    expect(old.old).toBe(true);
+    expect(old.text.startsWith('재화 ')).toBe(true);
   });
 });
 
