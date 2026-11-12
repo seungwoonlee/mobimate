@@ -62,6 +62,53 @@ public static class CliEnvelope
         catch (JsonException) { return null; }
     }
 
+    /// <summary>
+    /// 변경(실행) 명령의 응답이 실패·중단이면 사용자에게 보일 문장을, 성공이거나 알 수 없으면 null.
+    /// 변경 명령은 프로세스가 정상 종료해도 게임이 거절·중단했을 수 있다. 응답 형식(명세): `{"status":"accepted|rejected|invalid_body","body":{…}}`,
+    /// 실패는 `status`가 rejected·invalid_body이거나 `body.error`가 있다(accepted여도 blocked·timeout·canceled로 중단될 수 있다).
+    /// 조회 응답처럼 최상위 `error`·연결 끊김(pipe)도 함께 읽는다. 이것을 보지 않으면 게임이 아무것도 안 했는데 앱은 "했습니다"라고 한다.
+    /// </summary>
+    public static string? ActionError(string? stdout)
+    {
+        if (TryReadError(stdout, out var top)) return top;
+        if (string.IsNullOrWhiteSpace(stdout) || stdout.AsSpan().TrimStart() is not [{ } c, ..] || c != '{') return null;
+        try
+        {
+            using var doc = JsonDocument.Parse(stdout);
+            var root = doc.RootElement;
+            if (root.ValueKind != JsonValueKind.Object) return null;
+            var body = root.TryGetProperty("body", out var b) && b.ValueKind == JsonValueKind.Object ? b : root;
+            string? Str(JsonElement e, string n) => e.TryGetProperty(n, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
+            var status = Str(root, "status");
+            var error = Str(body, "error");
+            var message = Str(body, "message");
+            if (error == null && Str(body, "result") == "stopped_by_user") return "게임에서 직접 정지해 중단되었습니다";
+            if (error == null && status is not ("rejected" or "invalid_body")) return null;
+            return DescribeAction(error ?? status!, message);
+        }
+        catch (JsonException) { return null; }
+    }
+
+    /// <summary>변경 명령 오류 이름(명세)을 사용자 문장으로</summary>
+    public static string DescribeAction(string error, string? message) => error switch
+    {
+        "blocked" => "게임 화면에 확인이 필요한 창이 떠 있습니다. 게임에서 해결한 뒤 다시 해 주세요",
+        "overweight" => "가방이 가득 찼습니다",
+        "not_in_field" => "필드에서만 할 수 있습니다",
+        "not_completed_yet" => "아직 완료되지 않은 가공물입니다",
+        "no_completed_work" or "no_completed_work_at_facility" or "no_altering" => "수거할 완료된 가공물이 없습니다",
+        "not_found" => "게임에서 찾을 수 없는 항목입니다",
+        "facility_not_found" => "가공 시설을 찾지 못했습니다",
+        "no_route" => "그곳까지 갈 길이 없습니다",
+        "timeout" => "게임에서 확인되지 않아 중단되었습니다. 게임에서 직접 확인해 주세요",
+        "canceled" => "게임에서 취소되었습니다",
+        "invalid_state" => "지금 멈출 수 있는 행동이 없습니다",
+        "requires_user_interaction" => "이 작업은 게임에서 직접 해야 합니다",
+        "invalid_body" => "요청 형식이 올바르지 않습니다",
+        "rejected" => string.IsNullOrWhiteSpace(message) ? "게임이 요청을 거절했습니다" : $"게임이 요청을 거절했습니다: {message}",
+        _ => string.IsNullOrWhiteSpace(message) ? $"게임 CLI 오류: {error}" : $"게임 CLI 오류({error}): {message}",
+    };
+
     /// <summary>오류 응답이면 사람이 읽을 메시지를 돌려준다. 정상 값이거나 JSON이 아니면 false.</summary>
     public static bool TryReadError(string? stdout, out string message)
     {

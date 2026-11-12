@@ -177,6 +177,8 @@ public sealed class GameActions(GameQueries q, SseHub hub, HomeworkWatcher homew
         "not_in_field" => "필드에서만 채집할 수 있습니다.",
         "required_consumable_missing" => "채집에 필요한 소모품이 없습니다.",
         "timeout" => "시간 제한(9분)으로 멈췄습니다.",
+        "cli_error" => string.IsNullOrWhiteSpace(message) ? "게임 CLI 오류" : message!,
+        "rejected" or "invalid_body" => CliEnvelope.DescribeAction(error, message),
         _ => string.IsNullOrWhiteSpace(message) ? error : $"{error}: {message}",
     };
 
@@ -184,9 +186,14 @@ public sealed class GameActions(GameQueries q, SseHub hub, HomeworkWatcher homew
     {
         try
         {
+            if (CliEnvelope.PipeConnected(stdout) == false && CliEnvelope.TryReadError(stdout, out var topMsg)) return new GatherReply("error", 0, 0, "cli_error", topMsg);   // 연결 끊김 (최상위 error는 아래에서 평평한 응답으로 읽는다)
             using var doc = JsonDocument.Parse(stdout);
-            var root = doc.RootElement;
-            if (root.ValueKind != JsonValueKind.Object) return new GatherReply("completed", 0, 0, null, null);
+            var envelope = doc.RootElement;
+            if (envelope.ValueKind != JsonValueKind.Object) return new GatherReply("completed", 0, 0, null, null);
+            // 명세 형식 {"status":…,"body":{…}}이면 body를, 평평한 응답이면 그대로 읽는다
+            var root = envelope.TryGetProperty("body", out var bd) && bd.ValueKind == JsonValueKind.Object ? bd : envelope;
+            if (envelope.TryGetProperty("status", out var st) && st.ValueKind == JsonValueKind.String && st.GetString() is "rejected" or "invalid_body" && !root.TryGetProperty("error", out _))
+                return new GatherReply("error", 0, 0, st.GetString(), null);
             string? Str(string name) => root.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
             int Int(string name) => root.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.Number && v.TryGetInt32(out var n) ? n : 0;
             return new GatherReply(Str("result") ?? "completed", Int("gained"), Int("target"), Str("error"), Str("message"));
@@ -204,6 +211,7 @@ public sealed class GameActions(GameQueries q, SseHub hub, HomeworkWatcher homew
         lock (_lock) { _pending.Clear(); if (_current is { State: "running" } job) { job.StopRequested = true; job.Queued = []; } }
         var r = await q.Cli.RunAsync(new CliCommand("stop_action"), ct);
         q.Invalidate("get_activity");
+        if (r.Ok && CliEnvelope.ActionError(r.Stdout) is { } why) r = r with { Ok = false, Error = why };   // 게임이 거절한 정지(invalid_state 등)를 "요청했습니다"로 알리지 않는다
         // 정지가 배치와 배치 사이(막 시작하려는 순간)에 끼면 stop_action이 멈출 대상을 못 찾는다. 잠시 뒤에도 같은 작업이 돌고 있으면 한 번 더 보낸다.
         GatherJob? running;
         lock (_lock) running = _current is { State: "running" } j && j.StopRequested ? j : null;
@@ -232,6 +240,14 @@ public sealed class GameActions(GameQueries q, SseHub hub, HomeworkWatcher homew
         var r = await q.Cli.RunAsync(new CliCommand("complete_altering_work", Body: new { displayName = name }), ct);
         q.Invalidate("get_altering_works", "get_items", "get_my_info");
         if (!r.Ok) return (false, name, r.Error);
+        // 프로세스가 정상 종료해도 게임이 거절·중단했을 수 있다(blocked·timeout·not_completed_yet·연결 끊김 …). 이것을 성공으로 알리면 게임은 가만있는데 앱만 "수거했습니다"가 된다.
+        var head = r.Stdout.Length > 300 ? r.Stdout[..300] : r.Stdout;
+        if (CliEnvelope.ActionError(r.Stdout) is { } why)
+        {
+            log.LogWarning("가공물 수거 실패 [{Name}]: {Why} (응답: {Head})", name, why, head);
+            return (false, name, why);
+        }
+        log.LogInformation("가공물 수거 응답 [{Name}]: {Head}", name, head);
         // 캐릭터를 모르면 판정하지 않는다. 기본 키("에린_밀레시안")에 잘못 기록하지 않기 위해서다.
         var me = await q.Get<CharacterInfo>("get_my_info", ct);
         if (me.Value is { } ch && !string.IsNullOrWhiteSpace(ch.RealmName) && !string.IsNullOrWhiteSpace(ch.JobName))
