@@ -74,19 +74,21 @@ const sortAccounts = (list: AccountGroup[], mode: SortMode) =>
  * 은동전·마족 공물은 마지막 값에서 시간이 지난 만큼 충전된 예상 보유량이다 — 가득 차면 충전이 멈추므로 먼저 접속할 캐릭터를 고르는 근거가 된다.
  */
 /**
- * 같은 종류의 카드는 가로·세로 크기가 모두 같다(2026-10-24 원칙). 가로는 CSS 격자가 같은 열 폭으로 맞추고,
- * 세로는 여기서 모든 캐릭터 카드 중 가장 큰 높이를 재어 모든 카드의 최소 높이(--cc-h)로 준다(계정이 달라도 같다).
+ * 카드는 가로가 모두 같고(CSS 격자가 같은 열 폭으로 맞춘다), 세로는 **같은 계정 캐릭터끼리** 맞춘다(2026-11-13 승운:
+ * 처음엔 모든 계정을 맞췄지만, 안내 문구가 긴 카드 하나가 다른 계정 카드까지 늘려 빈 공간이 생겼다).
+ * 계정 안의 가장 큰 카드 높이를 재어, 더 작은 카드는 그만큼 아래 여백(--cc-pad)을 늘린다.
+ * (min-height는 줄이 바뀐 둘째 줄 카드에는 듣지 않는다: 카드가 부모 격자의 줄을 함께 쓰는 subgrid라서 높이를 줄 값이 아니라 내용으로 정해진다. 여백은 그 줄의 크기에 들어간다.)
  */
-function SameSize({ children }: { children: ReactNode }) {
+function SameSize({ children, className }: { children: ReactNode; className: string }) {
   const ref = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
     const fit = () => {
-      el.style.setProperty('--cc-h', '0px');
-      let max = 0;
-      el.querySelectorAll<HTMLElement>('.card.char').forEach(c => { max = Math.max(max, c.offsetHeight); });
-      el.style.setProperty('--cc-h', `${max}px`);
+      const cards = [...el.querySelectorAll<HTMLElement>('.card.char')];
+      cards.forEach(c => c.style.setProperty('--cc-pad', '0px'));
+      const max = cards.reduce((m, c) => Math.max(m, c.offsetHeight), 0);
+      cards.forEach(c => c.style.setProperty('--cc-pad', `${max - c.offsetHeight}px`));
     };
     fit();
     const ro = new ResizeObserver(fit);
@@ -95,7 +97,7 @@ function SameSize({ children }: { children: ReactNode }) {
     mo.observe(el, { childList: true, subtree: true, characterData: true });
     return () => { ro.disconnect(); mo.disconnect(); };
   });
-  return <div ref={ref} className="chars-all">{children}</div>;
+  return <div ref={ref} className={className}>{children}</div>;
 }
 
 export function CharactersView() {
@@ -138,7 +140,7 @@ export function CharactersView() {
       {total === 0 ? (
         <div className="card muted">아직 확인한 캐릭터가 없습니다. 게임에 접속하면 여기에 모입니다.</div>
       ) : (
-        <SameSize>
+        <div className="chars-all">
           {ordered.map((a, i) => (
             <AccountSection key={a.id} a={a} sort={sort} now={now}
               move={sort === 'manual' && ordered.length > 1 ? { up: i > 0 ? () => void moveAccount(ordered, i, -1) : null, down: i < ordered.length - 1 ? () => void moveAccount(ordered, i, 1) : null } : undefined} />
@@ -148,7 +150,7 @@ export function CharactersView() {
             지금 접속한 캐릭터만 실시간입니다. 다른 캐릭터는 마지막으로 접속했을 때 본 값이고, 은동전·마족 공물은 그 뒤 충전된 예상 개수입니다.
             데카·M캐시가 같은 캐릭터는 같은 계정으로 묶입니다.
           </p>
-        </SameSize>
+        </div>
       )}
       {editing && <AssignDialog data={data.accounts} onClose={() => setEditing(false)} />}
     </>
@@ -177,9 +179,9 @@ function AccountSection({ a, sort, now, move }: { a: AccountGroup; sort: SortMod
         </span>
         <SharedWallet items={a.shared} />
       </div>
-      <div className="chars">
+      <SameSize className="chars">
         {sortMembers(a.members, sort).map(c => <CharacterCardView key={c.key} c={c} now={now} />)}
-      </div>
+      </SameSize>
     </section>
   );
 }
