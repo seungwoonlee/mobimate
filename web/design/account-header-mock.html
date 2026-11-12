@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>계정 공통 재화 구상</title>
+<style>
+  :root { --bg:#f3f5f9; --card:#fff; --ink:#1b2230; --mute:#667085; --line:#d9dfea; --accent:#2f6fed; --warn:#b54708; --warn-bg:#fff4e0; --ok:#12805c; --gold:#a16207; --chip:#eef2f8; --dim:#9aa4b5; --red:#c4321c; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg:#10141c; --card:#192030; --ink:#e7ecf5; --mute:#97a3b8; --line:#2a3447; --accent:#79a6ff; --warn:#ffb866; --warn-bg:#3a2a12; --ok:#4fd1a8; --gold:#f0c35a; --chip:#222b3d; --dim:#6e7a90; --red:#ff8b78; color-scheme:dark; } }
+  :root[data-theme="dark"] { --bg:#10141c; --card:#192030; --ink:#e7ecf5; --mute:#97a3b8; --line:#2a3447; --accent:#79a6ff; --warn:#ffb866; --warn-bg:#3a2a12; --ok:#4fd1a8; --gold:#f0c35a; --chip:#222b3d; --dim:#6e7a90; --red:#ff8b78; color-scheme:dark; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.5 "Segoe UI","Malgun Gothic",system-ui,sans-serif; padding:20px max(16px,env(safe-area-inset-right,0px)) 48px max(16px,env(safe-area-inset-left,0px)); }
+  .wrap { max-width: 980px; margin:0 auto; }
+  h1 { font-size:22px; margin:0 0 4px; } h2 { font-size:17px; margin:30px 0 8px; } p { margin:4px 0; }
+  .small { font-size:13px; color:var(--mute); } .num { font-variant-numeric: tabular-nums; }
+  .cols { display:grid; gap:16px; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); align-items:start; }
+  .tag { display:inline-block; font-size:12px; font-weight:700; padding:1px 9px; border-radius:999px; margin-bottom:6px; }
+  .tag.before { background:var(--warn-bg); color:var(--warn); } .tag.after { background:#dff5ec; color:var(--ok); }
+  @media (prefers-color-scheme: dark) { .tag.after { background:#14392d; } }
+
+  .acct { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:12px; min-width:0; }
+  .acct-h { display:flex; flex-wrap:wrap; align-items:baseline; gap:4px 12px; margin-bottom:8px; }
+  .acct-h h3 { margin:0; font-size:16px; } .acct-h h3 small { color:var(--mute); font-weight:400; font-size:13px; }
+  .member { color:var(--ok); font-size:13px; }
+  .shared { display:flex; flex-wrap:wrap; gap:5px 6px; width:100%; margin-top:6px; }
+  .sh { background:var(--chip); border-radius:8px; padding:2px 9px; font-size:13px; white-space:nowrap; }
+  .sh b { font-weight:700; } .sh.zero { color:var(--dim); } .sh.zero b { font-weight:400; }
+  .sh .s { color:var(--mute); font-size:12px; }
+  .stamp { font-size:12px; color:var(--mute); align-self:center; margin-left:auto; }
+  .stamp.old { color:var(--warn); }
+
+  .card { border:1px solid var(--line); border-radius:12px; padding:10px 12px; margin-top:8px; background:var(--card); }
+  .card.gray { background:color-mix(in srgb, var(--dim) 22%, var(--card)); }
+  .row1 { display:flex; justify-content:space-between; gap:8px; font-weight:700; }
+  .row1 span.seen { font-weight:400; color:var(--mute); font-size:13px; }
+  .cc { color:var(--mute); font-size:13px; margin:2px 0; } .main { display:flex; gap:20px; margin:6px 0; }
+  .main div b { display:block; font-size:19px; } .main .l { font-size:12px; color:var(--mute); }
+  .wallet { display:flex; flex-wrap:wrap; gap:4px 12px; font-size:13px; }
+  .gold { color:var(--gold); font-weight:700; }
+  .note { margin-top:6px; padding:6px 8px; background:var(--warn-bg); color:var(--warn); border-radius:8px; font-size:13px; }
+  .cut { display:inline-block; font-size:12px; color:var(--red); }
+  .del { text-decoration: line-through; color:var(--dim); }
+  .legend { margin-top:12px; font-size:13px; }
+  ul.plan { margin:6px 0; padding-left:20px; } ul.plan li { margin:3px 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>계정 공통 재화 — 화면 구상</h1>
+  <p class="small">전체 탭의 계정 머리줄에 계정 공통 재화를 모으고, 캐릭터 카드에서는 데카·M캐시와 “동기화 안 됨” 표시를 뺍니다. (예시 값입니다)</p>
+
+  <div class="cols" style="margin-top:14px">
+    <div>
+      <span class="tag before">지금</span>
+      <section class="acct">
+        <div class="acct-h"><h3>아이라 계정 <small class="num">6명</small></h3>
+          <span class="small">데카 <b class="num">3,202</b> · M캐시 <b class="num">2,109</b> · <span class="member">멤버십 27일 남음</span></span></div>
+        <div class="card"><div class="row1"><span>아이라_힐러</span><span class="seen">접속 중</span></div>
+          <div class="cc">힐러 Lv.100</div>
+          <div class="wallet"><span class="gold num">15,171,032 G</span><span>데카 <b class="num">3,202</b></span><span>M캐시 <b class="num">2,109</b></span></div></div>
+        <div class="card gray"><div class="row1"><span>아이라_검술</span><span class="seen">3일 전 접속</span></div>
+          <div class="cc">검술사 Lv.92</div>
+          <div class="wallet"><span class="gold num">33,404,357 G</span><span>데카 <b class="num">2,950</b></span><span>M캐시 <b class="num">2,109</b></span></div>
+          <div class="note">데카·M캐시가 같은 계정의 다른 캐릭터와 달라요. 3일째 접속하지 않아 아직 동기화되지 않은 것입니다.</div></div>
+      </section>
+      <p class="small" style="margin-top:6px">카드마다 같은 값이 반복되고, 오래 접속 안 한 캐릭터는 회색 + 경고가 계속 보입니다.</p>
+    </div>
+
+    <div>
+      <span class="tag after">제안</span>
+      <section class="acct">
+        <div class="acct-h"><h3>아이라 계정 <small class="num">6명</small></h3><span class="member">멤버십 27일 남음</span>
+          <span class="stamp">확인 방금 · 아이라_힐러</span>
+          <div class="shared" aria-label="계정 공통 재화">
+            <span class="sh">데카 <b class="num">3,202</b></span>
+            <span class="sh">M캐시 <b class="num">2,109</b></span>
+            <span class="sh">캐시샵 P <b class="num">1,204</b></span>
+            <span class="sh">길드 토큰 <b class="num">5</b></span>
+            <span class="sh">환생석 <b class="num">21</b></span>
+            <span class="sh zero">웨카 <b class="num">0</b></span>
+            <span class="sh zero">그랜드 앙상블 <span class="s">패키지 P</span> <b class="num">0</b></span>
+          </div>
+        </div>
+        <div class="card"><div class="row1"><span>아이라_힐러</span><span class="seen">접속 중</span></div>
+          <div class="cc">힐러 Lv.100</div>
+          <div class="wallet"><span class="gold num">15,171,032 G</span></div></div>
+        <div class="card"><div class="row1"><span>아이라_검술</span><span class="seen">3일 전 접속</span></div>
+          <div class="cc">검술사 Lv.92</div>
+          <div class="wallet"><span class="gold num">33,404,357 G</span></div></div>
+      </section>
+      <p class="small" style="margin-top:6px">값은 계정 머리줄에 한 번만. 카드는 캐릭터 고유 정보(골드, 전투력, 은동전·마족 공물, 숙제)만 남습니다.</p>
+    </div>
+  </div>
+
+  <h2>상태별 모습</h2>
+  <div class="cols">
+    <section class="acct"><span class="tag after">지금 접속 중인 계정</span>
+      <div class="acct-h"><h3>아이라 계정 <small>6명</small></h3><span class="stamp">확인 방금 · 아이라_힐러</span></div>
+      <p class="small">값이 실시간으로 바뀝니다. 경고 없음.</p></section>
+    <section class="acct"><span class="tag after">며칠 접속 안 한 계정</span>
+      <div class="acct-h"><h3>실비아 계정 <small>2명</small></h3><span class="stamp old">확인 4일 전 · 실비아_궁수</span>
+        <div class="shared"><span class="sh">데카 <b class="num">4,919</b></span><span class="sh">M캐시 <b class="num">180</b></span><span class="sh">길드 토큰 <b class="num">120</b></span></div></div>
+      <p class="small">마지막으로 읽은 값을 그대로 보이고, 시각만 눈에 띄게(1일 넘으면 주황) 알립니다. 카드는 회색으로 칠하지 않습니다.</p></section>
+    <section class="acct"><span class="tag after">아직 읽은 적 없는 재화</span>
+      <div class="acct-h"><h3>새 계정 <small>1명</small></h3><span class="stamp">확인 방금 · 새캐릭</span>
+        <div class="shared"><span class="sh">데카 <b class="num">0</b></span><span class="sh">M캐시 <b class="num">0</b></span><span class="sh zero">웨카 <b class="num">—</b></span></div></div>
+      <p class="small">처음 접속하기 전 값은 “—”.</p></section>
+  </div>
+
+  <h2>정리한 규칙</h2>
+  <ul class="plan">
+    <li><b>계정 공통 7종:</b> 데카 · M캐시 · 캐시샵 포인트 · 웨카 · 환생석 · 길드 토큰 · 패키지 포인트(이름 앞부분 “패키지 포인트”로 찾고, 시즌 이름은 뒤에 작게 표시).</li>
+    <li><b>값 갱신:</b> 그 계정의 캐릭터 누구든 접속해서 재화를 읽으면 그 값이 계정의 최신 값. “확인 시각·캐릭터”를 같이 저장.</li>
+    <li><b>계정 판별 로직은 그대로:</b> 데카·M캐시 일치로 같은 계정 묶기는 손대지 않음.</li>
+    <li><b>카드에서 제거:</b> 데카·M캐시 줄, 회색 “동기화 안 됨” 톤과 설명 문구.</li>
+    <li><b>0인 재화:</b> 흐리게 보여 계속 자리를 지키되(줄이 들쭉날쭉해지지 않게), 좁은 화면에서는 아래로 접힘.</li>
+  </ul>
+</div>
+</body>
+</html>

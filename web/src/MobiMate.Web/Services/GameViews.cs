@@ -9,7 +9,7 @@ namespace MobiMate.Web.Services;
 /// 헤더를 읽을 때마다 GameStateCache·SnapshotManager(세션 변화량)를 갱신하고 SSE "header"로 다른 기기에도 알린다.
 /// </summary>
 public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManager snapshots, SseHub hub, CutoffCatalog cutoffs,
-    FavoritesStore favorites, AccountStore accounts, HomeworkService homework, WorkCategoryCatalog workKinds, CombatScoreGuard guard, MobiMateOptions options, IHostApplicationLifetime life, ILogger<GameViews> log, RankingService rankings, AutoWatch autoWatch)
+    FavoritesStore favorites, AccountStore accounts, HomeworkService homework, WorkCategoryCatalog workKinds, CombatScoreGuard guard, MobiMateOptions options, IHostApplicationLifetime life, ILogger<GameViews> log, RankingService rankings, AutoWatch autoWatch, AccountWalletStore wallet)
 {
     private readonly ConcurrentDictionary<string, Dictionary<string, int>> _bagBaselines = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, byte> _unclassifiedWorks = new();   // 분류표에 없는 가공품은 한 번만 기록한다 (FR-DT-20)
@@ -290,6 +290,7 @@ public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManag
             return new CliData<object>(new { items = r.Value, session = new { gold = 0L, wings = 0L, nyang = 0L } }, null, r.FetchedAt);
         }
         state.UpdateCurrencies(r.Value);
+        ObserveWallet(r.Value);   // 계정 공통 재화(데카·M캐시·길드 토큰 …)의 최신 값을 그 계정에 기록한다
         var delta = snapshots.UpdateSnapshot(state.Character, r.Value, state.DailyMissions?.ToList(), state.CurrentKey);
         return new CliData<object>(new
         {
@@ -399,6 +400,16 @@ public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManag
         return true;
     }
 
+    /// <summary>지금 접속한 캐릭터가 읽은 재화 중 계정 공통인 것을 그 계정의 최신 값으로 남긴다. 캐릭터를 모르면 하지 않는다.</summary>
+    private void ObserveWallet(IReadOnlyList<CurrencyItem>? currencies)
+    {
+        if (currencies == null || state.Character is not { } ch || !SnapshotManager.IsRealCharacter(ch)) return;
+        var key = state.CurrentKey ?? CharacterKey(ch);
+        var profile = snapshots.GetAllProfiles().FirstOrDefault(p => p.CharacterKey == key);
+        var by = string.IsNullOrWhiteSpace(profile?.CustomName) ? $"{ch.RealmName} {ch.JobName}" : profile!.CustomName;
+        wallet.Observe(AccountGrouper.AccountOf(accounts.Snapshot(), key), currencies, by);
+    }
+
     /// <summary>지금 접속 중인 캐릭터를 읽어 기록에 남긴다(헤더 + 재화). 캐릭터 선택창이면 아무것도 남기지 않는다.</summary>
     public async Task RecordNowAsync(CancellationToken ct)
     {
@@ -432,6 +443,15 @@ public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManag
         return ActiveAccount.KeysOf(accounts.Snapshot(), chars, currentKey);
     }
 
+    private IReadOnlyList<SharedCurrencyView> WalletView(string id, CharCard reference)
+    {
+        var w = wallet.Get(id);
+        return SharedCurrencies.Ordered(w?.Items ?? new Dictionary<string, long> { ["M캐시"] = reference.MCash, ["데카"] = reference.Deca });
+    }
+
+    private DateTimeOffset WalletAt(string id, CharCard reference) =>
+        wallet.Get(id) is { } w ? new DateTimeOffset(DateTime.SpecifyKind(w.AtUtc, DateTimeKind.Utc)) : new DateTimeOffset(DateTime.SpecifyKind(reference.LastSeenUtc, DateTimeKind.Utc));
+
     public object Characters()
     {
         var nowUtc = DateTime.UtcNow;
@@ -445,6 +465,7 @@ public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManag
             p.History.TakeLast(400).Select(h => (h.Deca, h.MCash)).Distinct().ToList())).ToList();
         accounts.Update(d => AccountGrouper.Reconcile(d, histories));
         var data = accounts.Snapshot();
+        ObserveWallet(state.Currencies);   // 방금 묶인 계정 id로도 기록한다
 
         var hwStatus = homework.GetAutoStatuses(profiles.Select(p => p.CharacterKey));
         var bossStatus = homework.GetFieldBossStatuses(profiles.Select(p => p.CharacterKey));
@@ -506,6 +527,10 @@ public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManag
                 name = members[0].nickname ?? members[0].realm,   // 대표(전투력이 가장 높은) 캐릭터 이름
                 solo = id.StartsWith("solo:", StringComparison.Ordinal),
                 deca = reference.Deca, mcash = reference.MCash,
+                // 계정 공통 재화: 우선순위 순(화면은 좁으면 뒤쪽을 자른다). 기록이 없으면 가장 최근에 본 캐릭터의 데카·M캐시로 채운다
+                shared = WalletView(id, reference),
+                sharedAt = WalletAt(id, reference),
+                sharedBy = wallet.Get(id)?.By,
                 membership = new { expiresAt = info?.MembershipExpiresAtUtc is { } e ? new DateTimeOffset(DateTime.SpecifyKind(e, DateTimeKind.Utc)) : (DateTimeOffset?)null, active = member },
                 caps = new { silver = CoinForecast.SilverCap(member), tribute = CoinForecast.TributeCap(member) },
                 hasCurrent = members.Any(m => m.isCurrent),

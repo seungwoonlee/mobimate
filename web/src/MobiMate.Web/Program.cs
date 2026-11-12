@@ -50,6 +50,7 @@ builder.Services.AddSingleton(new ServerIdentity { Port = port, PreferredPort = 
 builder.Services.AddSingleton(sp => new WebSettingsStore(Dir(sp)));
 builder.Services.AddSingleton(sp => new FavoritesStore(Dir(sp)));
 builder.Services.AddSingleton(sp => new AccountStore(Dir(sp)));
+builder.Services.AddSingleton(sp => new AccountWalletStore(Dir(sp)));
 builder.Services.AddSingleton(sp => new CharacterMerger(Dir(sp), sp.GetRequiredService<HomeworkCatalog>()));
 builder.Services.AddSingleton(sp => new ClassImages(Dir(sp), sp.GetRequiredService<ILogger<ClassImages>>()));
 builder.Services.AddSingleton(sp =>

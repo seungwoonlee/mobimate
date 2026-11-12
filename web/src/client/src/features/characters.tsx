@@ -40,12 +40,12 @@ export function fillText(minutes: number, nowMs: number): string {
   return `${/^(오전|오후) /.test(clock) ? '오늘 ' : ''}${clock}에`;
 }
 
-/** 카드 상태: 충전 재화가 가득이면 빨강, 80% 이상이면 노랑, 데카·M캐시가 어긋나면 진회색 (우선순위 순) */
-export type CardTone = 'red' | 'yellow' | 'gray' | 'none';
-export function cardTone(c: Pick<CharacterCard, 'silver' | 'tribute' | 'stale'>): CardTone {
+/** 카드 상태: 충전 재화가 가득이면 빨강, 80% 이상이면 노랑. (데카·M캐시가 어긋난 "동기화 안 됨" 회색은 없앴다: 계정 공통 재화는 계정 머리줄에 한 번만 보인다) */
+export type CardTone = 'red' | 'yellow' | 'none';
+export function cardTone(c: Pick<CharacterCard, 'silver' | 'tribute'>): CardTone {
   if (c.silver.level === 'full' || c.tribute.level === 'full') return 'red';
   if (c.silver.level === 'near' || c.tribute.level === 'near') return 'yellow';
-  return c.stale ? 'gray' : 'none';
+  return 'none';
 }
 
 /** 멤버십 남은 시간: "27일 3시간" / "5시간 20분". 이미 끝났으면 null */
@@ -158,6 +158,7 @@ export function CharactersView() {
 function AccountSection({ a, sort, now, move }: { a: AccountGroup; sort: SortMode; now: number; move?: { up: (() => void) | null; down: (() => void) | null } }) {
   const left = membershipLeft(a.membership.expiresAt, now);
   const servers = [...new Set(a.members.map(m => m.realm))];   // 서버별로 캐릭터를 만든 계정은 서버를 같이 보여 준다
+  const stamp = sharedStamp(a, now);
   return (
     <section className="acct" aria-label={`${a.name} 계정`}>
       <div className="acct-h">
@@ -170,14 +171,40 @@ function AccountSection({ a, sort, now, move }: { a: AccountGroup; sort: SortMod
           )}
         </h3>
         <span className="acct-meta small muted">
-          {servers.length > 1 && <>서버 {servers.join('·')} · </>}데카 <b className="num">{fmt(a.deca)}</b> · M캐시 <b className="num">{fmt(a.mcash)}</b>
-          {left ? <> · <span className={left.urgent ? `danger-text${left.blink ? ' blink' : ''}` : ''}>멤버십 {left.text} 남음</span></> : <> · 멤버십 미등록</>}
+          {servers.length > 1 && <>서버 {servers.join('·')} · </>}
+          {left ? <span className={left.urgent ? `danger-text${left.blink ? ' blink' : ''}` : ''}>멤버십 {left.text} 남음</span> : <>멤버십 미등록</>}
+          {stamp && <> · <span className={stamp.old ? 'warn-text' : ''} title="계정 공통 재화를 마지막으로 읽은 시각">{stamp.text}</span></>}
         </span>
+        <SharedWallet items={a.shared} />
       </div>
       <div className="chars">
         {sortMembers(a.members, sort).map(c => <CharacterCardView key={c.key} c={c} now={now} />)}
       </div>
     </section>
+  );
+}
+
+/**
+ * 계정 공통 재화를 읽은 시각 안내. 지금 접속 중인 계정은 값이 실시간이라 안내하지 않고, 아니면 "3일 전 · 아이라 힐러 기준".
+ * 하루가 넘으면 오래된 값이라는 뜻으로 눈에 띄게 한다.
+ */
+export function sharedStamp(a: Pick<AccountGroup, 'hasCurrent' | 'sharedAt' | 'sharedBy'>, now = Date.now()): { text: string; old: boolean } | null {
+  if (a.hasCurrent || !a.sharedAt) return null;
+  const age = now - new Date(a.sharedAt).getTime();
+  return { text: `재화 ${lastSeenText(a.sharedAt, now)}${a.sharedBy ? ` · ${a.sharedBy}` : ''}`, old: age >= 86_400_000 };
+}
+
+/** 계정 공통 재화 한 줄: 우선순위 순서 그대로, 자리가 모자라면 뒤쪽이 그냥 잘린다(줄바꿈 없음) */
+function SharedWallet({ items }: { items: AccountGroup['shared'] }) {
+  if (!items.length) return null;
+  return (
+    <div className="acct-shared" aria-label="계정 공통 재화">
+      {items.map(s => (
+        <span key={s.name} className={`sh${s.amount === 0 ? ' zero' : ''}`} title={s.name}>
+          {s.label}{s.sub && <span className="sub"> {s.sub}</span>} <b className="num">{fmt(s.amount)}</b>
+        </span>
+      ))}
+    </div>
   );
 }
 
@@ -242,7 +269,6 @@ function CharacterCardView({ c, now }: { c: CharacterCard; now: number }) {
   if (c.tribute.level === 'full') notes.push(`마족 공물이 가득 차 충전이 멈췄어요 (${fmt(c.tribute.expected)}/${fmt(c.tribute.cap)})`);
   else if (c.tribute.level === 'near') notes.push(`마족 공물이 ${fillText(c.tribute.minutesToFull, now)} 가득 차요`);
   if (tone === 'red') notes.push('지금 접속해서 사용하세요.');
-  if (c.stale) notes.push(`데카·M캐시가 같은 계정의 다른 캐릭터와 달라요. ${days >= 1 ? `${days}일째 접속하지 않아` : '마지막 접속 이후 값이 바뀌어'} 아직 동기화되지 않은 것입니다.`);
 
   const body = (
     <>
@@ -268,8 +294,6 @@ function CharacterCardView({ c, now }: { c: CharacterCard; now: number }) {
       </div>
       <div className="cc-wallet">
         <span><Icon name="coins" size={14} /><b className="num gold-text">{fmt(c.gold)}</b> G</span>
-        <span className="muted">데카 <b className="num">{fmt(c.deca)}</b></span>
-        <span className="muted">M캐시 <b className="num">{fmt(c.mcash)}</b></span>
       </div>
       {c.homework.length > 0 && <HwRows list={withFieldBossChip(c.homework, c.fieldBoss).filter(h => entryShort(c, h.id) == null)} />}   {/* 입장 전투력 미달 레이드·어비스 칩은 감춘다 */}
       {notes.length > 0 && <ul className="cc-notes small">{notes.map(n => <li key={n}>{n}</li>)}</ul>}

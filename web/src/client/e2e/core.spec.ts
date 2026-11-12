@@ -359,9 +359,13 @@ test('채팅 기본값: 가로 화면은 열려 있고 세로 화면·폰은 닫
 
 // ── 전체 현황: 계정 묶음·충전 재화·멤버십 (v1.5 요청 3·5) ──
 
-test('전체 현황: 같은 계정끼리 묶고 계정 머리글에 데카·M캐시를 보인다', async ({ page }) => {
+test('전체 현황: 같은 계정끼리 묶고 계정 머리글에 공통 재화를 우선순위 순으로 보인다', async ({ page }) => {
   await page.goto('/');
   const sections = page.locator('section.acct');
+  const shared = await sections.first().locator('.acct-shared .sh').allTextContents();
+  expect(shared[0]).toContain('M캐시');   // 우선순위: M캐시, 데카, 길드 토큰, 패키지 포인트, 캐시샵 포인트, 환생석, 웨카
+  expect(shared[1]).toContain('데카');
+  await expect(sections.first().locator('.acct-shared')).toHaveCSS('flex-wrap', 'nowrap');   // 줄바꿈 없이 뒤쪽이 잘린다
   await expect(sections.first()).toContainText('데카');
   await expect(sections.first()).toContainText('10,285');
   await expect(sections.first()).toContainText('5,619');
@@ -373,16 +377,17 @@ test('전체 현황: 같은 계정끼리 묶고 계정 머리글에 데카·M캐
   await expect(sections.nth(1)).toContainText('사제');   // 다른 계정
 });
 
-test('전체 현황: 가득 = 빨강 + 설명, 80% 이상 = 노랑, 동기화 안 됨 = 진회색', async ({ page }) => {
+test('전체 현황: 가득 = 빨강 + 설명, 80% 이상 = 노랑, 데카·M캐시가 어긋나도 카드는 평범하다', async ({ page }) => {
   await page.goto('/');
   const rogue = page.locator('.card.char', { hasText: '도적' });
   await expect(rogue).toHaveClass(/tone-red/);
   await expect(rogue).toContainText('충전이 멈췄어요');
   await expect(rogue).toContainText('지금 접속해서 사용하세요');
-  await expect(rogue).toContainText('동기화되지 않은');     // 값이 어긋난 계정원이기도 하다 (빨강이 우선)
-  const mage = page.locator('.card.char', { hasText: '마법사' });
-  await expect(mage).toHaveClass(/tone-gray/);
-  await expect(mage).toContainText('같은 계정의 다른 캐릭터와 달라요');
+  await expect(rogue).not.toContainText('동기화');
+  const mage = page.locator('.card.char', { hasText: '마법사' });   // 값이 어긋난 계정원: 이제 카드를 칠하거나 경고하지 않는다 (계정 공통 재화는 계정 머리줄에 한 번만)
+  await expect(mage).not.toHaveClass(/tone-(gray|red|yellow)/);
+  await expect(mage).not.toContainText('동기화');
+  await expect(mage).not.toContainText('데카');
   const priest = page.locator('.card.char', { hasText: '사제' });
   await expect(priest).toHaveClass(/tone-yellow/);
   await expect(priest).toContainText(/은동전이 .*(뒤|에) 가득 차요/);
