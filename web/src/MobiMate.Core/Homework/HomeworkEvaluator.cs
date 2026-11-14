@@ -10,7 +10,8 @@ public sealed record HomeworkObservation(
     AlteringWorksResponse? AlteringWorks = null,
     bool CollectedByApp = false,
     IReadOnlyList<CurrencyItem>? Currencies = null,
-    IReadOnlyList<ItemData>? Items = null);
+    IReadOnlyList<ItemData>? Items = null,
+    GrowthGuideResponse? GrowthGuide = null);
 
 public sealed record HomeworkEvaluation(IReadOnlyList<string> ChangedIds, IReadOnlyList<string> InProgressIds);
 
@@ -73,6 +74,21 @@ public static partial class HomeworkEvaluator
             // 던전 클리어 상태(게임이 직접 알려 줌)가 같은 관찰의 현재 맵과 맞으면 확정 근거다 (요일 던전, 2026-10-12 실측).
             // 캐릭터를 바꾼 직후 관찰은 쓰지 않는다. Cleared는 처치 순간부터 약 17초만 유지된다.
             var clearedHere = !characterJustSwitched && def.ClearOnDungeonCleared && DungeonClearedHere(def, obs, nowUtc);
+
+            // 게임 성장 가이드(콘텐츠 가이드)가 직접 알려 주는 완료·남은 횟수는 확정 근거다 (CLI가 주는 사실은 확정, 2026-11-15).
+            // 완료는 수동 설정도 이긴다. 목표가 2 이상인 카운터(소환의 결계·검은 구멍)는 게임의 남은 횟수를 그대로 따른다.
+            // 완료가 아닐 때 완료를 되돌리지는 않는다(가이드가 클리어보다 늦게 갱신될 수 있다): 되돌리는 것은 카운터뿐이다.
+            if (!characterJustSwitched && GrowthEntry(def, obs) is { IsUnlocked: true } guide)
+            {
+                var gs = existing ?? new HomeworkItemState();
+                if (ApplyGrowthGuide(def, gs, guide, nowUtc))
+                {
+                    ledger.Items[def.Id] = gs;
+                    changed.Add(def.Id);
+                }
+                if (gs.Completed || def.EffectiveMode == HomeworkMode.ManualStepCounter) continue;   // 게임이 알려 준 항목은 다른 근거를 더 찾지 않는다
+                existing = ledger.Items.GetValueOrDefault(def.Id);
+            }
 
             // 퀘스트가 트래커에 다시 보이면 그 주기에 아직 끝내지 않은 것이 확실하다: 자동 완료는 물론 수동 완료도 취소한다
             // (확실한 증거는 수동 설정보다 우선한다. 사라져서 완료로 본 판정이 틀렸거나, 수동 체크가 잘못된 것이다)
@@ -173,6 +189,46 @@ public static partial class HomeworkEvaluator
             }
         }
         return new HomeworkEvaluation(changed, inProgress);
+    }
+
+    /// <summary>이 숙제에 해당하는 성장 가이드 항목 (없거나 가이드를 못 읽었으면 null)</summary>
+    internal static GrowthGuideItem? GrowthEntry(HomeworkDefinition def, HomeworkObservation obs)
+    {
+        if (def.GrowthTarget is not { Length: > 0 } target || obs.GrowthGuide?.Contents is not { } list) return null;
+        var day = def.GrowthDay ?? (def.Period == HomeworkPeriod.Daily ? "Daily" : "Weekly");
+        return list.FirstOrDefault(g => string.Equals(g.Target, target, StringComparison.Ordinal) && string.Equals(g.DayType, day, StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>성장 가이드 값을 항목에 반영한다. 바뀌었으면 true.</summary>
+    internal static bool ApplyGrowthGuide(HomeworkDefinition def, HomeworkItemState st, GrowthGuideItem g, DateTimeOffset now)
+    {
+        var goal = Math.Max(1, def.Goal);
+        var done = g.IsCompleted || (goal > 1 && g.RemainingCount == 0);
+        if (done)
+        {
+            if (st.Completed && st.Count >= goal && !st.ManualOverride) return false;
+            st.ManualOverride = false;
+            st.ManualAtUtc = null;
+            Complete(st, goal, "성장 가이드(게임): 완료", now);
+            return true;
+        }
+        if (goal > 1 && g.RemainingCount is { } left)
+        {
+            var count = Math.Clamp(goal - left, 0, goal);
+            if (!st.Completed && st.Count == count && st.Goal == goal && !st.ManualOverride) return false;
+            st.Completed = false;
+            st.Auto = true;
+            st.CompletedAtUtc = null;
+            st.ManualOverride = false;
+            st.ManualAtUtc = null;
+            st.Count = count;
+            st.Goal = goal;
+            st.RemainingCount = left;
+            st.Suggestion = null;
+            st.Evidence = $"성장 가이드(게임): {count}/{goal}";
+            return true;
+        }
+        return false;
     }
 
     private static IReadOnlyList<MissionItem>? MissionsFor(HomeworkDefinition def, HomeworkObservation obs) =>
