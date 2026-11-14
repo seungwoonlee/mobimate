@@ -55,7 +55,7 @@ public class ObserveSplitTests(ITestOutputHelper output)
     // ── 빠른 관찰은 3개만 읽는다 ──
 
     [Fact]
-    public async Task FastObservation_ReadsOnlyQuestsCharacterAndMap_FullReadsAllNine()
+    public async Task FastObservation_ReadsOnlyQuestsCharacterAndMap_FullReadsAllTen()
     {
         using var game = new FakeGame();
         await using var h = await AppHarness.StartAsync(game: game);
@@ -72,7 +72,7 @@ public class ObserveSplitTests(ITestOutputHelper output)
 
         from = LogLines(game);
         await h.Watcher.ObserveAsync(CancellationToken.None, full: true);
-        Assert.Equal(9, Calls(game, from).Count);
+        Assert.Equal(10, Calls(game, from).Count);   // 성장 가이드(get_growth_guide)가 늘었다
     }
 
     // ── 부분 관찰(null)이 판정을 해치지 않는다 ──

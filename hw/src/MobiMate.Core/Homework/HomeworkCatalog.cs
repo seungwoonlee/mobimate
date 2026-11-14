@@ -32,6 +32,19 @@ public sealed class HomeworkDefinition
     public string Subtitle { get; init; } = "";
     public string Icon { get; init; } = "";
     public int Goal { get; init; } = 1;
+
+    /// <summary>
+    /// 게임 성장 가이드(get_growth_guide)의 같은 콘텐츠 이름 (예: "소환의 결계"). 게임이 직접 주는 사실이라 확정 근거다.
+    /// 완료 표시와 (목표가 2 이상이면) 남은 횟수를 읽는다. 일일·주간은 <see cref="GrowthDay"/>(Daily|Weekly)로 가린다.
+    /// </summary>
+    public string? GrowthTarget { get; init; }
+    public string? GrowthDay { get; init; }
+
+    /// <summary>성장 가이드에서 "잠김"만 읽을 콘텐츠 이름 (레이드·어비스처럼 합계만 주어 완료 판정에는 못 쓰는 것). GrowthTarget이 있으면 그 이름을 쓴다.</summary>
+    public string? GrowthLockTarget { get; init; }
+
+    /// <summary>성장 가이드 목록에 이 콘텐츠가 아예 없으면 아직 열리지 않은 것이다(뱅가드 브리치).</summary>
+    public bool GrowthLockWhenAbsent { get; init; }
     public string? Reward { get; init; }
     public string? Pool { get; init; }
     public List<string> MissionTitles { get; init; } = new();

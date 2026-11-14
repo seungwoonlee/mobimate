@@ -18,7 +18,7 @@ public sealed record HomeworkCard(
 }
 
 /// <summary>캐릭터 카드에 보여 줄 자동 판정 숙제 한 줄. State: done / todo / unknown. Suggestion = 완료가 아닌데 클리어 증거가 보인 "완료 제안"(화면의 모서리 점).</summary>
-public sealed record HomeworkAutoStatus(string Id, string Title, string Period, string State, string? Evidence, int? Remaining = null, string Category = "", HomeworkSuggestion? Suggestion = null);
+public sealed record HomeworkAutoStatus(string Id, string Title, string Period, string State, string? Evidence, int? Remaining = null, string Category = "", HomeworkSuggestion? Suggestion = null, string? Locked = null);
 
 /// <summary>공유 풀(필드 보스 택1)의 캐릭터별 현황. State: done / todo / unknown, Item = 넘긴 보스 이름(완료일 때).</summary>
 /// <param name="Guess">"클리어 추정": 필드 보스 미션 카운터는 올랐는데 어느 보스인지 못 가렸다(눌러서 확인).</param>
@@ -270,7 +270,8 @@ public sealed class HomeworkService
                     else if (!string.IsNullOrWhiteSpace(def.TokenCurrency)) state = fresh && ledger!.RaidTokensObservedUtc >= cycleStart ? "todo" : "unknown";
                     else state = "unknown";
                     list.Add(new HomeworkAutoStatus(def.Id, def.CardLabel ?? def.Title, def.Period == HomeworkPeriod.Daily ? "daily" : "weekly", state, st?.Evidence, state == "todo" ? st?.RemainingCount : null, def.Category,
-                        state == "done" ? null : st?.Suggestion));
+                        state == "done" ? null : st?.Suggestion,
+                        HomeworkEvaluator.GrowthLockHint(def, ledger?.GrowthGuide)));   // 게임의 잠금 안내(레벨·퀘스트 조건): 입장 불가 표시에 쓴다
                 }
                 result[key] = list;
             }

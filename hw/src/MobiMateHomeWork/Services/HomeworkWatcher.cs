@@ -33,6 +33,7 @@ public sealed class HomeworkWatcher(HomeworkService homework, GameQueries q, App
         Task<CliData<AlteringWorksResponse>>? tW2 = null;
         Task<CliData<List<CurrencyItem>>>? tC = null;
         Task<CliData<List<ItemData>>>? tI = null;
+        Task<CliData<GrowthGuideResponse>>? tG = null;
         if (full)
         {
             tD = q.Get<List<MissionItem>>("get_daily_missions", ct);
@@ -41,8 +42,9 @@ public sealed class HomeworkWatcher(HomeworkService homework, GameQueries q, App
             tW2 = q.Get<AlteringWorksResponse>("get_altering_works", ct);
             tC = q.Get<List<CurrencyItem>>("get_currencies", ct);   // 레이드 증표 관찰
             tI = q.Get<List<ItemData>>("get_items", ct);            // 레이드 고유 보상 아이템 (에이렐 하프 조각·서큐버스 거울 조각)
+            tG = q.Get<GrowthGuideResponse>("get_growth_guide", ct);   // 게임이 직접 주는 콘텐츠 가이드(완료·남은 횟수·잠금)
         }
-        await Task.WhenAll(new Task[] { tMe, tQ, tE }.Concat(new Task?[] { tD, tW, tA, tW2, tC, tI }.OfType<Task>()));
+        await Task.WhenAll(new Task[] { tMe, tQ, tE }.Concat(new Task?[] { tD, tW, tA, tW2, tC, tI, tG }.OfType<Task>()));
 
         if (tMe.Result.Value is not { } ch || string.IsNullOrWhiteSpace(ch.RealmName) || string.IsNullOrWhiteSpace(ch.JobName)) return null;
         // 빠른 관찰은 재화를 읽지 않으므로 캐릭터를 감시가 알던 캐릭터와 같은 읽기로 확인할 수 있을 때만 쓴다.
@@ -56,7 +58,7 @@ public sealed class HomeworkWatcher(HomeworkService homework, GameQueries q, App
         // 퀘스트는 판정기가 이번 관찰을 건너뛰고, 다음 조회는 새로 받게 한다.
         if (homework.LastObservedCharacter is { } last && !last.Equals(key, StringComparison.OrdinalIgnoreCase))
         {
-            q.Invalidate("get_currencies", "get_items", "get_quests", "get_weekly_missions", "get_daily_missions");   // 미션도 캐릭터마다 다르다(2026-10-22 실측)
+            q.Invalidate("get_currencies", "get_items", "get_quests", "get_weekly_missions", "get_daily_missions", "get_growth_guide");   // 미션도 캐릭터마다 다르다(2026-10-22 실측)
             if (full)
             {
                 var tC2 = q.Get<List<CurrencyItem>>("get_currencies", ct);
@@ -73,7 +75,7 @@ public sealed class HomeworkWatcher(HomeworkService homework, GameQueries q, App
         }
         Evaluate(key, new HomeworkObservation(
             tD?.Result.Value, tW?.Result.Value, tQ.Result.Value, tA?.Result.Value, tE.Result.Value, tW2?.Result.Value,
-            Currencies: currencies, Items: items));
+            Currencies: currencies, Items: items, GrowthGuide: tG?.Result.Value));
         return key;
     }
 
