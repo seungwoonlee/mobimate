@@ -231,3 +231,18 @@ public class LiveStreamsTests
         Assert.Equal(1, l.Count);
     }
 }
+
+public class ChineseGuardTests
+{
+    [Theory]
+    [InlineData("哦吼吼吼吼！", true)]          // 2026-11-15 실측: "어허허허허"를 이렇게 받아 적었다
+    [InlineData("嗯，哈哈哈哈哈！", true)]      // "으하하하하"
+    [InlineData("오늘 레이드 같이 가요", false)]
+    [InlineData("하하하하", false)]
+    [InlineData("어허허허허", false)]
+    [InlineData("오늘 打 같이 가요", false)]    // 한글이 더 많으면 그대로 둔다
+    [InlineData("", false)]
+    [InlineData(null, false)]
+    public void LooksChinese_OnlyWhenHanDominates(string? text, bool expected) =>
+        Assert.Equal(expected, MobiMate.Web.Voice.Qwen3SttEngine.LooksChinese(text));
+}

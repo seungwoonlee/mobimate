@@ -384,6 +384,10 @@ button.toast { border: 0; text-align: left; cursor: pointer; }
 .acct-h h3{margin:0;font-size:15px;font-weight:700}
 .acct-meta b{color:var(--text-1)}
 /* 계정 공통 재화: 한 줄 고정, 자리가 모자라면 뒤쪽(우선순위 낮은 것)이 잘린다 */
+.skill-list{list-style:none;margin:6px 0 0;padding:0;display:grid;gap:6px 14px;grid-template-columns:repeat(auto-fill,minmax(210px,1fr))}
+.skill-list li{display:grid;grid-template-columns:1fr auto;gap:2px 8px;align-items:baseline;min-width:0}
+.skill-list .sk-n{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.skill-list .sk-bar{grid-column:1/-1;height:5px}
 .acct-shared{flex:1 0 100%;display:flex;gap:6px;white-space:nowrap;overflow:hidden;min-width:0;padding-top:4px}
 .acct-shared .sh{flex:none;background:var(--bg-2,rgba(128,128,128,.12));border-radius:8px;padding:1px 9px;font-size:13px;color:var(--text-2)}
 .acct-shared .sh b{color:var(--text-1)}

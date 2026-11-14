@@ -341,6 +341,9 @@ public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManag
                 };
             }),
             gatherables = tG.Result.Value?.Items?.Select(g => new { name = g.DisplayName, toolOk = g.ToolOk, inBag = bag.GetValueOrDefault(g.DisplayName), favorite = favorites.IsGather(g.DisplayName) }),
+            // 생활 스킬(지금 접속한 캐릭터, 헤더를 읽을 때 갱신된 값). 레벨이 높은 것부터
+            skills = state.Character?.LivingSkills?.Where(s => !string.IsNullOrWhiteSpace(s.DisplayName)).OrderByDescending(s => s.Level).ThenByDescending(s => s.Exp)
+                .Select(s => new { name = s.DisplayName, level = s.Level, exp = s.Exp, maxExp = s.MaxExp }),
         }, null, tA.Result.FetchedAt);
     }
 

@@ -1,6 +1,6 @@
 import { useDeferredValue, useEffect, useState } from 'react';
 import { useLife } from '../api/queries';
-import type { Gatherable, GatherJob, Work } from '../api/types';
+import type { Gatherable, GatherJob, LivingSkill, Work } from '../api/types';
 import { CardHead, Dialog, ErrorCard, Fresh, Icon, Pill, Skeleton } from '../components/ui';
 import { useNow } from '../hooks/layout';
 import { collect, collectAll, setFavorite, startGatherQueue, stopAction } from '../lib/actions';
@@ -71,7 +71,7 @@ export function LifeView() {
   const q = useLife();
   if (q.isPending) return <Skeleton lines={6} />;
   if (q.isError && !q.data) return <ErrorCard error={q.error} onRetry={() => q.refetch()} />;
-  const { works, gatherables } = q.data.data;
+  const { works, gatherables, skills } = q.data.data;
   return (
     <>
       <div className="view-head">
@@ -80,7 +80,29 @@ export function LifeView() {
       </div>
       <Works works={works ?? []} at={q.dataUpdatedAt} />
       <GatherHelper items={gatherables ?? []} />
+      <Skills skills={skills ?? []} />
     </>
+  );
+}
+
+/** 경험치 진행률(0~100). 최대치를 모르면 0 */
+export const skillPercent = (exp: number, maxExp: number): number => (maxExp > 0 ? Math.min(100, Math.max(0, Math.floor((exp / maxExp) * 100))) : 0);
+
+/** 생활 스킬: 지금 캐릭터의 레벨과 다음 레벨까지 경험치 (게임 get_my_info의 LivingSkills) */
+function Skills({ skills }: { skills: LivingSkill[] }) {
+  if (!skills.length) return null;
+  return (
+    <section className="card" aria-label="생활 스킬">
+      <CardHead icon="hammer" title={<>생활 스킬 <span className="faint small num">{skills.length}종</span></>} />
+      <ul className="skill-list">
+        {skills.map(s => (
+          <li key={s.name} title={`${s.name} Lv.${s.level} · ${s.exp.toLocaleString('ko-KR')} / ${s.maxExp.toLocaleString('ko-KR')}`}>
+            <span className="sk-n">{s.name}</span><b className="sk-lv num">Lv.{s.level}</b>
+            <span className="bar sk-bar" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={skillPercent(s.exp, s.maxExp)} aria-label={`${s.name} 경험치`}><i style={{ width: `${skillPercent(s.exp, s.maxExp)}%` }} /></span>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 

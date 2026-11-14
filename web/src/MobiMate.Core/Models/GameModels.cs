@@ -24,7 +24,16 @@ public record CharacterInfo(
     [property: JsonPropertyName("LUCK")] ScoreVal? LUCK,
     [property: JsonPropertyName("WILL")] ScoreVal? WILL,
     [property: JsonPropertyName("PaladinStats")] PaladinStatsInfo? PaladinStats,
-    [property: JsonPropertyName("Vitals")] VitalsInfo? Vitals
+    [property: JsonPropertyName("Vitals")] VitalsInfo? Vitals,
+    // 생활 스킬(2026-11-05 신설): 일상 채집·나무 베기·광석 캐기·낚시·대장 기술 등의 레벨과 경험치
+    [property: JsonPropertyName("LivingSkills")] List<LivingSkillInfo>? LivingSkills = null
+);
+
+public record LivingSkillInfo(
+    [property: JsonPropertyName("DisplayName")] string? DisplayName,
+    [property: JsonPropertyName("Level")] int Level,
+    [property: JsonPropertyName("Exp")] long Exp,
+    [property: JsonPropertyName("MaxExp")] long MaxExp
 );
 
 public record ScoreVal([property: JsonPropertyName("DisplayName")] string? DisplayName, [property: JsonPropertyName("Value")] long Value);
