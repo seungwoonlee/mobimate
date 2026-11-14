@@ -1,0 +1,78 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- 숙제 전용 데스크톱 앱 (WPF). 서비스는 웹앱(MobiMate.Web)의 연결부를 옮긴 것이고, 판정·저장 로직은 MobiMate.Core를 그대로 쓴다. -->
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <OutputType>WinExe</OutputType>
+    <UseWPF>true</UseWPF>
+    <!-- 트레이 아이콘(NotifyIcon)용 -->
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>MobiMateHomeWork</RootNamespace>
+    <Product>MobiMate Homework</Product>
+    <AssemblyTitle>MobiMate Homework</AssemblyTitle>
+    <Description>MobiMate Homework — 마비노기 모바일 숙제 트래커</Description>
+    <AssemblyName>MobiMateHomeWork</AssemblyName>
+    <InvariantGlobalization>false</InvariantGlobalization>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- WFAC010: WinForms 분석기는 manifest의 DPI 설정을 경고하지만, 이 앱의 화면은 WPF라 manifest(PerMonitorV2)가 맞는 방법이다. -->
+    <NoWarn>$(NoWarn);WFAC010</NoWarn>
+
+    <!-- 빌드 시각 기반 버전 <주>.<부>.MMdd.HHmm (웹앱과 같은 방식) -->
+    <BuildStamp>$([System.DateTime]::Now.ToString("MMdd.HHmm"))</BuildStamp>
+    <Version>1.0.$(BuildStamp)</Version>
+    <InformationalVersion>1.0.$(BuildStamp)</InformationalVersion>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+
+    <!-- 아이콘: hw/tools/IconGen이 그린 app.ico (exe 아이콘·창 아이콘·트레이 아이콘이 같은 파일을 쓴다) -->
+    <ApplicationIcon>app.ico</ApplicationIcon>
+  </PropertyGroup>
+
+  <!--
+    배포: `dotnet publish hw/src/MobiMateHomeWork -c Release -o hw/dist` 한 번으로
+    단일 exe(.NET 8 데스크톱 런타임 필요, 기호 파일 없음)와 전달용 zip(exe만)을 만든다.
+  -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>false</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <DebugType>none</DebugType>
+    <CopyOutputSymbolsToPublishDirectory>false</CopyOutputSymbolsToPublishDirectory>
+  </PropertyGroup>
+  <Target Name="ZipAfterPublish" AfterTargets="Publish" Condition="'$(PublishDir)' != ''">
+    <Exec Command="powershell -NoProfile -Command &quot;Compress-Archive -Path '$(PublishDir)MobiMateHomeWork.exe' -DestinationPath '$(PublishDir)MobiMateHomeWork.zip' -Force&quot;" />
+    <Message Importance="high" Text="배포물: $(PublishDir)MobiMateHomeWork.exe, $(PublishDir)MobiMateHomeWork.zip" />
+  </Target>
+
+  <!-- WinForms 전역 using은 WPF 형식(Application, Window, Timer 등)과 이름이 겹치므로 뺀다. 트레이 코드만 별칭으로 쓴다. -->
+  <ItemGroup>
+    <Using Remove="System.Windows.Forms" />
+    <Using Remove="System.Drawing" />
+    <Using Include="Microsoft.Extensions.Configuration" />
+    <Using Include="Microsoft.Extensions.DependencyInjection" />
+    <Using Include="Microsoft.Extensions.Hosting" />
+    <Using Include="Microsoft.Extensions.Logging" />
+    <Using Include="MobiMate" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.3.2" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- 창 아이콘(WPF 리소스)과 트레이 아이콘(임베디드 리소스)이 같은 파일을 읽는다 -->
+    <Resource Include="app.ico" />
+    <EmbeddedResource Include="app.ico" LogicalName="app.ico" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\MobiMate.Core\MobiMate.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="MobiMateHomeWork.Tests" />
+  </ItemGroup>
+
+</Project>

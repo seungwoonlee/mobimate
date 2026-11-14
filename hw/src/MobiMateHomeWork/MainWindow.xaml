@@ -1,0 +1,222 @@
+﻿<Window x:Class="MobiMateHomeWork.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:MobiMateHomeWork.ViewModels"
+        xmlns:svc="clr-namespace:MobiMateHomeWork.Services"
+        xmlns:views="clr-namespace:MobiMateHomeWork.Views"
+        Title="MobiMate Homework" Icon="app.ico" Width="960" Height="520" MinWidth="760" MinHeight="380"
+        WindowStyle="None" ResizeMode="CanResize" WindowStartupLocation="Manual"
+        Background="{DynamicResource Brush.Bg}" Foreground="{DynamicResource Brush.Text}"
+        FontFamily="{StaticResource Font.Text}" FontSize="{DynamicResource Font.Base}"
+        UseLayoutRounding="True" SnapsToDevicePixels="True" TextOptions.TextFormattingMode="Display"
+        Topmost="{Binding AlwaysOnTop}">
+
+    <!-- 직접 그린 제목줄(WindowChrome): 크기 조절 테두리를 살려 Win+화살표·끌어 붙이기(Snap)가 그대로 동작한다. 캡션 영역 32. -->
+    <WindowChrome.WindowChrome>
+        <WindowChrome CaptionHeight="32" ResizeBorderThickness="6" GlassFrameThickness="0" CornerRadius="0" UseAeroCaptionButtons="False" />
+    </WindowChrome.WindowChrome>
+
+    <Border x:Name="Frame" Background="{DynamicResource Brush.Bg}" BorderBrush="{DynamicResource Brush.Line}" BorderThickness="1">
+        <Grid x:Name="Root">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="32" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="28" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <!-- 배경 그림: 가장 뒤, 정적(애니메이션 없음). 한 번 가공한 비트맵을 UniformToFill로 늘려 그린다. 투명도는 설정(5~40%). -->
+            <Rectangle x:Name="BackdropRect" Grid.RowSpan="4" IsHitTestVisible="False" Visibility="Collapsed" />
+
+            <!-- 제목줄 32 -->
+            <Grid Grid.Row="0" Background="{DynamicResource Brush.Panel}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Orientation="Horizontal" Margin="12,0,0,0" VerticalAlignment="Center">
+                    <StackPanel x:Name="TitleBrand" Orientation="Horizontal" Background="Transparent" WindowChrome.IsHitTestVisibleInChrome="True">
+                        <Image Source="app.ico" Width="16" Height="16" RenderOptions.BitmapScalingMode="HighQuality" VerticalAlignment="Center" />
+                        <TextBlock Text="MobiMate Homework" FontWeight="SemiBold" Margin="8,0,0,0" VerticalAlignment="Center" />
+                    </StackPanel>
+                    <Border WindowChrome.IsHitTestVisibleInChrome="True" Background="Transparent" Margin="12,0,0,0" Padding="4" VerticalAlignment="Center"
+                            ToolTip="{Binding ConnectionTooltip}" AutomationProperties.Name="{Binding ConnectionLabel}">
+                        <StackPanel Orientation="Horizontal">
+                            <Ellipse x:Name="ConnDot" Width="8" Height="8" VerticalAlignment="Center">
+                                <Ellipse.Style>
+                                    <Style TargetType="Ellipse">
+                                        <Setter Property="Fill" Value="{DynamicResource Brush.ConnUnknown}" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Connection}" Value="Connected"><Setter Property="Fill" Value="{DynamicResource Brush.ConnConnected}" /></DataTrigger>
+                                            <DataTrigger Binding="{Binding Connection}" Value="Disconnected"><Setter Property="Fill" Value="{DynamicResource Brush.ConnDisconnected}" /></DataTrigger>
+                                            <DataTrigger Binding="{Binding Connection}" Value="CliMissing"><Setter Property="Fill" Value="{DynamicResource Brush.ConnCliMissing}" /></DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Ellipse.Style>
+                            </Ellipse>
+                            <TextBlock Text="{Binding ConnectionLabel}" Style="{StaticResource Text.Small}" Margin="6,0,0,0" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                <!-- 리셋 카운트다운 (값은 H4가 더 다듬는다. 지금은 KST 06:00 기준 실제 값) -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Margin="0,0,12,0" VerticalAlignment="Center"
+                            ToolTip="일일 리셋(매일 06:00)과 주간 리셋(월요일 06:00)까지 남은 시간">
+                    <TextBlock Text="&#xE916;" FontFamily="{StaticResource Font.Icon}" FontSize="13" Style="{StaticResource Text.Muted}" VerticalAlignment="Center" Margin="0,0,5,0" />
+                    <TextBlock Text="{Binding Countdown}" Style="{StaticResource Text.Muted}" VerticalAlignment="Center" />
+                </StackPanel>
+                <Button Grid.Column="3" x:Name="SettingsButton" Style="{StaticResource Button.Icon}" Content="&#xE713;" Click="OnSettings" Margin="0,0,4,0"
+                        WindowChrome.IsHitTestVisibleInChrome="True" ToolTip="설정" AutomationProperties.Name="설정" />
+                <StackPanel Grid.Column="4" Orientation="Horizontal" WindowChrome.IsHitTestVisibleInChrome="True">
+                    <Button Style="{StaticResource Button.Caption}" Content="&#xE921;" Click="OnMinimize" ToolTip="최소화" AutomationProperties.Name="최소화" />
+                    <Button x:Name="MaxButton" Style="{StaticResource Button.Caption}" Content="&#xE922;" Click="OnMaximize" ToolTip="최대화" AutomationProperties.Name="최대화" />
+                    <Button Style="{StaticResource Button.CaptionClose}" Content="&#xE8BB;" Click="OnClose" ToolTip="닫기" AutomationProperties.Name="닫기" />
+                </StackPanel>
+            </Grid>
+
+            <!-- 경고 띠 (옛 웹앱·CLI 없음 같은 AppEvents 경고). 닫으면 사라지고, 경고가 해소되면 저절로 사라진다. -->
+            <Border Grid.Row="1" Background="{DynamicResource Brush.WarnSoft}" BorderBrush="{DynamicResource Brush.Warn}" BorderThickness="0,0,0,1">
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding BannerVisible}" Value="True"><Setter Property="Visibility" Value="Visible" /></DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <Grid MinHeight="28">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="{Binding BannerText}" Foreground="{DynamicResource Brush.Warn}" TextWrapping="Wrap" Margin="12,4,8,4" VerticalAlignment="Center" />
+                    <Button Grid.Column="1" Style="{StaticResource Button.Icon}" Content="&#xE711;" FontSize="10" Width="28" Height="24" Margin="0,0,4,0"
+                            Command="{Binding DismissBannerCommand}" ToolTip="닫기" AutomationProperties.Name="경고 닫기" />
+                </Grid>
+            </Border>
+
+            <!-- 계정 탭 줄 28: 이름 · 남은 숙제 칸 수 배지(모두 마치면 ✓) · 접속 중 계정은 초록 점 -->
+            <Grid Grid.Row="2" Margin="12,0,12,0" Background="{DynamicResource Brush.PanelBg}">
+                <ListBox Style="{StaticResource PillTabs}" ItemsSource="{Binding Board.Accounts}" SelectedItem="{Binding Board.SelectedAccount}" VerticalAlignment="Center"
+                         AutomationProperties.Name="계정">
+                    <ListBox.Visibility>
+                        <Binding Path="IsFirstReadPending" Converter="{StaticResource InvertBoolToVisibility}" />
+                    </ListBox.Visibility>
+                    <ListBox.ItemTemplate>
+                        <DataTemplate DataType="{x:Type vm:AccountTab}">
+                            <StackPanel Orientation="Horizontal" ToolTip="{Binding Tooltip}">
+                                <Ellipse Width="6" Height="6" Fill="{DynamicResource Brush.Done}" Margin="0,0,6,0" VerticalAlignment="Center"
+                                         Visibility="{Binding IsCurrent, Converter={StaticResource BoolToVisibility}}" />
+                                <TextBlock Text="{Binding Name}" VerticalAlignment="Center" />
+                                <Border x:Name="BadgeBox" Background="{DynamicResource Brush.Surface2}" CornerRadius="8" MinWidth="16" Height="16" Margin="6,0,0,0" Padding="5,0">
+                                    <TextBlock x:Name="BadgeText" Text="{Binding Badge}" Style="{StaticResource Text.Small}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                            </StackPanel>
+                            <DataTemplate.Triggers>
+                                <DataTrigger Binding="{Binding AllDone}" Value="True">
+                                    <Setter TargetName="BadgeBox" Property="Background" Value="{DynamicResource Brush.DoneFill}" />
+                                    <Setter TargetName="BadgeText" Property="Foreground" Value="{DynamicResource Brush.Done}" />
+                                </DataTrigger>
+                            </DataTemplate.Triggers>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </Grid>
+
+            <!-- 본문: 왼쪽 숙제 표 + 오른쪽 캐릭터 카드(폭은 배치 단계가 정한다). 첫 읽기 전이나 기록이 없을 때는 안내 글만 보인다. -->
+            <Grid Grid.Row="3">
+                <Grid x:Name="BoardArea">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="{DynamicResource Metrics.CardWidth}" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.Style>
+                        <Style TargetType="Grid">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsFirstReadPending}" Value="True"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger>
+                                <DataTrigger Binding="{Binding Board.HasAccounts}" Value="False"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Grid.Style>
+                    <views:HomeworkTableView x:Name="Table" Grid.Column="0" Margin="8,8,0,8" DataContext="{Binding Board}" />
+                    <views:CharacterCardView Grid.Column="1" Margin="0,8,8,8" DataContext="{Binding Board}" />
+                </Grid>
+
+                <!-- 첫 읽기 전 자리 표시 / 기록이 하나도 없을 때 안내 -->
+                <TextBlock Text="{Binding PendingText}" Style="{StaticResource Text.Muted}" HorizontalAlignment="Center" VerticalAlignment="Center"
+                           Visibility="{Binding IsFirstReadPending, Converter={StaticResource BoolToVisibility}}" Padding="16,8" />
+                <TextBlock Text="{Binding EmptyText}" HorizontalAlignment="Center" VerticalAlignment="Center" TextWrapping="Wrap"
+                           TextAlignment="Center" Margin="24,0">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock" BasedOn="{StaticResource Text.Muted}">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                            <Style.Triggers>
+                                <MultiDataTrigger>
+                                    <MultiDataTrigger.Conditions>
+                                        <Condition Binding="{Binding Board.HasAccounts}" Value="False" />
+                                        <Condition Binding="{Binding IsFirstReadPending}" Value="False" />
+                                    </MultiDataTrigger.Conditions>
+                                    <Setter Property="Visibility" Value="Visible" />
+                                </MultiDataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+            </Grid>
+
+            <!-- 알림 띠(토스트): 명령 실패 같은 일을 몇 초 보이고 사라진다 -->
+            <Border Grid.Row="3" VerticalAlignment="Bottom" HorizontalAlignment="Center" Margin="16,0,16,14" MaxWidth="560" Padding="12,6,4,6" CornerRadius="8"
+                    Background="{DynamicResource Brush.Surface2}" BorderBrush="{DynamicResource Brush.Warn}" BorderThickness="1"
+                    Visibility="{Binding Board.NoticeVisible, Converter={StaticResource BoolToVisibility}}" AutomationProperties.LiveSetting="Assertive">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="{Binding Board.NoticeText}" TextWrapping="Wrap" VerticalAlignment="Center" />
+                    <Button Grid.Column="1" Style="{StaticResource Button.Icon}" Content="&#xE711;" FontSize="10" Width="26" Height="24" Margin="6,0,0,0"
+                            Command="{Binding Board.DismissNoticeCommand}" ToolTip="닫기" AutomationProperties.Name="알림 닫기" />
+                </Grid>
+            </Border>
+
+            <!-- 필드 보스 고르기 팝업: 창 안을 어둡게 덮고 가운데에 띄운다. 바깥을 누르거나 Esc로 닫는다. -->
+            <Grid Grid.RowSpan="4" x:Name="BossOverlay" Background="#99000000" MouseLeftButtonDown="OnBossScrimPressed">
+                <Grid.Style>
+                    <Style TargetType="Grid">
+                        <Setter Property="Visibility" Value="Visible" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding Board.BossPicker}" Value="{x:Null}"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Grid.Style>
+                <Border HorizontalAlignment="Center" VerticalAlignment="Center" Background="{DynamicResource Brush.Surface2}" BorderBrush="{DynamicResource Brush.Line}"
+                        BorderThickness="1" CornerRadius="10" Padding="16" MinWidth="340" MouseLeftButtonDown="OnBossDialogPressed"
+                        DataContext="{Binding Board.BossPicker}" AutomationProperties.Name="필드 보스 고르기">
+                    <StackPanel>
+                        <TextBlock Text="{Binding Title}" FontWeight="SemiBold" FontSize="{DynamicResource Font.Title}" TextWrapping="Wrap" />
+                        <TextBlock Text="{Binding Hint}" Style="{StaticResource Text.Muted}" TextWrapping="Wrap" Margin="0,4,0,10" />
+                        <ItemsControl ItemsSource="{Binding Bosses}" Focusable="False">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate><UniformGrid Columns="3" /></ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="{x:Type vm:BossDef}">
+                                    <Button Content="{Binding Title}" Margin="0,0,6,6" MinHeight="32"
+                                            Command="{Binding DataContext.Board.ChooseBossCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}" />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <Button HorizontalAlignment="Right" Margin="0,4,0,0"
+                                Command="{Binding DataContext.Board.CloseBossPickerCommand, RelativeSource={RelativeSource AncestorType=Window}}">
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE711;" FontFamily="{StaticResource Font.Icon}" FontSize="11" Margin="0,0,6,0" VerticalAlignment="Center" /><TextBlock Text="닫기" /></StackPanel>
+                        </Button>
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </Grid>
+    </Border>
+</Window>

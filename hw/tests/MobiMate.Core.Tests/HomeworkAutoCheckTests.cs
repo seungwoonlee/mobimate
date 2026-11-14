@@ -1,0 +1,698 @@
+namespace MobiMate.Tests;
+
+/// <summary>
+/// 자동 판정 숙제 (승운 확인 2026-10-02): 요일 던전(퀘스트가 보였다가 사라지면 완료) · 카브락(증표가 늘면 완료) ·
+/// 주간 목표 정기 의뢰(이름 뒤 (N)). 그리고 캐릭터 카드용 현황(GetAutoStatuses).
+/// </summary>
+public class HomeworkAutoCheckTests : IDisposable
+{
+    private readonly string _dir = Path.Combine(Path.GetTempPath(), "mm-hwauto-" + Guid.NewGuid().ToString("N"));
+    private readonly HomeworkCatalog _catalog = HomeworkCatalog.LoadEmbedded();
+    private DateTimeOffset _now = Kst(2026, 10, 6, 12, 0);   // 화요일 정오 KST: 눈부신 보석을 찾아서
+    private const string Main = "에린_댄서";
+    private const string Alt = "에린_검술사";
+
+    public HomeworkAutoCheckTests() => Directory.CreateDirectory(_dir);
+    public void Dispose() { try { Directory.Delete(_dir, true); } catch { } }
+
+    private static DateTimeOffset Kst(int y, int mo, int d, int h, int mi) => new DateTimeOffset(y, mo, d, h, mi, 0, TimeSpan.FromHours(9)).ToUniversalTime();
+    private HomeworkService NewService() => new(_catalog, new HomeworkStore(_dir), () => _now);
+    private static HomeworkCard Card(HomeworkBoard b, string id) => b.Cards.Single(c => c.Id == id);
+    private static HomeworkAutoStatus Auto(HomeworkService s, string key, string id) => s.GetAutoStatuses(new[] { key })[key].Single(x => x.Id == id);
+    private static QuestItem Quest(string title, params bool[] objectives) =>
+        new(title, "pinned_sub", "사이드", objectives.Select((o, i) => new QuestObjective($"<color=orange>목표</color> {i + 1}", o)).ToList());
+    private static HomeworkObservation Quests(params QuestItem[] q) => new(Quests: q.ToList());
+    private static readonly QuestItem Other = Quest("우울한 화가", false);
+    private const string Gem = "눈부신 보석을 찾아서";
+    private const string Guild = "[주간 목표] 모험가 길드의 정기 의뢰";
+
+    // ── 요일 던전 ──
+
+    [Fact]
+    public void DayDungeon_NeverSeen_StaysPendingAndUnknown()
+    {
+        var svc = NewService();
+        svc.Evaluate(Main, Quests(Other));
+        Assert.Equal(HomeworkCardStatus.Pending, Card(svc.GetBoard(Main), "daily_day_dungeon").Status);
+        Assert.Equal("unknown", Auto(svc, Main, "daily_day_dungeon").State);
+    }
+
+    [Fact]
+    public void DayDungeon_QuestVisible_IsConfirmedTodo_ThenVanished_IsAutoDone()
+    {
+        var svc = NewService();
+        svc.Evaluate(Main, Quests(Quest(Gem, false), Other));
+        Assert.Equal("todo", Auto(svc, Main, "daily_day_dungeon").State);
+        Assert.Equal(HomeworkCardStatus.Pending, Card(svc.GetBoard(Main), "daily_day_dungeon").Status);
+
+        _now += TimeSpan.FromMinutes(30);
+        svc.Evaluate(Main, Quests(Other));   // 퀘스트가 목록에서 사라짐
+        var card = Card(svc.GetBoard(Main), "daily_day_dungeon");
+        Assert.Equal(HomeworkCardStatus.AutoDone, card.Status);
+        Assert.Contains("사라짐", card.Evidence);
+        Assert.Equal("done", Auto(svc, Main, "daily_day_dungeon").State);
+    }
+
+    [Fact]
+    public void DayDungeon_RecommendedSweepEntry_ConfirmsTodo_ButNeverReopensACompletion()
+    {
+        var svc = NewService();
+        svc.Evaluate(Main, Quests(Quest("요일 던전 소탕", false)));   // 추천 활동 (2026-10-22 실측: 캐릭터를 바꾸자 이것만 보였다)
+        Assert.Equal("todo", Auto(svc, Main, "daily_day_dungeon").State);
+        svc.Set(Main, "daily_day_dungeon", completed: true);
+        _now += TimeSpan.FromMinutes(5);
+        svc.Evaluate(Main, Quests(Quest("요일 던전 소탕", false)));   // 클리어 뒤에도 남아 있을 수 있다: 완료를 되돌리지 않는다
+        Assert.Equal("done", Auto(svc, Main, "daily_day_dungeon").State);
+    }
+
+    [Fact]
+    public void DayDungeon_RecommendedSweepEntryDisappearing_IsNotACompletion()
+    {
+        var svc = NewService();
+        svc.Evaluate(Main, Quests(Quest("요일 던전 소탕", false), Other));
+        _now += TimeSpan.FromMinutes(1);
+        svc.Evaluate(Main, Quests(Other));                                   // 추천 목록이 바뀌어 빠졌다
+        _now += HomeworkEvaluator.VanishConfirmWindow + TimeSpan.FromSeconds(1);
+        svc.Evaluate(Main, Quests(Other));
+        Assert.NotEqual(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main), "daily_day_dungeon").Status);
+    }
+
+    [Fact]
+    public void DayDungeon_OnlyTodaysQuestCounts()
+    {
+        var svc = NewService();   // 화요일: 보석. 황금(월·목) 퀘스트는 오늘 것이 아니다
+        svc.Evaluate(Main, Quests(Quest("빛나는 황금을 찾아서", false), Other));
+        _now += TimeSpan.FromMinutes(5);
+        svc.Evaluate(Main, Quests(Other));
+        Assert.Equal(HomeworkCardStatus.Pending, Card(svc.GetBoard(Main), "daily_day_dungeon").Status);
+    }
+
+    [Theory]
+    [InlineData(5, "빛나는 황금을 찾아서")]   // 월
+    [InlineData(6, "눈부신 보석을 찾아서")]   // 화
+    [InlineData(7, "찬란한 촉매를 찾아서")]   // 수
+    [InlineData(8, "빛나는 황금을 찾아서")]   // 목
+    [InlineData(9, "눈부신 보석을 찾아서")]   // 금
+    [InlineData(10, "찬란한 촉매를 찾아서")]  // 토
+    [InlineData(11, "찬란한 촉매를 찾아서")]  // 일: 게시판에서 고른 서브퀘 셋 중 아무거나
+    [InlineData(11, "던전의 보물을 찾아서")]  // 일: 게시판 확인 단계의 시작 퀘스트
+    public void DayDungeon_UsesTheQuestOfTheWeekday(int day, string title)
+    {
+        _now = Kst(2026, 10, day, 12, 0);
+        var svc = NewService();
+        svc.Evaluate(Main, Quests(Quest(title, false)));
+        _now += TimeSpan.FromMinutes(5);
+        svc.Evaluate(Main, Quests(Other));
+        Assert.Equal(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main), "daily_day_dungeon").Status);
+    }
+
+    [Fact]
+    public void DayDungeon_Sunday_BoardPick_KeepsTitle_TransientEmptyListIsNotVanish()
+    {
+        _now = Kst(2026, 10, 11, 12, 0);
+        var svc = NewService();
+        svc.Evaluate(Main, Quests(Quest("던전의 보물을 찾아서", false)));   // 목표: 임무 게시판 확인
+        _now += TimeSpan.FromSeconds(10);
+        svc.Evaluate(Main, Quests());                                       // 서브퀘 전환 중 잠깐 빈 목록
+        Assert.NotEqual(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main), "daily_day_dungeon").Status);
+        _now += TimeSpan.FromSeconds(5);
+        svc.Evaluate(Main, Quests(Quest("던전의 보물을 찾아서", false)));   // 목표만 "찬란한 유적 클리어"로 바뀐다
+        _now += TimeSpan.FromMinutes(5);
+        svc.Evaluate(Main, Quests(Other));
+        Assert.Equal(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main), "daily_day_dungeon").Status);
+    }
+
+    [Fact]
+    public void DayDungeon_UsesGameDay_SoBefore6amIsStillYesterday()
+    {
+        _now = Kst(2026, 10, 7, 5, 30);   // 수요일 05:30 = 아직 화요일(보석)
+        var svc = NewService();
+        svc.Evaluate(Main, Quests(Quest(Gem, false)));
+        _now += TimeSpan.FromMinutes(10);
+        svc.Evaluate(Main, Quests(Other));
+        Assert.Equal(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main), "daily_day_dungeon").Status);
+    }
+
+    [Fact]
+    public void DayDungeon_EmptyQuestList_IsNotEvidenceOfVanishing()
+    {
+        var svc = NewService();
+        svc.Evaluate(Main, Quests(Quest(Gem, false)));
+        _now += TimeSpan.FromMinutes(1);
+        svc.Evaluate(Main, Quests());   // 아직 덜 읽힌 빈 목록
+        Assert.Equal(HomeworkCardStatus.Pending, Card(svc.GetBoard(Main), "daily_day_dungeon").Status);
+    }
+
+    [Fact]
+    public void DayDungeon_ReappearingQuest_CancelsTheAutoCompletion()
+    {
+        var svc = NewService();
+        svc.Evaluate(Main, Quests(Quest(Gem, false)));
+        _now += TimeSpan.FromMinutes(1);
+        svc.Evaluate(Main, Quests(Other));
+        Assert.Equal(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main), "daily_day_dungeon").Status);
+        _now += TimeSpan.FromMinutes(1);
+        svc.Evaluate(Main, Quests(Quest(Gem, false)));   // 다시 보임: 트래커 슬롯이 바뀌었을 뿐
+        Assert.Equal(HomeworkCardStatus.Pending, Card(svc.GetBoard(Main), "daily_day_dungeon").Status);
+    }
+
+    [Fact]
+    public void DayDungeon_SightingOfYesterday_DoesNotCompleteToday()
+    {
+        var svc = NewService();
+        svc.Evaluate(Main, Quests(Quest(Gem, false)));
+        _now = Kst(2026, 10, 9, 7, 0);   // 금요일(보석) 아침: 어제의 목격은 오늘 근거가 아니다
+        svc.Evaluate(Main, Quests(Other));
+        Assert.Equal(HomeworkCardStatus.Pending, Card(svc.GetBoard(Main), "daily_day_dungeon").Status);
+        Assert.Equal("unknown", Auto(svc, Main, "daily_day_dungeon").State);
+    }
+
+    [Fact]
+    public void DayDungeon_ManualCheck_SurvivesRestart_ButIsCancelledWhenTheQuestIsStillVisible()
+    {
+        var svc = NewService();
+        svc.Set(Main, "daily_day_dungeon", completed: true);
+        svc.Evaluate(Main, Quests(Other));   // 퀘스트가 안 보이면 수동 체크를 건드리지 않는다
+        Assert.Equal(HomeworkCardStatus.ManualDone, Card(svc.GetBoard(Main), "daily_day_dungeon").Status);
+        Assert.Equal(HomeworkCardStatus.ManualDone, Card(NewService().GetBoard(Main), "daily_day_dungeon").Status);
+
+        svc.Evaluate(Main, Quests(Quest(Gem, false)));   // 퀘스트가 보인다 = 아직 안 했다는 확실한 증거 (수동보다 우선)
+        Assert.Equal(HomeworkCardStatus.Pending, Card(svc.GetBoard(Main), "daily_day_dungeon").Status);
+    }
+
+    [Fact]
+    public void Vanguard_ManualDone_IsCancelledWhenTheQuestAppears()
+    {
+        var svc = NewService();
+        svc.Set(Main, "weekly_vanguard_breach", completed: true);
+        svc.Evaluate(Main, Quests(Other));
+        Assert.Equal(HomeworkCardStatus.ManualDone, Card(svc.GetBoard(Main), "weekly_vanguard_breach").Status);
+        svc.Evaluate(Main, Quests(Quest(Vanguard, false), Other));
+        Assert.Equal(HomeworkCardStatus.Pending, Card(svc.GetBoard(Main), "weekly_vanguard_breach").Status);
+        Assert.Equal("todo", Auto(svc, Main, "weekly_vanguard_breach").State);
+    }
+
+    [Fact]
+    public void DayDungeon_SightingPersists_SoVanishAfterRestartStillCompletes()
+    {
+        NewService().Evaluate(Main, Quests(Quest(Gem, false)));
+        _now += TimeSpan.FromMinutes(20);
+        var restarted = NewService();
+        restarted.Evaluate(Main, Quests(Other));
+        Assert.Equal(HomeworkCardStatus.AutoDone, Card(restarted.GetBoard(Main), "daily_day_dungeon").Status);
+    }
+
+    [Fact]
+    public void QuestsAfterCharacterSwitch_AreNotUsed()
+    {
+        var svc = NewService();
+        svc.Evaluate(Main, Quests(Quest(Gem, false)));
+        _now += TimeSpan.FromMinutes(1);
+        svc.Evaluate(Alt, Quests(Quest(Gem, false)));          // 전환 직후: 이전 캐릭터 목록일 수 있어 건너뜀
+        Assert.Equal("unknown", Auto(svc, Alt, "daily_day_dungeon").State);
+        _now += TimeSpan.FromMinutes(1);
+        svc.Evaluate(Alt, Quests(Quest(Gem, false)));          // 이어진 관찰부터 쓴다
+        Assert.Equal("todo", Auto(svc, Alt, "daily_day_dungeon").State);
+    }
+
+    // ── 카브락 ──
+
+    [Fact]
+    public void Cavrak_TokenIncrease_IsAutoDone()
+    {
+        const string token = "원정의 증거: 카브락 레이드";
+        HomeworkObservation Cur(long n) => new(Currencies: new List<CurrencyItem> { new(token, n), new("골드", 1000) });
+        var svc = NewService();
+        svc.Evaluate(Main, Cur(84));
+        Assert.Equal("unknown", Auto(svc, Main, "raid_cavrak").State);   // 안 깼다는 것은 CLI로 확인할 수 없다
+        _now += TimeSpan.FromHours(2);
+        svc.Evaluate(Main, Cur(102));   // 카브락 입문 +18
+        var card = Card(svc.GetBoard(Main), "raid_cavrak");
+        Assert.Equal(HomeworkCardStatus.AutoDone, card.Status);
+        Assert.Null(card.Suggestion);
+        Assert.Equal("done", Auto(svc, Main, "raid_cavrak").State);
+    }
+
+    // ── 필드 보스 앙그르바한 (2026-10-05 실측: 처치하면 "토벌" 퀘스트가 "영역 나가기"로 바뀐다) ──
+
+    private const string AngrHunt = "<color=orange>앙그르바한</color> 토벌";
+    private const string AngrExit = "<color=orange>앙그르바한</color>의 영역 나가기";
+    private const string AngrArea = "원념이 메아리치는 곳";
+
+    private static HomeworkObservation InArea(string space, long keyBoxes, params QuestItem[] quests) =>
+        new(Quests: quests.ToList(), Items: new List<ItemData> { new("inventory", "미스틱 다이스 열쇠 상자", "", (int)keyBoxes, false) },
+            Environment: new EnvironmentInfo("1채널", null, null, space));
+
+    [Fact]
+    public void Angrbahan_EnteringTheBossArea_IsAutoDone_EvenIfTheCharacterLogsOffRightAfterTheKill()
+    {
+        var svc = NewService();
+        svc.Evaluate(Main, InArea("창백한 산", 2));
+        Assert.NotEqual(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main), "fieldboss_angrbahan").Status);
+        _now += TimeSpan.FromSeconds(30);
+        svc.Evaluate(Main, InArea(AngrArea, 2, Quest(AngrHunt, false)));   // 보스 전용 지역: 들어온 것 자체가 근거다 (나가기 퀘스트·창백한 산 이동을 기다리지 않는다)
+        var card = Card(svc.GetBoard(Main), "fieldboss_angrbahan");
+        Assert.Equal(HomeworkCardStatus.AutoDone, card.Status);
+        Assert.Contains("원념이 메아리치는 곳", card.Evidence);
+    }
+
+    [Fact]
+    public void Angrbahan_ManuallyReopenedInsideTheArea_StaysOpen_UntilTheCharacterEntersAgain()
+    {
+        var svc = NewService();
+        svc.Evaluate(Main, InArea(AngrArea, 2));
+        _now += TimeSpan.FromMinutes(1);
+        svc.Set(Main, "fieldboss_angrbahan", completed: false);
+        _now += TimeSpan.FromMinutes(1);
+        svc.Evaluate(Main, InArea(AngrArea, 2));    // 아직 안에 있다
+        Assert.NotEqual(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main), "fieldboss_angrbahan").Status);
+        _now += TimeSpan.FromMinutes(1);
+        svc.Evaluate(Main, InArea("창백한 산", 2));
+        _now += TimeSpan.FromMinutes(1);
+        svc.Evaluate(Main, InArea(AngrArea, 2));    // 다시 들어왔다
+        Assert.Equal(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main), "fieldboss_angrbahan").Status);
+    }
+
+    [Fact]
+    public void Angrbahan_ClearQuestAppearing_IsAutoDone_AndTheOtherBossesAreLocked()
+    {
+        var svc = NewService();
+        svc.Evaluate(Main, Quests(Quest(AngrHunt, false)));
+        Assert.NotEqual(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main), "fieldboss_angrbahan").Status);
+
+        _now += TimeSpan.FromSeconds(30);
+        svc.Evaluate(Main, Quests(Quest(AngrExit, false)));
+        var card = Card(svc.GetBoard(Main), "fieldboss_angrbahan");
+        Assert.Equal(HomeworkCardStatus.AutoDone, card.Status);
+        Assert.Contains("보스 처치", card.Evidence);
+        Assert.Equal(HomeworkCardStatus.PoolDone, Card(svc.GetBoard(Main), "fieldboss_peri").Status);   // 주간 1회 택1
+    }
+
+    [Fact]
+    public void Angrbahan_EmptyTrackerAtTheKillMoment_ChangesNothing()
+    {
+        var svc = NewService();
+        svc.Evaluate(Main, Quests(Quest(AngrHunt, false)));
+        svc.Evaluate(Main, Quests());   // 처치 순간 트래커가 잠깐 빈다
+        Assert.NotEqual(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main), "fieldboss_angrbahan").Status);
+    }
+
+    [Fact]
+    public void Angrbahan_ManuallyReopened_StaysOpenWhileTheSameExitQuestIsShowing_ButANewOneCompletes()
+    {
+        var svc = NewService();
+        svc.Evaluate(Main, Quests(Quest(AngrExit, false)));
+        Assert.Equal(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main), "fieldboss_angrbahan").Status);
+
+        _now += TimeSpan.FromMinutes(1);
+        svc.Set(Main, "fieldboss_angrbahan", completed: false);   // 잘못 잡혔다고 끈다
+        _now += TimeSpan.FromMinutes(1);
+        svc.Evaluate(Main, Quests(Quest(AngrExit, false)));      // 같은 퀘스트가 계속 보인다: 되살아나지 않는다
+        Assert.NotEqual(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main), "fieldboss_angrbahan").Status);
+
+        _now += TimeSpan.FromMinutes(1);
+        svc.Evaluate(Main, Quests(Quest("우울한 화가", false)));  // 영역을 나가 퀘스트가 사라졌다
+        _now += TimeSpan.FromMinutes(1);
+        svc.Evaluate(Main, Quests(Quest(AngrExit, false)));      // 다시 처치해 새로 뜬다
+        Assert.Equal(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main), "fieldboss_angrbahan").Status);
+    }
+
+    [Fact]
+    public void Angrbahan_KeyBoxesRisingInsideTheArea_IsAutoDone_ButNotElsewhere()
+    {
+        var svc = NewService();
+        svc.Evaluate(Main, InArea("콜헨", 2));
+        _now += TimeSpan.FromMinutes(2);
+        svc.Evaluate(Main, InArea("콜헨", 8));   // 다른 곳에서 늘었다: 보스 처치가 아니다
+        Assert.NotEqual(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main), "fieldboss_angrbahan").Status);
+
+        _now += TimeSpan.FromMinutes(2);
+        svc.Evaluate(Main, InArea(AngrArea, 8));
+        _now += TimeSpan.FromMinutes(2);
+        svc.Evaluate(Main, InArea(AngrArea, 14));   // 보스 지역에서 +6
+        Assert.Equal(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main), "fieldboss_angrbahan").Status);
+    }
+
+    [Fact]
+    public void Angrbahan_QuestListRightAfterSwitchingCharacters_IsNotUsed()
+    {
+        var svc = NewService();
+        svc.Evaluate(Main, Quests(Quest("우울한 화가", false)));
+        svc.Evaluate(Alt, Quests(Quest(AngrExit, false)));   // 캐릭터를 바꾼 직후 목록은 이전 캐릭터 것일 수 있다
+        Assert.NotEqual(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Alt), "fieldboss_angrbahan").Status);
+        _now += TimeSpan.FromSeconds(30);
+        svc.Evaluate(Alt, Quests(Quest(AngrExit, false)));
+        Assert.Equal(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Alt), "fieldboss_angrbahan").Status);
+        Assert.NotEqual(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main), "fieldboss_angrbahan").Status);   // 다른 캐릭터에는 번지지 않는다
+    }
+
+    private static MissionItem RaidMission(int c) => new("선장님, 출정합니다!", "레이드 1회 토벌", c, 1, c >= 1, c >= 1);
+
+    private static HomeworkObservation RaidObs(string space, int mission) =>
+        new(WeeklyMissions: new List<MissionItem> { RaidMission(mission) }, Environment: new EnvironmentInfo("1채널", null, null, space));
+
+    [Theory]
+    [InlineData("먼 바다의 바위 협곡", "raid_cavrak")]
+    [InlineData("먼 바다의 춤추는 바람", "raid_airel")]
+    [InlineData("먼 바다의 빛바랜 환영", "raid_white_succubus")]
+    public void Raid_EnteringTheRaidArea_IsOnlyInProgress_AndTheMissionRisingCompletesIt(string space, string id)
+    {
+        var svc = NewService();
+        svc.Evaluate(Main, RaidObs("콜헨", 0));
+        _now += TimeSpan.FromMinutes(1);
+        svc.Evaluate(Main, RaidObs(space, 0));   // 들어온 것만으로는 완료가 아니다 (2026-10-22 결정)
+        var card = Card(svc.GetBoard(Main), id);
+        Assert.Equal(HomeworkCardStatus.InProgress, card.Status);
+        Assert.Null(card.Suggestion);
+
+        _now += TimeSpan.FromMinutes(2);
+        svc.Evaluate(Main, RaidObs(space, 1));   // 처치 순간 "레이드 1회 토벌" 0→1
+        card = Card(svc.GetBoard(Main), id);
+        Assert.Equal(HomeworkCardStatus.AutoDone, card.Status);
+        Assert.Contains("레이드 1회 토벌", card.Evidence);
+        foreach (var other in new[] { "raid_cavrak", "raid_airel", "raid_white_succubus" }.Where(x => x != id))
+            Assert.NotEqual(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main), other).Status);
+    }
+
+    [Fact]
+    public void Raid_EnteringAndLeavingWithoutAClear_StaysOpen()
+    {
+        var svc = NewService();
+        svc.Evaluate(Main, RaidObs("콜헨", 0));
+        _now += TimeSpan.FromMinutes(1);
+        svc.Evaluate(Main, RaidObs("먼 바다의 바위 협곡", 0));
+        _now += TimeSpan.FromMinutes(5);
+        svc.Evaluate(Main, RaidObs("콜헨", 0));   // 실패하고 나왔다: 미션이 그대로다
+        Assert.NotEqual(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main), "raid_cavrak").Status);
+        Assert.NotEqual("done", Auto(svc, Main, "raid_cavrak").State);
+    }
+
+    [Fact]
+    public void Raid_EntryWithoutMissionData_DoesNotComplete()
+    {
+        var svc = NewService();
+        svc.Evaluate(Main, new HomeworkObservation(Environment: new EnvironmentInfo("1채널", null, null, "먼 바다의 바위 협곡")));
+        Assert.NotEqual(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main), "raid_cavrak").Status);
+    }
+
+    private static HomeworkObservation Abyss(string space, long stamps) =>
+        new(Currencies: new List<CurrencyItem> { new("마물 퇴치 증표", stamps) }, Environment: new EnvironmentInfo("1채널", null, null, space));
+
+    [Theory]
+    [InlineData("허상의 정박지", "abyss_illusory_anchorage")]   // 실측 2026-10-04: 클리어하면 마물 퇴치 증표 +300
+    [InlineData("광기의 동굴", "abyss_madness_cave")]
+    [InlineData("흩어진 물길", "abyss_scattered_waterway")]
+    public void Abyss_TokenGainedInsideTheArea_IsAutoDone(string space, string id)
+    {
+        var svc = NewService();
+        svc.Evaluate(Main, Abyss(space, 4477));
+        Assert.NotEqual(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main), id).Status);   // 들어간 것만으로는 완료가 아니다
+        _now += TimeSpan.FromMinutes(3);
+        svc.Evaluate(Main, Abyss(space, 4777));
+        Assert.Equal(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main), id).Status);
+        Assert.Equal(1, svc.GetBoard(Main).Cards.Count(c => c.Category == "abyss" && c.Status == HomeworkCardStatus.AutoDone));
+    }
+
+    [Fact]
+    public void Abyss_TokenGainedElsewhere_IsNotAClear()
+    {
+        var svc = NewService();
+        svc.Evaluate(Main, Abyss("콜헨", 4477));
+        _now += TimeSpan.FromMinutes(3);
+        svc.Evaluate(Main, Abyss("콜헨", 4747));   // 카브락 +270 같은 다른 획득
+        Assert.All(new[] { "abyss_illusory_anchorage", "abyss_madness_cave", "abyss_scattered_waterway" },
+            id => Assert.NotEqual(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main), id).Status));
+    }
+
+    [Fact]
+    public void Abyss_TokenSeenJustAfterLeavingTheArea_StillCounts()
+    {
+        var svc = NewService();
+        svc.Evaluate(Main, Abyss("허상의 정박지", 4477));
+        _now += TimeSpan.FromMinutes(3);
+        svc.Evaluate(Main, Abyss("콜헨", 4777));   // 클리어 직후 지역을 벗어난 뒤 처음 읽었다
+        Assert.Equal(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main), "abyss_illusory_anchorage").Status);
+    }
+
+    [Fact]
+    public void Raid_OtherAreas_AreNotEntry()
+    {
+        var svc = NewService();
+        svc.Evaluate(Main, new HomeworkObservation(Environment: new EnvironmentInfo("1채널", null, null, "콜헨")));
+        Assert.All(new[] { "raid_cavrak", "raid_airel", "raid_white_succubus" }, id => Assert.NotEqual(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main), id).Status));
+    }
+
+    [Fact]
+    public void Raid_ManuallyReopened_TheMissionRisingInsideTheArea_StillCompletes()
+    {
+        var svc = NewService();
+        svc.Evaluate(Main, RaidObs("먼 바다의 바위 협곡", 0));
+        _now += TimeSpan.FromMinutes(1);
+        svc.Set(Main, "raid_cavrak", completed: false);
+        _now += TimeSpan.FromMinutes(1);
+        svc.Evaluate(Main, RaidObs("먼 바다의 바위 협곡", 0));
+        Assert.NotEqual(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main), "raid_cavrak").Status);
+        _now += TimeSpan.FromMinutes(1);
+        svc.Evaluate(Main, RaidObs("먼 바다의 바위 협곡", 1));   // 카운터가 오른 순간은 수동 미완료보다 확실하다
+        Assert.Equal(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main), "raid_cavrak").Status);
+    }
+
+    [Fact]
+    public void AutoStatus_CarriesTheSuggestion_UntilTheItemIsDone()
+    {
+        var svc = NewService();
+        var obs = new HomeworkObservation(Environment: new EnvironmentInfo("1채널", null, null, "원념이 메아리치는 곳"));   // 앙그르바한: 진입이 곧 완료인 항목
+        svc.Evaluate(Main, obs);
+        svc.Set(Main, "fieldboss_angrbahan", completed: false);   // 실패해서 수동으로 끈다
+        svc.Evaluate(Main, obs);                                  // 아직 안에 있다 → 완료 제안
+        var st = Auto(svc, Main, "fieldboss_angrbahan");
+        Assert.NotEqual("done", st.State);
+        Assert.Equal("raidMapEntered", st.Suggestion?.Code);   // 화면의 "완료 제안" 모서리 점이 쓴다
+        Assert.All(svc.GetAutoStatuses(new[] { Main })[Main].Where(x => x.Id != "fieldboss_angrbahan"), x => Assert.Null(x.Suggestion));
+
+        svc.Set(Main, "fieldboss_angrbahan", completed: true);     // 완료하면 제안은 사라진다
+        Assert.Equal("done", Auto(svc, Main, "fieldboss_angrbahan").State);
+        Assert.Null(Auto(svc, Main, "fieldboss_angrbahan").Suggestion);
+    }
+
+    [Fact]
+    public void InactiveRaids_AreHiddenAndNotCounted()
+    {
+        var svc = NewService();
+        var b = svc.GetBoard(Main);
+        Assert.DoesNotContain(b.Cards, c => c.Id is "raid_glasgivnen" or "raid_tabartas");
+        Assert.Equal(new[] { "raid_airel", "raid_cavrak", "raid_white_succubus" }, b.Cards.Where(c => c.Category == "raid").Select(c => c.Id).OrderBy(x => x));   // 열려 있는 레이드 3종
+    }
+
+    // ── 주간 목표: 모험가 길드 정기 의뢰 ──
+
+    [Fact]
+    public void GuildRegular_NameWithoutSuffix_IsNotDone_AndShowsObjectiveProgress()
+    {
+        var svc = NewService();
+        svc.Evaluate(Main, Quests(Quest(Guild, true, true, false)));
+        var card = Card(svc.GetBoard(Main), "weekly_guild_regular");
+        Assert.Equal(HomeworkCardStatus.Pending, card.Status);
+        Assert.Contains("아직 클리어 전", card.Evidence);
+        Assert.Contains("2/3", card.Evidence);
+        Assert.Equal("todo", Auto(svc, Main, "weekly_guild_regular").State);
+    }
+
+    [Theory]
+    [InlineData("[주간 목표] 모험가 길드의 정기 의뢰 (1)")]
+    [InlineData("[주간 목표] 모험가 길드의 정기 의뢰 (2)")]
+    [InlineData("[주간 목표]  모험가 길드의 정기 의뢰(3)")]
+    public void GuildRegular_NameWithSuffix_IsAutoDone(string title)
+    {
+        var svc = NewService();
+        svc.Evaluate(Main, Quests(Quest(title, false)));
+        var card = Card(svc.GetBoard(Main), "weekly_guild_regular");
+        Assert.Equal(HomeworkCardStatus.AutoDone, card.Status);
+        Assert.Contains("표시", card.Evidence);
+    }
+
+    [Fact]
+    public void GuildRegular_OtherQuestsWithSimilarNames_DoNotMatch()
+    {
+        var svc = NewService();
+        svc.Evaluate(Main, Quests(Quest("모험가 길드의 고난도 심층 공략", false), Quest(Guild + " (0)", false), Quest(Guild + " 특별", false)));
+        Assert.Equal(HomeworkCardStatus.Pending, Card(svc.GetBoard(Main), "weekly_guild_regular").Status);
+        Assert.Equal("unknown", Auto(svc, Main, "weekly_guild_regular").State);
+    }
+
+    [Fact]
+    public void GuildRegular_ResetsOnMonday6am()
+    {
+        var svc = NewService();
+        svc.Evaluate(Main, Quests(Quest(Guild + " (1)", true)));
+        Assert.Equal("done", Auto(svc, Main, "weekly_guild_regular").State);
+        _now = Kst(2026, 10, 12, 6, 1);   // 다음 주 월요일 06:01
+        Assert.Equal("unknown", Auto(svc, Main, "weekly_guild_regular").State);   // 지난 주 완료는 새 주기의 근거가 아니다
+        Assert.Equal(HomeworkCardStatus.Pending, Card(svc.GetBoard(Main), "weekly_guild_regular").Status);
+    }
+
+    // ── 뱅가드 브리치: 퀘스트 이름·남은 횟수 읽기 (완료 판정은 HomeworkVanguardRunTests) ──
+
+    private const string Vanguard = "[긴급 의뢰] 뱅가드 브리치";
+
+    [Theory]
+    [InlineData("[긴급 의뢰] 뱅가드 브리치")]
+    [InlineData("<color=orange>[긴급 의뢰]</color>  뱅가드  브리치")]
+    public void Vanguard_MatchesTheQuestNameIgnoringTagsAndSpaces(string title)
+    {
+        var svc = NewService();
+        svc.Evaluate(Main, Quests(Quest(title, false)));
+        Assert.Equal("todo", Auto(svc, Main, "weekly_vanguard_breach").State);
+    }
+
+    [Fact]
+    public void Vanguard_InRunQuest_IsNotMistakenForTheWeeklyQuest()
+    {
+        // 사고 재현 (2026-10-03): 판을 하는 동안 "뱅가드 브리치 클리어"(적 처치하기 0/1) 퀘스트가 따로 생겨 남은 횟수가 (1)로 읽혔다
+        var svc = NewService();
+        var inRun = Counted("뱅가드 브리치 클리어", (0, 1));
+        var weekly = Counted(Vanguard, (0, 1));
+        svc.Evaluate(Main, Quests(inRun, weekly));
+        Assert.Null(Auto(svc, Main, "weekly_vanguard_breach").Remaining);
+
+        var other = NewService();   // 새 저장소로: 판 퀘스트만 보이면 주간 퀘스트를 본 것이 아니다
+        System.IO.Directory.Delete(_dir, true); System.IO.Directory.CreateDirectory(_dir);
+        other.Evaluate(Alt, Quests(Counted("뱅가드 브리치 클리어", (0, 1))));
+        Assert.Equal("unknown", Auto(other, Alt, "weekly_vanguard_breach").State);
+    }
+
+    [Fact]
+    public void Vanguard_SwitchingAway_KeepsTheLastSeenTodoAndRemaining_OnTheCard()
+    {
+        // 사고 재현 (2026-10-02): 화염술사 카드의 "뱅가드(3)"이 다른 캐릭터로 접속하자 "뱅가드"로 돌아갔다
+        var svc = NewService();
+        svc.Evaluate(Main, Quests(Counted(Vanguard, (0, 1))));
+        Assert.Null(Auto(svc, Main, "weekly_vanguard_breach").Remaining);
+        _now += TimeSpan.FromMinutes(1);
+        svc.Evaluate(Alt, Quests(Other));
+        _now += TimeSpan.FromMinutes(1);
+        svc.Evaluate(Alt, Quests(Other));
+        var a = Auto(svc, Main, "weekly_vanguard_breach");
+        Assert.Equal("todo", a.State);
+        Assert.Null(a.Remaining);
+        Assert.Equal("todo", Auto(NewService(), Main, "weekly_vanguard_breach").State);   // 재기동 뒤에도
+    }
+
+    [Fact]
+    public void Vanguard_ContinuityBreak_DoesNotAffectDayDungeon()
+    {
+        var svc = NewService();
+        svc.Evaluate(Main, Quests(Quest(Gem, false)));
+        svc.Evaluate(Alt, Quests(Other));
+        _now += TimeSpan.FromMinutes(5);
+        Vanished(svc, Main, Other);
+        _now += TimeSpan.FromMinutes(5);
+        Vanished(svc, Main, Other);
+        Assert.Equal(HomeworkCardStatus.AutoDone, Card(svc.GetBoard(Main), "daily_day_dungeon").Status);   // 요일 던전은 끊김 조건이 없다
+    }
+
+    [Fact]
+    public void Vanguard_ResetsOnMonday6am_AndSightingFromLastWeekIsNotUsed()
+    {
+        var svc = NewService();
+        svc.Evaluate(Main, Quests(Quest(Vanguard, false)));
+        _now = Kst(2026, 10, 12, 6, 30);                  // 다음 주 월요일 새벽
+        Vanished(svc, Main, Other);
+        Assert.Equal(HomeworkCardStatus.Pending, Card(svc.GetBoard(Main), "weekly_vanguard_breach").Status);
+        Assert.Equal("unknown", Auto(svc, Main, "weekly_vanguard_breach").State);
+    }
+
+    /// <summary>끊김 없는 관찰이 필요한 퀘스트의 "사라짐": 처음 안 보인 순간은 확인 대기이고, 확인 시간 뒤에도 없을 때 완료로 확정한다.</summary>
+    private void Vanished(HomeworkService svc, string key, params QuestItem[] q)
+    {
+        svc.Evaluate(key, Quests(q));
+        _now += HomeworkEvaluator.VanishConfirmWindow + TimeSpan.FromSeconds(1);
+        svc.Evaluate(key, Quests(q));
+    }
+
+    [Fact]
+    public void Vanguard_AbsentWhileTheMapIsLoading_IsIgnored()
+    {
+        var svc = NewService();
+        svc.Evaluate(Main, Quests(Counted(Vanguard, (0, 1))));
+        _now += TimeSpan.FromMinutes(1);
+        var loading = new HomeworkObservation(Quests: new List<QuestItem> { Other }, Environment: new EnvironmentInfo(null, null, null, ""));
+        svc.Evaluate(Main, loading);
+        _now += HomeworkEvaluator.VanishConfirmWindow + TimeSpan.FromSeconds(1);
+        svc.Evaluate(Main, loading);
+        Assert.Equal(HomeworkCardStatus.Pending, Card(svc.GetBoard(Main), "weekly_vanguard_breach").Status);
+        Assert.Equal("todo", Auto(svc, Main, "weekly_vanguard_breach").State);
+    }
+
+    private static QuestItem Counted(string title, params (int Count, int Goal)[] objs) =>
+        new(title, "main", "메인", objs.Select(o => new QuestObjective($"<color=orange>클리어</color> {o.Count}/{o.Goal}", o.Count >= o.Goal, o.Count, o.Goal)).ToList());
+
+    [Theory]
+    [InlineData(0, 1, 1)]
+    public void Vanguard_RemainingCount_FromObjectiveCountAndGoal(int count, int goal, int remaining)
+    {
+        var svc = NewService();
+        svc.Evaluate(Main, Quests(Counted(Vanguard, (count, goal))));
+        var a = Auto(svc, Main, "weekly_vanguard_breach");
+        Assert.Equal("todo", a.State);
+        Assert.Null(a.Remaining);
+        Assert.DoesNotContain("남은", Card(svc.GetBoard(Main), "weekly_vanguard_breach").Evidence);
+    }
+
+    [Theory]
+    [InlineData("[긴급 의뢰] 뱅가드 브리치 (1)", 1)]
+    [InlineData("[긴급 의뢰] 뱅가드 브리치(1)", 1)]
+    [InlineData("<color=orange>[긴급 의뢰]</color> 뱅가드 브리치 (1)", 1)]
+    public void Vanguard_NameSuffixIsTheRemainingCount_AndStaysTheSameQuest(string title, int remaining)
+    {
+        // 사고 재현 (2026-10-11): 이름 뒤 "(N)"이 이름의 일부로 비교되어 퀘스트가 목록에 없는 것으로 읽혔다
+        var svc = NewService();
+        svc.Evaluate(Main, Quests(Quest(title, false), Other));
+        var a = Auto(svc, Main, "weekly_vanguard_breach");
+        Assert.Equal("todo", a.State);
+        Assert.Null(a.Remaining);
+        Assert.Equal(HomeworkCardStatus.Pending, Card(svc.GetBoard(Main), "weekly_vanguard_breach").Status);
+        Assert.DoesNotContain("남은", Card(svc.GetBoard(Main), "weekly_vanguard_breach").Evidence);
+    }
+
+    [Fact]
+    public void Vanguard_NameSuffix_WinsOverObjectiveCounts()
+    {
+        var svc = NewService();
+        svc.Evaluate(Main, Quests(Counted($"{Vanguard} (1)", (0, 10))));   // 목표 숫자(0/10)는 횟수가 아니다
+        Assert.Null(Auto(svc, Main, "weekly_vanguard_breach").Remaining);
+    }
+
+    [Fact]
+    public void Vanguard_UnknownRemaining_IsNull_AndOtherItemsNeverShowIt()
+    {
+        var svc = NewService();
+        svc.Evaluate(Main, Quests(Quest(Vanguard, false), Counted(Gem, (0, 5))));
+        Assert.Null(Auto(svc, Main, "weekly_vanguard_breach").Remaining);
+        Assert.Null(Auto(svc, Main, "daily_day_dungeon").Remaining);   // ShowRemaining 항목만
+    }
+
+    // ── 캐릭터 카드용 현황 ──
+
+    [Fact]
+    public void AutoStatuses_UnknownCharacter_IsAllUnknown_AndOnlyAutoCheckItemsAppear()
+    {
+        var svc = NewService();
+        var list = svc.GetAutoStatuses(new[] { "에린_없는캐릭터" })["에린_없는캐릭터"];
+        Assert.Equal(new[] { "daily_day_dungeon", "weekly_guild_regular", "weekly_vanguard_breach", "raid_cavrak", "raid_airel", "raid_white_succubus", "abyss_illusory_anchorage", "abyss_madness_cave", "abyss_scattered_waterway", "fieldboss_angrbahan" }.OrderBy(x => x), list.Select(x => x.Id).OrderBy(x => x));
+        Assert.All(list, x => Assert.Equal("unknown", x.State));
+    }
+
+    [Fact]
+    public void AutoStatuses_DailyStatusFromYesterday_IsNotShownAsDoneToday()
+    {
+        var svc = NewService();
+        svc.Set(Main, "daily_day_dungeon", completed: true);
+        Assert.Equal("done", Auto(svc, Main, "daily_day_dungeon").State);
+        _now = Kst(2026, 10, 7, 6, 5);   // 다음 날 06:05: 기록은 그대로지만 새 주기
+        Assert.Equal("unknown", Auto(svc, Main, "daily_day_dungeon").State);
+    }
+
+    [Fact]
+    public void Catalog_NewModesPassValidation() => Assert.Empty(_catalog.Validate());
+}

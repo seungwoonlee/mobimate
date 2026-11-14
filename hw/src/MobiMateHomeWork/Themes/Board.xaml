@@ -1,0 +1,110 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:vm="clr-namespace:MobiMateHomeWork.ViewModels">
+    <!-- 숙제 표·캐릭터 카드에 쓰는 스타일: 칸 단추, 막대. 색은 모두 Colors.xaml 토큰(DynamicResource)이다. -->
+    <BooleanToVisibilityConverter x:Key="BoolToVis" />
+
+    <!-- 칸 단추. 상태는 칸 화면 모델(CellViewModel)의 값으로 바뀐다:
+         완료 = 채운 초록 + ✓ / 미완료 = 외곽선 + ○ / 미확인 = 흐림 + · / 진행 중 = 테두리 맥동 / 완료 제안 = 오른쪽 위 모서리 점 -->
+    <Style x:Key="Cell.Button" TargetType="Button">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Brush.Todo}" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Text}" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Focusable" Value="True" />
+        <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}" />
+        <Setter Property="ToolTipService.InitialShowDelay" Value="250" />
+        <Setter Property="ToolTipService.ShowDuration" Value="15000" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Grid SnapsToDevicePixels="True">
+                        <Border x:Name="Bd" CornerRadius="6" BorderThickness="1.5" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" />
+                        <Border x:Name="Hv" CornerRadius="6" Background="Transparent" />
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" TextElement.Foreground="{TemplateBinding Foreground}" />
+                        <Border x:Name="Pulse" CornerRadius="6" BorderThickness="2" BorderBrush="{DynamicResource Brush.Accent}" Opacity="0" IsHitTestVisible="False" />
+                        <Ellipse x:Name="Dot" Width="7" Height="7" Fill="{DynamicResource Brush.Warn}" Stroke="{DynamicResource Brush.Bg}" StrokeThickness="1"
+                                 HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,2,2,0" Visibility="Collapsed" IsHitTestVisible="False" />
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Hv" Property="Background" Value="{DynamicResource Brush.Hover}" /></Trigger>
+                        <Trigger Property="IsPressed" Value="True"><Setter TargetName="Hv" Property="Background" Value="{DynamicResource Brush.Pressed}" /></Trigger>
+                        <DataTrigger Binding="{Binding Suggested}" Value="True"><Setter TargetName="Dot" Property="Visibility" Value="Visible" /></DataTrigger>
+                        <DataTrigger Binding="{Binding InProgress}" Value="True">
+                            <DataTrigger.EnterActions>
+                                <BeginStoryboard x:Name="PulseStory">
+                                    <Storyboard RepeatBehavior="Forever" AutoReverse="True">
+                                        <DoubleAnimation Storyboard.TargetName="Pulse" Storyboard.TargetProperty="Opacity" From="0.3" To="1" Duration="0:0:0.85" />
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </DataTrigger.EnterActions>
+                            <DataTrigger.ExitActions>
+                                <StopStoryboard BeginStoryboardName="PulseStory" />
+                            </DataTrigger.ExitActions>
+                        </DataTrigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding IsDone}" Value="True">
+                <Setter Property="Background" Value="{DynamicResource Brush.DoneFill}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource Brush.Done}" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding IsUnknown}" Value="True">
+                <Setter Property="BorderBrush" Value="{DynamicResource Brush.Unknown}" />
+                <Setter Property="Opacity" Value="0.6" />
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- 얇은 막대 (은동전·마족 공물·가방 무게). 값 0~1. 색은 막대 값(MeterModel)의 종류·단계가 정한다: 평소 종류색 / 주의 노랑 / 위험 빨강 -->
+    <Style x:Key="MeterBar" TargetType="ProgressBar">
+        <Setter Property="Minimum" Value="0" />
+        <Setter Property="Maximum" Value="1" />
+        <Setter Property="Height" Value="6" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Accent}" />
+        <Setter Property="Background" Value="{DynamicResource Brush.Surface2}" />
+        <Setter Property="IsHitTestVisible" Value="False" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ProgressBar">
+                    <Grid SnapsToDevicePixels="True">
+                        <Border x:Name="PART_Track" CornerRadius="3" Background="{TemplateBinding Background}" BorderBrush="{DynamicResource Brush.Line}" BorderThickness="1" />
+                        <Border x:Name="PART_Indicator" CornerRadius="3" Background="{TemplateBinding Foreground}" HorizontalAlignment="Left" />
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding Kind}" Value="Silver"><Setter Property="Foreground" Value="{DynamicResource Brush.BarSilver}" /></DataTrigger>
+            <DataTrigger Binding="{Binding Kind}" Value="Tribute"><Setter Property="Foreground" Value="{DynamicResource Brush.BarTribute}" /></DataTrigger>
+            <DataTrigger Binding="{Binding Level}" Value="Warn"><Setter Property="Foreground" Value="{DynamicResource Brush.Warn}" /></DataTrigger>
+            <DataTrigger Binding="{Binding Level}" Value="Danger"><Setter Property="Foreground" Value="{DynamicResource Brush.Danger}" /></DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- 큰 막대 한 줄 (카드): 이름 · 값 / 막대. 막대가 없는 값(무게 최대를 모를 때)은 숫자만 -->
+    <DataTemplate DataType="{x:Type vm:MeterModel}">
+        <StackPanel ToolTip="{Binding Tooltip}" Background="Transparent">
+            <Grid>
+                <TextBlock Text="{Binding Label}" Style="{StaticResource Text.Small}" />
+                <TextBlock Text="{Binding ValueText}" HorizontalAlignment="Right" FontSize="{DynamicResource Font.Small}" TextTrimming="CharacterEllipsis">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
+                            <Setter Property="Foreground" Value="{DynamicResource Brush.Text}" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding Level}" Value="Warn"><Setter Property="Foreground" Value="{DynamicResource Brush.Warn}" /></DataTrigger>
+                                <DataTrigger Binding="{Binding Level}" Value="Danger"><Setter Property="Foreground" Value="{DynamicResource Brush.Danger}" /></DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+            </Grid>
+            <ProgressBar Style="{StaticResource MeterBar}" Value="{Binding Fraction, Mode=OneWay}" Margin="0,3,0,0"
+                         Visibility="{Binding HasBar, Converter={StaticResource BoolToVis}}" />
+        </StackPanel>
+    </DataTemplate>
+
+</ResourceDictionary>

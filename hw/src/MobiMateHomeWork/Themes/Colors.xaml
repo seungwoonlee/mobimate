@@ -1,0 +1,75 @@
+﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!-- 다크 단일 테마 색 토큰. 글자색은 면(Surface) 위에서 WCAG AA(4.5:1) 이상을 유지한다 — ThemeContrastTests가 검사한다. -->
+
+    <!-- 바탕·면·선 -->
+    <Color x:Key="Color.Bg">#0F1115</Color>
+    <Color x:Key="Color.Surface">#171A21</Color>
+    <Color x:Key="Color.Surface2">#1E222B</Color>
+    <Color x:Key="Color.Line">#2A2F3A</Color>
+
+    <!-- 반투명 면(배경 그림이 은은히 비치게): 카드·제목줄은 Surface 88%, 표·계정 탭 줄은 Bg 80%. 글자 대비는 최악(밝은 그림 40%)에서도 AA — ThemeContrastTests -->
+    <Color x:Key="Color.Panel">#E0171A21</Color>
+    <Color x:Key="Color.PanelBg">#CC0F1115</Color>
+
+    <!-- 글자: 기본 / 흐림 / 더 흐림(보조 설명용. 계획의 #6B7280은 면 위 대비 3.6:1이라 AA 미달 → #8590A0으로 올렸다) -->
+    <Color x:Key="Color.Text">#E6E8EC</Color>
+    <Color x:Key="Color.TextMuted">#9AA1AD</Color>
+    <Color x:Key="Color.TextFaint">#8590A0</Color>
+
+    <!-- 강조 -->
+    <Color x:Key="Color.Accent">#7C9CFF</Color>
+    <Color x:Key="Color.AccentSoft">#267C9CFF</Color>
+    <Color x:Key="Color.OnAccent">#0F1115</Color>
+
+    <!-- 상태 -->
+    <Color x:Key="Color.Done">#3FB984</Color>
+    <Color x:Key="Color.DoneFill">#193A2E</Color>
+    <Color x:Key="Color.Todo">#4B5363</Color>
+    <Color x:Key="Color.Unknown">#3A3F4A</Color>
+    <Color x:Key="Color.Warn">#F5B544</Color>
+    <Color x:Key="Color.WarnSoft">#26F5B544</Color>
+    <Color x:Key="Color.Danger">#F0616D</Color>
+    <Color x:Key="Color.DangerSoft">#26F0616D</Color>
+
+    <!-- 막대 -->
+    <Color x:Key="Color.BarSilver">#C9D1DC</Color>
+    <Color x:Key="Color.BarTribute">#A78BFA</Color>
+
+    <!-- 상호작용 겹침 -->
+    <Color x:Key="Color.Hover">#14FFFFFF</Color>
+    <Color x:Key="Color.Pressed">#22FFFFFF</Color>
+    <Color x:Key="Color.CloseHover">#E5484D</Color>
+
+    <SolidColorBrush x:Key="Brush.Bg" Color="{StaticResource Color.Bg}" />
+    <SolidColorBrush x:Key="Brush.Surface" Color="{StaticResource Color.Surface}" />
+    <SolidColorBrush x:Key="Brush.Surface2" Color="{StaticResource Color.Surface2}" />
+    <SolidColorBrush x:Key="Brush.Panel" Color="{StaticResource Color.Panel}" />
+    <SolidColorBrush x:Key="Brush.PanelBg" Color="{StaticResource Color.PanelBg}" />
+    <SolidColorBrush x:Key="Brush.Line" Color="{StaticResource Color.Line}" />
+    <SolidColorBrush x:Key="Brush.Text" Color="{StaticResource Color.Text}" />
+    <SolidColorBrush x:Key="Brush.TextMuted" Color="{StaticResource Color.TextMuted}" />
+    <SolidColorBrush x:Key="Brush.TextFaint" Color="{StaticResource Color.TextFaint}" />
+    <SolidColorBrush x:Key="Brush.Accent" Color="{StaticResource Color.Accent}" />
+    <SolidColorBrush x:Key="Brush.AccentSoft" Color="{StaticResource Color.AccentSoft}" />
+    <SolidColorBrush x:Key="Brush.OnAccent" Color="{StaticResource Color.OnAccent}" />
+    <SolidColorBrush x:Key="Brush.Done" Color="{StaticResource Color.Done}" />
+    <SolidColorBrush x:Key="Brush.DoneFill" Color="{StaticResource Color.DoneFill}" />
+    <SolidColorBrush x:Key="Brush.Todo" Color="{StaticResource Color.Todo}" />
+    <SolidColorBrush x:Key="Brush.Unknown" Color="{StaticResource Color.Unknown}" />
+    <SolidColorBrush x:Key="Brush.Warn" Color="{StaticResource Color.Warn}" />
+    <SolidColorBrush x:Key="Brush.WarnSoft" Color="{StaticResource Color.WarnSoft}" />
+    <SolidColorBrush x:Key="Brush.Danger" Color="{StaticResource Color.Danger}" />
+    <SolidColorBrush x:Key="Brush.DangerSoft" Color="{StaticResource Color.DangerSoft}" />
+    <SolidColorBrush x:Key="Brush.BarSilver" Color="{StaticResource Color.BarSilver}" />
+    <SolidColorBrush x:Key="Brush.BarTribute" Color="{StaticResource Color.BarTribute}" />
+    <SolidColorBrush x:Key="Brush.Hover" Color="{StaticResource Color.Hover}" />
+    <SolidColorBrush x:Key="Brush.Pressed" Color="{StaticResource Color.Pressed}" />
+    <SolidColorBrush x:Key="Brush.CloseHover" Color="{StaticResource Color.CloseHover}" />
+
+    <!-- 게임 연결 점 -->
+    <SolidColorBrush x:Key="Brush.ConnConnected" Color="#3FB984" />
+    <SolidColorBrush x:Key="Brush.ConnDisconnected" Color="#F59E44" />
+    <SolidColorBrush x:Key="Brush.ConnCliMissing" Color="#F0616D" />
+    <SolidColorBrush x:Key="Brush.ConnUnknown" Color="#8590A0" />
+</ResourceDictionary>

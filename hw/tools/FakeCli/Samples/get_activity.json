@@ -1,0 +1,55 @@
+{
+  "IsAutoPlaying": false,
+  "CanStartAutoPlay": true,
+  "AutoPlayTarget": "quest",
+  "AutoPlayTargetDisplayName": "퀘스트",
+  "IsAutoTraveling": false,
+  "AutoTravelRemainingPositionCount": 0,
+  "IsDead": false,
+  "IsReviving": false,
+  "IsInCombat": false,
+  "IsDialoguePlaying": false,
+  "IsDialogueNextAvailable": false,
+  "IsWaitingForSelection": false,
+  "Dungeon": {
+    "State": "NotInDungeon",
+    "IsBossBattleInProgress": false
+  },
+  "Battlefield": {
+    "IsInBattleField": false
+  },
+  "IsAbyssResultSequencePlaying": false,
+  "Tutorial": {
+    "IsPlaying": false
+  },
+  "Scenario": {
+    "IsInScenario": false,
+    "IsSequencePlaying": false
+  },
+  "Performance": {
+    "IsPlaying": false,
+    "InstrumentName": "3화음 치즈 고양이의 하모니카",
+    "MusicTitle": "",
+    "IsCopyingAllowed": false,
+    "IsLoop": false,
+    "StartAt": "",
+    "TotalDurationSeconds": 0.0,
+    "ElapsedSeconds": 0.0,
+    "RemainingSeconds": 0.0,
+    "ChannelCount": 0
+  },
+  "Interaction": {
+    "HasTarget": false,
+    "IsTargetAttackable": false,
+    "AvailableInteractionType": "None",
+    "LastRunningInteractionType": "None",
+    "TargetKind": "None"
+  },
+  "Mode": {
+    "MainButtonState": "Compass",
+    "MountPartState": "None",
+    "SitState": "None",
+    "IsPlayingMiniGame": false,
+    "IsHousingEditMode": false
+  }
+}

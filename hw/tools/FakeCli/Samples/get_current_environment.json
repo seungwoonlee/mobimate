@@ -1,0 +1,17 @@
+{
+  "ChannelDisplayName": "페카 고분 심층 2층 3구역",
+  "GameSpaceDisplayName": "페카 고분 심층 2층 3구역",
+  "WorldPosition": {
+    "X": 82.4251,
+    "Y": 33.1718
+  },
+  "Weather": "Sunny",
+  "ErinnNow": "2959-4-23 15:51",
+  "Housing": {
+    "IsInHousing": false,
+    "IsOwnedHousing": false,
+    "CanEnterHousing": true,
+    "CannotEnterHousingReason": "",
+    "CanExitHousing": false
+  }
+}

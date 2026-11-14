@@ -1,0 +1,96 @@
+{
+  "Title": "이거밖에 안 되심?",
+  "RealmName": "아이라",
+  "Level": 100,
+  "EnabledCombatJobDisplayName": "격투가",
+  "CombatScore": {
+    "DisplayName": "전투력",
+    "Value": 88737
+  },
+  "LivingScore": {
+    "DisplayName": "생활력",
+    "Value": 23011
+  },
+  "AttractivenessScore": {
+    "DisplayName": "매력",
+    "Value": 19745
+  },
+  "DecorScore": {
+    "DisplayName": "데코 점수",
+    "Value": 5445
+  },
+  "HealthMax": {
+    "DisplayName": "최대 체력",
+    "Value": 72614
+  },
+  "AttackPower": {
+    "DisplayName": "공격력",
+    "Value": 33338
+  },
+  "DefencePower": {
+    "DisplayName": "방어력",
+    "Value": 19178
+  },
+  "ArcaneResistance": {
+    "DisplayName": "마도 저항",
+    "Value": 4316
+  },
+  "STR": {
+    "DisplayName": "힘",
+    "Value": 4996
+  },
+  "DEX": {
+    "DisplayName": "솜씨",
+    "Value": 6019
+  },
+  "INT": {
+    "DisplayName": "지력",
+    "Value": 5116
+  },
+  "LUCK": {
+    "DisplayName": "행운",
+    "Value": 5402
+  },
+  "WILL": {
+    "DisplayName": "의지",
+    "Value": 4812
+  },
+  "PaladinStats": {
+    "PaladinAttackPower": {
+      "DisplayName": "신성력",
+      "Value": 54
+    },
+    "PaladinDefencePower": {
+      "DisplayName": "항마력",
+      "Value": 54
+    },
+    "JusticePower": {
+      "DisplayName": "정의",
+      "Value": 694
+    },
+    "JudgementPower": {
+      "DisplayName": "심판",
+      "Value": 459
+    },
+    "OrderPower": {
+      "DisplayName": "질서",
+      "Value": 694
+    },
+    "BlessingPower": {
+      "DisplayName": "가호",
+      "Value": 459
+    }
+  },
+  "Vitals": {
+    "HealthCurrent": 72614,
+    "HealthMax": 72614,
+    "ShieldAmount": 0,
+    "ShieldMax": 0,
+    "SatietyValue": 0,
+    "SatietyMax": 100,
+    "SatietyRatio": 0.0,
+    "InventoryWeightCurrent": 854.5651,
+    "InventoryWeightMax": 1030.0,
+    "ActiveBuffCount": 2
+  }
+}

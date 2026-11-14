@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- 숙제 앱 서비스 테스트 (H2b): WPF 창·Application은 띄우지 않고, 앱의 서비스·저장 계층을 메서드로 직접 부른다. -->
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <RootNamespace>MobiMateHomeWork.Tests</RootNamespace>
+    <AssemblyName>MobiMateHomeWork.Tests</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" Version="6.0.0" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
+    <PackageReference Include="xunit" Version="2.5.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.5.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\MobiMateHomeWork\MobiMateHomeWork.csproj" />
+    <ProjectReference Include="..\..\src\MobiMate.Core\MobiMate.Core.csproj" />
+    <!-- 가짜 CLI·하네스는 참조 어셈블리로 쓰지 않고 빌드 순서만 보장한다. 실행 파일 경로는 FakeGame/ExternalProcess가 찾는다. -->
+    <ProjectReference Include="..\..\tools\FakeCli\FakeCli.csproj" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\..\tools\SharedStorageHarness\SharedStorageHarness.csproj" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\FakeCliLogReader.cs" Link="FakeCliLogReader.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+    <Using Include="Microsoft.Extensions.DependencyInjection" />
+    <Using Include="Microsoft.Extensions.Hosting" />
+    <Using Include="Microsoft.Extensions.Logging" />
+    <Using Include="MobiMate" />
+    <Using Include="MobiMateHomeWork.Hosting" />
+    <Using Include="MobiMateHomeWork.Services" />
+  </ItemGroup>
+
+</Project>

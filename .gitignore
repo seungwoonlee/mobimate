@@ -12,3 +12,8 @@ dist-next/
 graphify-out/
 
 .claude/settings.local.json
+
+# 숙제 앱 배포 산출물·화면 확인용 스냅숏
+hw/dist/
+hw/publish/
+hw/snapshots/

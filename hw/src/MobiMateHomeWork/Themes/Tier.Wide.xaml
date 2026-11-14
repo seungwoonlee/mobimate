@@ -1,0 +1,32 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=mscorlib">
+    <!-- 배치 단계 "Wide": 창 폭이 바뀌어 단계가 달라지면 앱이 이 파일을 통째로 바꿔 끼운다(Viewbox 확대·축소는 쓰지 않는다).
+         세 단계 파일의 키는 같아야 한다(LayoutTierResourceTests). 표 쪽 값(줄 높이·칸 크기·보이는 것 등)은 숙제 표(H4)가 쓴다. -->
+    <sys:Double x:Key="Font.Base">14</sys:Double>
+    <sys:Double x:Key="Font.Small">12</sys:Double>
+    <GridLength x:Key="Metrics.CardWidth">320</GridLength>
+    <sys:Double x:Key="Metrics.RowHeight">76</sys:Double>
+    <sys:Double x:Key="Metrics.GroupHeaderHeight">38</sys:Double>
+    <!-- 표 가로: 정보 열은 남는 폭을 받고(최소 CharInfoWidth), 칸은 고정 폭. 묶음 사이 간격 GroupMargin, 칸 사이 간격 = CellMargin 양쪽 합 -->
+    <sys:Double x:Key="Metrics.CharInfoWidth">180</sys:Double>
+    <sys:Double x:Key="Metrics.CellWidth">60</sys:Double>
+    <sys:Double x:Key="Metrics.CellHeight">56</sys:Double>
+    <Thickness x:Key="Metrics.GroupMargin">16,0,0,0</Thickness>
+    <Thickness x:Key="Metrics.CellMargin">1,0,1,0</Thickness>
+    <sys:Double x:Key="Metrics.BadgeSize">30</sys:Double>
+    <!-- 직업 전신 이미지: 표 줄 썸네일 / 캐릭터 카드 머리 -->
+    <sys:Double x:Key="Metrics.JobFigureWidth">40</sys:Double>
+    <sys:Double x:Key="Metrics.JobFigureHeight">56</sys:Double>
+    <sys:Double x:Key="Metrics.CardFigureWidth">64</sys:Double>
+    <sys:Double x:Key="Metrics.CardFigureHeight">88</sys:Double>
+    <sys:Double x:Key="Metrics.CellGlyph">13</sys:Double>
+    <sys:Double x:Key="Metrics.TableMaxWidth">1100</sys:Double>
+    <!-- 단계별로 보이는 것: 칸 기호 / 칸 안 두 줄 이름 / 칸 남은 횟수 / 묶음 머리의 두 글자 약칭(넓게는 Hidden: 보이지는 않지만 묶음 폭을 칸과 맞춘다) / 줄의 마지막 접속 / 줄의 작은 막대 -->
+    <Visibility x:Key="Show.CellSymbol">Collapsed</Visibility>
+    <Visibility x:Key="Show.CellName">Visible</Visibility>
+    <Visibility x:Key="Show.CellLeft">Collapsed</Visibility>
+    <Visibility x:Key="Show.GroupShort">Hidden</Visibility>
+    <Visibility x:Key="Show.RowSub">Visible</Visibility>
+    <Visibility x:Key="Show.RowMeters">Visible</Visibility>
+</ResourceDictionary>

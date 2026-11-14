@@ -1,0 +1,52 @@
+{
+  "items": [
+    {
+      "DisplayName": "달걀",
+      "ToolOk": true
+    },
+    {
+      "DisplayName": "사과",
+      "ToolOk": true
+    },
+    {
+      "DisplayName": "양털",
+      "ToolOk": true
+    },
+    {
+      "DisplayName": "밀",
+      "ToolOk": true
+    },
+    {
+      "DisplayName": "나무 장작",
+      "ToolOk": true
+    },
+    {
+      "DisplayName": "통나무",
+      "ToolOk": true
+    },
+    {
+      "DisplayName": "철광석",
+      "ToolOk": true
+    },
+    {
+      "DisplayName": "구리 광석",
+      "ToolOk": true
+    },
+    {
+      "DisplayName": "은 광석",
+      "ToolOk": false
+    },
+    {
+      "DisplayName": "약초",
+      "ToolOk": true
+    },
+    {
+      "DisplayName": "베이스 허브",
+      "ToolOk": true
+    },
+    {
+      "DisplayName": "거미줄",
+      "ToolOk": true
+    }
+  ]
+}
