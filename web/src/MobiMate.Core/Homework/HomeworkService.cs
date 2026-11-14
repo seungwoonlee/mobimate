@@ -19,7 +19,7 @@ public sealed record HomeworkCard(
 
 /// <summary>캐릭터 카드에 보여 줄 자동 판정 숙제 한 줄. State: done / todo / unknown.</summary>
 /// <param name="Guess">"클리어 추정": 주간 미션 카운터는 올랐는데 어느 항목인지 못 가렸다(눌러서 확인). 완료가 아닐 때만 true.</param>
-public sealed record HomeworkAutoStatus(string Id, string Title, string Period, string State, string? Evidence, int? Remaining = null, string Category = "", bool Guess = false, int? Value = null);
+public sealed record HomeworkAutoStatus(string Id, string Title, string Period, string State, string? Evidence, int? Remaining = null, string Category = "", bool Guess = false, int? Value = null, string? Locked = null);
 
 /// <summary>공유 풀(필드 보스 택1)의 캐릭터별 현황. State: done / todo / unknown, Item = 넘긴 보스 이름(완료일 때).</summary>
 public sealed record HomeworkPoolStatus(string State, string? Item, bool Guess = false);
@@ -324,7 +324,8 @@ public sealed class HomeworkService
                     var guess = state != "done" && st?.Suggestion is { Code: "missionCleared" };
                     list.Add(new HomeworkAutoStatus(def.Id, def.CardLabel ?? def.Title, def.Period == HomeworkPeriod.Daily ? "daily" : "weekly", state, st?.Evidence,
                         def.EffectiveMode == HomeworkMode.ManualStepCounter ? (state == "todo" ? def.Goal - st!.Count : null) : state == "todo" ? st?.RemainingCount : null,   // 단계 카운터: 남은 단계 = 목표 − 지금 단계
-                        def.Category, guess, def.EffectiveMode == HomeworkMode.ManualValue && st?.Completed == true ? st.Count : null));
+                        def.Category, guess, def.EffectiveMode == HomeworkMode.ManualValue && st?.Completed == true ? st.Count : null,
+                        HomeworkEvaluator.GrowthLockHint(def, ledger?.GrowthGuide)));   // 게임의 잠금 안내(레벨·퀘스트 조건): 입장 불가 표시에 쓴다
                 }
                 result[key] = list;
             }

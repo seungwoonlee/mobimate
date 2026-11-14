@@ -42,6 +42,15 @@ public sealed class HomeworkDefinition
     public string? GrowthDay { get; init; }
 
     /// <summary>
+    /// 성장 가이드에서 "잠김"만 읽을 콘텐츠 이름 (레이드·어비스처럼 합계만 주어 완료 판정에는 못 쓰는 것). 게임의 잠금 안내(UnlockHint)를 입장 불가 표시에 쓴다.
+    /// GrowthTarget이 있으면 그 이름을 쓴다.
+    /// </summary>
+    public string? GrowthLockTarget { get; init; }
+
+    /// <summary>성장 가이드 목록에 이 콘텐츠가 아예 없으면 아직 열리지 않은 것이다(뱅가드 브리치: 몰리 Lv.69 실측).</summary>
+    public bool GrowthLockWhenAbsent { get; init; }
+
+    /// <summary>
     /// 시즌제 항목(나이트메어 드릴·랭킹): 일일·주간 리셋으로 지우지 않고, 사람이 직접 되돌린다(시즌이 언제 끝나는지 모른다, 승운 2026-11-02).
     /// 숙제 카드·진행 통계에는 넣지 않고(끝나지 않는 숙제가 되므로) 숙제 화면의 칸에서만 본다. 전체 초기화에도 남는다.
     /// </summary>

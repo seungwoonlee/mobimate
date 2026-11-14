@@ -60,6 +60,12 @@ public sealed class HomeworkLedger
     public Dictionary<string, DateTimeOffset>? RaidAreaSince { get; set; }
 
     /// <summary>
+    /// 이 캐릭터의 성장 가이드(콘텐츠 가이드)를 마지막으로 읽은 것. 잠긴 콘텐츠와 게임의 잠금 안내(UnlockHint)를 입장 불가 표시에 쓴다.
+    /// 주기 리셋으로 지우지 않는다(잠금은 주기와 상관없다). 다른 캐릭터를 보는 동안에도 마지막으로 본 값이 남는다.
+    /// </summary>
+    public List<GrowthGuideItem>? GrowthGuide { get; set; }
+
+    /// <summary>
     /// 클리어 미션 묶음(raid·abyss·fieldBoss)별로 그 캐릭터가 마지막에 본 주간 미션 카운터. 이 값이 오른 순간이 "이 캐릭터가 클리어했다"는 확정 근거다
     /// (주간 미션은 캐릭터별, 2026-10-22 실측). 주간 리셋 때 지운다.
     /// </summary>

@@ -39,7 +39,10 @@ export const HW_CUTOFF: Record<string, string> = {
 };
 
 /** 이 캐릭터가 그 숙제의 입장 조건(전투력·레벨)에 못 미치면 이유 글, 아니면 null (전투력·레벨을 아직 모르면 null) */
-export function entryShort(c: Partial<Pick<CharacterCard, 'combat' | 'level' | 'recommend'>>, id: string): string | null {
+export function entryShort(c: Partial<Pick<CharacterCard, 'combat' | 'level' | 'recommend' | 'homework'>>, id: string): string | null {
+  // 게임이 직접 알려 주는 잠금(성장 가이드의 UnlockHint)이 가장 확실하다: "85레벨에 사용할 수 있습니다."
+  const locked = c.homework?.find(h => h.id === id)?.locked;
+  if (locked) return locked;
   const cut = HW_CUTOFF[id];
   if (!cut) return null;
   const r = c.recommend?.find(x => x.id === cut);

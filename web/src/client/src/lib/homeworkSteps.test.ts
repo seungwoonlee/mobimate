@@ -52,3 +52,13 @@ describe('입장 전투력 미달 비활성화', () => {
     expect(entryShort({ combat: 1, recommend: rec }, 'weekly_guild_regular')).toBeNull();
   });
 });
+
+describe('게임의 잠금 안내가 입장 불가 이유가 된다', () => {
+  const card = (locked: string | null) => ({ combat: 999999, level: 100, recommend: [], homework: [{ id: 'abyss_madness_cave', title: '광기', period: 'weekly' as const, state: 'unknown' as const, evidence: null, remaining: null, locked }] });
+  it('잠금 안내가 있으면 전투력과 상관없이 그 문구를 보인다', () => {
+    expect(entryShort(card('85레벨에 사용할 수 있습니다.'), 'abyss_madness_cave')).toBe('85레벨에 사용할 수 있습니다.');
+  });
+  it('잠금 안내가 없으면 기존 전투력 기준으로 간다', () => {
+    expect(entryShort(card(null), 'abyss_madness_cave')).toBeNull();
+  });
+});

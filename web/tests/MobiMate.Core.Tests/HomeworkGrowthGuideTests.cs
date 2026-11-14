@@ -121,6 +121,62 @@ public class HomeworkGrowthGuideTests : IDisposable
         Assert.NotEqual(HomeworkCardStatus.AutoDone, Card(svc, "daily_day_dungeon").Status);
     }
 
+    // ── 잠금 안내 (2026-11-15, 몰리 힐러 Lv.69 실측): 게임이 UnlockHint로 조건을 알려 준다 ──
+
+    [Fact]
+    public void LockedContent_ShowsTheGamesOwnHint()
+    {
+        var svc = Observe(null,
+            G("어비스", "Weekly", false, null, unlocked: false, hint: "85레벨에 사용할 수 있습니다."),
+            G("레이드", "Weekly", false, null, unlocked: false, hint: "'저 바다를 향하여' 퀘스트 완료 후 사용할 수 있습니다."));
+        Assert.Equal("85레벨에 사용할 수 있습니다.", Auto(svc, "abyss_madness_cave").Locked);
+        Assert.Equal("85레벨에 사용할 수 있습니다.", Auto(svc, "abyss_illusory_anchorage").Locked);
+        Assert.Equal("'저 바다를 향하여' 퀘스트 완료 후 사용할 수 있습니다.", Auto(svc, "raid_cavrak").Locked);
+    }
+
+    [Fact]
+    public void UnlockedContent_IsNotLocked()
+    {
+        var svc = Observe(null, G("어비스", "Weekly", false, 3), G("레이드", "Weekly", false, 4));
+        Assert.Null(Auto(svc, "abyss_madness_cave").Locked);
+        Assert.Null(Auto(svc, "raid_airel").Locked);
+    }
+
+    [Fact]
+    public void Vanguard_MissingFromTheGuide_MeansNotOpenYet()
+    {
+        var svc = Observe(null, G("어비스", "Weekly", false, 3));   // 뱅가드 항목이 목록에 없다
+        Assert.Equal("아직 열리지 않았어요", Auto(svc, "weekly_vanguard_breach").Locked);
+    }
+
+    [Fact]
+    public void Vanguard_PresentInTheGuide_IsNotLocked()
+    {
+        var svc = Observe(null, G("뱅가드 브리치", "Weekly", false, 1));
+        Assert.Null(Auto(svc, "weekly_vanguard_breach").Locked);
+    }
+
+    [Fact]
+    public void NeverReadTheGuide_NothingIsLocked()
+    {
+        var svc = NewService();
+        svc.Evaluate(Main, new HomeworkObservation());
+        Assert.Null(Auto(svc, "weekly_vanguard_breach").Locked);   // 모르는 것은 잠겼다고 하지 않는다
+        Assert.Null(Auto(svc, "abyss_madness_cave").Locked);
+    }
+
+    [Fact]
+    public void LocksAreRememberedPerCharacter_EvenWhileWatchingAnother()
+    {
+        var svc = NewService();
+        svc.Evaluate("몰리_힐러", new HomeworkObservation());
+        _now += TimeSpan.FromSeconds(5);
+        svc.Evaluate("몰리_힐러", new HomeworkObservation(GrowthGuide: new GrowthGuideResponse(new() { G("어비스", "Weekly", false, null, unlocked: false, hint: "85레벨에 사용할 수 있습니다.") })));
+        _now += TimeSpan.FromSeconds(5);
+        svc.Evaluate(Main, new HomeworkObservation());   // 다른 캐릭터로 바뀜
+        Assert.Equal("85레벨에 사용할 수 있습니다.", svc.GetAutoStatuses(new[] { "몰리_힐러" })["몰리_힐러"].Single(x => x.Id == "abyss_madness_cave").Locked);
+    }
+
     [Fact]
     public void Catalog_LinksTheGrowthGuideEntries()
     {
