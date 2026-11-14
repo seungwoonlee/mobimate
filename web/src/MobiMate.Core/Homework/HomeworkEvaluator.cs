@@ -56,6 +56,9 @@ public static partial class HomeworkEvaluator
         var changed = new List<string>();
         var inProgress = new List<string>();
         var alteringCollected = ObserveAltering(character, obs, nowUtc, characterJustSwitched);
+        // 성장 가이드는 캐릭터별이라 캐릭터를 바꾼 직후 첫 관찰(이전 캐릭터 값일 수 있다)은 쓰지 않는다. 같은 내용이면 다시 쓰지 않는다.
+        if (!characterJustSwitched && obs.GrowthGuide?.Contents is { Count: > 0 } guideList && !SameGuide(character.GrowthGuide, guideList))
+            character.GrowthGuide = guideList.ToList();
         var questsUsable = !characterJustSwitched && obs.Quests != null;   // 캐릭터를 바꾼 직후의 퀘스트 목록은 이전 캐릭터 것일 수 있다
         var raidSuggestions = ObserveRaidTokens(character, catalog, obs, nowUtc, questsUsable);
         if (characterJustSwitched) character.ClearMissionCountsUtc = null;   // 이 캐릭터를 지켜보지 않은 동안 계정 카운터는 다른 캐릭터 몫으로 올랐을 수 있다
@@ -189,6 +192,21 @@ public static partial class HomeworkEvaluator
             }
         }
         return new HomeworkEvaluation(changed, inProgress);
+    }
+
+    private static bool SameGuide(List<GrowthGuideItem>? a, List<GrowthGuideItem> b) => a != null && a.Count == b.Count && a.Zip(b).All(p => p.First == p.Second);
+
+    /// <summary>
+    /// 이 캐릭터에서 이 숙제가 잠겨 있으면 게임의 안내 문구를, 아니면 null. 성장 가이드를 읽은 적이 없으면 null(모르는 것은 잠겼다고 하지 않는다).
+    /// </summary>
+    public static string? GrowthLockHint(HomeworkDefinition def, IReadOnlyList<GrowthGuideItem>? guide)
+    {
+        var target = def.GrowthLockTarget ?? def.GrowthTarget;
+        if (target == null || guide is not { Count: > 0 }) return null;
+        var day = def.GrowthDay ?? (def.Period == HomeworkPeriod.Daily ? "Daily" : "Weekly");
+        var e = guide.FirstOrDefault(g => string.Equals(g.Target, target, StringComparison.Ordinal) && string.Equals(g.DayType, day, StringComparison.OrdinalIgnoreCase));
+        if (e == null) return def.GrowthLockWhenAbsent ? "아직 열리지 않았어요" : null;
+        return e.IsUnlocked ? null : (string.IsNullOrWhiteSpace(e.UnlockHint) ? "아직 열리지 않았어요" : e.UnlockHint);
     }
 
     /// <summary>이 숙제에 해당하는 성장 가이드 항목 (없거나 가이드를 못 읽었으면 null)</summary>
