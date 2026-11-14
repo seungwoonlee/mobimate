@@ -35,6 +35,13 @@ public sealed class HomeworkDefinition
     public int Goal { get; init; } = 1;
 
     /// <summary>
+    /// 게임 성장 가이드(get_growth_guide)의 같은 콘텐츠 이름 (예: "소환의 결계"). 게임이 직접 주는 사실이라 확정 근거다.
+    /// 완료 표시와 (목표가 2 이상이면) 남은 횟수를 읽는다. 일일·주간은 <see cref="GrowthDay"/>(Daily|Weekly)로 가린다.
+    /// </summary>
+    public string? GrowthTarget { get; init; }
+    public string? GrowthDay { get; init; }
+
+    /// <summary>
     /// 시즌제 항목(나이트메어 드릴·랭킹): 일일·주간 리셋으로 지우지 않고, 사람이 직접 되돌린다(시즌이 언제 끝나는지 모른다, 승운 2026-11-02).
     /// 숙제 카드·진행 통계에는 넣지 않고(끝나지 않는 숙제가 되므로) 숙제 화면의 칸에서만 본다. 전체 초기화에도 남는다.
     /// </summary>

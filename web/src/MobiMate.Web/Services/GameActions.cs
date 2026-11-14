@@ -260,8 +260,30 @@ public sealed class GameActions(GameQueries q, SseHub hub, HomeworkWatcher homew
 /// 숙제 판정 연결부: 조회 결과를 모아 HomeworkService에 넘기고, 바뀌면 SSE "homework.changed"로 알린다.
 /// 조회에 실패한 항목은 null로 넘겨 판정 근거에서 뺀다.
 /// </summary>
-public sealed class HomeworkWatcher(HomeworkService homework, GameQueries q, SseHub hub, SnapshotManager snapshots, GameStateCache state, CurrencyDeltaLog currencyLog)
+public sealed class HomeworkWatcher(HomeworkService homework, GameQueries q, SseHub hub, SnapshotManager snapshots, GameStateCache state, CurrencyDeltaLog currencyLog, ILogger<HomeworkWatcher> log)
 {
+    private readonly Dictionary<string, string> _guideAudit = new();
+
+    /// <summary>
+    /// 성장 가이드로 직접 판정하지 않는 항목(필드 보스·레이드·어비스)은 게임 값과 앱 값을 나란히 로그에 남겨 대조한다 (2026-11-15: 이 값이 어느 항목인지 가리지 못해 판정에 쓰지 못한다).
+    /// 값이 바뀔 때만 한 줄. 나중에 규칙을 더하는 근거 자료다.
+    /// </summary>
+    private void AuditGrowthGuide(string key, GrowthGuideResponse? guide)
+    {
+        if (guide?.Contents is not { Count: > 0 } list) return;
+        var mine = homework.GetAutoStatuses(new[] { key }).GetValueOrDefault(key) ?? Array.Empty<HomeworkAutoStatus>();
+        var boss = homework.GetFieldBossStatuses(new[] { key }).GetValueOrDefault(key);
+        string G(string target) { var g = list.FirstOrDefault(x => x.Target == target && x.DayType == "Weekly"); return g == null ? "없음" : !g.IsUnlocked ? "잠김" : (g.IsCompleted ? "완료" : "미완료") + (g.RemainingCount is { } r ? $"(남음 {r})" : ""); }
+        int Done(string category) => mine.Count(x => x.Category == category && x.State == "done");
+        var line = $"필드 보스 게임={G("필드 보스")} 앱={boss?.State ?? "?"} | 레이드 게임={G("레이드")} 앱 완료={Done("raid")} | 어비스 게임={G("어비스")} 앱 완료={Done("abyss")}";
+        lock (_guideAudit)
+        {
+            if (_guideAudit.TryGetValue(key, out var prev) && prev == line) return;
+            _guideAudit[key] = line;
+        }
+        log.LogInformation("성장 가이드 대조 [{Key}] {Line}", key, line);
+    }
+
     /// <summary>캐릭터의 기록 이름. 헤더가 이미 정한 이름이 있으면 그것을 쓰고, 아니면 재화로 같은 서버·직업의 다른 캐릭터와 구분해 정한다.</summary>
     public string KeyOf(CharacterInfo ch, IEnumerable<CurrencyItem>? currencies = null) =>
         state.CurrentKey is { } k && CharacterIdentity.SameReading(state.Character, ch) ? k
@@ -285,7 +307,8 @@ public sealed class HomeworkWatcher(HomeworkService homework, GameQueries q, Sse
         var tW2 = q.Get<AlteringWorksResponse>("get_altering_works", ct);
         var tC = q.Get<List<CurrencyItem>>("get_currencies", ct);   // 레이드 증표 관찰 (FR-HW-17)
         var tI = q.Get<List<ItemData>>("get_items", ct);            // 레이드 고유 보상 아이템 (에이렐 하프 조각·서큐버스 거울 조각)
-        await Task.WhenAll(tMe, tD, tW, tQ, tA, tE, tW2, tC, tI);
+        var tG = q.Get<GrowthGuideResponse>("get_growth_guide", ct);   // 게임이 직접 주는 콘텐츠 가이드(완료·남은 횟수). 못 읽으면 null로 두고 기존 판정만 쓴다
+        await Task.WhenAll(tMe, tD, tW, tQ, tA, tE, tW2, tC, tI, tG);
 
         if (tMe.Result.Value is not { } ch || string.IsNullOrWhiteSpace(ch.RealmName) || string.IsNullOrWhiteSpace(ch.JobName)) return null;
         var key = KeyOf(ch, tC.Result.Value);
@@ -295,7 +318,7 @@ public sealed class HomeworkWatcher(HomeworkService homework, GameQueries q, Sse
         // 퀘스트는 판정기가 이번 관찰을 건너뛰고, 다음 조회는 새로 받게 한다.
         if (homework.LastObservedCharacter is { } last && !last.Equals(key, StringComparison.OrdinalIgnoreCase))
         {
-            q.Invalidate("get_currencies", "get_items", "get_quests", "get_weekly_missions", "get_daily_missions");   // 미션도 캐릭터마다 다르다(2026-10-22 실측)
+            q.Invalidate("get_currencies", "get_items", "get_quests", "get_weekly_missions", "get_daily_missions", "get_growth_guide");   // 미션도 캐릭터마다 다르다(2026-10-22 실측)
             var tC2 = q.Get<List<CurrencyItem>>("get_currencies", ct);
             var tI2 = q.Get<List<ItemData>>("get_items", ct);
             await Task.WhenAll(tC2, tI2);
@@ -305,7 +328,8 @@ public sealed class HomeworkWatcher(HomeworkService homework, GameQueries q, Sse
         currencyLog.Observe(key, currencies, tE.Result.Value?.GameSpaceDisplayName);   // 레이드 보상 실측용 (재화 변화 기록)
         Evaluate(key, new HomeworkObservation(
             tD.Result.Value, tW.Result.Value, tQ.Result.Value, tA.Result.Value, tE.Result.Value, tW2.Result.Value,
-            Currencies: currencies, Items: items));
+            Currencies: currencies, Items: items, GrowthGuide: tG.Result.Value));
+        try { AuditGrowthGuide(key, tG.Result.Value); } catch (Exception ex) { log.LogDebug(ex, "성장 가이드 대조 실패"); }
         return key;
     }
 

@@ -11,9 +11,9 @@
   },
   "items": [
     { "id": "daily_black_hole", "category": "daily", "period": "daily", "share": "character", "mode": "manual",
-      "title": "검은 구멍", "subtitle": "콘텐츠 가이드 일일 검은 구멍 차원 정화", "icon": "black-hole", "goal": 1,
+      "title": "검은 구멍", "subtitle": "콘텐츠 가이드 일일 검은 구멍 차원 정화", "icon": "black-hole", "goal": 1, "growthTarget": "검은 구멍", "growthDay": "Daily",
       "needsMeasurement": "진행 신호용 공간명(GameSpaceDisplayName) 미확인" },
-    { "id": "daily_day_dungeon", "category": "daily", "period": "daily", "share": "character", "mode": "questVanish", "autoCheck": true, "cardLabel": "요일던전", "clearOnDungeonCleared": true,
+    { "id": "daily_day_dungeon", "category": "daily", "period": "daily", "share": "character", "mode": "questVanish", "autoCheck": true, "cardLabel": "요일던전", "clearOnDungeonCleared": true, "growthTarget": "요일 던전", "growthDay": "Daily",
       "title": "요일 던전", "subtitle": "콘텐츠 가이드 요일 던전 일일 클리어 (던전 클리어 상태가 되거나 퀘스트가 목록에서 사라지면 완료)", "icon": "dungeon", "goal": 1,
       "spaceNamePrefixes": ["찬란한 유적", "빛나는 동굴", "눈부신 저택"],
       "sightOnlyQuestTitles": ["요일 던전 소탕"],
@@ -34,9 +34,9 @@
       "needsMeasurement": "진행 신호용 공간명 미확인" },
 
     { "id": "weekly_barrier_1_7", "category": "weekly", "period": "weekly", "share": "character", "mode": "manualStepCounter",
-      "title": "소환의 결계", "subtitle": "콘텐츠 가이드 주간 소환의 결계 (1~7단계)", "icon": "barrier", "goal": 7 },
+      "title": "소환의 결계", "subtitle": "콘텐츠 가이드 주간 소환의 결계 (1~7단계)", "icon": "barrier", "goal": 7, "growthTarget": "소환의 결계", "growthDay": "Weekly" },
     { "id": "weekly_black_hole_1_7", "category": "weekly", "period": "weekly", "share": "character", "mode": "manualStepCounter",
-      "title": "검은 구멍 (주간)", "subtitle": "콘텐츠 가이드 주간 검은 구멍 (14회)", "icon": "black-hole", "goal": 14 },
+      "title": "검은 구멍 (주간)", "subtitle": "콘텐츠 가이드 주간 검은 구멍 (14회)", "icon": "black-hole", "goal": 14, "growthTarget": "검은 구멍", "growthDay": "Weekly" },
     { "id": "weekly_nightmare_drill", "category": "weekly", "period": "weekly", "share": "character", "mode": "manualStepCounter",
       "title": "나이트메어 드릴", "subtitle": "나이트메어 드릴 (1~30구역, 수동으로 올린다) · 시즌 리셋 : 기한 모름", "icon": "dungeon", "goal": 30, "seasonReset": true },
     { "id": "weekly_nightmare_rank", "category": "weekly", "period": "weekly", "share": "character", "mode": "manualValue",
@@ -47,7 +47,7 @@
     { "id": "weekly_vanguard_breach", "category": "weekly", "period": "weekly", "share": "character", "mode": "questVanish", "autoCheck": true, "cardLabel": "뱅가드",
       "title": "뱅가드 브리치", "subtitle": "콘텐츠 가이드 주간 뱅가드 브리치 (주 1회 · 2026-11-10부터 3회에서 1회로 바뀜 · 뱅가드 지역 안에서 골드 보상이 들어오면 완료 · 퀘스트가 안 보이는 것만으로는 완료하지 않음)", "icon": "breach", "goal": 1,
       "questTitles": ["[긴급 의뢰] 뱅가드 브리치"], "continuous": true, "showRemaining": true,
-      "runGoal": 1, "entrySpacePrefixes": ["뱅가드 브리치"], "entryCompletes": false, "areaRewards": { "골드": 50000 } },
+      "growthTarget": "뱅가드 브리치", "growthDay": "Weekly", "runGoal": 1, "entrySpacePrefixes": ["뱅가드 브리치"], "entryCompletes": false, "areaRewards": { "골드": 50000 } },
 
     { "id": "fieldboss_peri", "category": "fieldBoss", "period": "weekly", "share": "character", "mode": "manual", "clearGroup": "fieldBoss", "pool": "field_boss_weekly",
       "title": "페리", "subtitle": "창백한 산 필드 보스 (주간 1회 택1)", "icon": "field-boss", "goal": 1, "bossNames": ["페리"] },
