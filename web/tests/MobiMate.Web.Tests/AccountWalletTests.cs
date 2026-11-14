@@ -65,3 +65,21 @@ public class AccountWalletTests : IDisposable
         Assert.Equal(t0, File.GetLastWriteTimeUtc(path));
     }
 }
+
+public class LivingSkillsApiTests
+{
+    [Fact]
+    public async Task Life_ReturnsTheCurrentCharactersLivingSkills_HighestLevelFirst()
+    {
+        using var host = new TestHost();
+        var c = await host.LocalAsync();
+        await c.GetAsync("/api/header");   // 캐릭터 정보를 읽어 둔다
+        var life = await TestHost.Data(await c.GetAsync("/api/life"));
+        var skills = life.GetProperty("skills");
+        Assert.Equal(2, skills.GetArrayLength());
+        Assert.Equal("약초 채집", skills[0].GetProperty("name").GetString());   // Lv.32가 먼저
+        Assert.Equal(32, skills[0].GetProperty("level").GetInt32());
+        Assert.Equal(27480, skills[0].GetProperty("maxExp").GetInt64());
+        Assert.Equal("낚시", skills[1].GetProperty("name").GetString());
+    }
+}

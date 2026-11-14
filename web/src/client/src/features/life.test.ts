@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { gatherBatches, GATHER_BATCH, MAX_GATHER_TARGET, WINGS_PER_BATCH } from './life';
+import { gatherBatches, GATHER_BATCH, MAX_GATHER_TARGET, skillPercent, WINGS_PER_BATCH } from './life';
 
 // 게임은 채집 한 번에 최대 100개: 목표가 크면 100개씩 올림해서 이어서 호출한다 (서버 GatherJob.Batches와 같은 규칙)
 describe('gatherBatches', () => {
@@ -32,4 +32,17 @@ describe('finishClock', () => {
   it('오늘은 오전/오후 시각만', () => expect(finishClock(at, 600)).toBe('오후 06:40'));
   it('자정을 넘기면 내일', () => expect(finishClock(at, 6 * 3600)).toBe('내일 오전 12:30'));
   it('이틀 뒤는 월/일', () => expect(finishClock(at, 30 * 3600)).toBe('10/11 오전 12:30'));
+});
+
+describe('생활 스킬 진행률', () => {
+  it('경험치 비율을 0~100으로 (내림)', () => {
+    expect(skillPercent(5757, 7825)).toBe(73);
+    expect(skillPercent(0, 100)).toBe(0);
+    expect(skillPercent(100, 100)).toBe(100);
+  });
+  it('최대치를 모르거나 넘치면 안전하게 자른다', () => {
+    expect(skillPercent(50, 0)).toBe(0);
+    expect(skillPercent(500, 100)).toBe(100);
+    expect(skillPercent(-5, 100)).toBe(0);
+  });
 });

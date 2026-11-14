@@ -204,7 +204,7 @@ public sealed class SherpaEngineProvider(SttModelLocator model, WebSettingsStore
                 if (!qwen3!.IsInstalled) throw new InvalidOperationException("Qwen3 음성 인식 모델이 설치되어 있지 않습니다.");
                 var qclock = System.Diagnostics.Stopwatch.StartNew();
                 var words = settings.Current.SttHotwords ? vocab.HotwordCandidates(Qwen3SttEngine.MaxHotwords).ToList() : new List<string>();
-                var qe = new Qwen3SttEngine(qwen3, Math.Max(settings.Current.SttThreads, 4), words, () => settings.Current.SttEndSilenceMs);
+                var qe = new Qwen3SttEngine(qwen3, Math.Max(settings.Current.SttThreads, 4), words, () => settings.Current.SttEndSilenceMs, ZipFallback);
                 log.LogInformation("Qwen3 음성 인식기를 올렸습니다 ({Ms}ms)", qclock.ElapsedMilliseconds);
                 _qwen = qe;
                 return _qwenWrap = new CountingEngine(qe, _qwenLive);
@@ -213,13 +213,37 @@ public sealed class SherpaEngineProvider(SttModelLocator model, WebSettingsStore
             _zipHandedAt = Environment.TickCount64;
             if (_engine != null) return _zipWrap ??= new CountingEngine(_engine, _zipLive);
             if (!model.IsInstalled) throw new InvalidOperationException("음성 인식 모델이 설치되어 있지 않습니다.");
-            var clock = System.Diagnostics.Stopwatch.StartNew();
-            var hotwords = settings.Current.SttHotwords ? HotwordFile.Write(model, vocab, log) : null;
-            var engine = new SherpaSttEngine(model, settings.Current.SttThreads, hotwords, settings.Current.SttEndSilenceMs);
-            log.LogInformation("음성 인식기를 올렸습니다 ({Ms}ms, {Threads}스레드)", clock.ElapsedMilliseconds, settings.Current.SttThreads);
+            var engine = CreateZip();
             _engine = engine;
             return _zipWrap = new CountingEngine(engine, _zipLive);
         }
+    }
+
+    private SherpaSttEngine CreateZip()
+    {
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        var hotwords = settings.Current.SttHotwords ? HotwordFile.Write(model, vocab, log) : null;
+        var engine = new SherpaSttEngine(model, settings.Current.SttThreads, hotwords, settings.Current.SttEndSilenceMs);
+        log.LogInformation("음성 인식기를 올렸습니다 ({Ms}ms, {Threads}스레드)", clock.ElapsedMilliseconds, settings.Current.SttThreads);
+        return engine;
+    }
+
+    /// <summary>
+    /// Qwen3가 중국어로 받아 적은 소리를 한국어 전용 엔진(Zipformer)으로 다시 받아 적는다. 처음 필요할 때 올리고, 쓸 때마다 내어 준 시각을 갱신해
+    /// (90초) 곧바로 해제되지 않게 한다. 모델이 없으면 빈 글자(그 문장은 버려진다).
+    /// </summary>
+    private string ZipFallback(float[] samples)
+    {
+        SherpaSttEngine engine;
+        lock (_lock)
+        {
+            if (!model.IsInstalled) return "";
+            _zipHandedAt = Environment.TickCount64;
+            engine = _engine ??= CreateZip();
+        }
+        using var stream = engine.CreateStream();
+        stream.Accept(samples);
+        return stream.Finish();
     }
 
     /// <summary>고르지 않은 쪽 엔진의 모델을 메모리에서 내린다 (Qwen3는 약 1GB, 게임을 하는 PC라 아껴 둔다). 호출하는 쪽이 _lock을 쥔다.</summary>

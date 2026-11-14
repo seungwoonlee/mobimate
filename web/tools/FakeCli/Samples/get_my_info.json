@@ -92,5 +92,19 @@
     "InventoryWeightCurrent": 854.5651,
     "InventoryWeightMax": 1030.0,
     "ActiveBuffCount": 2
-  }
+  },
+  "LivingSkills": [
+    {
+      "DisplayName": "낚시",
+      "Level": 23,
+      "Exp": 7429,
+      "MaxExp": 12670
+    },
+    {
+      "DisplayName": "약초 채집",
+      "Level": 32,
+      "Exp": 7185,
+      "MaxExp": 27480
+    }
+  ]
 }

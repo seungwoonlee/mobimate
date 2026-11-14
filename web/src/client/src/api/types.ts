@@ -100,7 +100,8 @@ export interface GatherJob {
   gained: number; target: number; batch: number; batches: number; message: string | null;
   /** 이 작업 뒤에 이어서 채집할 재료와 목표 개수(순서대로) */ queued?: { item: string; count: number }[];
 }
-export interface Life { works: Work[] | null; gatherables: Gatherable[] | null }
+export interface LivingSkill { name: string; level: number; exp: number; maxExp: number }
+export interface Life { works: Work[] | null; gatherables: Gatherable[] | null; /** 지금 캐릭터의 생활 스킬(레벨 높은 순) */ skills?: LivingSkill[] | null }
 
 export interface NearPlayer {
   title: string; realm: string; job: string; level: number; combatScore: number; distance: number;

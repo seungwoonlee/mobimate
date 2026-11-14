@@ -13,8 +13,12 @@ public sealed class Qwen3SttEngine : ISttEngine
     private readonly OfflineRecognizer _recognizer;
     private readonly Func<int> _endSilenceMs;
 
-    public Qwen3SttEngine(SttModelLocator model, int threads, IReadOnlyList<string> hotwords, Func<int> endSilenceMs)
+    private readonly Func<float[], string>? _koreanFallback;
+
+    /// <param name="koreanFallback">Qwen3가 한국어가 아닌 글자(중국어)로 받아 적었을 때 같은 소리를 한국어 전용 엔진으로 다시 받아 적는 함수. 없으면 그 문장은 버린다.</param>
+    public Qwen3SttEngine(SttModelLocator model, int threads, IReadOnlyList<string> hotwords, Func<int> endSilenceMs, Func<float[], string>? koreanFallback = null)
     {
+        _koreanFallback = koreanFallback;
         _endSilenceMs = endSilenceMs;
         var c = new OfflineRecognizerConfig();
         // 구조체라 복사본에 쓰면 반영되지 않는다: 반드시 config 안의 값에 직접 쓴다 (틀리면 인식기가 조용히 비어 만들어진다)
@@ -35,7 +39,25 @@ public sealed class Qwen3SttEngine : ISttEngine
         using var s = _recognizer.CreateStream();
         s.AcceptWaveform(AudioConverter.TargetRate, samples);
         _recognizer.Decode(s);
-        return Clean(s.Result.Text);
+        var text = Clean(s.Result.Text);
+        // Qwen3는 여러 나라말을 아는 모델이라 웃음소리·짧은 감탄("어허허허")은 어느 말인지 가늠하다가 중국어로 받아 적곤 한다(2026-11-15 실측: "哦吼吼吼").
+        // 모델에 언어를 고정하는 옵션이 없어서(sherpa-onnx), 한자 위주 결과는 한국어 전용 엔진으로 다시 받아 적고, 그것도 안 되면 버린다.
+        if (!LooksChinese(text)) return text;
+        try { return _koreanFallback == null ? "" : Clean(_koreanFallback(samples)); }
+        catch { return ""; }
+    }
+
+    /// <summary>한자(중국어)가 한글보다 많거나 같은 결과인가. 한국어로 말했는데 한자뿐이면 잘못 받아 적은 것이다.</summary>
+    internal static bool LooksChinese(string? text)
+    {
+        if (string.IsNullOrEmpty(text)) return false;
+        int han = 0, hangul = 0;
+        foreach (var ch in text)
+        {
+            if (ch is >= '一' and <= '鿿' or >= '㐀' and <= '䶿') han++;
+            else if (ch is >= '가' and <= '힣' or >= 'ㄱ' and <= 'ㆎ') hangul++;
+        }
+        return han > 0 && han >= hangul;
     }
 
     /// <summary>끝의 마침표는 채팅에 어울리지 않아 뗀다("?"·"!"는 둔다)</summary>
