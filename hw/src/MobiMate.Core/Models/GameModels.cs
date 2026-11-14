@@ -136,6 +136,22 @@ public record CurrencyItem(
     [property: JsonPropertyName("Amount")] long Amount
 );
 
+// 4-2. 성장 가이드 (get_growth_guide, 2026-11 신설): 게임의 콘텐츠 가이드(일일·주간 숙제 목록)를 그대로 준다.
+// Target = 콘텐츠 이름(요일 던전·검은 구멍·소환의 결계·필드 보스·레이드·어비스·뱅가드 브리치), DayType = Daily | Weekly.
+// 레이드·어비스는 합계 남은 횟수만 주고 어느 것인지는 모른다. 잠긴 콘텐츠는 IsUnlocked=false + UnlockHint.
+public record GrowthGuideItem(
+    [property: JsonPropertyName("Target")] string Target,
+    [property: JsonPropertyName("DayType")] string DayType,
+    [property: JsonPropertyName("IsUnlocked")] bool IsUnlocked,
+    [property: JsonPropertyName("IsCompleted")] bool IsCompleted,
+    [property: JsonPropertyName("RemainingCount")] int? RemainingCount = null,
+    [property: JsonPropertyName("UnlockHint")] string? UnlockHint = null
+);
+
+public record GrowthGuideResponse(
+    [property: JsonPropertyName("Contents")] List<GrowthGuideItem>? Contents
+);
+
 // 5. 아이템 (get_items)
 public record ItemData(
     [property: JsonPropertyName("Location")] string Location,
