@@ -1,29 +1,46 @@
-# CLAUDE.md — MobiMate Web (`webapp` 브랜치)
+# CLAUDE.md — MobiMate (단일 `main` 브랜치)
 
-## 프로젝트 경계 (반드시 지킨다)
+## 구조
 
-- 이 브랜치는 **웹앱 전용**이다. WPF판은 `master` 브랜치의 별개 프로젝트이며 Antigravity가 맡는다.
-- 두 프로젝트는 **요구사양 문서만 공유**한다. 코드·빌드·저장 데이터는 공유하지 않는다.
-  - `webapp`과 `master`는 **서로 병합하지 않는다** (어느 방향이든).
-  - WPF 코드(`*.cs`, `*.xaml`, `MobiMate.csproj`, `tests/MobiMate.Tests`)를 이 브랜치에 들이지 않는다.
-  - 웹앱 저장 폴더는 `%APPDATA%\MobiMateWeb`이다. WPF판 폴더 `%APPDATA%\MobiMate`에는 쓰지 않는다(첫 실행 때 읽어서 복사만 한다).
-  - WPF판의 결함 정보가 필요하면 `git show master:08-분석보고-WPF판_결함목록_인수인계.md`로 읽기만 한다.
-- 작업 폴더: 이 브랜치는 `V:\workspace\MobiMate\webapp`(git worktree)에서 다룬다. `V:\workspace\MobiMate\master`는 master 전용이고, `V:\workspace\MobiMate` 자체는 bare 저장소다. 한 폴더에서 브랜치를 바꾸지 않는다.
+| 폴더 | 내용 |
+|---|---|
+| `web/` | 웹앱 (MobiMate.Core, MobiMate.Web, React 클라이언트). 솔루션 `web/MobiMate.Web.sln` |
+| `hw/` | 숙제 앱 WPF (MobiMateHomeWork, 솔루션 `hw/MobiMateHomeWork.sln`) |
+| `legacy-wpf/` | 옛 WPF판. 보관용, 수정하지 않는다 |
+| `docs/` | 조사·설계 문서, `docs/img` = README 그림(SVG) |
+
+- 브랜치는 `main` 하나다. 작업 브랜치(`feat/…`, `fix/…`) → `main` 병합. `main`에 직접 커밋하지 않는다.
+- 저장소: bare `V:\workspace\MobiMate`, 작업 폴더 `V:\workspace\MobiMate\main`(worktree). 원격 `origin`(Gitea), `github`.
+
+## 반드시 지킬 것
+
+- **공식 CLI만 쓴다** (`C:\Nexon\MabinogiMobile\MabinogiMobile_CLI.exe`). 패킷 캡처·메모리 읽기·입력 흉내는 하지 않는다. CLI가 알려 주는 사실은 확정, 모르는 것은 추측하지 않는다.
+- 외부 사이트(넥슨 랭킹, 모비라이프 등)가 거절하면 우회하지 않는다.
+- **hw의 Core는 웹의 Core와 별도 복사본이다.** 공유 데이터 파일(`%APPDATA%\MobiMateWeb`의 homework_records.json, accounts.json, character_snapshots.json, character_history_db.json) 형식을 바꾸면 `web/`과 `hw/` 양쪽에 반영한다.
+- 웹앱 저장 폴더는 `%APPDATA%\MobiMateWeb`. 옛 WPF판 `%APPDATA%\MobiMate`에는 쓰지 않는다.
+- 토큰·비밀번호는 어떤 파일에도 쓰지 않는다.
+
+## 빌드·테스트·배포
+
+- 빌드: `dotnet build web/MobiMate.Web.sln` (경고 0)
+- 테스트: `dotnet test web/MobiMate.Web.sln`, 클라이언트는 `web/src/client`에서 `npx tsc --noEmit`, `npx vitest run`. e2e(Playwright)는 먼저 `npx vite build` + `dotnet build`로 클라이언트를 내장한 뒤 실행한다.
+- 숙제 앱: `dotnet test hw/MobiMateHomeWork.sln`
+- 단일 파일 배포: `dotnet publish web/src/MobiMate.Web -c Release -o web/dist` → `web/dist/MobiMateWeb.exe`(+zip, allow-lan-firewall.bat). 버전은 `1.0.<MMdd.HHmm>`. 배포 전 실행 중인 MobiMateWeb·MobiMateHomeWork는 묻지 않고 종료하고, 배포 뒤 다시 실행한다.
+- 릴리스: `gh release create <태그> -R seungwoonlee/mobimate`, 노트는 한국어.
 
 ## 작업 방식
 
-- 문서: `web/REQUIREMENTS.md`(요구사양), `web/DESIGN.md`(상세설계), `web/design/mockup.html`(시안). 단계 계획은 요구사양서 §9.
-- 각 단계는 계획 → 서브에이전트 리뷰 → 구현 → 리뷰 → 테스트 → 리뷰 순서로 진행한다.
-- `webapp`에 직접 커밋하지 않는다. 작업 브랜치(`feat/…`, `chore/…`) → `webapp` 병합 → Gitea(`origin`) 푸시.
-- 빌드·테스트: `dotnet build web/MobiMate.Web.sln`, `dotnet test web/MobiMate.Web.sln` (경고 0, 전부 통과).
+- 문서: `web/REQUIREMENTS.md`(요구사양), `web/DESIGN.md`(설계), `web/design/`(구조도 HTML·eli5), `web/DEVELOPMENT.md`.
+- 계획 → 리뷰 → 구현 → 리뷰 → 테스트 → 리뷰. 서브에이전트는 메인보다 한 등급 아래 모델.
+- 알려진 미완: 제작 성공률 화면, 숙제 앱의 잠금 칸 UI, 별도 시세 앱, e2e "직업 이미지" 실패.
 
 ## graphify
 
 This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
 
 Rules:
-- When graphify-out/graph.json exists, run `graphify query "<question>"` before your first grep, search or source-file read for a codebase question, and put this rule in every subagent prompt that explores code. Read raw files only for lines the graph or an earlier read already located. Use `graphify path "<A>" "<B>"` for relationships and `graphify explain "<concept>"` for focused concepts. These return a scoped subgraph, usually much smaller than GRAPH_REPORT.md or raw grep output.
+- When graphify-out/graph.json exists, run `graphify query "<question>"` before your first grep, search or source-file read for a codebase question, and put this rule in every subagent prompt that explores code. Read raw files only for lines the graph or an earlier read already located. Use `graphify path "<A>" "<B>"` for relationships and `graphify explain "<concept>"` for focused concepts.
 - If graphify-out/wiki/index.md exists, use it for broad navigation instead of raw source browsing.
-- Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
+- Read graphify-out/GRAPH_REPORT.md only for broad architecture review.
 - After modifying code, run `graphify update .` to keep the graph current (AST-only, no API cost).
-- A committed graphify-out/graph.json is rewritten whole on every build, so a large diff to it in a pull request is expected. Do not flag it as churn or suggest skipping the graph rebuild or its hooks.
+- A committed graphify-out/graph.json is rewritten whole on every build, so a large diff is expected; do not flag it as churn.

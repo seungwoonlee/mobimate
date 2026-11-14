@@ -4,7 +4,7 @@ import type { AccountGroup, CharacterCard, HomeworkAuto } from '../api/types';
 import { Dialog, ErrorCard, Fresh, Icon, JobIcon, Pill, Skeleton } from '../components/ui';
 import { useNow } from '../hooks/layout';
 import { resetDrillAll, resetSagaAll, setHomework } from '../lib/actions';
-import { MAX_VALUE, nextStep, prevStep, SEASON_IDS, SEASON_NOTE, STEP_GOALS, STEP_UNITS, stepOf, VALUE_UNITS } from '../lib/homeworkSteps';
+import { entryShort, MAX_VALUE, nextStep, prevStep, SEASON_IDS, SEASON_NOTE, STEP_GOALS, STEP_UNITS, stepOf, VALUE_UNITS } from '../lib/homeworkSteps';
 import { until } from '../lib/format';
 import { charName } from './characters';
 
