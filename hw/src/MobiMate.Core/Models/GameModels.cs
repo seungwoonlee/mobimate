@@ -46,7 +46,10 @@ public record VitalsInfo(
     [property: JsonPropertyName("SatietyValue")] double SatietyValue,
     [property: JsonPropertyName("SatietyMax")] double SatietyMax,
     [property: JsonPropertyName("ActiveBuffCount")] int ActiveBuffCount
-);
+)
+{
+    public bool IsWeightSane() => WeightMax is > 0 and < 1_000_000 && double.IsFinite(WeightCurrent) && WeightCurrent >= 0;
+}
 
 // 2. 활동 상태 (get_activity)
 public record ActivityInfo(

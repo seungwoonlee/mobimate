@@ -26,9 +26,9 @@ public class HomeworkTests : IDisposable
     // ── TST-10 카탈로그 ──
 
     [Fact]
-    public void Catalog_Has28Items_AndPassesValidation()
+    public void Catalog_Has32Items_AndPassesValidation()
     {
-        Assert.Equal(28, _catalog.Items.Count);
+        Assert.Equal(32, _catalog.Items.Count);
         Assert.Empty(_catalog.Validate());
         Assert.Equal(6, _catalog.Items.Count(i => i.Pool == "field_boss_weekly"));
     }
@@ -330,7 +330,7 @@ public class HomeworkTests : IDisposable
         var svc = NewService();
         var before = svc.GetBoard(Main);
         Assert.Equal(_catalog.Items.Count(i => i.Active && i.Period == HomeworkPeriod.Daily), before.Daily.Total);
-        Assert.Equal(_catalog.Items.Count(i => i.Active && i.Period == HomeworkPeriod.Weekly && i.Pool == null) + 1, before.Weekly.Total);
+        Assert.Equal(_catalog.Items.Count(i => i.Active && i.Period == HomeworkPeriod.Weekly && i.Pool == null && i.EffectiveMode != HomeworkMode.ManualValue && !i.SeasonReset) + 1, before.Weekly.Total);
 
         svc.Set(Main, "fieldboss_peri", completed: true);
         Assert.Equal(1, svc.GetBoard(Main).Weekly.Done);

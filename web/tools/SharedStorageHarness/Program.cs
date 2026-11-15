@@ -9,6 +9,17 @@ using MobiMate.Web.Hosting;
 //   i % 3 == 2: 계정 지정 (acct_{역할}_{i} → 계정 {역할})
 // 종료 코드: 0 정상, 1 쓰기 실패(예외·거부)
 if (args.Length < 3) return 2;
+if (args[1] == "verify-reset")
+{
+    var checkTime = DateTimeOffset.Parse(args[2], System.Globalization.CultureInfo.InvariantCulture);
+    var checkStore = new HomeworkStore(args[0]);
+    var checkService = new HomeworkService(HomeworkCatalog.LoadEmbedded(), checkStore, () => checkTime);
+    if (checkService.GetBoard("c").Cards.Single(x => x.Id == "raid_scars").IsDone) return 3;
+    checkService.Set("c", "weekly_guild_regular", completed: true);
+    var items = checkStore.Load().Characters["c"].Items;
+    return !items.ContainsKey("raid_scars") && items["weekly_nightmare_drill"].Count == 22
+        && items["weekly_nightmare_rank"].Count == 119 && items["weekly_memorial_saga"].Count == 8 ? 0 : 4;
+}
 var dir = args[0];
 var role = args[1];
 var count = int.Parse(args[2]);

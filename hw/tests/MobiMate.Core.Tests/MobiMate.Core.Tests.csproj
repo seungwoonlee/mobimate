@@ -21,6 +21,7 @@
     <ProjectReference Include="..\..\tools\FakeCli\FakeCli.csproj" ReferenceOutputAssembly="false" />
     <!-- 두 프로세스 동시 쓰기 테스트용 하네스도 같은 방식: 빌드 순서만 보장하고 SharedStorageTests가 실행 파일을 찾는다 -->
     <ProjectReference Include="..\..\tools\SharedStorageHarness\SharedStorageHarness.csproj" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\..\..\web\tools\SharedStorageHarness\SharedStorageHarness.csproj" ReferenceOutputAssembly="false" />
   </ItemGroup>
 
   <ItemGroup>
