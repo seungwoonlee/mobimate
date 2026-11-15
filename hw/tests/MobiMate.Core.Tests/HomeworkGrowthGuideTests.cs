@@ -26,6 +26,19 @@ public class HomeworkGrowthGuideTests : IDisposable
         svc.Evaluate(Main, new HomeworkObservation());
         _now += TimeSpan.FromSeconds(5);
         svc.Evaluate(Main, new HomeworkObservation(GrowthGuide: new GrowthGuideResponse(guide.ToList())));
+        // 로그인 직후 가이드는 어제 값을 줄 수 있어, 변화를 못 본 "완료"는 3분 이어져야 믿는다: 같은 값이 충분히 이어진 뒤까지 본다
+        _now += TimeSpan.FromMinutes(4);
+        svc.Evaluate(Main, new HomeworkObservation(GrowthGuide: new GrowthGuideResponse(guide.ToList())));
+        return svc;
+    }
+
+    /// <summary>같은 가이드를 한 번만 읽는다(안정 대기 없이).</summary>
+    private HomeworkService ObserveOnce(params GrowthGuideItem[] guide)
+    {
+        var svc = NewService();
+        svc.Evaluate(Main, new HomeworkObservation());
+        _now += TimeSpan.FromSeconds(5);
+        svc.Evaluate(Main, new HomeworkObservation(GrowthGuide: new GrowthGuideResponse(guide.ToList())));
         return svc;
     }
 
@@ -87,12 +100,41 @@ public class HomeworkGrowthGuideTests : IDisposable
     }
 
     [Fact]
-    public void NotCompletedByTheGame_DoesNotReopenADoneItem()
+    public void FirstDoneRead_RightAfterLogin_IsNotTrustedAtOnce()
+    {
+        // 2026-11-15 실측: 오늘 처음 접속했는데 가이드가 잠깐 어제의 "요일 던전 완료"를 줬다
+        var svc = ObserveOnce(G("요일 던전", "Daily", true));
+        Assert.NotEqual(HomeworkCardStatus.AutoDone, Card(svc, "daily_day_dungeon").Status);
+    }
+
+    [Fact]
+    public void StaleDone_ThenNotDone_NeverBecomesDone()
+    {
+        var svc = ObserveOnce(G("요일 던전", "Daily", true));
+        _now += TimeSpan.FromSeconds(30);
+        svc.Evaluate(Main, new HomeworkObservation(GrowthGuide: new GrowthGuideResponse(new() { G("요일 던전", "Daily", false) })));   // 가이드가 오늘 값으로 갱신됨
+        _now += TimeSpan.FromMinutes(5);
+        svc.Evaluate(Main, new HomeworkObservation(GrowthGuide: new GrowthGuideResponse(new() { G("요일 던전", "Daily", false) })));
+        Assert.NotEqual(HomeworkCardStatus.AutoDone, Card(svc, "daily_day_dungeon").Status);
+    }
+
+    [Fact]
+    public void NotDoneThenDone_IsTrustedImmediately()
+    {
+        var svc = ObserveOnce(G("요일 던전", "Daily", false));
+        _now += TimeSpan.FromSeconds(4);   // 클리어하고 몇 초 뒤 가이드가 갱신된다
+        svc.Evaluate(Main, new HomeworkObservation(GrowthGuide: new GrowthGuideResponse(new() { G("요일 던전", "Daily", true) })));
+        Assert.Equal(HomeworkCardStatus.AutoDone, Card(svc, "daily_day_dungeon").Status);
+    }
+
+    [Fact]
+    public void GuideOnlyDone_IsWithdrawn_WhenTheGameLaterSaysNotDone()
     {
         var svc = Observe(null, G("요일 던전", "Daily", true));
-        _now += TimeSpan.FromSeconds(5);
-        svc.Evaluate(Main, new HomeworkObservation(GrowthGuide: new GrowthGuideResponse(new() { G("요일 던전", "Daily", false, 1) })));   // 가이드가 한 박자 늦게 갱신되는 순간
         Assert.Equal(HomeworkCardStatus.AutoDone, Card(svc, "daily_day_dungeon").Status);
+        _now += TimeSpan.FromSeconds(5);
+        svc.Evaluate(Main, new HomeworkObservation(GrowthGuide: new GrowthGuideResponse(new() { G("요일 던전", "Daily", false, 1) })));
+        Assert.NotEqual(HomeworkCardStatus.AutoDone, Card(svc, "daily_day_dungeon").Status);
     }
 
     [Fact]

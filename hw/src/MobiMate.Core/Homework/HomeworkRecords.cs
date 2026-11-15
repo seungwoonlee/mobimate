@@ -39,6 +39,13 @@ public sealed class HomeworkLedger
     public DateTimeOffset LastWeeklyResetUtc { get; set; }
     public Dictionary<string, HomeworkItemState> Items { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>
+    /// 성장 가이드의 "완료"를 믿어도 되는지 가리는 실행 중 기억(저장하지 않는다). 콘텐츠 id별로 가이드가 "미완료"였던 마지막 시각과 "완료"가 이어진 시작 시각.
+    /// 로그인 직후 가이드가 한동안 어제 값을 주는 일이 있어(2026-11-15 실측) 첫 관찰의 완료는 바로 믿지 않는다.
+    /// </summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public Dictionary<string, GuideWatch> GuideWatches { get; } = new(StringComparer.OrdinalIgnoreCase);
+
     /// <summary>가공 수거 관찰용: 직전 성공 조회의 (시설|작업명)별 완료 작업 수 (FR-HW-05). 캐릭터 장부에만 쓴다.</summary>
     public Dictionary<string, int>? AlteringDoneCounts { get; set; }
     public DateTimeOffset? AlteringObservedUtc { get; set; }
@@ -255,4 +262,11 @@ public sealed class HomeworkStore
         public DateTime? CompletedAt { get; set; }
         public bool IsAutoDetected { get; set; }
     }
+}
+
+/// <summary>성장 가이드 값의 신뢰 판정용 기억 (<see cref="HomeworkLedger.GuideWatches"/>)</summary>
+public sealed class GuideWatch
+{
+    public DateTimeOffset? NotDoneSeenUtc { get; set; }
+    public DateTimeOffset? DoneSinceUtc { get; set; }
 }

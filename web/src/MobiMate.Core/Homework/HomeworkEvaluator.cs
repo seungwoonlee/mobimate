@@ -61,6 +61,7 @@ public static partial class HomeworkEvaluator
             character.GrowthGuide = guideList.ToList();
         var questsUsable = !characterJustSwitched && obs.Quests != null;   // 캐릭터를 바꾼 직후의 퀘스트 목록은 이전 캐릭터 것일 수 있다
         var raidSuggestions = ObserveRaidTokens(character, catalog, obs, nowUtc, questsUsable);
+        if (characterJustSwitched) character.GuideWatches.Clear();   // 캐릭터를 바꾼 직후 가이드는 이전 값일 수 있다: 신뢰 기억을 처음부터
         if (characterJustSwitched) character.ClearMissionCountsUtc = null;   // 이 캐릭터를 지켜보지 않은 동안 계정 카운터는 다른 캐릭터 몫으로 올랐을 수 있다
         // 클리어 미션 카운터(레이드·어비스·필드 보스): 카운터가 오른 순간은 더 확실한 근거라, 같은 항목의 약한 근거(지역 진입 등)를 덮는다.
         // 애매해서 항목을 못 가린 "클리어 추정"은 이미 있는 근거를 약하게 만들지 않도록 비어 있는 항목에만 담는다.
@@ -81,7 +82,7 @@ public static partial class HomeworkEvaluator
             // 게임 성장 가이드(콘텐츠 가이드)가 직접 알려 주는 완료·남은 횟수는 확정 근거다 (CLI가 주는 사실은 확정, 2026-11-15).
             // 완료는 수동 설정도 이긴다. 목표가 2 이상인 카운터(소환의 결계·검은 구멍)는 게임의 남은 횟수를 그대로 따른다.
             // 완료가 아닐 때 완료를 되돌리지는 않는다(가이드가 클리어보다 늦게 갱신될 수 있다): 되돌리는 것은 카운터뿐이다.
-            if (!characterJustSwitched && GrowthEntry(def, obs) is { IsUnlocked: true } guide)
+            if (!characterJustSwitched && GrowthEntry(def, obs) is { IsUnlocked: true } guide0 && GuideTrusted(ledger, def, guide0, existing, nowUtc, changed) is { } guide)
             {
                 var gs = existing ?? new HomeworkItemState();
                 if (ApplyGrowthGuide(def, gs, guide, nowUtc))
@@ -217,6 +218,38 @@ public static partial class HomeworkEvaluator
         return list.FirstOrDefault(g => string.Equals(g.Target, target, StringComparison.Ordinal) && string.Equals(g.DayType, day, StringComparison.OrdinalIgnoreCase));
     }
 
+    /// <summary>
+    /// 게임 로그인 직후 성장 가이드는 한동안 어제(이전) 값을 주는 일이 있다 — 막 접속했는데 요일 던전이 "완료"로 나온 실측(2026-11-15).
+    /// 그래서 "완료"는 (1) 이 주기에 같은 항목이 "미완료"였다가 바뀌는 것을 직접 봤거나 (2) 같은 값이 <see cref="GuideConfirm"/> 이상 이어졌을 때만 믿는다.
+    /// 믿지 않으면 null(이번 관찰은 가이드 없이 다른 근거로 판정). "미완료"를 읽으면, 가이드만으로 완료 처리했던 것은 되돌린다.
+    /// </summary>
+    internal static GrowthGuideItem? GuideTrusted(HomeworkLedger ledger, HomeworkDefinition def, GrowthGuideItem g, HomeworkItemState? st, DateTimeOffset now, ICollection<string> changed)
+    {
+        var goal = Math.Max(1, def.Goal);
+        var done = g.IsCompleted || (goal > 1 && g.RemainingCount == 0);
+        if (!ledger.GuideWatches.TryGetValue(def.Id, out var w)) ledger.GuideWatches[def.Id] = w = new GuideWatch();
+        if (!done)
+        {
+            w.NotDoneSeenUtc = now;
+            w.DoneSinceUtc = null;
+            if (st is { Completed: true, ManualOverride: false } && st.Evidence == GuideDoneEvidence)   // 가이드만 근거였던 완료는 가이드가 취소하면 취소
+            {
+                st.Completed = false; st.Count = 0; st.CompletedAtUtc = null; st.Evidence = null; st.Auto = true;
+                ledger.Items[def.Id] = st;
+                changed.Add(def.Id);
+            }
+            return g;
+        }
+        w.DoneSinceUtc ??= now;
+        var reset = def.Period == HomeworkPeriod.Daily ? ledger.LastDailyResetUtc : ledger.LastWeeklyResetUtc;
+        var sawChange = w.NotDoneSeenUtc is { } nd && nd > reset;
+        return sawChange || now - w.DoneSinceUtc.Value >= GuideConfirm ? g : null;
+    }
+
+    /// <summary>가이드의 "완료"를 이 시간 이상 같은 값으로 이어서 읽으면 믿는다 (변화를 직접 못 봤을 때).</summary>
+    internal static readonly TimeSpan GuideConfirm = TimeSpan.FromMinutes(3);
+    internal const string GuideDoneEvidence = "성장 가이드(게임): 완료";
+
     /// <summary>성장 가이드 값을 항목에 반영한다. 바뀌었으면 true.</summary>
     internal static bool ApplyGrowthGuide(HomeworkDefinition def, HomeworkItemState st, GrowthGuideItem g, DateTimeOffset now)
     {
@@ -227,7 +260,7 @@ public static partial class HomeworkEvaluator
             if (st.Completed && st.Count >= goal && !st.ManualOverride) return false;
             st.ManualOverride = false;
             st.ManualAtUtc = null;
-            Complete(st, goal, "성장 가이드(게임): 완료", now);
+            Complete(st, goal, GuideDoneEvidence, now);
             return true;
         }
         if (goal > 1 && g.RemainingCount is { } left)
