@@ -12,6 +12,7 @@ public enum HomeworkShare { Character, Account }
 public enum HomeworkMode
 {
     Manual,              // 수동 체크만 (진행 신호는 붙을 수 있음)
+    ManualValue,
     ManualStepCounter,   // 수동 단계 카운터 0~goal
     DirectMission,       // 지정한 미션 제목과 정확히 일치하는 미션의 진행도 (FR-HW-04 ①)
     MissionTotal,        // 일일·주간 미션 전체 완료 개수
@@ -45,6 +46,7 @@ public sealed class HomeworkDefinition
 
     /// <summary>성장 가이드 목록에 이 콘텐츠가 아예 없으면 아직 열리지 않은 것이다(뱅가드 브리치).</summary>
     public bool GrowthLockWhenAbsent { get; init; }
+    public bool SeasonReset { get; init; }
     public string? Reward { get; init; }
     public string? Pool { get; init; }
     public List<string> MissionTitles { get; init; } = new();

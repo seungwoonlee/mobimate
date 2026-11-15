@@ -21,6 +21,7 @@ public class CharacterSnapshot
     public long NyangToken { get; set; }
     public int CompletedDailyMissions { get; set; }
     public bool HasCurrencyBaseline { get; set; }
+    public bool HasWeightBaseline { get; set; } = true;
     public bool HasMissionBaseline { get; set; }
     public DateTime Timestamp { get; set; } = DateTime.Now;
 
@@ -94,7 +95,7 @@ public class SessionDelta
 
     public long CombatScoreDiff => Current.CombatScore - Baseline.CombatScore;
     public long ArcaneResistanceDiff => Current.ArcaneResistance - Baseline.ArcaneResistance;
-    public double WeightDiff => Current.WeightCurrent - Baseline.WeightCurrent;
+    public double WeightDiff => Baseline.HasWeightBaseline ? Current.WeightCurrent - Baseline.WeightCurrent : 0;
     public long GoldDiff => Baseline.HasCurrencyBaseline ? (Current.Gold - Baseline.Gold) : 0;
     public long WingsDiff => Baseline.HasCurrencyBaseline ? (Current.Wings - Baseline.Wings) : 0;
     public long NyangDiff => Baseline.HasCurrencyBaseline ? (Current.NyangToken - Baseline.NyangToken) : 0;
@@ -607,7 +608,8 @@ public class SnapshotManager
         var title = ch?.Title ?? "";
         var combatScore = ch?.CombatScore?.Value ?? 0;
         var mdef = ch?.ArcaneResistance?.Value ?? 0;
-        var weight = ch?.Vitals?.WeightCurrent ?? 0.0;
+        var weightOk = ch?.Vitals is { } vitals && vitals.IsWeightSane();
+        var weight = weightOk ? ch!.Vitals!.WeightCurrent : 0.0;
 
         var key = characterKey ?? ResolveKey(ch, currencies);   // 같은 서버·직업의 다른 캐릭터는 "서버_직업#2"로 구분한다
         if (characterKey != null && IsSubJob(characterKey, ch))
@@ -644,7 +646,7 @@ public class SnapshotManager
             current.Title = title;
             current.CombatScore = combatScore;
             current.ArcaneResistance = mdef;
-            current.WeightCurrent = weight;
+            if (weightOk || prevSaved == null) current.WeightCurrent = weight;
             current.Timestamp = DateTime.Now;
 
             // 재화 데이터가 제공된 경우에만 갱신
@@ -675,7 +677,8 @@ public class SnapshotManager
                     Title = title,
                     CombatScore = combatScore,
                     ArcaneResistance = mdef,
-                    WeightCurrent = weight,
+                    WeightCurrent = weightOk ? weight : current.WeightCurrent,
+                    HasWeightBaseline = weightOk,
                     Timestamp = DateTime.Now
                 };
 
@@ -711,6 +714,12 @@ public class SnapshotManager
                     baseline.CompletedDailyMissions = current.CompletedDailyMissions;
                     baseline.HasMissionBaseline = true;
                 }
+            }
+
+            if (!baseline.HasWeightBaseline && weightOk)
+            {
+                baseline.WeightCurrent = current.WeightCurrent;
+                baseline.HasWeightBaseline = true;
             }
 
             var snapChanged = prevSaved == null || !SameSnapshot(prevSaved, current);   // 시각(Timestamp)만 다른 것은 바뀐 것이 아니다

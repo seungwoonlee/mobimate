@@ -481,7 +481,7 @@ public class HomeworkAutoCheckTests : IDisposable
         var svc = NewService();
         var b = svc.GetBoard(Main);
         Assert.DoesNotContain(b.Cards, c => c.Id is "raid_glasgivnen" or "raid_tabartas");
-        Assert.Equal(new[] { "raid_airel", "raid_cavrak", "raid_white_succubus" }, b.Cards.Where(c => c.Category == "raid").Select(c => c.Id).OrderBy(x => x));   // 열려 있는 레이드 3종
+        Assert.Equal(new[] { "raid_airel", "raid_cavrak", "raid_scars", "raid_white_succubus" }, b.Cards.Where(c => c.Category == "raid").Select(c => c.Id).OrderBy(x => x));   // 열려 있는 레이드 4종
     }
 
     // ── 주간 목표: 모험가 길드 정기 의뢰 ──

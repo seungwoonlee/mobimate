@@ -36,7 +36,7 @@ public static partial class HomeworkEvaluator
         var weeklyDue = ledger.LastWeeklyResetUtc < lastWeekly;
         if (!dailyDue && !weeklyDue) return changed;
 
-        foreach (var def in catalog.Items.Where(d => d.Share == share))
+        foreach (var def in catalog.Items.Where(d => d.Share == share && !d.SeasonReset))
         {
             var due = def.Period == HomeworkPeriod.Daily ? dailyDue : weeklyDue;
             if (due && ledger.Items.Remove(def.Id)) changed.Add(def.Id);
