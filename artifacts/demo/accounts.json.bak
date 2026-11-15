@@ -1,0 +1,65 @@
+{
+  "Accounts": {
+    "acc-1": {
+      "MembershipExpiresAtUtc": null
+    },
+    "acc-2": {
+      "MembershipExpiresAtUtc": null
+    }
+  },
+  "Assign": {
+    "\uB958\uD2B8_\uAC80\uC0AC": {
+      "Account": "acc-1",
+      "Manual": false
+    },
+    "\uB958\uD2B8_\uC218\uB3C4\uC0AC": {
+      "Account": "acc-1",
+      "Manual": false
+    },
+    "\uB958\uD2B8_\uC5F0\uAE08\uC220\uC0AC": {
+      "Account": "acc-1",
+      "Manual": false
+    },
+    "\uB958\uD2B8_\uC74C\uC720\uC2DC\uC778": {
+      "Account": "acc-1",
+      "Manual": false
+    },
+    "\uC5D0\uB9B0_\uB4C0\uC5BC\uBE14\uB808\uC774\uB4DC": {
+      "Account": "acc-1",
+      "Manual": false
+    },
+    "\uC5D0\uB9B0_\uC11D\uAD81\uC0AC\uC218": {
+      "Account": "acc-1",
+      "Manual": false
+    },
+    "\uC5D0\uB9B0_\uD654\uC5FC\uC220\uC0AC": {
+      "Account": "acc-1",
+      "Manual": false
+    },
+    "\uC5D0\uB9B0_\uD790\uB7EC": {
+      "Account": "acc-1",
+      "Manual": false
+    },
+    "\uBC14\uB78C_\uAD81\uC218": {
+      "Account": "acc-2",
+      "Manual": false
+    },
+    "\uBC14\uB78C_\uB3C4\uC801": {
+      "Account": "acc-2",
+      "Manual": false
+    },
+    "\uBC14\uB78C_\uC804\uC0AC": {
+      "Account": "acc-2",
+      "Manual": false
+    },
+    "\uC544\uC774\uB77C_\uB9C8\uBC95\uC0AC": {
+      "Account": "acc-2",
+      "Manual": false
+    },
+    "\uC544\uC774\uB77C_\uC131\uC9C1\uC790": {
+      "Account": "acc-2",
+      "Manual": false
+    }
+  },
+  "Order": []
+}

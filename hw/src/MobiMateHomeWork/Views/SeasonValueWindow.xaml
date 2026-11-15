@@ -1,0 +1,16 @@
+<Window x:Class="MobiMateHomeWork.Views.SeasonValueWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="시즌 기록 수정" Width="360" SizeToContent="Height" ResizeMode="NoResize" WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource Brush.Bg}" Foreground="{DynamicResource Brush.Text}" FontFamily="{StaticResource Font.Text}">
+    <StackPanel Margin="22">
+        <TextBlock x:Name="TitleText" FontSize="16" FontWeight="SemiBold" />
+        <TextBlock x:Name="HintText" Margin="0,8,0,12" TextWrapping="Wrap" Style="{StaticResource Text.Muted}" />
+        <TextBox x:Name="ValueInput" MinHeight="32" Padding="8,5" AutomationProperties.Name="시즌 기록 숫자" />
+        <TextBlock x:Name="ErrorText" Foreground="{DynamicResource Brush.Warn}" Margin="0,6,0,0" TextWrapping="Wrap" />
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
+            <Button Content="취소" IsCancel="True" MinWidth="68" Margin="0,0,8,0" />
+            <Button Content="저장" IsDefault="True" MinWidth="68" Style="{StaticResource Button.Accent}" Click="OnSave" />
+        </StackPanel>
+    </StackPanel>
+</Window>

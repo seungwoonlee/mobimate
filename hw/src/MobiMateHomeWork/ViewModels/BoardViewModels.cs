@@ -46,6 +46,11 @@ public sealed partial class CellViewModel : ObservableObject
     public string Line2 => Def.Line2;
     public bool IsBoss => Def.IsBoss;
 
+    public bool IsSeason => Id is "weekly_nightmare_drill" or "weekly_nightmare_rank" or "weekly_memorial_saga";
+    [ObservableProperty] private int? _value;
+    public string ValueText => Value is > 0 ? $"{Value}" : "—";
+    partial void OnValueChanged(int? value) => OnPropertyChanged(nameof(ValueText));
+
     [ObservableProperty] private CellState _state = CellState.Unknown;
     [ObservableProperty] private int? _left;
     [ObservableProperty] private string? _note;
@@ -67,15 +72,16 @@ public sealed partial class CellViewModel : ObservableObject
 
     public void Apply(CellData d)
     {
+        Value = d.Value;
         State = d.State;
         Left = d.Left;
         Note = d.Note;
         InProgress = d.InProgress;
         Suggested = d.Suggestion != null;
-        Tooltip = HomeworkBoardLayout.TooltipOf(d);
+        Tooltip = IsSeason ? $"{Label}: {(Value is > 0 ? Value.ToString() : "미입력")} — 눌러서 숫자 입력" : HomeworkBoardLayout.TooltipOf(d);
         // 넓은 단계의 상태 줄: 필드 보스는 완료하면 넘긴 보스 이름
-        StatusText = d.Def.IsBoss && d.State == CellState.Done && !string.IsNullOrWhiteSpace(d.Note) ? d.Note : HomeworkBoardLayout.StatusText(d);
-        AutomationName = $"{d.Def.Label} {HomeworkBoardLayout.StatusText(d)}" + (d.Def.IsBoss && !string.IsNullOrWhiteSpace(d.Note) ? $" ({d.Note})" : "")
+        StatusText = IsSeason ? ValueText : d.Def.IsBoss && d.State == CellState.Done && !string.IsNullOrWhiteSpace(d.Note) ? d.Note : HomeworkBoardLayout.StatusText(d);
+        AutomationName = IsSeason ? Tooltip : $"{d.Def.Label} {HomeworkBoardLayout.StatusText(d)}" + (d.Def.IsBoss && !string.IsNullOrWhiteSpace(d.Note) ? $" ({d.Note})" : "")
             + $" — 눌러서 {(d.State == CellState.Done ? "미완료로" : d.Def.IsBoss ? "넘긴 보스 고르기" : "완료로")} 바꾸기";
     }
 }
@@ -106,10 +112,12 @@ public sealed partial class CharacterRowViewModel : ObservableObject
         }
         Cells = all;
         Groups = groups;
+        SeasonGroups = HomeworkBoardLayout.SeasonGroups.Select(g => new CellGroupViewModel(g, g.Cells.Select(d => new CellViewModel(d, key)).ToList())).ToList();
     }
 
     public IReadOnlyList<CellViewModel> Cells { get; }
     public IReadOnlyList<CellGroupViewModel> Groups { get; }
+    public IReadOnlyList<CellGroupViewModel> SeasonGroups { get; }
 
     [ObservableProperty] private string _displayName = "";
     [ObservableProperty] private string? _nickname;
@@ -152,6 +160,9 @@ public sealed partial class CharacterRowViewModel : ObservableObject
         IsCurrent = c.IsCurrent;
         var data = HomeworkBoardLayout.CellsOf(c);
         for (var i = 0; i < Cells.Count; i++) Cells[i].Apply(data[i]);
+        var seasonal = HomeworkBoardLayout.SeasonCellsOf(c);
+        var seasonCells = SeasonGroups.SelectMany(g => g.Cells).ToList();
+        for (var i = 0; i < seasonCells.Count; i++) seasonCells[i].Apply(seasonal[i]);
         DoneCount = data.Count(x => x.State == CellState.Done);
         AllDone = DoneCount == Total;
         JobLevelCombat = $"{c.Job} {c.Level} · {CardFormat.CompactCombat(c.Combat)}";

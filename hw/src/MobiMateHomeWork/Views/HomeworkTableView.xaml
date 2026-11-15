@@ -35,14 +35,19 @@
 
         <!-- 칸 -->
         <DataTemplate x:Key="CellTemplate" DataType="{x:Type vm:CellViewModel}">
-            <Button Style="{StaticResource Cell.Button}" Width="{DynamicResource Metrics.CellWidth}" Height="{DynamicResource Metrics.CellHeight}"
+            <Button Height="{DynamicResource Metrics.CellHeight}"
                     Margin="{DynamicResource Metrics.CellMargin}" ToolTip="{Binding Tooltip}" AutomationProperties.Name="{Binding AutomationName}"
                     Command="{Binding DataContext.ToggleCellCommand, RelativeSource={RelativeSource AncestorType=views:HomeworkTableView}}"
                     CommandParameter="{Binding}">
+                <Button.Style><Style TargetType="Button" BasedOn="{StaticResource Cell.Button}">
+                    <Setter Property="Width" Value="{DynamicResource Metrics.CellWidth}" />
+                    <Style.Triggers><DataTrigger Binding="{Binding IsSeason}" Value="True"><Setter Property="Width" Value="60" /></DataTrigger></Style.Triggers>
+                </Style></Button.Style>
                 <Grid>
                     <!-- 좁게·보통: 상태 기호 (보통은 뱅가드 같은 남은 횟수를 아래에) -->
                     <StackPanel Visibility="{DynamicResource Show.CellSymbol}" VerticalAlignment="Center" HorizontalAlignment="Center">
-                        <views:StateGlyph FontSize="{DynamicResource Metrics.CellGlyph}" HorizontalAlignment="Center" />
+                        <views:StateGlyph FontSize="{DynamicResource Metrics.CellGlyph}" HorizontalAlignment="Center" Visibility="{Binding IsSeason, Converter={StaticResource InvertBoolToVisibility}}" />
+                        <TextBlock Text="{Binding ValueText}" FontSize="{DynamicResource Font.Small}" FontWeight="SemiBold" Foreground="{DynamicResource Brush.Text}" HorizontalAlignment="Center" Visibility="{Binding IsSeason, Converter={StaticResource BoolToVis}}" />
                         <StackPanel Visibility="{DynamicResource Show.CellLeft}">
                             <TextBlock Text="{Binding LeftText}" Style="{StaticResource Text.Small}" HorizontalAlignment="Center" Foreground="{DynamicResource Brush.Text}"
                                        Visibility="{Binding HasLeft, Converter={StaticResource BoolToVis}}" />
@@ -60,7 +65,7 @@
                                        Visibility="{Binding HasLine2, Converter={StaticResource BoolToVis}}" />
                         </StackPanel>
                         <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Center">
-                            <views:StateGlyph FontSize="11" VerticalAlignment="Center" Margin="0,0,3,0" />
+                            <views:StateGlyph FontSize="11" VerticalAlignment="Center" Margin="0,0,3,0" Visibility="{Binding IsSeason, Converter={StaticResource InvertBoolToVisibility}}" />
                             <TextBlock Text="{Binding StatusText}" FontSize="11" Style="{StaticResource Text.Muted}" TextTrimming="CharacterEllipsis" MaxWidth="46" VerticalAlignment="Center" />
                         </StackPanel>
                     </Grid>
@@ -88,8 +93,13 @@
                     </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
                         <DataTemplate DataType="{x:Type vm:CellDef}">
-                            <TextBlock Text="{Binding Short}" Width="{DynamicResource Metrics.CellWidth}" Margin="{DynamicResource Metrics.CellMargin}" Style="{StaticResource Text.Small}"
-                                       TextAlignment="Center" ToolTip="{Binding Label}" Padding="0,2,0,0" />
+                            <TextBlock Text="{Binding Short}" Margin="{DynamicResource Metrics.CellMargin}"
+                                       TextAlignment="Center" ToolTip="{Binding Label}" Padding="0,2,0,0">
+                                <TextBlock.Style><Style TargetType="TextBlock" BasedOn="{StaticResource Text.Small}">
+                                    <Setter Property="Width" Value="{DynamicResource Metrics.CellWidth}" />
+                                    <Style.Triggers><DataTrigger Binding="{Binding IsSeason}" Value="True"><Setter Property="Width" Value="60" /></DataTrigger></Style.Triggers>
+                                </Style></TextBlock.Style>
+                            </TextBlock>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
@@ -147,10 +157,13 @@
                             </Grid>
                         </StackPanel>
                     </Grid>
-                    <ItemsControl Grid.Column="2" ItemsSource="{Binding Groups}" ItemTemplate="{StaticResource GroupTemplate}" VerticalAlignment="Center" Focusable="False">
+                    <ItemsControl Grid.Column="2" ItemsSource="{Binding Groups}" ItemTemplate="{StaticResource GroupTemplate}" VerticalAlignment="Center" Focusable="False" Visibility="{Binding DataContext.ShowSeason, RelativeSource={RelativeSource AncestorType=views:HomeworkTableView}, Converter={StaticResource InvertBoolToVisibility}}">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate>
                         </ItemsControl.ItemsPanel>
+                    </ItemsControl>
+                    <ItemsControl Grid.Column="2" ItemsSource="{Binding SeasonGroups}" ItemTemplate="{StaticResource GroupTemplate}" VerticalAlignment="Center" Focusable="False" Visibility="{Binding DataContext.ShowSeason, RelativeSource={RelativeSource AncestorType=views:HomeworkTableView}, Converter={StaticResource BoolToVis}}">
+                        <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
                     </ItemsControl>
                 </Grid>
                 <Border.Style>
@@ -188,10 +201,13 @@
                 <ColumnDefinition Width="*" MinWidth="{DynamicResource Metrics.CharInfoWidth}" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
-            <ItemsControl Grid.Column="2" ItemsSource="{x:Static vm:HomeworkBoardLayout.Groups}" ItemTemplate="{StaticResource HeaderGroupTemplate}" VerticalAlignment="Bottom" Focusable="False">
+            <ItemsControl Grid.Column="2" ItemsSource="{Binding Groups}" ItemTemplate="{StaticResource HeaderGroupTemplate}" VerticalAlignment="Bottom" Focusable="False" Visibility="{Binding ShowSeason, Converter={StaticResource InvertBoolToVisibility}}">
                 <ItemsControl.ItemsPanel>
                     <ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate>
                 </ItemsControl.ItemsPanel>
+            </ItemsControl>
+            <ItemsControl Grid.Column="2" ItemsSource="{Binding SeasonGroups}" ItemTemplate="{StaticResource HeaderGroupTemplate}" VerticalAlignment="Bottom" Focusable="False" Visibility="{Binding ShowSeason, Converter={StaticResource BoolToVis}}">
+                <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
             </ItemsControl>
         </Grid>
 

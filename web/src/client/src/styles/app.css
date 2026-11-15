@@ -715,7 +715,7 @@ button.hw-cell:focus-visible { outline: 2px solid var(--accent); outline-offset:
 .hw-legend.done { color: var(--ok); font-weight: 700; }
 .hw-legend.todo { color: var(--warn); font-weight: 600; }
 .hw-boss-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
-@container main (max-width: 1100px) {
+@container main (max-width: 1450px) {
   .hw-table { width: auto; padding: 0; background: none; border: 0; }
   .hw-all, .hw-acct, .hw-rows { display: grid; grid-template-columns: minmax(0, 1fr); width: auto; grid-column: auto; gap: 8px; }
   .hw-head { display: none; }
@@ -898,7 +898,7 @@ button.hw-cell:focus-visible { outline: 2px solid var(--accent); outline-offset:
 /* 박스 폭을 창 크기에 맞춰 열 수로 나눈다(캐릭 탭과 같은 방식): 박스가 길게 늘어나 안쪽이 비지 않는다 */
 .st-cut{column-width:280px;column-gap:10px}
 .st-cut>*{break-inside:avoid;margin:0 0 10px}
-@container main (max-width: 880px){
+@container main (max-width: 1200px){
   .st-table{width:auto}
   .st-grid{display:block}
   .st-body{display:block}

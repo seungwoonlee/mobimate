@@ -9,7 +9,10 @@ public enum CellState { Done, Todo, Unknown }
 /// 숙제 표의 칸 하나의 정의 (웹앱 homework.tsx의 HW_GROUPS와 같은 id·이름).
 /// Short = 좁은/보통 단계의 묶음 머리에 쓰는 두 글자 약칭, Line1·Line2 = 넓은 단계에서 칸 안에 쓰는 두 줄 이름.
 /// </summary>
-public sealed record CellDef(string Id, string Label, string Short, string Line1, string Line2, bool IsBoss = false);
+public sealed record CellDef(string Id, string Label, string Short, string Line1, string Line2, bool IsBoss = false)
+{
+    public bool IsSeason => Id is "weekly_nightmare_drill" or "weekly_nightmare_rank" or "weekly_memorial_saga";
+}
 
 public sealed record GroupDef(string Title, IReadOnlyList<CellDef> Cells);
 
@@ -18,7 +21,7 @@ public sealed record BossDef(string Id, string Title);
 
 /// <summary>한 캐릭터의 칸 하나가 지금 어떤 모습인가. 화면 모델이 이 값을 받아 그린다.</summary>
 public sealed record CellData(
-    CellDef Def, CellState State, int? Left, string? Evidence, string? Note, HomeworkSuggestion? Suggestion, bool InProgress);
+    CellDef Def, CellState State, int? Left, string? Evidence, string? Note, HomeworkSuggestion? Suggestion, bool InProgress, int? Value = null);
 
 /// <summary>숙제 표의 틀과 칸 만들기 규칙 (웹앱 homework.tsx의 HW_GROUPS·cellsOf·BOSSES와 같은 규칙).</summary>
 public static class HomeworkBoardLayout
@@ -37,6 +40,7 @@ public static class HomeworkBoardLayout
         ]),
         new("레이드",
         [
+            new("raid_scars", "적월의 스카스", "스카", "적월의", "스카스"),
             new("raid_cavrak", "카브락", "카브", "카브락", ""),
             new("raid_airel", "에이렐", "에이", "에이렐", ""),
             new("raid_white_succubus", "화이트 서큐버스", "화이", "화이트", "서큐버스"),
@@ -49,6 +53,16 @@ public static class HomeworkBoardLayout
         ]),
         new("필드", [new(FieldBossCellId, "필드보스", "보스", "필드", "보스", IsBoss: true)]),
     ];
+
+    public static readonly IReadOnlyList<GroupDef> SeasonGroups =
+    [
+        new("시즌 기록 · 누르면 숫자 입력", [
+            new("weekly_nightmare_drill", "나이트메어 드릴 구역", "구역", "드릴", "구역"),
+            new("weekly_nightmare_rank", "나이트메어 드릴 랭킹", "순위", "드릴", "순위"),
+            new("weekly_memorial_saga", "메모리얼 사가 층", "사가", "메모리얼", "사가"),
+        ]),
+    ];
+    public static readonly IReadOnlyList<CellDef> SeasonCells = [.. SeasonGroups.SelectMany(g => g.Cells)];
 
     public static readonly IReadOnlyList<CellDef> Cells = [.. Groups.SelectMany(g => g.Cells)];
 
@@ -85,6 +99,18 @@ public static class HomeworkBoardLayout
                 st == CellState.Done ? null : h?.Suggestion, c.InProgressIds.Contains(def.Id, StringComparer.OrdinalIgnoreCase)));
         }
         return list;
+    }
+
+    public static IReadOnlyList<CellData> SeasonCellsOf(CharacterView c)
+    {
+        var byId = c.Homework.ToDictionary(h => h.Id, StringComparer.OrdinalIgnoreCase);
+        return SeasonCells.Select(def =>
+        {
+            byId.TryGetValue(def.Id, out var status);
+            var value = status?.Value;
+            return new CellData(def, value is > 0 ? CellState.Todo : CellState.Unknown, null,
+                status?.Evidence, null, null, false, value);
+        }).ToList();
     }
 
     private static CellState StateOf(string? s) => s switch

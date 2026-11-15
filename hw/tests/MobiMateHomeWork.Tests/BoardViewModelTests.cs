@@ -71,12 +71,12 @@ public class BoardViewModelTests
         var f = new Fixture();
         f.Board.Apply(Snap(Acct("A", aira), Acct("B", rogue, archer)));
         var a = f.Board.Accounts.Single(x => x.Id == "A");
-        Assert.Equal(9, a.Remaining);                  // 열 칸 중 카브락만 완료
-        Assert.Equal("9", a.Badge);
+        Assert.Equal(10, a.Remaining);                  // 열 칸 중 카브락만 완료
+        Assert.Equal("10", a.Badge);
         Assert.False(a.AllDone);
         var b = f.Board.Accounts.Single(x => x.Id == "B");
-        Assert.Equal(0 + 10, b.Remaining);             // 도적은 열 칸 완료(0), 궁수는 열 칸 모두 남음(10)
-        Assert.Contains("남은 숙제 칸 10개", b.Tooltip);
+        Assert.Equal(0 + 11, b.Remaining);             // 도적은 열 칸 완료(0), 궁수는 열 칸 모두 남음(10)
+        Assert.Contains("남은 숙제 칸 11개", b.Tooltip);
 
         f.Board.Apply(Snap(Acct("A", aira), Acct("B", rogue)));
         var done = f.Board.Accounts.Single(x => x.Id == "B");
@@ -96,10 +96,10 @@ public class BoardViewModelTests
         Assert.Equal(["바람_도적", "아이라_격투가", "바람_궁수"], f.Board.Rows.Select(r => r.Key));   // 99k, 88k, 84k
         var rogueRow = f.Board.Rows[0];
         Assert.True(rogueRow.AllDone);                       // 흐리게 보인다
-        Assert.Equal("10/10", rogueRow.DoneText);
+        Assert.Equal("11/11", rogueRow.DoneText);
         Assert.Equal("그림자", rogueRow.DisplayName);
         Assert.False(f.Board.Rows[1].AllDone);
-        Assert.Equal("1/10", f.Board.Rows[1].DoneText);
+        Assert.Equal("1/11", f.Board.Rows[1].DoneText);
     }
 
     [Fact]
@@ -118,8 +118,8 @@ public class BoardViewModelTests
         var rogueRow = f.Board.Rows.Single(r => r.Key == "바람_도적");
         Assert.Equal("3시간 전", rogueRow.LastSeenText);
         Assert.Contains("전투력 99,000", rogueRow.Tooltip);
-        Assert.Equal(10, airaRow.Cells.Count);
-        Assert.Equal([3, 3, 3, 1], airaRow.Groups.Select(g => g.Cells.Count));
+        Assert.Equal(11, airaRow.Cells.Count);
+        Assert.Equal([3, 4, 3, 1], airaRow.Groups.Select(g => g.Cells.Count));
     }
 
     [Fact]
@@ -634,5 +634,25 @@ public class BoardViewModelTests
         f.Board.Apply(Snap());
         f.Board.BeginRename();
         Assert.False(f.Board.Card.IsRenaming);
+    }
+
+    [Fact]
+    public async Task SeasonValuesAreSeparateFromProgressAndSaveForTheSelectedCharacter()
+    {
+        var status = new HomeworkAutoStatus("weekly_nightmare_rank", "드릴 랭킹", "weekly", "done", null, Value: 99999);
+        var f = new Fixture();
+        f.Board.Apply(Snap(Acct("A", Char("a", hw: [status]))));
+        var row = f.Board.Rows.Single();
+        Assert.Equal(11, row.Total);
+        Assert.Equal(11, row.RemainingCells);
+        var rank = row.SeasonGroups.SelectMany(g => g.Cells).Single(c => c.Id == "weekly_nightmare_rank");
+        Assert.Equal("99999", rank.ValueText);
+        CellViewModel? requested = null;
+        f.Board.SeasonEditRequested += c => requested = c;
+        await f.Board.ToggleCellAsync(rank);
+        Assert.Same(rank, requested);
+        Assert.Empty(f.Actions.Sets);
+        await f.Board.SetSeasonValueAsync(rank, 123, 99999);
+        Assert.Equal(("weekly_nightmare_rank", (bool?)null, (int?)123, "a"), Assert.Single(f.Actions.Sets));
     }
 }

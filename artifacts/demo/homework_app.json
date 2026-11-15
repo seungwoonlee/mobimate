@@ -1,0 +1,45 @@
+{
+  "CliPath": null,
+  "WindowLeft": null,
+  "WindowTop": null,
+  "WindowWidth": null,
+  "WindowHeight": null,
+  "WindowMaximized": false,
+  "AlwaysOnTop": false,
+  "CloseToTray": true,
+  "TrayHintShown": false,
+  "BackgroundMode": "official",
+  "BackgroundId": "night_wish",
+  "BackgroundImagePath": null,
+  "BackgroundOpacity": 0.35,
+  "Characters": {
+    "\uBC14\uB78C_\uB3C4\uC801": {
+      "LastMap": "\uCF5C\uD5E8",
+      "WeightMax": 1200
+    },
+    "\uBC14\uB78C_\uAD81\uC218": {
+      "LastMap": "\uB358\uBC14\uD2BC",
+      "WeightMax": 1000
+    },
+    "\uBC14\uB78C_\uC804\uC0AC": {
+      "LastMap": null,
+      "WeightMax": 1000
+    },
+    "\uC544\uC774\uB77C_\uB9C8\uBC95\uC0AC": {
+      "LastMap": "\uD2F0\uB974 \uCF54\uB124\uC77C",
+      "WeightMax": 900
+    },
+    "\uB958\uD2B8_\uC74C\uC720\uC2DC\uC778": {
+      "LastMap": "\uD0C8\uD2F4",
+      "WeightMax": 1000
+    },
+    "\uC5D0\uB9B0_\uD790\uB7EC": {
+      "LastMap": "\uBC1C\uB808\uC2A4",
+      "WeightMax": 1100
+    },
+    "\uC544\uC774\uB77C_\uACA9\uD22C\uAC00": {
+      "LastMap": "\uD398\uCE74 \uACE0\uBD84 \uC2EC\uCE35 2\uCE35 3\uAD6C\uC5ED",
+      "WeightMax": 1030
+    }
+  }
+}

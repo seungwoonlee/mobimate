@@ -14,7 +14,7 @@ export const DOCK_MIN = 300;
 const DOCK_MAX = 760;
 /** 채팅 폭 상한: 본문이 너무 좁아지지 않게 화면 폭에서 레일과 본문 최소 폭을 뺀다 */
 export function clampDock(px: number, win = window.innerWidth) {
-  return Math.round(Math.max(DOCK_MIN, Math.min(DOCK_MAX, win - 72 - 360, px)));
+  return Math.round(Math.max(DOCK_MIN, Math.min(DOCK_MAX, win - 76 - 480, px)));
 }
 
 /** 채팅 폭 조절 손잡이: 끌거나 방향키(←→)로 바꾸고, 두 번 누르면 기본 폭으로 돌아간다 */

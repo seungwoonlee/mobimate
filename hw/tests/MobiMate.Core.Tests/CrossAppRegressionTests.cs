@@ -112,4 +112,36 @@ public class CrossAppRegressionTests : IDisposable
                 Assert.True(file.Characters[$"hw_{role}_{i}"].Items[definitions[0].Id].Completed);
         }
     }
+
+    [Fact]
+    public void SeasonValuesAndScarsAppearAndSurviveWeeklyReset()
+    {
+        var svc = Service();
+        svc.Set("c", "raid_scars", true);
+        svc.Set("c", "weekly_nightmare_drill", count: 22);
+        svc.Set("c", "weekly_nightmare_rank", count: 99999);
+        svc.Set("c", "weekly_memorial_saga", count: 42);
+        var current = svc.GetAutoStatuses(["c"])["c"].ToDictionary(x => x.Id);
+        Assert.Equal("done", current["raid_scars"].State);
+        Assert.Equal(22, current["weekly_nightmare_drill"].Value);
+        Assert.Equal(99999, current["weekly_nightmare_rank"].Value);
+        now = now.AddDays(2);
+        var next = svc.GetAutoStatuses(["c"])["c"].ToDictionary(x => x.Id);
+        Assert.Equal("unknown", next["raid_scars"].State);
+        Assert.Equal(22, next["weekly_nightmare_drill"].Value);
+        Assert.Equal(99999, next["weekly_nightmare_rank"].Value);
+        Assert.Equal(42, next["weekly_memorial_saga"].Value);
+    }
+
+    [Fact]
+    public void SeasonEditRejectsStaleValueAndKeepsOtherAppsChange()
+    {
+        var a = Service(); var b = Service();
+        a.Set("c", "weekly_memorial_saga", count: 5);
+        b.Set("c", "weekly_memorial_saga", count: 8);
+        Assert.Throws<InvalidOperationException>(() => a.SetSeasonIfUnchanged("c", "weekly_memorial_saga", 6, 5));
+        Assert.Equal(8, new HomeworkStore(dir).Load().Characters["c"].Items["weekly_memorial_saga"].Count);
+        a.SetSeasonIfUnchanged("c", "weekly_memorial_saga", 9, 8);
+        Assert.Equal(9, new HomeworkStore(dir).Load().Characters["c"].Items["weekly_memorial_saga"].Count);
+    }
 }

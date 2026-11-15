@@ -13,16 +13,16 @@ public class BoardModelTests
     public void Layout_HasTheWebAppGroupsAndCells()
     {
         Assert.Equal(["일일·주간", "레이드", "어비스", "필드"], HomeworkBoardLayout.Groups.Select(g => g.Title));
-        Assert.Equal([3, 3, 3, 1], HomeworkBoardLayout.Groups.Select(g => g.Cells.Count));
+        Assert.Equal([3, 4, 3, 1], HomeworkBoardLayout.Groups.Select(g => g.Cells.Count));
         Assert.Equal(
-            ["daily_day_dungeon", "weekly_guild_regular", "weekly_vanguard_breach", "raid_cavrak", "raid_airel", "raid_white_succubus",
+            ["daily_day_dungeon", "weekly_guild_regular", "weekly_vanguard_breach", "raid_scars", "raid_cavrak", "raid_airel", "raid_white_succubus",
              "abyss_illusory_anchorage", "abyss_madness_cave", "abyss_scattered_waterway", "field_boss"],
             HomeworkBoardLayout.Cells.Select(c => c.Id));
         Assert.Equal(
-            ["요일던전", "길드의뢰", "뱅가드", "카브락", "에이렐", "화이트 서큐버스", "허상의 정박지", "광기의 동굴", "흩어진 물길", "필드보스"],
+            ["요일던전", "길드의뢰", "뱅가드", "적월의 스카스", "카브락", "에이렐", "화이트 서큐버스", "허상의 정박지", "광기의 동굴", "흩어진 물길", "필드보스"],
             HomeworkBoardLayout.Cells.Select(c => c.Label));
         // 좁게·보통 머리의 두 글자 약칭
-        Assert.Equal(["요일", "길드", "뱅가", "카브", "에이", "화이", "허상", "광기", "물길", "보스"], HomeworkBoardLayout.Cells.Select(c => c.Short));
+        Assert.Equal(["요일", "길드", "뱅가", "스카", "카브", "에이", "화이", "허상", "광기", "물길", "보스"], HomeworkBoardLayout.Cells.Select(c => c.Short));
         Assert.All(HomeworkBoardLayout.Cells, c => Assert.Equal(2, c.Short.Length));
         // 필드 보스 여섯: 웹앱 BOSSES와 같은 id·순서
         Assert.Equal(
@@ -48,10 +48,10 @@ public class BoardModelTests
     // ── 칸 만들기 ──
 
     [Fact]
-    public void CellsOf_AlwaysTenCells_MissingStatusIsUnknown()
+    public void CellsOf_AlwaysElevenCells_MissingStatusIsUnknown()
     {
         var cells = HomeworkBoardLayout.CellsOf(Char("a"));
-        Assert.Equal(10, cells.Count);
+        Assert.Equal(11, cells.Count);
         Assert.All(cells, c => Assert.Equal(CellState.Unknown, c.State));
         Assert.All(cells, c => Assert.Null(c.Left));
     }

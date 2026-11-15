@@ -1,0 +1,24 @@
+2026-11-15 12:25:13.790 INFO MobiMateHomeWork.Hosting.StartupTasks: MobiMate Homework 시작 1.0.1115.1225: 저장 폴더 V:\workspace\MobiMate\wt-homework-fhd\artifacts\demo
+2026-11-15 12:25:13.800 INFO MobiMateHomeWork.Services.StatusMonitor: 게임 연결 상태: CliMissing
+2026-11-15 12:25:15.542 INFO MobiMateHomeWork.Images.ImageDownloadService: 이미지 27개를 내려받았습니다: V:\workspace\MobiMate\wt-homework-fhd\artifacts\demo\class-images
+2026-11-15 12:25:22.146 INFO MobiMateHomeWork.Images.ImageDownloadService: 이미지 6개를 내려받았습니다: V:\workspace\MobiMate\wt-homework-fhd\artifacts\demo\backgrounds
+2026-11-15 12:25:23.352 INFO MobiMateHomeWork: 768x405 → 배치 단계 Narrow, 저장: V:\workspace\MobiMate\wt-homework-fhd\artifacts\preview\home-768x405.png
+2026-11-15 12:25:23.401 INFO MobiMateHomeWork: 853x458 → 배치 단계 Narrow, 저장: V:\workspace\MobiMate\wt-homework-fhd\artifacts\preview\home-853x458.png
+2026-11-15 12:25:23.602 INFO MobiMateHomeWork: 960x510 → 배치 단계 Normal, 저장: V:\workspace\MobiMate\wt-homework-fhd\artifacts\preview\home-960x510.png
+2026-11-15 12:25:23.684 INFO MobiMateHomeWork: 1024x552 → 배치 단계 Normal, 저장: V:\workspace\MobiMate\wt-homework-fhd\artifacts\preview\home-1024x552.png
+2026-11-15 12:25:23.925 INFO MobiMateHomeWork: 1280x690 → 배치 단계 Wide, 저장: V:\workspace\MobiMate\wt-homework-fhd\artifacts\preview\home-1280x690.png
+2026-11-15 12:25:24.103 INFO MobiMateHomeWork: 1536x840 → 배치 단계 Wide, 저장: V:\workspace\MobiMate\wt-homework-fhd\artifacts\preview\home-1536x840.png
+2026-11-15 12:25:26.939 INFO MobiMateHomeWork: 스냅숏 13개를 저장했습니다: V:\workspace\MobiMate\wt-homework-fhd\artifacts\preview
+2026-11-15 12:25:26.941 INFO MobiMateHomeWork: MobiMate Homework를 종료합니다.
+2026-11-15 12:25:45.972 INFO MobiMateHomeWork.Hosting.StartupTasks: MobiMate Homework 시작 1.0.1115.1225: 저장 폴더 V:\workspace\MobiMate\wt-homework-fhd\artifacts\demo
+2026-11-15 12:25:46.094 INFO MobiMateHomeWork.Services.StatusMonitor: 게임 연결 상태: Connected
+2026-11-15 12:25:46.803 INFO MobiMateHomeWork.Services.CharacterSession: 캐릭터 기록: 아이라_격투가 Lv.100 전투력 88737
+2026-11-15 12:25:47.414 INFO MobiMateHomeWork: 768x405 → 배치 단계 Narrow, 저장: V:\workspace\MobiMate\wt-homework-fhd\artifacts\preview2\home-768x405.png
+2026-11-15 12:25:47.462 INFO MobiMateHomeWork: 853x458 → 배치 단계 Narrow, 저장: V:\workspace\MobiMate\wt-homework-fhd\artifacts\preview2\home-853x458.png
+2026-11-15 12:25:47.635 INFO MobiMateHomeWork: 960x510 → 배치 단계 Normal, 저장: V:\workspace\MobiMate\wt-homework-fhd\artifacts\preview2\home-960x510.png
+2026-11-15 12:25:47.695 INFO MobiMateHomeWork: 1024x552 → 배치 단계 Normal, 저장: V:\workspace\MobiMate\wt-homework-fhd\artifacts\preview2\home-1024x552.png
+2026-11-15 12:25:47.940 INFO MobiMateHomeWork: 1280x690 → 배치 단계 Wide, 저장: V:\workspace\MobiMate\wt-homework-fhd\artifacts\preview2\home-1280x690.png
+2026-11-15 12:25:48.145 INFO MobiMateHomeWork: 1536x840 → 배치 단계 Wide, 저장: V:\workspace\MobiMate\wt-homework-fhd\artifacts\preview2\home-1536x840.png
+2026-11-15 12:25:50.208 INFO MobiMateHomeWork.Services.CharacterWatcher: 감시 시작: 캐릭터 정보를 바로 새로 읽습니다 (아이라|격투가|100|이거밖에 안 되심?|88737)
+2026-11-15 12:25:51.457 INFO MobiMateHomeWork: 스냅숏 13개를 저장했습니다: V:\workspace\MobiMate\wt-homework-fhd\artifacts\preview2
+2026-11-15 12:25:51.458 INFO MobiMateHomeWork: MobiMate Homework를 종료합니다.

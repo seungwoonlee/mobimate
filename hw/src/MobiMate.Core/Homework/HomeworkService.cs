@@ -18,7 +18,7 @@ public sealed record HomeworkCard(
 }
 
 /// <summary>캐릭터 카드에 보여 줄 자동 판정 숙제 한 줄. State: done / todo / unknown. Suggestion = 완료가 아닌데 클리어 증거가 보인 "완료 제안"(화면의 모서리 점).</summary>
-public sealed record HomeworkAutoStatus(string Id, string Title, string Period, string State, string? Evidence, int? Remaining = null, string Category = "", HomeworkSuggestion? Suggestion = null, string? Locked = null);
+public sealed record HomeworkAutoStatus(string Id, string Title, string Period, string State, string? Evidence, int? Remaining = null, string Category = "", HomeworkSuggestion? Suggestion = null, string? Locked = null, int? Value = null);
 
 /// <summary>공유 풀(필드 보스 택1)의 캐릭터별 현황. State: done / todo / unknown, Item = 넘긴 보스 이름(완료일 때).</summary>
 /// <param name="Guess">"클리어 추정": 필드 보스 미션 카운터는 올랐는데 어느 보스인지 못 가렸다(눌러서 확인).</param>
@@ -131,6 +131,20 @@ public sealed class HomeworkService
         if (completed == null && count == null) throw new ArgumentException("completed 또는 count가 필요합니다.");
 
         lock (_lock) return _store.Lock.Run(() => SetLocked(characterKey, def, completed, count));
+    }
+
+    public HomeworkChange SetSeasonIfUnchanged(string characterKey, string id, int count, int expected)
+    {
+        RequireKey(characterKey);
+        var def = _catalog.Find(id) ?? throw new KeyNotFoundException(id);
+        if (!def.SeasonReset) throw new ArgumentException("시즌 기록이 아닙니다.");
+        lock (_lock) return _store.Lock.Run(() =>
+        {
+            var file = LoadOrThrow();
+            var actual = file.Characters.GetValueOrDefault(characterKey)?.Items.GetValueOrDefault(id)?.Count ?? 0;
+            if (actual != expected) throw new InvalidOperationException("다른 곳에서 시즌 기록이 변경되었습니다. 최신 값을 확인하고 다시 입력해 주세요.");
+            return SetLocked(characterKey, def, null, count);
+        });
     }
 
     private HomeworkChange SetLocked(string characterKey, HomeworkDefinition def, bool? completed, int? count)
@@ -297,7 +311,7 @@ public sealed class HomeworkService
             TryLoad(out var file);
             var lastDaily = KstClock.LastDailyReset(now);
             var lastWeekly = KstClock.LastWeeklyReset(now);
-            var defs = _catalog.Items.Where(d => d.Active && d.AutoCheck && d.Share == HomeworkShare.Character).ToList();
+            var defs = _catalog.Items.Where(d => d.Active && (d.AutoCheck || d.Id == "raid_scars" || d.SeasonReset) && d.Share == HomeworkShare.Character).ToList();
             var result = new Dictionary<string, IReadOnlyList<HomeworkAutoStatus>>(StringComparer.OrdinalIgnoreCase);
             foreach (var key in characterKeys)
             {
@@ -306,7 +320,7 @@ public sealed class HomeworkService
                 foreach (var def in defs)
                 {
                     var cycleStart = def.Period == HomeworkPeriod.Daily ? lastDaily : lastWeekly;
-                    var fresh = ledger != null && (def.Period == HomeworkPeriod.Daily ? ledger.LastDailyResetUtc : ledger.LastWeeklyResetUtc) >= cycleStart;
+                    var fresh = ledger != null && (def.SeasonReset || (def.Period == HomeworkPeriod.Daily ? ledger.LastDailyResetUtc : ledger.LastWeeklyResetUtc) >= cycleStart);
                     var st = fresh ? ledger!.Items.GetValueOrDefault(def.Id) : null;
                     string state;
                     if (st?.Completed == true) state = "done";
@@ -319,7 +333,7 @@ public sealed class HomeworkService
                     else state = "unknown";
                     list.Add(new HomeworkAutoStatus(def.Id, def.CardLabel ?? def.Title, def.Period == HomeworkPeriod.Daily ? "daily" : "weekly", state, st?.Evidence, state == "todo" ? st?.RemainingCount : null, def.Category,
                         state == "done" ? null : st?.Suggestion,
-                        HomeworkEvaluator.GrowthLockHint(def, ledger?.GrowthGuide)));   // 게임의 잠금 안내(레벨·퀘스트 조건): 입장 불가 표시에 쓴다
+                        HomeworkEvaluator.GrowthLockHint(def, ledger?.GrowthGuide), def.SeasonReset ? st?.Count : null));   // 게임의 잠금 안내(레벨·퀘스트 조건): 입장 불가 표시에 쓴다
                 }
                 result[key] = list;
             }

@@ -281,6 +281,9 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 /// <summary>쓰기 동작을 받지 못한 화면(테스트 등)의 자리 채움: 모두 거절한다.</summary>
 internal sealed class ReadOnlyActions : IHomeworkActions
 {
+    public HomeworkCommandResult SetSeasonValue(string id, int count, int expected, string characterKey) =>
+        HomeworkCommandResult.Fail(CommandError.StorageUnavailable, "읽기 전용 화면입니다.");
+
     public HomeworkCommandResult SetHomework(string id, bool? completed, int? count, string? characterKey = null) =>
         HomeworkCommandResult.Fail(CommandError.Validation, "이 화면에서는 숙제를 바꿀 수 없습니다.");
 

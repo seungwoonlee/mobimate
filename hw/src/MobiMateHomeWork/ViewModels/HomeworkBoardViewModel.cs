@@ -53,6 +53,14 @@ public sealed partial class HomeworkBoardViewModel : ObservableObject
     [ObservableProperty] private bool _noticeVisible;
 
     public IReadOnlyList<GroupDef> Groups => HomeworkBoardLayout.Groups;
+    public IReadOnlyList<GroupDef> SeasonGroups => HomeworkBoardLayout.SeasonGroups;
+    [ObservableProperty] private bool _showSeason;
+    public event Action<CellViewModel>? SeasonEditRequested;
+    public async Task SetSeasonValueAsync(CellViewModel cell, int value, int expected)
+    {
+        if (!cell.IsSeason) return;
+        await RunAsync(() => [_actions.SetSeasonValue(cell.Id, value, expected, cell.CharacterKey)]);
+    }
 
     // ── 화면 만들기 ───────────────────────────────────────────
 
@@ -198,6 +206,7 @@ public sealed partial class HomeworkBoardViewModel : ObservableObject
     public async Task ToggleCellAsync(CellViewModel? cell)
     {
         if (cell == null) return;
+        if (cell.IsSeason) { SeasonEditRequested?.Invoke(cell); return; }
         // 같은 칸은 명령이 끝나 화면이 갱신될 때까지 한 번만: 되돌리기 클릭이 옛 값을 다시 보내지 않게
         if (!_busyCells.TryAdd(cell.CharacterKey + "|" + cell.Id, 0)) return;
         try

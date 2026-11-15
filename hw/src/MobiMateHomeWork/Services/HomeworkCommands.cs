@@ -32,6 +32,7 @@ public interface IHomeworkActions
 {
     HomeworkCommandResult SetHomework(string id, bool? completed, int? count, string? characterKey = null);
     CommandResult RenameCharacter(string characterKey, string? nickname);
+    HomeworkCommandResult SetSeasonValue(string id, int count, int expected, string characterKey);
 }
 
 /// <summary>캐릭터 합치기 동작. 화면 모델 테스트에서 가짜로 바꿔 끼울 수 있게 따로 둔 인터페이스다.</summary>
@@ -81,6 +82,21 @@ public sealed class HomeworkCommands(HomeworkWatcher homework, CharacterSession 
         catch (KeyNotFoundException) { return HomeworkCommandResult.Fail(CommandError.UnknownHomework, $"알 수 없는 숙제: {id}"); }
         catch (ArgumentException ex) { return HomeworkCommandResult.Fail(CommandError.Validation, ex.Message); }
         catch (IOException ex) { return HomeworkCommandResult.Fail(CommandError.StorageUnavailable, ex.Message); }
+    }
+
+    public HomeworkCommandResult SetSeasonValue(string id, int count, int expected, string characterKey)
+    {
+        if (!session.IsKnownCharacter(characterKey) && !session.IsCurrentCharacter(characterKey)) return HomeworkCommandResult.Fail(CommandError.UnknownCharacter, "알 수 없는 캐릭터입니다.");
+        try
+        {
+            var change = homework.Service.SetSeasonIfUnchanged(characterKey, id, count, expected);
+            homework.Notify(change);
+            return new HomeworkCommandResult(CommandError.None, null, change);
+        }
+        catch (InvalidOperationException ex) { return HomeworkCommandResult.Fail(CommandError.Validation, ex.Message); }
+        catch (IOException ex) { return HomeworkCommandResult.Fail(CommandError.StorageUnavailable, ex.Message); }
+        catch (ArgumentException ex) { return HomeworkCommandResult.Fail(CommandError.Validation, ex.Message); }
+        catch (KeyNotFoundException) { return HomeworkCommandResult.Fail(CommandError.UnknownHomework, "알 수 없는 숙제입니다."); }
     }
 
     /// <summary>

@@ -14,8 +14,8 @@ public class LayoutTests
     [InlineData(760, LayoutTier.Narrow)]          // 최소 폭
     [InlineData(899.99, LayoutTier.Narrow)]
     [InlineData(900, LayoutTier.Normal)]          // 경계는 위 단계에 속한다
-    [InlineData(1199.99, LayoutTier.Normal)]
-    [InlineData(1200, LayoutTier.Wide)]
+    [InlineData(1279.99, LayoutTier.Normal)]
+    [InlineData(1280, LayoutTier.Wide)]
     [InlineData(2560, LayoutTier.Wide)]
     [InlineData(double.NaN, LayoutTier.Narrow)]
     [InlineData(-5, LayoutTier.Narrow)]
@@ -74,7 +74,7 @@ public class LayoutTests
         // 기본 글자 12/13/14, 최소 11, 카드 폭 232/270/320
         Assert.Equal(["12", "13", "14"], new[] { narrow, normal, wide }.Select(d => d["Font.Base"]));
         Assert.All(new[] { narrow, normal, wide }, d => Assert.True(double.Parse(d["Font.Small"], CultureInfo.InvariantCulture) >= 11));
-        Assert.Equal(["232", "270", "320"], new[] { narrow, normal, wide }.Select(d => d["Metrics.CardWidth"]));
+        Assert.Equal(["210", "250", "320"], new[] { narrow, normal, wide }.Select(d => d["Metrics.CardWidth"]));
     }
 
     // ── H4: 숙제 표 치수 ──
@@ -87,7 +87,7 @@ public class LayoutTests
     {
         var t = new[] { LayoutTier.Narrow, LayoutTier.Normal, LayoutTier.Wide }.Select(x => Keys(LayoutTiers.ResourceFile(x))).ToArray();
         Assert.Equal(["44", "60", "76"], t.Select(d => d["Metrics.RowHeight"]));
-        Assert.Equal(["32", "42", "60"], t.Select(d => d["Metrics.CellWidth"]));
+        Assert.Equal(["32", "39", "60"], t.Select(d => d["Metrics.CellWidth"]));
         Assert.Equal(["32", "44", "56"], t.Select(d => d["Metrics.CellHeight"]));
         // 좁게 = 기호만 / 보통 = 기호 + 남은 횟수 / 넓게 = 칸 안 두 줄 이름
         Assert.Equal(["Visible", "Visible", "Collapsed"], t.Select(d => d["Show.CellSymbol"]));
@@ -122,7 +122,7 @@ public class LayoutTests
         Assert.True(needHeight <= height - 2, $"높이 {needHeight} > {height - 2}");
 
         var cellGap = 2.0;   // CellMargin 1,1
-        var needWidth = infoMin + 3 + 10 * (cellWidth + cellGap) + 3 * Left(d, "Metrics.GroupMargin");
+        var needWidth = infoMin + 3 + 11 * (cellWidth + cellGap) + 4 * Left(d, "Metrics.GroupMargin");
         var available = width - 2 - cardWidth - 16 - 10;
         Assert.True(needWidth <= available, $"폭 {needWidth} > {available} ({tier})");
     }

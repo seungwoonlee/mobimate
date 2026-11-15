@@ -101,6 +101,8 @@
 
             <!-- 계정 탭 줄 28: 이름 · 남은 숙제 칸 수 배지(모두 마치면 ✓) · 접속 중 계정은 초록 점 -->
             <Grid Grid.Row="2" Margin="12,0,12,0" Background="{DynamicResource Brush.PanelBg}">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                <CheckBox Grid.Column="1" Style="{StaticResource CheckBox.Toggle}" IsChecked="{Binding Board.ShowSeason}" Content="시즌 기록" VerticalAlignment="Center" Margin="8,0,0,0" ToolTip="주간 숙제와 시즌 기록을 전환합니다" AutomationProperties.Name="시즌 기록 보기" />
                 <ListBox Style="{StaticResource PillTabs}" ItemsSource="{Binding Board.Accounts}" SelectedItem="{Binding Board.SelectedAccount}" VerticalAlignment="Center"
                          AutomationProperties.Name="계정">
                     <ListBox.Visibility>

@@ -13,8 +13,8 @@ button{cursor:pointer}
   grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr) auto;grid-template-areas:"top" "main" "tabs"}
 .app[data-size="medium"]{grid-template-columns:72px minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);grid-template-areas:"top top" "rail main"}
 .app[data-size="expanded"],.app[data-size="large"]{grid-template-columns:72px minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);grid-template-areas:"top top" "rail main"}
-.app[data-dock-mode="side"][data-dock-open="true"][data-size="expanded"]{grid-template-columns:72px minmax(0,1fr) var(--dock-w,360px);grid-template-areas:"top top top" "rail main dock"}
-.app[data-dock-mode="side"][data-dock-open="true"][data-size="large"]{grid-template-columns:76px minmax(0,1fr) var(--dock-w,460px);grid-template-areas:"top top top" "rail main dock"}
+.app[data-dock-mode="side"][data-dock-open="true"][data-size="expanded"]{grid-template-columns:72px minmax(0,1fr) min(var(--dock-w,360px), max(300px, calc(100vw - 552px)));grid-template-areas:"top top top" "rail main dock"}
+.app[data-dock-mode="side"][data-dock-open="true"][data-size="large"]{grid-template-columns:76px minmax(0,1fr) min(var(--dock-w,460px), max(300px, calc(100vw - 556px)));grid-template-areas:"top top top" "rail main dock"}
 .app[data-posture="book"]{grid-template-columns:72px minmax(0,1fr) minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);grid-template-areas:"top top top" "rail main dock"}
 .app[data-posture="tabletop"]{grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr) 16px minmax(0,1fr);grid-template-areas:"top" "main" "hinge" "dock"}
 
@@ -81,7 +81,7 @@ button{cursor:pointer}
 
 /* 본문 */
 .main{grid-area:main;overflow-y:auto;overscroll-behavior-y:contain;container-type:inline-size;container-name:main;min-width:0}
-.main-inner{padding:18px 20px 28px;display:grid;gap:16px;max-width:1840px}
+.main-inner{padding:18px 20px 28px;display:grid;grid-template-columns:minmax(0,1fr);min-width:0;gap:16px;max-width:1840px}
 .app[data-size="compact"] .main-inner{padding:12px 12px 90px;gap:12px}
 .view-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
 .view-head h2{margin:0;font-size:calc(19px * var(--scale));font-weight:700;letter-spacing:-.01em}

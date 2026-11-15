@@ -169,6 +169,9 @@ public static class SnapshotRenderer
                     break;
                 default: continue;                                                      // 장부가 없는 캐릭터(아이라_마법사 등): 전부 미확인
             }
+            l.Items["weekly_nightmare_drill"] = new HomeworkItemState { Count = 22, Goal = 30 };
+            l.Items["weekly_nightmare_rank"] = new HomeworkItemState { Count = 119, Completed = true };
+            l.Items["weekly_memorial_saga"] = new HomeworkItemState { Count = 42, Completed = true };
             file.Characters[key] = l;
         }
         File.WriteAllText(path, JsonSerializer.Serialize(file));
@@ -201,11 +204,20 @@ public static class SnapshotRenderer
                 log?.Invoke($"{w}x{h} → 배치 단계 {window.ViewModel.Tier}, 저장: {file}");
             }
 
+            var board = window.ViewModel.Board;
+            board.ShowSeason = true;
+            foreach (var (w, h) in new[] { (768, 405), (960, 510) })
+            {
+                window.Width = w; window.Height = h;
+                await SettleAsync(window);
+                saved.Add(Capture(window, outDir, $"home-season-{w}x{h}.png"));
+            }
+            board.ShowSeason = false;
+
             // 보통 크기에서 추가 두 장: 필드 보스 팝업이 열린 상태, 카드 이름을 바꾸는 중
             window.Width = ExtrasSize.Width;
             window.Height = ExtrasSize.Height;
             await SettleAsync(window);
-            var board = window.ViewModel.Board;
             var bossRow = board.Rows.FirstOrDefault(r => r.Cells.Any(c => c.IsBoss && c.State != CellState.Done)) ?? board.Rows.FirstOrDefault();
             if (bossRow != null)
             {

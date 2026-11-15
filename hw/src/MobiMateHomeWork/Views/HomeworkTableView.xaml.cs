@@ -11,7 +11,23 @@ namespace MobiMateHomeWork.Views;
 /// </summary>
 public partial class HomeworkTableView : UserControl
 {
-    public HomeworkTableView() => InitializeComponent();
+    public HomeworkTableView()
+    {
+        InitializeComponent();
+        DataContextChanged += (_, e) =>
+        {
+            if (e.OldValue is HomeworkBoardViewModel oldBoard) oldBoard.SeasonEditRequested -= EditSeason;
+            if (e.NewValue is HomeworkBoardViewModel newBoard) newBoard.SeasonEditRequested += EditSeason;
+        };
+    }
+
+    private async void EditSeason(CellViewModel cell)
+    {
+        if (DataContext is not HomeworkBoardViewModel board) return;
+        var expected = cell.Value ?? 0;
+        var dialog = new SeasonValueWindow(cell) { Owner = Window.GetWindow(this) };
+        if (dialog.ShowDialog() == true) await board.SetSeasonValueAsync(cell, dialog.Value, expected);
+    }
 
     private void OnRowPressed(object sender, MouseButtonEventArgs e)
     {

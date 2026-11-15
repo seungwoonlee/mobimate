@@ -60,6 +60,8 @@ internal sealed class FakeActions : IHomeworkActions
         return OnSet?.Invoke(id) ?? new HomeworkCommandResult(CommandError.None, null, null);
     }
 
+    public HomeworkCommandResult SetSeasonValue(string id, int count, int expected, string characterKey) => SetHomework(id, null, count, characterKey);
+
     public CommandResult RenameCharacter(string characterKey, string? nickname)
     {
         lock (_lock) _renames.Add((characterKey, nickname));

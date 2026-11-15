@@ -5,14 +5,14 @@
          세 단계 파일의 키는 같아야 한다(LayoutTierResourceTests). 표 쪽 값(줄 높이·칸 크기·보이는 것 등)은 숙제 표(H4)가 쓴다. -->
     <sys:Double x:Key="Font.Base">12</sys:Double>
     <sys:Double x:Key="Font.Small">11</sys:Double>
-    <GridLength x:Key="Metrics.CardWidth">232</GridLength>
+    <GridLength x:Key="Metrics.CardWidth">210</GridLength>
     <sys:Double x:Key="Metrics.RowHeight">44</sys:Double>
     <sys:Double x:Key="Metrics.GroupHeaderHeight">34</sys:Double>
     <!-- 표 가로: 정보 열은 남는 폭을 받고(최소 CharInfoWidth), 칸은 고정 폭. 묶음 사이 간격 GroupMargin, 칸 사이 간격 = CellMargin 양쪽 합 -->
-    <sys:Double x:Key="Metrics.CharInfoWidth">136</sys:Double>
+    <sys:Double x:Key="Metrics.CharInfoWidth">120</sys:Double>
     <sys:Double x:Key="Metrics.CellWidth">32</sys:Double>
     <sys:Double x:Key="Metrics.CellHeight">32</sys:Double>
-    <Thickness x:Key="Metrics.GroupMargin">8,0,0,0</Thickness>
+    <Thickness x:Key="Metrics.GroupMargin">6,0,0,0</Thickness>
     <Thickness x:Key="Metrics.CellMargin">1,0,1,0</Thickness>
     <sys:Double x:Key="Metrics.BadgeSize">20</sys:Double>
     <!-- 직업 전신 이미지: 표 줄 썸네일 / 캐릭터 카드 머리 -->
