@@ -56,6 +56,17 @@ public sealed partial class HomeworkBoardViewModel : ObservableObject
     public IReadOnlyList<GroupDef> SeasonGroups => HomeworkBoardLayout.SeasonGroups;
     [ObservableProperty] private bool _showSeason;
     public event Action<CellViewModel>? SeasonEditRequested;
+
+    /// <summary>시즌 기록(드릴·메모리얼 사가)을 모든 캐릭터에서 지운다. 확인은 호출하는 쪽(창)이 이미 받았다.</summary>
+    public async Task ResetSeasonAllAsync(bool saga)
+    {
+        SeasonResetResult r;
+        try { r = await Task.Run(() => _actions.ResetSeasonAll(saga)); }
+        catch (Exception ex) { r = new SeasonResetResult(CommandError.StorageUnavailable, ex.Message, 0); }
+        var what = saga ? "메모리얼 사가" : "나이트메어 드릴";
+        _post(() => ShowNotice(r.Ok ? (r.Characters > 0 ? $"{what} 기록을 {r.Characters}명에게서 지웠습니다." : $"지울 {what} 기록이 없습니다.") : Describe(r.Error, r.Message)));
+        if (r.Ok && _refresh != null) await _refresh();
+    }
     public async Task SetSeasonValueAsync(CellViewModel cell, int value, int expected)
     {
         if (!cell.IsSeason) return;
@@ -115,7 +126,7 @@ public sealed partial class HomeworkBoardViewModel : ObservableObject
                 tab.Name = a.Name;
                 tab.MemberCount = a.Members.Count;
                 tab.IsCurrent = a.HasCurrent;
-                tab.Remaining = a.Members.Sum(m => HomeworkBoardLayout.CellsOf(m).Count(c => c.State != CellState.Done));
+                tab.Remaining = a.Members.Sum(m => HomeworkBoardLayout.CellsOf(m).Count(c => !c.Def.IsStep && c.State is not (CellState.Done or CellState.Locked)));
             });
             HasAccounts = Accounts.Count > 0;
             SelectedAccount = Accounts.FirstOrDefault(a => a.Id == _pickedAccountId)
@@ -207,6 +218,7 @@ public sealed partial class HomeworkBoardViewModel : ObservableObject
     {
         if (cell == null) return;
         if (cell.IsSeason) { SeasonEditRequested?.Invoke(cell); return; }
+        if (cell.IsLocked) return;   // 게임이 막아 둔 콘텐츠: 누를 것이 없다
         // 같은 칸은 명령이 끝나 화면이 갱신될 때까지 한 번만: 되돌리기 클릭이 옛 값을 다시 보내지 않게
         if (!_busyCells.TryAdd(cell.CharacterKey + "|" + cell.Id, 0)) return;
         try
@@ -218,12 +230,35 @@ public sealed partial class HomeworkBoardViewModel : ObservableObject
         finally { _busyCells.TryRemove(cell.CharacterKey + "|" + cell.Id, out _); }
     }
 
+    /// <summary>단계 카운터를 한 단계 뒤로(우클릭): 0 아래로는 내려가지 않는다.</summary>
+    public async Task StepBackAsync(CellViewModel? cell)
+    {
+        if (cell is not { IsStep: true } || cell.Step <= 0) return;
+        if (!_busyCells.TryAdd(cell.CharacterKey + "|" + cell.Id, 0)) return;
+        try
+        {
+            var prev = cell.Step - 1;
+            var key = cell.CharacterKey;
+            var id = cell.Id;
+            var before = cell.Step;
+            if (await RunAsync(() => [_actions.SetHomework(id, null, prev, key)]))
+                for (var until = DateTime.UtcNow + _settleTimeout; DateTime.UtcNow < until && cell.Step == before; ) await Task.Delay(20);
+        }
+        finally { _busyCells.TryRemove(cell.CharacterKey + "|" + cell.Id, out _); }
+    }
+
     private readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte> _busyCells = new();
 
     /// <returns>명령을 보냈고 성공했으면 true(화면이 바뀌기를 기다릴 가치가 있다).</returns>
     private async Task<bool> ToggleCoreAsync(CellViewModel cell)
     {
         var key = cell.CharacterKey;
+        if (cell.IsStep)
+        {
+            var next = (cell.Step + 1) % (cell.StepGoal + 1);   // 0 → 1 → … → 목표(완료) → 0
+            var sid = cell.Id;
+            return await RunAsync(() => [_actions.SetHomework(sid, null, next, key)]);
+        }
         if (!cell.IsBoss)
         {
             var target = cell.State != CellState.Done;

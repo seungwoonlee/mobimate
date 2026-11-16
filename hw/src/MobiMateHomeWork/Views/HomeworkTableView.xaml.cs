@@ -29,6 +29,16 @@ public partial class HomeworkTableView : UserControl
         if (dialog.ShowDialog() == true) await board.SetSeasonValueAsync(cell, dialog.Value, expected);
     }
 
+    /// <summary>단계 카운터 칸을 우클릭하면 한 단계 내린다.</summary>
+    private async void OnCellRightClick(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: CellViewModel { IsStep: true } cell } && DataContext is HomeworkBoardViewModel board)
+        {
+            e.Handled = true;
+            await board.StepBackAsync(cell);
+        }
+    }
+
     private void OnRowPressed(object sender, MouseButtonEventArgs e)
     {
         if (sender is FrameworkElement { DataContext: CharacterRowViewModel row } && DataContext is HomeworkBoardViewModel board)

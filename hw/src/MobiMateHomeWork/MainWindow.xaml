@@ -4,8 +4,8 @@
         xmlns:vm="clr-namespace:MobiMateHomeWork.ViewModels"
         xmlns:svc="clr-namespace:MobiMateHomeWork.Services"
         xmlns:views="clr-namespace:MobiMateHomeWork.Views"
-        Title="MobiMate Homework" Icon="app.ico" Width="960" Height="520" MinWidth="760" MinHeight="380"
-        WindowStyle="None" ResizeMode="CanResize" WindowStartupLocation="Manual"
+        Title="MobiMate Homework" Icon="app.ico" Width="1280" Height="720" MinWidth="1280" MinHeight="720" MaxWidth="1280" MaxHeight="720"
+        WindowStyle="None" ResizeMode="CanMinimize" WindowStartupLocation="Manual"
         Background="{DynamicResource Brush.Bg}" Foreground="{DynamicResource Brush.Text}"
         FontFamily="{StaticResource Font.Text}" FontSize="{DynamicResource Font.Base}"
         UseLayoutRounding="True" SnapsToDevicePixels="True" TextOptions.TextFormattingMode="Display"
@@ -73,7 +73,7 @@
                         WindowChrome.IsHitTestVisibleInChrome="True" ToolTip="설정" AutomationProperties.Name="설정" />
                 <StackPanel Grid.Column="4" Orientation="Horizontal" WindowChrome.IsHitTestVisibleInChrome="True">
                     <Button Style="{StaticResource Button.Caption}" Content="&#xE921;" Click="OnMinimize" ToolTip="최소화" AutomationProperties.Name="최소화" />
-                    <Button x:Name="MaxButton" Style="{StaticResource Button.Caption}" Content="&#xE922;" Click="OnMaximize" ToolTip="최대화" AutomationProperties.Name="최대화" />
+                    <Button x:Name="MaxButton" Visibility="Collapsed" Style="{StaticResource Button.Caption}" Content="&#xE922;" Click="OnMaximize" ToolTip="최대화" AutomationProperties.Name="최대화" />
                     <Button Style="{StaticResource Button.CaptionClose}" Content="&#xE8BB;" Click="OnClose" ToolTip="닫기" AutomationProperties.Name="닫기" />
                 </StackPanel>
             </Grid>
@@ -102,6 +102,10 @@
             <!-- 계정 탭 줄 28: 이름 · 남은 숙제 칸 수 배지(모두 마치면 ✓) · 접속 중 계정은 초록 점 -->
             <Grid Grid.Row="2" Margin="12,0,12,0" Background="{DynamicResource Brush.PanelBg}">
                 <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,110,0" Visibility="{Binding Board.ShowSeason, Converter={StaticResource BoolToVisibility}}">
+                    <Button Content="드릴 전체 초기화" Tag="drill" Click="OnResetSeasonClicked" Margin="0,0,6,0" Padding="8,2" ToolTip="모든 캐릭터의 나이트메어 드릴 구역·랭킹을 지웁니다" AutomationProperties.Name="나이트메어 드릴 전체 초기화" />
+                    <Button Content="사가 전체 초기화" Tag="saga" Click="OnResetSeasonClicked" Padding="8,2" ToolTip="모든 캐릭터의 메모리얼 사가 층 수를 지웁니다" AutomationProperties.Name="메모리얼 사가 전체 초기화" />
+                </StackPanel>
                 <CheckBox Grid.Column="1" Style="{StaticResource CheckBox.Toggle}" IsChecked="{Binding Board.ShowSeason}" Content="시즌 기록" VerticalAlignment="Center" Margin="8,0,0,0" ToolTip="주간 숙제와 시즌 기록을 전환합니다" AutomationProperties.Name="시즌 기록 보기" />
                 <ListBox Style="{StaticResource PillTabs}" ItemsSource="{Binding Board.Accounts}" SelectedItem="{Binding Board.SelectedAccount}" VerticalAlignment="Center"
                          AutomationProperties.Name="계정">

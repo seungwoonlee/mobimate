@@ -66,7 +66,7 @@ public sealed class GameStateCache
 
     public static string WeightSummary(VitalsInfo? v)
     {
-        if (v == null || v.WeightMax <= 0) return "알 수 없음";
+        if (v == null || !v.IsWeightSane()) return "알 수 없음";
         var pct = v.WeightCurrent / v.WeightMax * 100.0;
         return $"{v.WeightCurrent:F1} / {v.WeightMax:F1} ({pct:F1}%)";
     }

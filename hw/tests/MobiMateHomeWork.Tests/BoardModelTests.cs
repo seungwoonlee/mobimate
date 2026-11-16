@@ -13,16 +13,16 @@ public class BoardModelTests
     public void Layout_HasTheWebAppGroupsAndCells()
     {
         Assert.Equal(["일일·주간", "레이드", "어비스", "필드"], HomeworkBoardLayout.Groups.Select(g => g.Title));
-        Assert.Equal([3, 4, 3, 1], HomeworkBoardLayout.Groups.Select(g => g.Cells.Count));
+        Assert.Equal([5, 4, 3, 1], HomeworkBoardLayout.Groups.Select(g => g.Cells.Count));
         Assert.Equal(
-            ["daily_day_dungeon", "weekly_guild_regular", "weekly_vanguard_breach", "raid_scars", "raid_cavrak", "raid_airel", "raid_white_succubus",
+            ["daily_day_dungeon", "weekly_guild_regular", "weekly_vanguard_breach", "weekly_barrier_1_7", "weekly_black_hole_1_7", "raid_scars", "raid_cavrak", "raid_airel", "raid_white_succubus",
              "abyss_illusory_anchorage", "abyss_madness_cave", "abyss_scattered_waterway", "field_boss"],
             HomeworkBoardLayout.Cells.Select(c => c.Id));
         Assert.Equal(
-            ["요일던전", "길드의뢰", "뱅가드", "적월의 스카스", "카브락", "에이렐", "화이트 서큐버스", "허상의 정박지", "광기의 동굴", "흩어진 물길", "필드보스"],
+            ["요일던전", "길드의뢰", "뱅가드", "소환의 결계", "검은 구멍", "적월의 스카스", "카브락", "에이렐", "화이트 서큐버스", "허상의 정박지", "광기의 동굴", "흩어진 물길", "필드보스"],
             HomeworkBoardLayout.Cells.Select(c => c.Label));
         // 좁게·보통 머리의 두 글자 약칭
-        Assert.Equal(["요일", "길드", "뱅가", "스카", "카브", "에이", "화이", "허상", "광기", "물길", "보스"], HomeworkBoardLayout.Cells.Select(c => c.Short));
+        Assert.Equal(["요일", "길드", "뱅가", "결계", "구멍", "스카", "카브", "에이", "화이", "허상", "광기", "물길", "보스"], HomeworkBoardLayout.Cells.Select(c => c.Short));
         Assert.All(HomeworkBoardLayout.Cells, c => Assert.Equal(2, c.Short.Length));
         // 필드 보스 여섯: 웹앱 BOSSES와 같은 id·순서
         Assert.Equal(
@@ -47,11 +47,46 @@ public class BoardModelTests
 
     // ── 칸 만들기 ──
 
+    // ── 잠금 칸·단계 카운터 (웹앱 숙제 화면과 같은 규칙) ──
+
     [Fact]
-    public void CellsOf_AlwaysElevenCells_MissingStatusIsUnknown()
+    public void CellsOf_LockedByTheGame_ShowsTheGamesHintAndIsNotClickable()
+    {
+        var locked = new HomeworkAutoStatus("abyss_madness_cave", "광기의 동굴", "weekly", "unknown", null, null, "", null, "85레벨에 사용할 수 있습니다.");
+        var cell = HomeworkBoardLayout.CellsOf(Char("a", hw: [locked])).Single(c => c.Def.Id == "abyss_madness_cave");
+        Assert.Equal(CellState.Locked, cell.State);
+        Assert.Equal("입장 불가", HomeworkBoardLayout.StatusText(cell));
+        Assert.Contains("85레벨에 사용할 수 있습니다.", HomeworkBoardLayout.TooltipOf(cell));
+    }
+
+    [Fact]
+    public void CellsOf_StepCounter_ShowsDoneStepsOfTheGoal()
+    {
+        var cells = HomeworkBoardLayout.CellsOf(Char("a", hw: [St("weekly_barrier_1_7", "todo", remaining: 4), St("weekly_black_hole_1_7", "done")]));
+        var barrier = cells.Single(c => c.Def.Id == "weekly_barrier_1_7");
+        var hole = cells.Single(c => c.Def.Id == "weekly_black_hole_1_7");
+        Assert.Equal(3, barrier.Step);                                  // 7 − 남은 4
+        Assert.Equal("3/7", HomeworkBoardLayout.StatusText(barrier));
+        Assert.Equal(14, hole.Step);
+        Assert.Equal("14/14", HomeworkBoardLayout.StatusText(hole));
+        Assert.Equal(0, HomeworkBoardLayout.CellsOf(Char("b")).Single(c => c.Def.Id == "weekly_barrier_1_7").Step);   // 아직 모르면 0
+    }
+
+    [Fact]
+    public void StepCounterAndLockedCells_AreNotCountedInTheRowTotal()
+    {
+        var locked = new HomeworkAutoStatus("abyss_madness_cave", "광기의 동굴", "weekly", "unknown", null, null, "", null, "85레벨에 사용할 수 있습니다.");
+        var row = new CharacterRowViewModel("a");
+        row.Apply(Char("a", hw: [locked, St("weekly_barrier_1_7", "todo", remaining: 4)]), Now);
+        Assert.Equal(10, row.Total);                                    // 열한 칸 − 입장 불가 하나, 단계 카운터 둘은 처음부터 빠진다
+        Assert.Equal(0, row.DoneCount);
+    }
+
+    [Fact]
+    public void CellsOf_AlwaysThirteenCells_MissingStatusIsUnknown()
     {
         var cells = HomeworkBoardLayout.CellsOf(Char("a"));
-        Assert.Equal(11, cells.Count);
+        Assert.Equal(13, cells.Count);   // 합계에 들어가는 열한 칸 + 단계 카운터 둘
         Assert.All(cells, c => Assert.Equal(CellState.Unknown, c.State));
         Assert.All(cells, c => Assert.Null(c.Left));
     }

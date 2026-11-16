@@ -13,5 +13,8 @@
         <TextBlock Text="&#x00B7;" Foreground="{DynamicResource Brush.TextFaint}" FontWeight="Bold" FontSize="{Binding FontSize, RelativeSource={RelativeSource AncestorType=UserControl}}"
                    HorizontalAlignment="Center" VerticalAlignment="Center"
                    Visibility="{Binding IsUnknown, Converter={StaticResource BoolToVis}}" />
+        <TextBlock Text="&#xE72E;" FontFamily="{StaticResource Font.Icon}" Foreground="{DynamicResource Brush.TextFaint}" FontSize="{Binding FontSize, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                   HorizontalAlignment="Center" VerticalAlignment="Center" TextOptions.TextFormattingMode="Ideal"
+                   Visibility="{Binding IsLocked, Converter={StaticResource BoolToVis}}" />
     </Grid>
 </UserControl>

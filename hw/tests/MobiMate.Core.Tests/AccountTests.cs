@@ -223,30 +223,30 @@ public class MembershipClockTests
     public void OneDayLeft_EndsAtTheNext6Am()
     {
         var now = new DateTime(2026, 10, 2, 14, 30, 0);                       // 낮 2시 반
-        Assert.Equal(new DateTime(2026, 10, 3, 6, 0, 0), MembershipClock.ExpiryLocal(now, 1));
+        Assert.Equal(new DateTime(2026, 10, 4, 6, 0, 0), MembershipClock.ExpiryLocal(now, 1));   // 오늘 + 1일의 다음 새벽 6시
     }
 
     [Fact]
     public void Days_AddUpFromTheGameDate()
     {
         var now = new DateTime(2026, 10, 2, 14, 30, 0);
-        Assert.Equal(new DateTime(2026, 10, 29, 6, 0, 0), MembershipClock.ExpiryLocal(now, 27));   // 10/2 + 27일 = 10/29 새벽 6시
-        Assert.Equal(new DateTime(2026, 10, 5, 6, 0, 0), MembershipClock.ExpiryLocal(now, 3));
+        Assert.Equal(new DateTime(2026, 10, 30, 6, 0, 0), MembershipClock.ExpiryLocal(now, 27));   // 10/2 + 27일 = 10/29, 그 다음 새벽 6시 = 10/30 06:00
+        Assert.Equal(new DateTime(2026, 10, 6, 6, 0, 0), MembershipClock.ExpiryLocal(now, 3));
     }
 
     [Fact]
     public void Before6Am_StillCountsAsYesterday()
     {
         var now = new DateTime(2026, 10, 2, 5, 0, 0);                         // 새벽 5시: 게임은 아직 10/1
-        Assert.Equal(new DateTime(2026, 10, 2, 6, 0, 0), MembershipClock.ExpiryLocal(now, 1));       // 한 시간 뒤
-        Assert.Equal(new DateTime(2026, 10, 3, 6, 0, 0), MembershipClock.ExpiryLocal(now, 2));
+        Assert.Equal(new DateTime(2026, 10, 3, 6, 0, 0), MembershipClock.ExpiryLocal(now, 1));       // 게임의 오늘은 10/1
+        Assert.Equal(new DateTime(2026, 10, 4, 6, 0, 0), MembershipClock.ExpiryLocal(now, 2));
     }
 
     [Fact]
     public void Exactly6Am_IsTheNewDay()
     {
         var now = new DateTime(2026, 10, 2, 6, 0, 0);
-        Assert.Equal(new DateTime(2026, 10, 3, 6, 0, 0), MembershipClock.ExpiryLocal(now, 1));
+        Assert.Equal(new DateTime(2026, 10, 4, 6, 0, 0), MembershipClock.ExpiryLocal(now, 1));
     }
 
     [Fact]

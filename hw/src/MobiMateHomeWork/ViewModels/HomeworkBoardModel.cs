@@ -2,15 +2,18 @@ using MobiMateHomeWork.Services;
 
 namespace MobiMateHomeWork.ViewModels;
 
-/// <summary>칸 상태: 완료 / 미완료(이번 주기에 직접 확인) / 미확인(아직 확인 전, 미완료로 본다).</summary>
-public enum CellState { Done, Todo, Unknown }
+/// <summary>칸 상태: 완료 / 미완료(이번 주기에 직접 확인) / 미확인(아직 확인 전, 미완료로 본다) / 입장 불가(게임이 알려 주는 잠금: 레벨·퀘스트 조건).</summary>
+public enum CellState { Done, Todo, Unknown, Locked }
 
 /// <summary>
 /// 숙제 표의 칸 하나의 정의 (웹앱 homework.tsx의 HW_GROUPS와 같은 id·이름).
 /// Short = 좁은/보통 단계의 묶음 머리에 쓰는 두 글자 약칭, Line1·Line2 = 넓은 단계에서 칸 안에 쓰는 두 줄 이름.
 /// </summary>
-public sealed record CellDef(string Id, string Label, string Short, string Line1, string Line2, bool IsBoss = false)
+public sealed record CellDef(string Id, string Label, string Short, string Line1, string Line2, bool IsBoss = false, int StepGoal = 0)
 {
+    /// <summary>여러 번 해야 끝나는 숙제의 수동 단계 카운터(소환의 결계 7단계·검은 구멍 14회): 누를 때마다 0 → 1 → … → 목표 → 0.</summary>
+    public bool IsStep => StepGoal > 0 && !IsSeason;
+
     public bool IsSeason => Id is "weekly_nightmare_drill" or "weekly_nightmare_rank" or "weekly_memorial_saga";
 }
 
@@ -21,7 +24,7 @@ public sealed record BossDef(string Id, string Title);
 
 /// <summary>한 캐릭터의 칸 하나가 지금 어떤 모습인가. 화면 모델이 이 값을 받아 그린다.</summary>
 public sealed record CellData(
-    CellDef Def, CellState State, int? Left, string? Evidence, string? Note, HomeworkSuggestion? Suggestion, bool InProgress, int? Value = null);
+    CellDef Def, CellState State, int? Left, string? Evidence, string? Note, HomeworkSuggestion? Suggestion, bool InProgress, int? Value = null, int? Step = null);
 
 /// <summary>숙제 표의 틀과 칸 만들기 규칙 (웹앱 homework.tsx의 HW_GROUPS·cellsOf·BOSSES와 같은 규칙).</summary>
 public static class HomeworkBoardLayout
@@ -37,6 +40,8 @@ public static class HomeworkBoardLayout
             new("daily_day_dungeon", "요일던전", "요일", "요일", "던전"),
             new("weekly_guild_regular", "길드의뢰", "길드", "길드", "의뢰"),
             new("weekly_vanguard_breach", "뱅가드", "뱅가", "뱅가드", ""),
+            new("weekly_barrier_1_7", "소환의 결계", "결계", "소환의", "결계", StepGoal: 7),
+            new("weekly_black_hole_1_7", "검은 구멍", "구멍", "검은", "구멍", StepGoal: 14),
         ]),
         new("레이드",
         [
@@ -94,9 +99,16 @@ public static class HomeworkBoardLayout
                 continue;
             }
             byId.TryGetValue(def.Id, out var h);
+            // 게임이 직접 알려 주는 잠금(성장 가이드의 UnlockHint, 예: "85레벨에 사용할 수 있습니다.")이 가장 확실하다
+            if (!string.IsNullOrWhiteSpace(h?.Locked))
+            {
+                list.Add(new CellData(def, CellState.Locked, null, null, h!.Locked, null, false));
+                continue;
+            }
             var st = StateOf(h?.State);
-            list.Add(new CellData(def, st, st == CellState.Todo && h?.Remaining > 1 ? h.Remaining : null, h?.Evidence, null,
-                st == CellState.Done ? null : h?.Suggestion, c.InProgressIds.Contains(def.Id, StringComparer.OrdinalIgnoreCase)));
+            int? step = def.IsStep ? (st == CellState.Done ? def.StepGoal : st == CellState.Todo && h?.Remaining is { } r ? Math.Clamp(def.StepGoal - r, 0, def.StepGoal) : 0) : null;
+            list.Add(new CellData(def, st, def.IsStep ? null : st == CellState.Todo && h?.Remaining > 1 ? h.Remaining : null, h?.Evidence, null,
+                st == CellState.Done ? null : h?.Suggestion, c.InProgressIds.Contains(def.Id, StringComparer.OrdinalIgnoreCase), null, step));
         }
         return list;
     }
@@ -123,6 +135,8 @@ public static class HomeworkBoardLayout
     /// <summary>칸 상태 글: 완료 / 미완료 / 남은 N회 / 미확인.</summary>
     public static string StatusText(CellData d) => d.State switch
     {
+        CellState.Locked => "입장 불가",
+        _ when d.Def.IsStep => $"{d.Step ?? 0}/{d.Def.StepGoal}",
         CellState.Done => "완료",
         CellState.Todo => d.Left is { } n ? $"남은 {n}회" : "미완료",
         _ => "미확인",
@@ -134,6 +148,17 @@ public static class HomeworkBoardLayout
     public static string TooltipOf(CellData d)
     {
         var lines = new List<string>();
+        if (d.State == CellState.Locked)
+        {
+            lines.Add($"{d.Def.Label} · 입장 불가 — {d.Note}");
+            return string.Join('\n', lines);
+        }
+        if (d.Def.IsStep)
+        {
+            lines.Add($"{d.Def.Label} · {d.Step ?? 0}/{d.Def.StepGoal}{(d.State == CellState.Unknown ? " (아직 확인 전)" : "")}");
+            lines.Add("누르면 한 단계 올리고, 우클릭하면 한 단계 내립니다");
+            return string.Join('\n', lines);
+        }
         if (d.Def.IsBoss)
         {
             lines.Add(d.State switch

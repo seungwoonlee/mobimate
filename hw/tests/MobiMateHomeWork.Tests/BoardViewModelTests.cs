@@ -118,8 +118,8 @@ public class BoardViewModelTests
         var rogueRow = f.Board.Rows.Single(r => r.Key == "바람_도적");
         Assert.Equal("3시간 전", rogueRow.LastSeenText);
         Assert.Contains("전투력 99,000", rogueRow.Tooltip);
-        Assert.Equal(11, airaRow.Cells.Count);
-        Assert.Equal([3, 4, 3, 1], airaRow.Groups.Select(g => g.Cells.Count));
+        Assert.Equal(13, airaRow.Cells.Count);
+        Assert.Equal([5, 4, 3, 1], airaRow.Groups.Select(g => g.Cells.Count));
     }
 
     [Fact]

@@ -73,6 +73,10 @@ public partial class MainWindow : Window
 
     // ── 시작·배치 ─────────────────────────────────────────────
 
+    /// <summary>창 크기 고정값 (DIP).</summary>
+    public const double FixedWidthDip = 1280;
+    public const double FixedHeightDip = 720;
+
     protected override void OnSourceInitialized(EventArgs e)
     {
         base.OnSourceInitialized(e);
@@ -83,7 +87,12 @@ public partial class MainWindow : Window
         if (saved is { WindowLeft: { } l, WindowTop: { } t, WindowWidth: { } w, WindowHeight: { } h })
             restored = WindowPlacement.Restore(new SavedPlacement((int)Math.Round(l), (int)Math.Round(t), (int)Math.Round(w), (int)Math.Round(h), saved.WindowMaximized), NativeScreens.All());
         var rect = restored ?? WindowPlacement.FirstRun(NativeScreens.Current());
-        _wantMaximized = restored != null && saved.WindowMaximized;
+        // 앱 크기는 1280×720(DIP)으로 고정한다(승운 2026-11-16): 저장된 크기·최대화는 쓰지 않고 위치만 이어 쓴다. 작업 영역보다 크면 작업 영역에 맞춘다.
+        var mon = NativeScreens.Current();
+        var fw = Math.Min((int)Math.Round(FixedWidthDip * mon.Scale), mon.WorkArea.Width);
+        var fh = Math.Min((int)Math.Round(FixedHeightDip * mon.Scale), mon.WorkArea.Height);
+        rect = new PxRect(Math.Clamp(rect.Left, mon.WorkArea.Left, mon.WorkArea.Right - fw), Math.Clamp(rect.Top, mon.WorkArea.Top, mon.WorkArea.Bottom - fh), fw, fh);
+        _wantMaximized = false;
         _normal = rect;
         _target = rect;
         _settling = true;
@@ -159,6 +168,17 @@ public partial class MainWindow : Window
     }
 
     // ── 필드 보스 팝업 ────────────────────────────────────────
+
+    /// <summary>시즌 기록 초기화: 확인을 받은 뒤 모든 캐릭터에서 지운다 (드릴과 메모리얼 사가는 따로).</summary>
+    private async void OnResetSeasonClicked(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is not MainViewModel vm) return;
+        var saga = sender is FrameworkElement { Tag: "saga" };
+        var what = saga ? "메모리얼 사가 층 수" : "나이트메어 드릴 구역과 랭킹";
+        var keep = saga ? "다른 숙제와 나이트메어 드릴" : "다른 숙제와 메모리얼 사가";
+        var ok = MessageBox.Show(this, $"모든 캐릭터의 {what}을(를) 지웁니다. 되돌릴 수 없습니다.\n{keep}은(는) 그대로입니다.", saga ? "메모리얼 사가 초기화" : "나이트메어 드릴 초기화", MessageBoxButton.OKCancel, MessageBoxImage.Warning, MessageBoxResult.Cancel);
+        if (ok == MessageBoxResult.OK) await vm.Board.ResetSeasonAllAsync(saga);
+    }
 
     private void OnBossScrimPressed(object sender, System.Windows.Input.MouseButtonEventArgs e)
     {
@@ -259,11 +279,8 @@ public partial class MainWindow : Window
 
     private void OnMinimize(object sender, RoutedEventArgs e) => SystemCommands.MinimizeWindow(this);
 
-    private void OnMaximize(object sender, RoutedEventArgs e)
-    {
-        if (WindowState == WindowState.Maximized) SystemCommands.RestoreWindow(this);
-        else SystemCommands.MaximizeWindow(this);
-    }
+    /// <summary>창 크기가 고정이라 최대화는 없다(제목줄 더블클릭·단축키로도 열리지 않는다).</summary>
+    private void OnMaximize(object sender, RoutedEventArgs e) { }
 
     private void OnClose(object sender, RoutedEventArgs e) => SystemCommands.CloseWindow(this);
 

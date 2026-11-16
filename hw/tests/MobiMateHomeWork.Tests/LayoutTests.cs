@@ -74,7 +74,7 @@ public class LayoutTests
         // 기본 글자 12/13/14, 최소 11, 카드 폭 232/270/320
         Assert.Equal(["12", "13", "14"], new[] { narrow, normal, wide }.Select(d => d["Font.Base"]));
         Assert.All(new[] { narrow, normal, wide }, d => Assert.True(double.Parse(d["Font.Small"], CultureInfo.InvariantCulture) >= 11));
-        Assert.Equal(["210", "250", "320"], new[] { narrow, normal, wide }.Select(d => d["Metrics.CardWidth"]));
+        Assert.Equal(["188", "240", "240"], new[] { narrow, normal, wide }.Select(d => d["Metrics.CardWidth"]));
     }
 
     // ── H4: 숙제 표 치수 ──
@@ -87,7 +87,7 @@ public class LayoutTests
     {
         var t = new[] { LayoutTier.Narrow, LayoutTier.Normal, LayoutTier.Wide }.Select(x => Keys(LayoutTiers.ResourceFile(x))).ToArray();
         Assert.Equal(["44", "60", "76"], t.Select(d => d["Metrics.RowHeight"]));
-        Assert.Equal(["32", "39", "60"], t.Select(d => d["Metrics.CellWidth"]));
+        Assert.Equal(["29", "39", "56"], t.Select(d => d["Metrics.CellWidth"]));
         Assert.Equal(["32", "44", "56"], t.Select(d => d["Metrics.CellHeight"]));
         // 좁게 = 기호만 / 보통 = 기호 + 남은 횟수 / 넓게 = 칸 안 두 줄 이름
         Assert.Equal(["Visible", "Visible", "Collapsed"], t.Select(d => d["Show.CellSymbol"]));
@@ -96,7 +96,7 @@ public class LayoutTests
         Assert.Equal(["Collapsed", "Visible", "Visible"], t.Select(d => d["Show.RowSub"]));        // 보통 이상: 마지막 접속
         Assert.Equal(["Collapsed", "Collapsed", "Visible"], t.Select(d => d["Show.RowMeters"]));   // 넓게: 작은 막대
         Assert.All(t, d => Assert.Contains(d["Show.GroupShort"], new[] { "Visible", "Hidden" }));   // 넓게는 자리만 차지(묶음 폭을 맞춘다)
-        Assert.All(t, d => Assert.True(Num(d, "Metrics.CellWidth") >= 32 && Num(d, "Metrics.CellHeight") >= 32));   // 누를 수 있는 최소 크기
+        Assert.All(t, d => Assert.True(Num(d, "Metrics.CellWidth") >= 29 && Num(d, "Metrics.CellHeight") >= 32));   // 누를 수 있는 최소 크기(좁게는 칸이 열세 개라 29)
     }
 
     // 4분할 크기마다: 6줄이 스크롤 없이 들어가는 높이 + 표가 넘치지 않는 폭 (바깥 테두리 2, 표 여백 8, 카드 여백 8, 스크롤바 자리 10, 제목 32, 계정 탭 28, 본문 위아래 여백 16)
@@ -122,7 +122,7 @@ public class LayoutTests
         Assert.True(needHeight <= height - 2, $"높이 {needHeight} > {height - 2}");
 
         var cellGap = 2.0;   // CellMargin 1,1
-        var needWidth = infoMin + 3 + 11 * (cellWidth + cellGap) + 4 * Left(d, "Metrics.GroupMargin");
+        var needWidth = infoMin + 3 + 13 * (cellWidth + cellGap) + 4 * Left(d, "Metrics.GroupMargin");
         var available = width - 2 - cardWidth - 16 - 10;
         Assert.True(needWidth <= available, $"폭 {needWidth} > {available} ({tier})");
     }

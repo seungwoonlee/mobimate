@@ -284,6 +284,8 @@ internal sealed class ReadOnlyActions : IHomeworkActions
     public HomeworkCommandResult SetSeasonValue(string id, int count, int expected, string characterKey) =>
         HomeworkCommandResult.Fail(CommandError.StorageUnavailable, "읽기 전용 화면입니다.");
 
+    public SeasonResetResult ResetSeasonAll(bool saga) => new(CommandError.StorageUnavailable, "읽기 전용 화면입니다.", 0);
+
     public HomeworkCommandResult SetHomework(string id, bool? completed, int? count, string? characterKey = null) =>
         HomeworkCommandResult.Fail(CommandError.Validation, "이 화면에서는 숙제를 바꿀 수 없습니다.");
 

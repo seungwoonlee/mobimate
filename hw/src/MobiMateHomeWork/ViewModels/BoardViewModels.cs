@@ -47,9 +47,15 @@ public sealed partial class CellViewModel : ObservableObject
     public bool IsBoss => Def.IsBoss;
 
     public bool IsSeason => Id is "weekly_nightmare_drill" or "weekly_nightmare_rank" or "weekly_memorial_saga";
+    public bool IsStep => Def.IsStep;
+    /// <summary>상태 기호 대신 글(숫자)을 칸에 쓰는 칸: 시즌 숫자·단계 카운터</summary>
+    public bool ShowsText => IsSeason || IsStep;
     [ObservableProperty] private int? _value;
-    public string ValueText => Value is > 0 ? $"{Value}" : "—";
+    [ObservableProperty] private int _step;
+    public int StepGoal => Def.StepGoal;
+    public string ValueText => IsStep ? $"{Step}/{Def.StepGoal}" : Value is > 0 ? $"{Value}" : "—";
     partial void OnValueChanged(int? value) => OnPropertyChanged(nameof(ValueText));
+    partial void OnStepChanged(int value) => OnPropertyChanged(nameof(ValueText));
 
     [ObservableProperty] private CellState _state = CellState.Unknown;
     [ObservableProperty] private int? _left;
@@ -65,14 +71,16 @@ public sealed partial class CellViewModel : ObservableObject
     public bool IsDone => State == CellState.Done;
     public bool IsTodo => State == CellState.Todo;
     public bool IsUnknown => State == CellState.Unknown;
+    public bool IsLocked => State == CellState.Locked;
     public bool HasLine2 => Line2.Length > 0;
 
-    partial void OnStateChanged(CellState value) { OnPropertyChanged(nameof(IsDone)); OnPropertyChanged(nameof(IsTodo)); OnPropertyChanged(nameof(IsUnknown)); }
+    partial void OnStateChanged(CellState value) { OnPropertyChanged(nameof(IsDone)); OnPropertyChanged(nameof(IsTodo)); OnPropertyChanged(nameof(IsUnknown)); OnPropertyChanged(nameof(IsLocked)); }
     partial void OnLeftChanged(int? value) { OnPropertyChanged(nameof(HasLeft)); OnPropertyChanged(nameof(LeftText)); }
 
     public void Apply(CellData d)
     {
         Value = d.Value;
+        Step = d.Step ?? 0;
         State = d.State;
         Left = d.Left;
         Note = d.Note;
@@ -80,8 +88,8 @@ public sealed partial class CellViewModel : ObservableObject
         Suggested = d.Suggestion != null;
         Tooltip = IsSeason ? $"{Label}: {(Value is > 0 ? Value.ToString() : "미입력")} — 눌러서 숫자 입력" : HomeworkBoardLayout.TooltipOf(d);
         // 넓은 단계의 상태 줄: 필드 보스는 완료하면 넘긴 보스 이름
-        StatusText = IsSeason ? ValueText : d.Def.IsBoss && d.State == CellState.Done && !string.IsNullOrWhiteSpace(d.Note) ? d.Note : HomeworkBoardLayout.StatusText(d);
-        AutomationName = IsSeason ? Tooltip : $"{d.Def.Label} {HomeworkBoardLayout.StatusText(d)}" + (d.Def.IsBoss && !string.IsNullOrWhiteSpace(d.Note) ? $" ({d.Note})" : "")
+        StatusText = IsSeason || IsStep ? ValueText : d.Def.IsBoss && d.State == CellState.Done && !string.IsNullOrWhiteSpace(d.Note) ? d.Note : HomeworkBoardLayout.StatusText(d);
+        AutomationName = IsSeason ? Tooltip : IsStep || d.State == CellState.Locked ? Tooltip : $"{d.Def.Label} {HomeworkBoardLayout.StatusText(d)}" + (d.Def.IsBoss && !string.IsNullOrWhiteSpace(d.Note) ? $" ({d.Note})" : "")
             + $" — 눌러서 {(d.State == CellState.Done ? "미완료로" : d.Def.IsBoss ? "넘긴 보스 고르기" : "완료로")} 바꾸기";
     }
 }
@@ -138,7 +146,8 @@ public sealed partial class CharacterRowViewModel : ObservableObject
     [ObservableProperty] private MeterModel? _silver;
     [ObservableProperty] private MeterModel? _tribute;
 
-    public int Total => Cells.Count;
+    /// <summary>합계에는 단계 카운터(소환의 결계·검은 구멍: 표에서만 보이는 칸, 웹앱 TABLE_ONLY_IDS와 같다)와 입장 불가 칸을 넣지 않는다.</summary>
+    public int Total { get; private set; } = 11;
     public string DoneText => $"{DoneCount}/{Total}";
     public int RemainingCells => Total - DoneCount;
 
@@ -163,7 +172,9 @@ public sealed partial class CharacterRowViewModel : ObservableObject
         var seasonal = HomeworkBoardLayout.SeasonCellsOf(c);
         var seasonCells = SeasonGroups.SelectMany(g => g.Cells).ToList();
         for (var i = 0; i < seasonCells.Count; i++) seasonCells[i].Apply(seasonal[i]);
-        DoneCount = data.Count(x => x.State == CellState.Done);
+        Total = data.Count(x => !x.Def.IsStep && x.State != CellState.Locked);
+        DoneCount = data.Count(x => !x.Def.IsStep && x.State == CellState.Done);
+        OnPropertyChanged(nameof(Total)); OnPropertyChanged(nameof(DoneText)); OnPropertyChanged(nameof(RemainingCells));
         AllDone = DoneCount == Total;
         JobLevelCombat = $"{c.Job} {c.Level} · {CardFormat.CompactCombat(c.Combat)}";
         LastSeenText = CardFormat.Ago(c.LastSeen, now, c.IsCurrent);

@@ -249,6 +249,37 @@ public sealed class HomeworkService
         }
     }
 
+    /// <summary>나이트메어 드릴 시즌 초기화에 쓰는 항목 (구역 횟수와 랭킹). 메모리얼 사가 등 다른 시즌 항목은 건드리지 않는다.</summary>
+    public static readonly IReadOnlyList<string> DrillIds = new[] { "weekly_nightmare_drill", "weekly_nightmare_rank" };
+
+    /// <summary>
+    /// 나이트메어 드릴 점수(구역·랭킹)를 **모든 캐릭터**에서 지운다. 시즌이 바뀌었을 때 캐릭터마다 하나씩 되돌리는 수고를 없앤다.
+    /// 되돌릴 수 없으므로 호출 전에 사용자 확인을 받는다. 지운 캐릭터 수를 돌려준다.
+    /// </summary>
+    public (int Characters, HomeworkChange? Change) ResetDrillAllCharacters(string currentKey) => ResetSeasonAllCharacters(DrillIds, currentKey);
+
+    /// <summary>메모리얼 사가 층 수 초기화에 쓰는 항목 (드릴과 따로 지운다)</summary>
+    public static readonly IReadOnlyList<string> SagaIds = new[] { "weekly_memorial_saga" };
+
+    public (int Characters, HomeworkChange? Change) ResetSagaAllCharacters(string currentKey) => ResetSeasonAllCharacters(SagaIds, currentKey);
+
+    private (int Characters, HomeworkChange? Change) ResetSeasonAllCharacters(IReadOnlyList<string> ids, string currentKey)
+    {
+        lock (_lock) return _store.Lock.Run(() =>
+        {
+            var file = LoadOrThrow();
+            var cleared = new List<string>();
+            foreach (var (key, ledger) in file.Characters)
+            {
+                var any = false;
+                foreach (var id in ids) any |= ledger.Items.Remove(id);
+                if (any) cleared.Add(key);
+            }
+            if (cleared.Count > 0) SaveOrThrow(file);
+            return (cleared.Count, cleared.Count > 0 ? new HomeworkChange(currentKey, ids, HomeworkChangeReason.Reset) : null);
+        });
+    }
+
     public HomeworkBoard GetBoard(string characterKey, string? category = null)
     {
         RequireKey(characterKey);
@@ -311,7 +342,7 @@ public sealed class HomeworkService
             TryLoad(out var file);
             var lastDaily = KstClock.LastDailyReset(now);
             var lastWeekly = KstClock.LastWeeklyReset(now);
-            var defs = _catalog.Items.Where(d => d.Active && (d.AutoCheck || d.Id == "raid_scars" || d.SeasonReset) && d.Share == HomeworkShare.Character).ToList();
+            var defs = _catalog.Items.Where(d => d.Active && (d.AutoCheck || d.Id == "raid_scars" || d.SeasonReset || d.EffectiveMode == HomeworkMode.ManualStepCounter) && d.Share == HomeworkShare.Character).ToList();
             var result = new Dictionary<string, IReadOnlyList<HomeworkAutoStatus>>(StringComparer.OrdinalIgnoreCase);
             foreach (var key in characterKeys)
             {
@@ -330,8 +361,10 @@ public sealed class HomeworkService
                     // 앱이 보기 전에 깼을 수 있으므로 완료를 본 게 아니면 미확인으로 둔다(근거 없이 "확인된 미완료"라 하지 않는다).
                     else if (def.ClearGroup != null) state = "unknown";
                     else if (!string.IsNullOrWhiteSpace(def.TokenCurrency)) state = fresh && ledger!.RaidTokensObservedUtc >= cycleStart ? "todo" : "unknown";
+                    else if (def.EffectiveMode == HomeworkMode.ManualStepCounter) state = st is { Count: > 0 } ? "todo" : "unknown";   // 1단계 이상 눌러 둔 것만 "확인된 미완료"
                     else state = "unknown";
-                    list.Add(new HomeworkAutoStatus(def.Id, def.CardLabel ?? def.Title, def.Period == HomeworkPeriod.Daily ? "daily" : "weekly", state, st?.Evidence, state == "todo" ? st?.RemainingCount : null, def.Category,
+                    list.Add(new HomeworkAutoStatus(def.Id, def.CardLabel ?? def.Title, def.Period == HomeworkPeriod.Daily ? "daily" : "weekly", state, st?.Evidence,
+                        def.EffectiveMode == HomeworkMode.ManualStepCounter ? (state == "todo" ? def.Goal - st!.Count : null) : state == "todo" ? st?.RemainingCount : null, def.Category,   // 단계 카운터: 남은 단계 = 목표 − 한 횟수
                         state == "done" ? null : st?.Suggestion,
                         HomeworkEvaluator.GrowthLockHint(def, ledger?.GrowthGuide), def.SeasonReset ? st?.Count : null));   // 게임의 잠금 안내(레벨·퀘스트 조건): 입장 불가 표시에 쓴다
                 }

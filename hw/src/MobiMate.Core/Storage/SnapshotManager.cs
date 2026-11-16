@@ -714,12 +714,12 @@ public class SnapshotManager
                     baseline.CompletedDailyMissions = current.CompletedDailyMissions;
                     baseline.HasMissionBaseline = true;
                 }
-            }
 
-            if (!baseline.HasWeightBaseline && weightOk)
-            {
-                baseline.WeightCurrent = current.WeightCurrent;
-                baseline.HasWeightBaseline = true;
+                if (!baseline.HasWeightBaseline && weightOk)
+                {
+                    baseline.WeightCurrent = current.WeightCurrent;
+                    baseline.HasWeightBaseline = true;
+                }
             }
 
             var snapChanged = prevSaved == null || !SameSnapshot(prevSaved, current);   // 시각(Timestamp)만 다른 것은 바뀐 것이 아니다
