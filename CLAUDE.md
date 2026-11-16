@@ -25,8 +25,9 @@
 - 빌드: `dotnet build web/MobiMate.Web.sln` (경고 0)
 - 테스트: `dotnet test web/MobiMate.Web.sln`, 클라이언트는 `web/src/client`에서 `npx tsc --noEmit`, `npx vitest run`. e2e(Playwright)는 먼저 `npx vite build` + `dotnet build`로 클라이언트를 내장한 뒤 실행한다.
 - 숙제 앱: `dotnet test hw/MobiMateHomeWork.sln`
-- 단일 파일 배포: `dotnet publish web/src/MobiMate.Web -c Release -o web/dist` → `web/dist/MobiMateWeb.exe`(+zip, allow-lan-firewall.bat). 버전은 `1.0.<MMdd.HHmm>`. 배포 전 실행 중인 MobiMateWeb·MobiMateHomeWork는 묻지 않고 종료하고, 배포 뒤 다시 실행한다.
-- 릴리스: `gh release create <태그> -R seungwoonlee/mobimate`, 노트는 한국어.
+- **최종 빌드본 위치: `V:\workspace\MobiMate\` 바로 아래** (`MobiMateWeb.exe`, `MobiMateHomeWork.exe`, `allow-lan-firewall.bat`). 항상 여기만 쓰고 다른 곳(dist 등)에 빌드본을 두지 않는다. 시작 메뉴 바로가기도 이 파일을 가리킨다.
+- 배포: `powershell -File tools\deploy.ps1` (`-Only web|hw`, `-NoLaunch`). 실행 중인 앱은 묻지 않고 종료하고, 기존 파일은 무조건 덮어쓰고, 배포 뒤 다시 실행한다. 웹은 단일 파일 self-contained, 숙제 앱은 단일 파일(.NET 런타임 필요). 버전은 `1.0.<MMdd.HHmm>`.
+- 릴리스 파일은 위 배포본을 그대로 올린다: `gh release create <태그> -R seungwoonlee/mobimate`, 노트는 한국어.
 
 ## 작업 방식
 
