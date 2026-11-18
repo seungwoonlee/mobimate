@@ -155,7 +155,7 @@ function GatherPlan({ all, plan, onChange }: { all: InvGroup[]; plan: Record<str
       {lines.length === 0 ? <p className="muted small m0">아래 카드에서 임무에 필요한 재료를 고르고 목표 개수를 넣으면, 창고에서 꺼낼 개수(계정 창고 먼저)와 더 채집해야 할 개수를 계산합니다.</p> : (
         <>
           <table className="sum-table gp-table">
-            <thead><tr><th>재료</th><th className="n">목표</th><th className="n">가방</th><th className="n">창고에서 꺼내기</th><th className="n">더 채집</th><th /></tr></thead>
+            <thead><tr><th scope="col">재료</th><th scope="col" className="n">목표</th><th scope="col" className="n">가방</th><th scope="col" className="n">창고에서 꺼내기</th><th scope="col" className="n">더 채집</th><th scope="col" /></tr></thead>
             <tbody>
               {lines.map(l => (
                 <tr key={l.r.name} className={l.gather > 0 ? 'bad' : ''}>
@@ -358,14 +358,14 @@ function RecipePane({ items, at, recipes, kind }: { items: InvItem[]; at: number
                 <>
                   <h4 className="sum-h">가공해서 쓰는 재료</h4>
                   <table className="sum-table">
-                    <thead><tr><th>재료</th><th className="n">필요</th><th className="n">보유</th><th className="n">부족</th></tr></thead>
+                    <thead><tr><th scope="col">재료</th><th scope="col" className="n">필요</th><th scope="col" className="n">보유</th><th scope="col" className="n">부족</th></tr></thead>
                     <tbody>{madeLines.map(row)}</tbody>
                   </table>
                 </>
               )}
               <h4 className="sum-h">{madeLines.length > 0 ? '원재료 (가공에 드는 것 포함)' : '재료'}</h4>
               <table className="sum-table">
-                <thead><tr><th>재료</th><th className="n">필요</th><th className="n">보유</th><th className="n">부족</th></tr></thead>
+                <thead><tr><th scope="col">재료</th><th scope="col" className="n">필요</th><th scope="col" className="n">보유</th><th scope="col" className="n">부족</th></tr></thead>
                 <tbody>{rawLines.map(row)}</tbody>
               </table>
             </>

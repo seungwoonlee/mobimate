@@ -104,7 +104,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <div className="main-inner"><GatherBanner />{children}</div>
       </main>
       <div className="hinge" aria-hidden="true" />
-      {dockMode === 'sheet' && dockOpen && <div className="scrim" onClick={() => setDock(false)} />}
+      {dockMode === 'sheet' && dockOpen && <button type="button" className="scrim" aria-label="채팅 닫기" onClick={() => setDock(false)} />}
       <Dock mode={dockMode} onClose={() => setDock(false)} />
       <BottomTabs chatOpen={dockVisible} onChat={toggleChat} />
       <button type="button" className="fab-stop" onClick={stopAction} aria-label="긴급 정지">

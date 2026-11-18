@@ -3,7 +3,7 @@ import { keys, useCharacters, useRankings } from '../api/queries';
 import { api, ApiError } from '../api/http';
 import { NameBadge, RankText } from '../components/RankBadge';
 import type { AccountGroup, CharacterCard, CoinView, HomeworkAuto } from '../api/types';
-import { CardHead, Dialog, ErrorCard, Fresh, Icon, JobIcon, Pill, Skeleton } from '../components/ui';
+import { CardHead, Dialog, ErrorCard, Fresh, Icon, JobIcon, Pill, Skeleton, Tip } from '../components/ui';
 import { useNow } from '../hooks/layout';
 import { finishClock, fmt } from '../lib/format';
 import { entryShort, TABLE_ONLY_IDS } from '../lib/homeworkSteps';
@@ -211,11 +211,9 @@ function SharedWallet({ items }: { items: AccountGroup['shared'] }) {
 }
 
 function CoinChip({ label, c }: { label: string; c: CoinView }) {
-  return (
-    <span className={`coin ${c.level}`} title={c.level === 'full' ? '충전이 멈춰 있습니다' : c.level === 'near' ? '24시간 안에 가득 찹니다' : undefined}>
-      {label} <b className="num">{fmt(c.expected)}</b><span className="num faint">/{fmt(c.cap)}</span>
-    </span>
-  );
+  const body = <>{label} <b className="num">{fmt(c.expected)}</b><span className="num faint">/{fmt(c.cap)}</span></>;
+  const tip = c.level === 'full' ? '충전이 멈춰 있습니다' : c.level === 'near' ? '24시간 안에 가득 찹니다' : null;
+  return tip ? <Tip className={`coin ${c.level}`} text={tip}>{body}</Tip> : <span className={`coin ${c.level}`}>{body}</span>;
 }
 
 /** 칩 순서: 첫 줄은 요일던전·길드의뢰·뱅가드, 둘째 줄은 레이드(카브락·에이렐·화이트서큐), 셋째 줄은 어비스·필드 보스(허상·광기·물길·필드보스). 목록에 없는 것은 뒤에 붙는다 */
@@ -249,7 +247,7 @@ function HwRows({ list }: { list: HomeworkAuto[] }) {
 /** 자동 판정되는 숙제 칩 (전체 탭 카드): 짧은 이름만. 완료는 취소선 / 확인된 미완료는 주황 테두리 / 아직 확인 전은 점선 */
 function HwChip({ h }: { h: HomeworkAuto }) {
   const text = h.state === 'done' ? '완료' : h.state === 'todo' ? '미완료 (확인됨)' : '미완료 (아직 확인 전)';
-  return <span className={`hw-chip ${h.state}`} title={`${h.title}: ${h.evidence ?? text}`} aria-label={`${h.title} ${text}`}>{h.title}{h.state === 'todo' && h.remaining != null && h.remaining > 1 ? `(${h.remaining})` : ''}</span>;
+  return <Tip className={`hw-chip ${h.state}`} text={`${h.title}: ${h.evidence ?? text}`} label={`${h.title} ${text}`}>{h.title}{h.state === 'todo' && h.remaining != null && h.remaining > 1 ? `(${h.remaining})` : ''}</Tip>;
 }
 
 function CharacterCardView({ c, now }: { c: CharacterCard; now: number }) {

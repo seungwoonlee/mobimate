@@ -153,40 +153,51 @@ export function Toasts() {
 }
 
 /**
- * 대화상자 (상세설계 §4.7): 제목 연결, 열 때 첫 조작 요소에 포커스, Tab 순환 가두기, Esc로 닫기, 닫으면 연 요소로 포커스 복귀.
+ * 대화상자 (상세설계 §4.7): 네이티브 `<dialog>`를 `showModal()`로 연다.
+ * 포커스 가두기·Esc·뒤로 가기 닫기·닫은 뒤 포커스 복귀·나머지 화면 비활성은 브라우저가 한다(modern-web-guidance `dialog`).
+ * 바깥을 눌러 닫기는 `closedby="any"`, 지원하지 않는 브라우저(Safari)에서는 같은 동작을 포인터 위치로 대신한다.
  * Compact에서는 CSS가 하단 시트 모양으로 바꾼다.
  */
 export function Dialog({ title, onClose, children, actions, wide }: { title: string; onClose: () => void; children: ReactNode; actions?: ReactNode; /** 목록·표처럼 가로로 넓게 보여야 하는 창 */ wide?: boolean }) {
   const id = useId();
-  const box = useRef<HTMLDivElement>(null);
+  const box = useRef<HTMLDialogElement>(null);
   const close = useRef(onClose);
-  close.current = onClose;   // 부모가 매번 새 함수를 넘겨도 포커스를 다시 잡지 않게 한다
+  close.current = onClose;   // 부모가 매번 새 함수를 넘겨도 다시 열지 않게 한다
   useEffect(() => {
-    const ret = document.activeElement as HTMLElement | null;
     const el = box.current!;
-    const focusables = () => Array.from(el.querySelectorAll<HTMLElement>('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')).filter(x => !x.hasAttribute('disabled'));
-    (focusables()[0] ?? el).focus();
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') { e.stopPropagation(); close.current(); }
-      if (e.key === 'Tab') {
-        const f = focusables();
-        if (!f.length) return;
-        const first = f[0], last = f[f.length - 1];
-        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
-        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
-      }
-    };
-    el.addEventListener('keydown', onKey);
-    return () => { el.removeEventListener('keydown', onKey); ret?.focus?.(); };
+    if (typeof el.showModal === 'function') { if (!el.open) el.showModal(); } else el.setAttribute('open', '');
+    const onNativeClose = () => close.current();
+    el.addEventListener('close', onNativeClose);
+    // closedby 미지원: 누르기와 떼기가 모두 대화상자 밖일 때만 닫는다 (글자 선택 드래그가 배경에서 끝나도 닫히지 않게)
+    let downOutside = false;
+    const outside = (e: PointerEvent) => { const r = el.getBoundingClientRect(); return e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom; };
+    const down = (e: PointerEvent) => { downOutside = outside(e); };
+    const up = (e: PointerEvent) => { if (downOutside && outside(e)) el.close(); };
+    const needFallback = !('closedBy' in HTMLDialogElement.prototype);
+    if (needFallback) { el.addEventListener('pointerdown', down); el.addEventListener('pointerup', up); }
+    return () => { el.removeEventListener('close', onNativeClose); el.removeEventListener('pointerdown', down); el.removeEventListener('pointerup', up); if (el.open) el.close(); };
   }, []);
   return (
-    <div className="dlg-wrap open" onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className={`dlg${wide ? ' wide' : ''}`} role="dialog" aria-modal="true" aria-labelledby={id} ref={box} tabIndex={-1}>
-        <h3 id={id}>{title}</h3>
-        {children}
-        <div className="acts">{actions ?? <button type="button" className="btn" onClick={onClose}>닫기</button>}</div>
-      </div>
-    </div>
+    <dialog className={`dlg${wide ? ' wide' : ''}`} aria-labelledby={id} ref={box} {...({ closedby: 'any' } as object)}>
+      <h3 id={id}>{title}</h3>
+      {children}
+      <div className="acts">{actions ?? <button type="button" className="btn" onClick={onClose}>닫기</button>}</div>
+    </dialog>
+  );
+}
+
+/**
+ * 설명 말풍선: 마우스를 올리거나 포커스·길게 누르기(interestfor 지원 브라우저), 그 밖에는 눌러서 연다(popovertarget, 모든 최신 브라우저).
+ * `title=`은 터치에서 볼 수 없어 중요한 안내(잠금 사유·판정 근거)에 쓰지 않는다 (modern-web-guidance `interest-triggered-tooltips`).
+ */
+export function Tip({ text, className, label, children }: { text: string; className?: string; label?: string; children: ReactNode }) {
+  const id = useId();
+  return (
+    <>
+      <button type="button" className={`tip-btn${className ? ` ${className}` : ''}`} aria-label={label} aria-describedby={id}
+        {...({ popovertarget: id, interestfor: id } as object)}>{children}</button>
+      <span id={id} className="tip-pop" role="tooltip" {...({ popover: 'hint' } as object)}>{text}</span>
+    </>
   );
 }
 

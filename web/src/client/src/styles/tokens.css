@@ -8,51 +8,98 @@
 
 /* 디자인 토큰 (상세설계 §4.6). 값은 시안 design/mockup.html의 :root가 기준이다. */
 :root{
-  --rank-purple:#8A44E0; --rank-pink:#E0489A; --rank-orange:#DD6F00; --rank-gold:#B88A00;
-  --tier-purple:#7B1FE8; --tier-pink:#C2185B; --tier-orange:#B34D00; --tier-gold:#8A6200;   /* 순위 숫자 글자색(밝은 테마, 대비 5:1 이상) */
-  --bg-0:#E9EEF2; --bg-1:#F4F7F9; --bg-2:#FFFFFF; --bg-3:#E6ECF1; --bg-inset:#EEF2F6;
-  --line:#D5DDE5; --line-strong:#BAC6D2;
-  --text-1:#14202B; --text-2:#4A5A6A; --text-3:#5E6A77;
-  --accent:#0B6F68; --accent-2:#08564F; --accent-soft:#D3EFEA; --on-accent:#FFFFFF;
-  --gold:#7A4F00; --gold-soft:#F5E8CB; --lime:#1A7F37; --lime-soft:#DCF3E2; --violet:#6E40C9; --violet-soft:#EDE4FB;
-  --cyan:#0F5F86; --cyan-soft:#D8ECF5;
-  --ok:#17744A; --ok-soft:#DBF2E6; --warn:#8F5200; --warn-soft:#FAEACF; --danger:#B8312A; --danger-soft:#FADCD9; --on-danger:#FFFFFF; --on-ok:#FFFFFF; --qr-bg:#FFFFFF; --qr-fg:#0B0F13;
-  --sc-combat:#6B3FD0; --sc-mdef:#C0302A;
-  --shadow:0 1px 2px rgba(20,32,43,.06),0 8px 24px rgba(20,32,43,.08);
-  --scrim:rgba(10,16,22,.45);
+  color-scheme:light dark;   /* 시스템 설정을 따른다. 수동 선택은 아래 data-theme 규칙 */
+  --rank-purple:light-dark(#8A44E0,var(--d-rank-purple));
+  --rank-pink:light-dark(#E0489A,var(--d-rank-pink));
+  --rank-orange:light-dark(#DD6F00,var(--d-rank-orange));
+  --rank-gold:light-dark(#B88A00,var(--d-rank-gold));
+  --tier-purple:light-dark(#7B1FE8,var(--d-tier-purple));
+  --tier-pink:light-dark(#C2185B,var(--d-tier-pink));
+  --tier-orange:light-dark(#B34D00,var(--d-tier-orange));
+  --tier-gold:light-dark(#8A6200,var(--d-tier-gold));
+  --bg-0:light-dark(#E9EEF2,var(--d-bg-0));
+  --bg-1:light-dark(#F4F7F9,var(--d-bg-1));
+  --bg-2:light-dark(#FFFFFF,var(--d-bg-2));
+  --bg-3:light-dark(#E6ECF1,var(--d-bg-3));
+  --bg-inset:light-dark(#EEF2F6,var(--d-bg-inset));
+  --line:light-dark(#D5DDE5,var(--d-line));
+  --line-strong:light-dark(#BAC6D2,var(--d-line-strong));
+  --text-1:light-dark(#14202B,var(--d-text-1));
+  --text-2:light-dark(#4A5A6A,var(--d-text-2));
+  --text-3:light-dark(#5E6A77,var(--d-text-3));
+  --accent:light-dark(#0B6F68,var(--d-accent));
+  --accent-2:light-dark(#08564F,var(--d-accent-2));
+  --accent-soft:light-dark(#D3EFEA,var(--d-accent-soft));
+  --on-accent:light-dark(#FFFFFF,var(--d-on-accent));
+  --gold:light-dark(#7A4F00,var(--d-gold));
+  --gold-soft:light-dark(#F5E8CB,var(--d-gold-soft));
+  --lime:light-dark(#1A7F37,var(--d-lime));
+  --lime-soft:light-dark(#DCF3E2,var(--d-lime-soft));
+  --violet:light-dark(#6E40C9,var(--d-violet));
+  --violet-soft:light-dark(#EDE4FB,var(--d-violet-soft));
+  --cyan:light-dark(#0F5F86,var(--d-cyan));
+  --cyan-soft:light-dark(#D8ECF5,var(--d-cyan-soft));
+  --ok:light-dark(#17744A,var(--d-ok));
+  --ok-soft:light-dark(#DBF2E6,var(--d-ok-soft));
+  --warn:light-dark(#8F5200,var(--d-warn));
+  --warn-soft:light-dark(#FAEACF,var(--d-warn-soft));
+  --danger:light-dark(#B8312A,var(--d-danger));
+  --danger-soft:light-dark(#FADCD9,var(--d-danger-soft));
+  --on-danger:light-dark(#FFFFFF,var(--d-on-danger));
+  --on-ok:light-dark(#FFFFFF,var(--d-on-ok));
+  --qr-bg:#FFFFFF;
+  --qr-fg:#0B0F13;
+  --sc-combat:light-dark(#6B3FD0,var(--d-sc-combat));
+  --sc-mdef:light-dark(#C0302A,var(--d-sc-mdef));
+  --shadow:light-dark(0 1px 2px rgba(20,32,43,.06),0 8px 24px rgba(20,32,43,.08),var(--d-shadow));
+  --scrim:light-dark(rgba(10,16,22,.45),var(--d-scrim));
   --f-body:"IBM Plex Sans KR","Pretendard","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
   --f-num:"Barlow Semi Condensed","IBM Plex Sans KR",system-ui,sans-serif;
-  color-scheme:light;
 }
-@media (prefers-color-scheme:dark){
-  :root:not([data-theme="light"]){
-    --rank-purple:#B98CFF; --rank-pink:#FF7FC1; --rank-orange:#FFA24A; --rank-gold:#FFD24D;
-    --tier-purple:#C56BFF; --tier-pink:#FF7FC1; --tier-orange:#FFA24A; --tier-gold:#FFD24D;
-    --bg-0:#0B0F13; --bg-1:#11171E; --bg-2:#172029; --bg-3:#202A35; --bg-inset:#0F151B;
-    --line:#25303C; --line-strong:#33414F;
-    --text-1:#E7EDF2; --text-2:#A0AEBB; --text-3:#8896A5;
-    --accent:#4FC4BA; --accent-2:#7AD6CE; --accent-soft:rgba(79,196,186,.14); --on-accent:#06201D;
-    --gold:#E9B65A; --gold-soft:rgba(233,182,90,.13); --lime:#39D353; --lime-soft:rgba(57,211,83,.13); --violet:#B79CF7; --violet-soft:rgba(183,156,247,.14);
-    --cyan:#62B9E0; --cyan-soft:rgba(98,185,224,.13);
-    --ok:#4BC78C; --ok-soft:rgba(75,199,140,.14); --warn:#EFA43F; --warn-soft:rgba(239,164,63,.15); --danger:#EF615B; --danger-soft:rgba(239,97,91,.15); --on-danger:#1C0706; --on-ok:#04210F;
-    --sc-combat:#C9B6FF; --sc-mdef:#FF7A74;
-    --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 30px rgba(0,0,0,.35);
-    --scrim:rgba(0,0,0,.55);
-    color-scheme:dark;
-  }
+/* 다크 값(light-dark()의 두 번째 인자). 팔레트가 이 값만 덮어쓴다 */
+:root{
+  --d-rank-purple:#B98CFF;
+  --d-rank-pink:#FF7FC1;
+  --d-rank-orange:#FFA24A;
+  --d-rank-gold:#FFD24D;
+  --d-tier-purple:#C56BFF;
+  --d-tier-pink:#FF7FC1;
+  --d-tier-orange:#FFA24A;
+  --d-tier-gold:#FFD24D;
+  --d-bg-0:#0B0F13;
+  --d-bg-1:#11171E;
+  --d-bg-2:#172029;
+  --d-bg-3:#202A35;
+  --d-bg-inset:#0F151B;
+  --d-line:#25303C;
+  --d-line-strong:#33414F;
+  --d-text-1:#E7EDF2;
+  --d-text-2:#A0AEBB;
+  --d-text-3:#8896A5;
+  --d-accent:#4FC4BA;
+  --d-accent-2:#7AD6CE;
+  --d-accent-soft:rgba(79,196,186,.14);
+  --d-on-accent:#06201D;
+  --d-gold:#E9B65A;
+  --d-gold-soft:rgba(233,182,90,.13);
+  --d-lime:#39D353;
+  --d-lime-soft:rgba(57,211,83,.13);
+  --d-violet:#B79CF7;
+  --d-violet-soft:rgba(183,156,247,.14);
+  --d-cyan:#62B9E0;
+  --d-cyan-soft:rgba(98,185,224,.13);
+  --d-ok:#4BC78C;
+  --d-ok-soft:rgba(75,199,140,.14);
+  --d-warn:#EFA43F;
+  --d-warn-soft:rgba(239,164,63,.15);
+  --d-danger:#EF615B;
+  --d-danger-soft:rgba(239,97,91,.15);
+  --d-on-danger:#1C0706;
+  --d-on-ok:#04210F;
+  --d-sc-combat:#C9B6FF;
+  --d-sc-mdef:#FF7A74;
+  --d-shadow:0 1px 2px rgba(0,0,0,.3),0 10px 30px rgba(0,0,0,.35);
+  --d-scrim:rgba(0,0,0,.55);
 }
-:root[data-theme="dark"]{
-  --rank-purple:#B98CFF; --rank-pink:#FF7FC1; --rank-orange:#FFA24A; --rank-gold:#FFD24D;
-  --tier-purple:#C56BFF; --tier-pink:#FF7FC1; --tier-orange:#FFA24A; --tier-gold:#FFD24D;
-  --bg-0:#0B0F13; --bg-1:#11171E; --bg-2:#172029; --bg-3:#202A35; --bg-inset:#0F151B;
-  --line:#25303C; --line-strong:#33414F;
-  --text-1:#E7EDF2; --text-2:#A0AEBB; --text-3:#8896A5;
-  --accent:#4FC4BA; --accent-2:#7AD6CE; --accent-soft:rgba(79,196,186,.14); --on-accent:#06201D;
-  --gold:#E9B65A; --gold-soft:rgba(233,182,90,.13); --lime:#39D353; --lime-soft:rgba(57,211,83,.13); --violet:#B79CF7; --violet-soft:rgba(183,156,247,.14);
-  --cyan:#62B9E0; --cyan-soft:rgba(98,185,224,.13);
-  --ok:#4BC78C; --ok-soft:rgba(75,199,140,.14); --warn:#EFA43F; --warn-soft:rgba(239,164,63,.15); --danger:#EF615B; --danger-soft:rgba(239,97,91,.15); --on-danger:#1C0706; --on-ok:#04210F;
-  --sc-combat:#C9B6FF; --sc-mdef:#FF7A74;
-  --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 30px rgba(0,0,0,.35);
-  --scrim:rgba(0,0,0,.55);
-  color-scheme:dark;
-}
+:root[data-theme="light"]{color-scheme:light}
+:root[data-theme="dark"]{color-scheme:dark}

@@ -1,7 +1,7 @@
 import { useRef, useState, type CSSProperties, type MouseEvent } from 'react';
 import { useCharacters, useHomework } from '../api/queries';
 import type { AccountGroup, CharacterCard, HomeworkAuto } from '../api/types';
-import { Dialog, ErrorCard, Fresh, Icon, JobIcon, Pill, Skeleton } from '../components/ui';
+import { Dialog, ErrorCard, Fresh, Icon, JobIcon, Pill, Skeleton, Tip } from '../components/ui';
 import { useNow } from '../hooks/layout';
 import { resetDrillAll, resetSagaAll, setHomework } from '../lib/actions';
 import { entryShort, MAX_VALUE, nextStep, prevStep, SEASON_IDS, SEASON_NOTE, STEP_GOALS, STEP_UNITS, stepOf, VALUE_UNITS } from '../lib/homeworkSteps';
@@ -179,10 +179,10 @@ function CellView({ x, c, onBoss }: { x: Cell; c: CharacterCard; onBoss: (c: Cha
   if (x.unit != null) return <ValueCell x={x} c={c} />;
   if (x.state === 'locked') {   // 입장 전투력 미달: 누를 수 없고 완료 수에도 넣지 않는다
     return (
-      <div className="hw-cell locked" title={x.note} aria-label={`${x.label} 입장 불가 — ${x.note}`}>
+      <Tip className="hw-cell locked" text={x.note ?? '입장할 수 없습니다'} label={`${x.label} 입장 불가 — ${x.note}`}>
         <span className="hw-cell-name">{x.label}</span>
         <span className="hw-cell-state">입장 불가</span>
-      </div>
+      </Tip>
     );
   }
   const done = x.state === 'done';
