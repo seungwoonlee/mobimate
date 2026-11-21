@@ -150,13 +150,23 @@ public static class GameEndpoints
         });
 
         // 계정 전체 보유량 (가방 탭): 캐릭터별로 마지막에 읽은 가방·캐릭터 창고와 계정 창고를 계정 단위로 합산한다
-        api.MapGet("/stock", (StockStore s, AccountStore accounts, GameStateCache state, FavoritesStore fav) =>
+        // 계정 전체 보유량 (가방 탭): 캐릭터별로 마지막에 읽은 가방·캐릭터 창고와 계정 창고를 계정 단위로 합산한다.
+        // 열은 그 계정의 모든 캐릭터다(아직 보유량을 읽지 못한 캐릭터도 atUtc=null로 넣어 빈 열로 보인다).
+        api.MapGet("/stock", (StockStore s, AccountStore accounts, GameStateCache state, FavoritesStore fav, SnapshotManager snapshots) =>
         {
             var data = accounts.Snapshot();
-            var keys = s.Keys();
-            var groups = keys.GroupBy(k => AccountGrouper.AccountOf(data, k)).ToList();
-            var times = s.ReadTimes(keys);
+            var profiles = snapshots.GetAllProfiles()
+                .Where(p => !(p.RealmName == "에린" && p.JobName == "밀레시안") && p.History.Any(h => h.Level > 0))
+                .ToDictionary(p => p.CharacterKey, StringComparer.Ordinal);
+            var stockKeys = s.Keys();
+            var times = s.ReadTimes(stockKeys);
+            var keys = stockKeys.Concat(profiles.Keys).Distinct(StringComparer.Ordinal).ToList();
             var current = state.CurrentKey is { } ck ? AccountGrouper.AccountOf(data, ck) : null;
+            long Combat(string k) => profiles.TryGetValue(k, out var p) ? p.History.LastOrDefault()?.CombatScore ?? 0 : 0;
+            string Label(string k) => profiles.TryGetValue(k, out var p) && !string.IsNullOrWhiteSpace(p.CustomName) ? p.CustomName : (profiles.TryGetValue(k, out var q) ? q.JobName : k);
+            var groups = keys.GroupBy(k => AccountGrouper.AccountOf(data, k))
+                .Where(g => g.Any(times.ContainsKey))   // 보유량을 하나도 못 읽은 계정은 뺀다
+                .ToList();
             return ApiResults.Ok(new
             {
                 currentAccount = current,
@@ -164,7 +174,11 @@ public static class GameEndpoints
                 accounts = groups.Select(g => new
                 {
                     id = g.Key,
-                    characters = g.Select(k => new { key = k, atUtc = new DateTimeOffset(times[k], TimeSpan.Zero) }).OrderBy(c => c.atUtc).ToList(),
+                    characters = g.OrderByDescending(Combat).ThenBy(k => k, StringComparer.Ordinal).Select(k => new
+                    {
+                        key = k, label = Label(k),
+                        atUtc = times.TryGetValue(k, out var at) ? new DateTimeOffset(at, TimeSpan.Zero) : (DateTimeOffset?)null,
+                    }).ToList(),
                     rows = s.Aggregate(g).Select(r => new
                     {
                         name = r.Name, category = r.Category, total = r.Total, bag = r.Bag, storage = r.Storage, account = r.Account,

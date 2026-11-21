@@ -995,3 +995,10 @@ button.hw-cell:focus-visible { outline: 2px solid var(--accent); outline-offset:
   .stock-table td::before{content:attr(data-label) ": ";color:var(--text-3);font-size:.75rem}
   .stock-table td.n{text-align:start}
 }
+/* 캐릭터별 열: 캐릭터마다 가방·창고 두 칸, 구분선은 캐릭터 경계에만 */
+.stock-table thead th.ch{text-align:center;border-inline-start:1px solid var(--line)}
+.stock-table thead th.ch.unread,.stock-table thead th.ch.stale{color:var(--warn,#b45309)}
+.stock-table thead th.sub{font-weight:500;color:var(--text-3)}
+.stock-table .ch-start{border-inline-start:1px solid var(--line)}
+.stock-table .acc{border-inline-start:2px solid var(--line);background:color-mix(in srgb,var(--accent) 5%,transparent)}
+.stock-table th,.stock-table td{padding-inline:8px}

@@ -76,7 +76,9 @@ export function StockView() {
     return <div className="card muted">아직 모은 보유량이 없습니다. 게임에 접속한 채로 캐릭터를 한 번씩 읽으면(앱이 자동으로 읽습니다) 여기에 쌓입니다.</div>;
   }
   const shortCount = lines.filter(l => l.target > 0 && (l.row?.total ?? 0) < l.target).length;
-  const staleChars = account.characters.filter(c => isStale(c.atUtc));
+  const chars = account.characters;
+  const unread = chars.filter(c => !c.atUtc);
+  const staleChars = chars.filter(c => c.atUtc && isStale(c.atUtc));
 
   return (
     <>
@@ -101,12 +103,14 @@ export function StockView() {
 
       <details className="stock-chars">
         <summary>
-          {account.characters.length}개 캐릭터 합산
-          {staleChars.length > 0 ? <span className="stock-warn"> · {staleChars.length}명은 {STALE_HOURS / 24}일 넘게 못 읽음</span> : <span className="muted"> · 모두 최근에 읽음</span>}
+          {chars.length - unread.length}/{chars.length} 캐릭터 합산
+          {unread.length > 0 && <span className="stock-warn"> · {unread.length}명은 아직 못 읽음(접속하면 채워짐)</span>}
+          {staleChars.length > 0 && <span className="stock-warn"> · {staleChars.length}명은 {STALE_HOURS / 24}일 넘게 못 읽음</span>}
+          {unread.length === 0 && staleChars.length === 0 && <span className="muted"> · 모두 최근에 읽음</span>}
         </summary>
         <ul className="stock-char-list">
-          {account.characters.map(c => (
-            <li key={c.key} className={isStale(c.atUtc) ? 'stale' : ''}><span>{c.key}</span> <span className="muted">{ago(c.atUtc)}</span></li>
+          {chars.map(c => (
+            <li key={c.key} className={!c.atUtc || isStale(c.atUtc) ? 'stale' : ''}><span>{c.label}</span> <span className="muted">{c.atUtc ? ago(c.atUtc) : '아직 못 읽음'}</span></li>
           ))}
         </ul>
         <p className="muted small m0">캐릭터를 읽은 시점의 값을 더한 것입니다. 오래 접속하지 않은 캐릭터는 그 뒤에 쓰거나 모은 만큼 다를 수 있습니다. 계정 창고는 한 번만 셉니다.</p>
@@ -117,9 +121,16 @@ export function StockView() {
           <table className="stock-table">
             <caption id={captionId} className="sr-only">계정 전체 재료 보유량</caption>
             <thead>
-              <tr><th scope="col">재료</th><th scope="col" className="n">합계</th><th scope="col" className="n">목표</th><th scope="col">부족</th><th scope="col" className="n">가방</th><th scope="col" className="n">캐릭 창고</th><th scope="col" className="n">계정 창고</th><th scope="col">보관 캐릭터</th></tr>
+              <tr>
+                <th scope="col" rowSpan={2}>재료</th><th scope="col" rowSpan={2} className="n">합계</th><th scope="col" rowSpan={2} className="n">목표</th><th scope="col" rowSpan={2}>부족</th>
+                {chars.map(c => (
+                  <th scope="colgroup" colSpan={2} key={c.key} className={`ch ${!c.atUtc ? 'unread' : isStale(c.atUtc) ? 'stale' : ''}`} title={`${c.key} · ${c.atUtc ? `${ago(c.atUtc)} 읽음` : '아직 못 읽음'}`}>{c.label}</th>
+                ))}
+                <th scope="col" rowSpan={2} className="n acc">계정 창고</th>
+              </tr>
+              <tr>{chars.map(c => <SubHead key={c.key} />)}</tr>
             </thead>
-            <tbody>{shown.map(l => <StockLine key={l.name} l={l} />)}</tbody>
+            <tbody>{shown.map(l => <StockLine key={l.name} l={l} chars={chars} />)}</tbody>
           </table>
         </div>
       )}
@@ -130,12 +141,18 @@ export function StockView() {
   );
 }
 
-function StockLine({ l }: { l: Line }) {
+function SubHead() {
+  return <><th scope="col" className="n sub ch-start">가방</th><th scope="col" className="n sub">창고</th></>;
+}
+
+type Char = StockAccount['characters'][number];
+
+function StockLine({ l, chars }: { l: Line; chars: Char[] }) {
   const r = l.row;
   const total = r?.total ?? 0;
   const short = l.target > 0 ? Math.max(0, l.target - total) : 0;
-  const holders = r?.holders ?? [];
-  const staleHolders = holders.filter(h => isStale(h.atUtc)).length;
+  const by = new Map((r?.holders ?? []).map(h => [h.character, h]));
+  const cell = (n: number | undefined, read: boolean) => !read ? <span className="faint">?</span> : n ? fmt(n) : <span className="faint">–</span>;
   return (
     <tr className={`${total === 0 ? 'zero' : ''} ${short > 0 ? 'short' : ''}`}>
       <th scope="row" data-label="재료">
@@ -152,25 +169,15 @@ function StockLine({ l }: { l: Line }) {
           ? <span className="stock-short"><progress max={l.target} value={Math.min(total, l.target)} aria-label={`${plain(l.name)} 목표 달성도`} /><span className={`num ${short > 0 ? 'danger' : 'ok'}`}>{short > 0 ? `−${fmt(short)}` : '충분'}</span></span>
           : <span className="faint">–</span>}
       </td>
-      <td className="n num" data-label="가방">{r?.bag ? fmt(r.bag) : <span className="faint">–</span>}</td>
-      <td className="n num" data-label="캐릭 창고">{r?.storage ? fmt(r.storage) : <span className="faint">–</span>}</td>
-      <td className="n num" data-label="계정 창고">{r?.account ? fmt(r.account) : <span className="faint">–</span>}</td>
-      <td data-label="보관 캐릭터">
-        {holders.length === 0 ? <span className="faint">–</span> : (
-          <details className="stock-holders">
-            <summary>{holders.length}명{staleHolders > 0 && <span className="stock-warn" title="3일 넘게 읽지 못한 캐릭터가 있습니다"> ⚠</span>}</summary>
-            <ul>
-              {holders.map(h => (
-                <li key={h.character} className={isStale(h.atUtc) ? 'stale' : ''}>
-                  <span>{h.character}</span>
-                  <span className="num">{[h.bag > 0 && `가방 ${fmt(h.bag)}`, h.storage > 0 && `창고 ${fmt(h.storage)}`].filter(Boolean).join(' · ')}</span>
-                  <span className="muted">{ago(h.atUtc)}</span>
-                </li>
-              ))}
-            </ul>
-          </details>
-        )}
-      </td>
+      {chars.map(c => {
+        const h = by.get(c.key);
+        const read = !!c.atUtc;
+        return [
+          <td key={`${c.key}b`} className="n num ch-start" data-label={`${c.label} 가방`}>{cell(h?.bag, read)}</td>,
+          <td key={`${c.key}s`} className="n num" data-label={`${c.label} 창고`}>{cell(h?.storage, read)}</td>,
+        ];
+      })}
+      <td className="n num acc" data-label="계정 창고">{r?.account ? fmt(r.account) : <span className="faint">–</span>}</td>
     </tr>
   );
 }
