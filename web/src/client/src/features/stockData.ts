@@ -8,10 +8,13 @@ import { COOK_RECIPES, MISSION_SLOTS, PROCESSES, RECIPES } from './missionData';
  * - 임무 재료: 마을 임무(채집·요리·제작)에 쓰는 것.
  * 그 밖의 아이템은 게임이 주는 분류(재료·장비 성장·조각·음식 …)로 고른다.
  */
-export type GroupId = 'equip' | 'mission' | 'fav';
+export type GroupId = 'soul' | 'made' | 'raw' | 'mission' | 'fav';
 export type Tier = '영혼석' | '2차' | '1차';
+const TIER_GROUP: Record<Tier, GroupId> = { '영혼석': 'soul', '2차': 'made', '1차': 'raw' };
 export const GROUPS: { id: GroupId; label: string; hint: string }[] = [
-  { id: 'equip', label: '장비 재료', hint: '잔영·해연 장비 재료: 영혼석·마력석, 2차 가공재, 1차 원재료' },
+  { id: 'soul', label: '영혼석', hint: '잔영·해연 장비 재료: 영혼석·마력석·세공된 페리도트' },
+  { id: 'made', label: '2차 재료', hint: '잔영·해연 장비 재료: 가공해서 만드는 것(백금강괴·특급 목재·특급 가죽 …)' },
+  { id: 'raw', label: '1차 원재료', hint: '잔영·해연 장비 재료: 가공의 원료(광석·통나무·생가죽·양털 …)' },
   { id: 'mission', label: '임무 재료', hint: '마을 임무(채집·요리·제작)에 쓰는 재료' },
   { id: 'fav', label: '★ 찜', hint: '별을 눌러 직접 고른 재료' },
 ];
@@ -63,9 +66,10 @@ export function tierOf(name: string): Tier | null {
   return tierByName.get(name) ?? (isRelicName(name) ? '영혼석' : null);
 }
 
-/** 이름이 속한 기본 묶음(장비 재료가 임무 재료보다 먼저). 어디에도 없으면 null. */
+/** 이름이 속한 기본 묶음(장비 재료 단계가 임무 재료보다 먼저). 어디에도 없으면 null. */
 export function baseGroupOf(name: string): GroupId | null {
-  if (tierOf(name)) return 'equip';
+  const t = tierOf(name);
+  if (t) return TIER_GROUP[t];
   if (mission.has(name)) return 'mission';
   return null;
 }
@@ -73,7 +77,7 @@ export function baseGroupOf(name: string): GroupId | null {
 const TIER_ORDER: Tier[] = ['영혼석', '2차', '1차'];
 /** 보유가 0이어도 항상 보여 줄 기본 관리 대상 (장비 재료는 영혼석 → 2차 → 1차 순) */
 export const MANAGED: readonly { name: string; group: GroupId }[] = [
-  ...TIER_ORDER.flatMap(t => [...tierByName].filter(([, x]) => x === t).map(([name]) => ({ name, group: 'equip' as const }))),
+  ...TIER_ORDER.flatMap(t => [...tierByName].filter(([, x]) => x === t).map(([name]) => ({ name, group: TIER_GROUP[t] }))),
   ...[...mission].map(name => ({ name, group: 'mission' as const })),
 ];
 /** 표 정렬용: 관리 목록 순서 */

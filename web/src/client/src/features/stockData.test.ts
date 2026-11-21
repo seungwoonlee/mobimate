@@ -3,7 +3,9 @@ import { baseGroupOf, MANAGED, tierOf } from './stockData';
 
 describe('재료 묶음', () => {
   it('잔영·해연 장비 재료는 영혼석·2차·1차 단계로 한 묶음이다', () => {
-    expect(baseGroupOf('백금강괴')).toBe('equip');
+    expect(baseGroupOf('백금강괴')).toBe('made');
+    expect(baseGroupOf('망령의 영혼석')).toBe('soul');
+    expect(baseGroupOf('은 광석')).toBe('raw');
     expect(tierOf('백금강괴')).toBe('2차');
     expect(tierOf('망령의 영혼석')).toBe('영혼석');
     expect(tierOf('은 광석')).toBe('1차');
