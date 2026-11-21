@@ -151,7 +151,7 @@ public static class GameEndpoints
         // 계정 전체 보유량 (가방 탭): 캐릭터별로 마지막에 읽은 가방·캐릭터 창고와 계정 창고를 계정 단위로 합산한다
         // 계정 전체 보유량 (가방 탭): 캐릭터별로 마지막에 읽은 가방·캐릭터 창고와 계정 창고를 계정 단위로 합산한다.
         // 열은 그 계정의 모든 캐릭터다(아직 보유량을 읽지 못한 캐릭터도 atUtc=null로 넣어 빈 열로 보인다).
-        api.MapGet("/stock", (StockStore s, AccountStore accounts, GameStateCache state, FavoritesStore fav, SnapshotManager snapshots) =>
+        api.MapGet("/stock", (StockStore s, AccountStore accounts, GameStateCache state, FavoritesStore fav, SnapshotManager snapshots, MarketPriceService market) =>
         {
             var data = accounts.Snapshot();
             var profiles = snapshots.GetAllProfiles()
@@ -161,6 +161,12 @@ public static class GameEndpoints
             var times = s.ReadTimes(stockKeys);
             var keys = stockKeys.Concat(profiles.Keys).Distinct(StringComparer.Ordinal).ToList();
             var current = state.CurrentKey is { } ck ? AccountGrouper.AccountOf(data, ck) : null;
+            var prefs = s.Prefs();
+            var favorites = fav.Snapshot().Items;
+            // 거래소 가격: 저장된 값을 바로 쓰고, 1시간이 지났거나 처음 보는 이름이면 뒤에서 읽는다(기다리지 않는다)
+            var aggregated = keys.GroupBy(k => AccountGrouper.AccountOf(data, k)).ToDictionary(g => g.Key, g => s.Aggregate(g));
+            market.Want(aggregated.Values.SelectMany(rs => rs.Select(r => r.Name)).Concat(prefs.Targets.Keys).Concat(favorites.Select(HomeworkText.StripTags)));
+            var prices = market.Snapshot();
             long Combat(string k) => profiles.TryGetValue(k, out var p) ? p.History.LastOrDefault()?.CombatScore ?? 0 : 0;
             string Label(string k) => profiles.TryGetValue(k, out var p) && !string.IsNullOrWhiteSpace(p.CustomName) ? p.CustomName : (profiles.TryGetValue(k, out var q) ? q.JobName : k);
             var groups = keys.GroupBy(k => AccountGrouper.AccountOf(data, k))
@@ -178,14 +184,16 @@ public static class GameEndpoints
                         key = k, label = Label(k),
                         atUtc = times.TryGetValue(k, out var at) ? new DateTimeOffset(at, TimeSpan.Zero) : (DateTimeOffset?)null,
                     }).ToList(),
-                    rows = s.Aggregate(g).Select(r => new
+                    rows = aggregated[g.Key].Select(r => new
                     {
                         name = r.Name, category = r.Category, total = r.Total, bag = r.Bag, storage = r.Storage, account = r.Account,
                         holders = r.Holders.Select(h => new { character = h.Character, bag = h.Bag, storage = h.Storage, atUtc = new DateTimeOffset(h.AtUtc, TimeSpan.Zero) }),
                     }),
                 }),
-                prefs = s.Prefs(),
-                favorites = fav.Snapshot().Items,
+                prefs,
+                favorites,
+                // 이름 → { price(데카, 매물 없으면 null), tradable, atUtc }. 보유 0인 관리 재료도 여기서 찾는다
+                prices = prices.ToDictionary(kv => kv.Key, kv => new { price = kv.Value.Price, tradable = kv.Value.Tradable, atUtc = new DateTimeOffset(kv.Value.AtUtc, TimeSpan.Zero) }),
             });
         });
         api.MapPut("/stock/target", (StockTargetRequest req, StockStore s, SseHub hub) =>

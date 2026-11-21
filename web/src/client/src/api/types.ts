@@ -85,7 +85,7 @@ export interface InvItem { location: string; name: string; category: string; cou
 export interface StockHolder { character: string; bag: number; storage: number; atUtc: string }
 export interface StockRow { name: string; category: string; total: number; bag: number; storage: number; account: number; holders: StockHolder[] }
 export interface StockAccount { id: string; characters: { key: string; label: string; atUtc: string | null }[]; rows: StockRow[] }
-export interface Stock { currentAccount: string | null; currentCharacter: string | null; accounts: StockAccount[]; prefs: { targets: Record<string, number> }; favorites: string[] }
+export interface Stock { currentAccount: string | null; currentCharacter: string | null; accounts: StockAccount[]; prefs: { targets: Record<string, number> }; favorites: string[]; prices: Record<string, { price: number | null; tradable: boolean; atUtc: string }> }
 export interface Inventory { weight: { current: number; max: number; pct: number; level: Level } | null; items: InvItem[] }
 
 export interface Currency { DisplayName: string; Amount: number }
