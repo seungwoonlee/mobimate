@@ -32,7 +32,8 @@ public sealed class MarketPriceService
     /// <summary>처음 보는 이름만 읽는 짧은 주기(새 재료가 생겼을 때 1시간을 기다리지 않게)</summary>
     public static readonly TimeSpan NewNamesEvery = TimeSpan.FromMinutes(5);
     private const int Batch = 30;
-    private static readonly TimeSpan BetweenBatches = TimeSpan.FromSeconds(2);   // 사이사이 다른 조회가 큐에 들어올 수 있게
+    // 게임은 거래소 목록을 5초에 한 번만 새로 받는다(명세). 2초 간격으로 몰아 읽었더니 360개쯤에서 market_unavailable이 났다(2026-11-22)
+    private static readonly TimeSpan BetweenBatches = TimeSpan.FromSeconds(5);
 
     private readonly object _lock = new();
     private readonly JsonFileStore _store = new();
@@ -43,6 +44,7 @@ public sealed class MarketPriceService
     private Dictionary<string, MarketPrice> _prices;
     private DateTime _lastFullRun = DateTime.MinValue, _lastNewRun = DateTime.MinValue;
     private Task? _running;
+    private readonly HashSet<string> _wanted = new(StringComparer.Ordinal);
 
     public MarketPriceService(string storageDir, IGameCli cli, ILogger<MarketPriceService> log, Func<DateTime>? now = null)
     {
@@ -65,9 +67,11 @@ public sealed class MarketPriceService
         List<string> todo;
         lock (_lock)
         {
+            // 한 번 필요하다고 한 이름은 기억한다: 지금은 읽을 차례가 아니어도 다음 차례에 같이 읽는다
+            foreach (var n in names) if (n.Length >= 2 && _wanted.Count < 5000) _wanted.Add(n);
             if (_running is { IsCompleted: false }) return;
             var now = _now();
-            var all = names.Where(n => n.Length >= 2).Distinct(StringComparer.Ordinal).ToList();
+            var all = _wanted.ToList();
             if (now - _lastFullRun >= RefreshEvery)
             {
                 todo = all.Where(n => !_prices.TryGetValue(n, out var p) || now - p.AtUtc >= RefreshEvery).ToList();

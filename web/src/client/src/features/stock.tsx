@@ -1,4 +1,5 @@
-import { useDeferredValue, useId, useMemo, useState } from 'react';
+import { useDeferredValue, useEffect, useId, useMemo, useState } from 'react';
+import { api } from '../api/http';
 import { useStock } from '../api/queries';
 import type { StockAccount, StockRow } from '../api/types';
 import { ErrorCard, Fresh, Icon, Skeleton } from '../components/ui';
@@ -78,6 +79,11 @@ export function StockView() {
     };
     return r.sort(cmp[sort] ?? cmp.price);
   }, [lines, group, search, cat, sort]);
+
+  // 가격을 모르는 관리 재료(보유 0 등)도 서버가 읽게 알린다. 읽는 주기는 서버가 지킨다(1시간)
+  const missing = useMemo(() => (data ? MANAGED.map(m => m.name).filter(n => !(n in data.prices)) : []), [data]);
+  const missingKey = missing.join('|');
+  useEffect(() => { if (missing.length > 0) void api.post('/api/stock/prices', { names: missing }).catch(() => {}); }, [missingKey]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   const captionId = useId();
   if (q.isPending) return <Skeleton lines={6} />;

@@ -15,6 +15,7 @@ public sealed record NicknameRequest(string? Nickname);
 public sealed record MergeCharactersRequest(string? From, string? Into);
 public sealed record FavoriteRequest(string? Name, bool? Favorite);
 public sealed record StockTargetRequest(string? Name, int? Target);
+public sealed record MarketWantRequest(List<string?>? Names);
 public sealed record MembershipRequest(string? Character, int? Days);
 public sealed record AssignRequest(string? Character, string? Account);
 public sealed record OrderRequest(List<string>? Order);
@@ -195,6 +196,13 @@ public static class GameEndpoints
                 // 이름 → { price(데카, 매물 없으면 null), tradable, atUtc }. 보유 0인 관리 재료도 여기서 찾는다
                 prices = prices.ToDictionary(kv => kv.Key, kv => new { price = kv.Value.Price, tradable = kv.Value.Tradable, atUtc = new DateTimeOffset(kv.Value.AtUtc, TimeSpan.Zero) }),
             });
+        });
+        // 보유 0인 관리 재료처럼 서버가 모르는 이름의 가격도 읽게 한다(1시간 규칙은 같다)
+        api.MapPost("/stock/prices", (MarketWantRequest req, MarketPriceService market) =>
+        {
+            var names = (req.Names ?? new()).Select(n => n?.Trim() ?? "").Where(n => n.Length is >= 2 and <= 100).Distinct().Take(1000).ToList();
+            market.Want(names);
+            return ApiResults.Ok(new { count = names.Count });
         });
         api.MapPut("/stock/target", (StockTargetRequest req, StockStore s, SseHub hub) =>
         {
