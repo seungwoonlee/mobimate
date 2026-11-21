@@ -121,6 +121,20 @@ public class RealCharacterTests : IDisposable
         Assert.False(m.IsSubJob("에린_검술사", Info("에린", "검술사", 100)));
     }
 
+    private static List<CurrencyItem> WalletW(long gold, long wings, long nyang) => new() { new("데카", 11954), new("M캐시", 610), new("골드", gold), new("정령의 날개", wings), new("냥 토큰", nyang) };
+
+    [Fact]
+    public void OwnRecordIsNotMistakenForAnother_WhenGoldIsAlmostTheSame_ButWingsMatchOwn()
+    {
+        // 사고 재현 (2026-11-21): 듀얼블레이드(기록 골드 21,213,787)가 사냥으로 21,300,464가 됐는데 전사(21,308,096)와 0.04% 차이라
+        // 다른 캐릭터 것으로 오인되어 재화 갱신이 막혔고, 은동전·마족 공물이 몇 시간째 옛 값으로 남았다.
+        var m = new SnapshotManager(_dir);
+        m.UpdateSnapshot(Info("아이라", "전사", 100, 90000), WalletW(21308096, 41000, 900000), null, "아이라_전사");
+        m.UpdateSnapshot(Info("아이라", "듀얼블레이드", 100, 96000), WalletW(21213787, 59135, 1129000), null, "아이라_듀얼블레이드");
+        Assert.False(m.WalletBelongsToOther("아이라_듀얼블레이드", WalletW(21300464, 59185, 1129117)));   // 날개·냥 토큰이 자기 것과 가깝다
+        Assert.True(m.WalletBelongsToOther("아이라_듀얼블레이드", WalletW(21308096, 41010, 900100)));      // 전사 것과 같은 값이 읽히면 여전히 전사로 본다
+    }
+
     [Fact]
     public void StaleCharacterInfo_WithNewCharactersGold_IsNotAJobSwapNorWrittenToTheOldRecord()
     {

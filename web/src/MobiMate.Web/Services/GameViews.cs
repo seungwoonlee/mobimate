@@ -9,7 +9,7 @@ namespace MobiMate.Web.Services;
 /// 헤더를 읽을 때마다 GameStateCache·SnapshotManager(세션 변화량)를 갱신하고 SSE "header"로 다른 기기에도 알린다.
 /// </summary>
 public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManager snapshots, SseHub hub, CutoffCatalog cutoffs,
-    FavoritesStore favorites, AccountStore accounts, HomeworkService homework, WorkCategoryCatalog workKinds, CombatScoreGuard guard, MobiMateOptions options, IHostApplicationLifetime life, ILogger<GameViews> log, RankingService rankings, AutoWatch autoWatch, AccountWalletStore wallet)
+    FavoritesStore favorites, AccountStore accounts, HomeworkService homework, WorkCategoryCatalog workKinds, CombatScoreGuard guard, MobiMateOptions options, IHostApplicationLifetime life, ILogger<GameViews> log, RankingService rankings, AutoWatch autoWatch, AccountWalletStore wallet, CoinPhaseStore coinPhase)
 {
     private readonly ConcurrentDictionary<string, Dictionary<string, int>> _bagBaselines = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, byte> _unclassifiedWorks = new();   // 분류표에 없는 가공품은 한 번만 기록한다 (FR-DT-20)
@@ -496,8 +496,8 @@ public sealed class GameViews(GameQueries q, GameStateCache state, SnapshotManag
             data.Accounts.TryGetValue(id, out var info);
             var members = g.OrderByDescending(c => c.Combat).Select(c =>
             {
-                var silver = CoinForecast.Silver(c.Silver, c.LastSeenUtc, nowUtc, member);
-                var tribute = CoinForecast.Tribute(c.Tribute, c.LastSeenUtc, nowUtc, member);
+                var silver = CoinForecast.Silver(c.Silver, c.LastSeenUtc, nowUtc, member, coinPhase.PhaseOf(c.Key, CoinKind.Silver));
+                var tribute = CoinForecast.Tribute(c.Tribute, c.LastSeenUtc, nowUtc, member, coinPhase.PhaseOf(c.Key, CoinKind.Tribute));
                 var stale = g.Count() > 1 && c.Key != reference.Key && (c.Deca != reference.Deca || c.MCash != reference.MCash);
                 return new
                 {

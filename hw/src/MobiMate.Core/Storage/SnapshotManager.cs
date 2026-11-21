@@ -424,8 +424,37 @@ public class SnapshotManager
         }
     }
 
-    public bool WalletBelongsToOther(string key, IEnumerable<CurrencyItem>? currencies) =>
-        WalletOf(currencies) is { } w && WalletBelongsToOther(key, w.Gold);
+    public bool WalletBelongsToOther(string key, IEnumerable<CurrencyItem>? currencies)
+    {
+        if (WalletOf(currencies) is not { } w || !WalletBelongsToOther(key, w.Gold)) return false;
+        // 골드만으로는 비슷한 골드의 캐릭터가 여럿일 때 자기 자신을 다른 캐릭터로 오인한다 (2026-11-21: 듀얼블레이드가 전사와 골드가 0.04% 차이라
+        // 재화 갱신이 막혀 은동전·마족 공물이 갱신되지 않았다). 골드 말고 캐릭터마다 다른 값(날개·냥 토큰)이 자기 기록과 더 가까우면 자기 것이다.
+        var list = currencies!.ToList();
+        long Get(string n) => list.FirstOrDefault(c => c.DisplayName == n)?.Amount ?? 0;
+        long wings = Get("정령의 날개"), nyang = Get("냥 토큰");
+        if (wings <= 0 && nyang <= 0) return true;
+        const long MinGold = 100_000;
+        bool Near(long a) => a >= MinGold && Math.Abs(a - w.Gold) <= Math.Max(a, w.Gold) * CharacterIdentity.GoldDriftRatio;
+        double Dist(CharacterProfile p)
+        {
+            var r = p.History.AsEnumerable().Reverse().FirstOrDefault(x => x.Gold > 0);
+            if (r == null) return double.NaN;
+            double d = 0; var n = 0;
+            if (wings > 0 && r.Wings > 0) { d += Math.Abs(Math.Log((double)wings / r.Wings)); n++; }
+            if (nyang > 0 && r.NyangToken > 0) { d += Math.Abs(Math.Log((double)nyang / r.NyangToken)); n++; }
+            return n == 0 ? double.NaN : d / n;
+        }
+        EnsureFresh();
+        lock (_lock)
+        {
+            if (!_characterDb.TryGetValue(key, out var own)) return true;
+            var dOwn = Dist(own);
+            if (double.IsNaN(dOwn)) return true;
+            var others = _characterDb.Values.Where(p => p.CharacterKey != key && Near(p.History.AsEnumerable().Reverse().FirstOrDefault(r => r.Gold > 0)?.Gold ?? 0))
+                .Select(Dist).Where(d => !double.IsNaN(d)).ToList();
+            return others.Count > 0 && others.Min() < dOwn;   // 다른 캐릭터의 날개·냥 토큰이 더 가까울 때만 그 캐릭터 것이다
+        }
+    }
 
     /// <summary>이 기록의 캐릭터가 지금은 다른 직업(부직업)을 끼고 있는가. 그동안의 읽기는 기록·전투력 재확인에 쓰지 않는다.</summary>
     public bool IsSubJob(string key, CharacterInfo? ch)

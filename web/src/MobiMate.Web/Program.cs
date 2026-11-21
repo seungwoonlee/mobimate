@@ -52,6 +52,7 @@ builder.Services.AddSingleton(sp => new FavoritesStore(Dir(sp)));
 builder.Services.AddSingleton(sp => new AccountStore(Dir(sp)));
 builder.Services.AddSingleton(sp => new AccountWalletStore(Dir(sp)));
 builder.Services.AddSingleton(sp => new IdentityFingerprintStore(Dir(sp)));
+builder.Services.AddSingleton(sp => new CoinPhaseStore(Dir(sp)));
 builder.Services.AddSingleton(sp => new CharacterMerger(Dir(sp), sp.GetRequiredService<HomeworkCatalog>()));
 builder.Services.AddSingleton(sp => new ClassImages(Dir(sp), sp.GetRequiredService<ILogger<ClassImages>>()));
 builder.Services.AddSingleton(sp =>
@@ -136,6 +137,7 @@ builder.Services.AddHostedService<StartupTasks>();
 builder.Services.AddHostedService<ExternalChangeMonitor>();
 builder.Services.AddHostedService<CharacterRecorder>();
 builder.Services.AddHostedService<CharacterWatcher>();
+builder.Services.AddHostedService<CoinTickCatcher>();
 builder.Services.AddHostedService<AutoWatcher>();
 builder.Services.AddSingleton<CliChangeWatcher>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<CliChangeWatcher>());

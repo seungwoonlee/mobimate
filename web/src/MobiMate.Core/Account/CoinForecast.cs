@@ -32,7 +32,8 @@ public static class CoinForecast
     public static long TributeCap(bool member) => member ? TributeCapMember : TributeCapFree;
 
     /// <param name="lastSeenUtc">마지막으로 이 캐릭터를 본 시각. 지금 접속 중이면 now와 같다(경과 0).</param>
-    public static CoinState Forecast(long held, DateTime lastSeenUtc, DateTime nowUtc, TimeSpan step, long cap)
+    /// <param name="phaseSeconds">+1이 일어나는 위상(주기 안의 초). 알면 마지막으로 본 때부터 그 시각을 지난 횟수로 세고, 모르면 경과 시간 ÷ 주기로 센다 (<see cref="CoinPhase"/>).</param>
+    public static CoinState Forecast(long held, DateTime lastSeenUtc, DateTime nowUtc, TimeSpan step, long cap, double? phaseSeconds = null)
     {
         var elapsed = nowUtc > lastSeenUtc ? nowUtc - lastSeenUtc : TimeSpan.Zero;
         long expected;
@@ -44,18 +45,28 @@ public static class CoinForecast
         }
         else
         {
-            var gained = (long)Math.Floor(elapsed / step);
+            var stepSec = (int)step.TotalSeconds;
+            var gained = phaseSeconds is { } p ? CoinPhase.TicksBetween(p, stepSec, lastSeenUtc, nowUtc) : (long)Math.Floor(elapsed / step);
             expected = Math.Min(cap, held + gained);
-            var intoStep = TimeSpan.FromTicks(elapsed.Ticks % step.Ticks);
-            minutesToFull = expected >= cap ? 0 : Math.Max(0, ((cap - expected) * step - intoStep).TotalMinutes);
+            if (expected >= cap) minutesToFull = 0;
+            else if (phaseSeconds is { } ph)
+            {
+                var next = CoinPhase.NextTick(ph, stepSec, nowUtc);   // 다음 +1까지 남은 시간 + 그 뒤로 (남은 개수 − 1) × 주기
+                minutesToFull = Math.Max(0, (next - nowUtc).TotalMinutes + (cap - expected - 1) * step.TotalMinutes);
+            }
+            else
+            {
+                var intoStep = TimeSpan.FromTicks(elapsed.Ticks % step.Ticks);
+                minutesToFull = Math.Max(0, ((cap - expected) * step - intoStep).TotalMinutes);
+            }
         }
         var level = expected >= cap ? CoinLevel.Full : minutesToFull <= NearWindow.TotalMinutes ? CoinLevel.Near : CoinLevel.Ok;
         return new CoinState(held, expected, cap, level, cap > 0 ? Math.Min(1.0, (double)expected / cap) : 0, minutesToFull);
     }
 
-    public static CoinState Silver(long held, DateTime lastSeenUtc, DateTime nowUtc, bool member) =>
-        Forecast(held, lastSeenUtc, nowUtc, SilverStep, SilverCap(member));
+    public static CoinState Silver(long held, DateTime lastSeenUtc, DateTime nowUtc, bool member, double? phaseSeconds = null) =>
+        Forecast(held, lastSeenUtc, nowUtc, SilverStep, SilverCap(member), phaseSeconds);
 
-    public static CoinState Tribute(long held, DateTime lastSeenUtc, DateTime nowUtc, bool member) =>
-        Forecast(held, lastSeenUtc, nowUtc, TributeStep, TributeCap(member));
+    public static CoinState Tribute(long held, DateTime lastSeenUtc, DateTime nowUtc, bool member, double? phaseSeconds = null) =>
+        Forecast(held, lastSeenUtc, nowUtc, TributeStep, TributeCap(member), phaseSeconds);
 }
