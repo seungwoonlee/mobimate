@@ -6,6 +6,7 @@ import { setFavorite } from '../lib/actions';
 import { fmt, plain } from '../lib/format';
 import { useRouter } from '../state/router';
 import { missionInfo } from './missionData';
+import { StockView } from './stock';
 import { AutoBadge, autoStyle, jobLabel, MissingLine, REL_TAG, REL_TEXT } from './players';
 
 export const LOC_SHORT: Record<string, string> = { bag: '가방', account: '계정', character: '캐릭터' };
@@ -20,7 +21,26 @@ const DIET_SEGS: [string, string][] = [['bag', '가방'], ['all', '전체'], ['f
  * 가방 탭 = 다이어트 보기 (2026-10-24: 임무용 아이템은 임무 탭으로 옮겼다).
  * 별(즐겨찾기)을 누른 것이 "다이어트 대상"이라 맨 위에 모인다. 게임은 아이템별 무게를 주지 않아(가방 전체 무게만 준다) 개수 순이 기본이다.
  */
+/** 가방 탭: 기본은 계정 전체 재료 현황, "다이어트"는 지금 캐릭터의 가방 정리 보기 */
 export function InventoryView() {
+  const v = useRouter(s => s.loc.params.get('v'));
+  const setParam = useRouter(s => s.setParam);
+  const diet = v === 'diet';
+  return (
+    <>
+      <div className="view-head">
+        <h2>{diet ? '가방 다이어트' : '재료 현황'}</h2>
+        <div className="seg" role="group" aria-label="가방 보기">
+          <button type="button" aria-pressed={!diet} onClick={() => setParam('v', null)}>계정 재료 현황</button>
+          <button type="button" aria-pressed={diet} onClick={() => setParam('v', 'diet')}>가방 다이어트</button>
+        </div>
+      </div>
+      {diet ? <DietView /> : <StockView />}
+    </>
+  );
+}
+
+function DietView() {
   const q = useInventory();
   const params = useRouter(s => s.loc.params);
   const setParam = useRouter(s => s.setParam);
@@ -50,7 +70,6 @@ export function InventoryView() {
   return (
     <>
       <div className="view-head">
-        <h2>가방 다이어트</h2>
         <span className="sub num">{w && <>{w.current.toFixed(1)} / {fmt(w.max)} · <LevelState level={w.level} /> {w.pct.toFixed(1)}% · </>}<Fresh at={q.dataUpdatedAt} /></span>
       </div>
       {w && <Gauge pct={w.pct} level={w.level} label="가방 무게" />}

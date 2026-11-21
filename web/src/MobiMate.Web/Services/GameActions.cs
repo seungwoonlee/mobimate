@@ -261,7 +261,7 @@ public sealed class GameActions(GameQueries q, SseHub hub, HomeworkWatcher homew
 /// 숙제 판정 연결부: 조회 결과를 모아 HomeworkService에 넘기고, 바뀌면 SSE "homework.changed"로 알린다.
 /// 조회에 실패한 항목은 null로 넘겨 판정 근거에서 뺀다.
 /// </summary>
-public sealed class HomeworkWatcher(HomeworkService homework, GameQueries q, SseHub hub, SnapshotManager snapshots, GameStateCache state, CurrencyDeltaLog currencyLog, IdentityFingerprintStore fingerprints, CoinPhaseStore coinPhase, ILogger<HomeworkWatcher> log)
+public sealed class HomeworkWatcher(HomeworkService homework, GameQueries q, SseHub hub, SnapshotManager snapshots, GameStateCache state, CurrencyDeltaLog currencyLog, IdentityFingerprintStore fingerprints, CoinPhaseStore coinPhase, StockStore stock, ILogger<HomeworkWatcher> log)
 {
     private readonly Dictionary<string, string> _guideAudit = new();
 
@@ -330,6 +330,7 @@ public sealed class HomeworkWatcher(HomeworkService homework, GameQueries q, Sse
         try { fingerprints.Observe(IdentityFingerprint.From(key, ch, items, currencies, DateTime.UtcNow)); } catch (Exception ex) { log.LogDebug(ex, "지문 수집 실패"); }
         // 은동전·마족 공물이 +1 되는 위상 학습: 읽은 값을 그 캐릭터의 관찰로 알린다 (예측 정확도용)
         try { coinPhase.Observe(key, DateTime.UtcNow, currencies?.FirstOrDefault(c => c.DisplayName == "은동전")?.Amount, currencies?.FirstOrDefault(c => c.DisplayName is "마족 공물" or "마족공물")?.Amount); } catch (Exception ex) { log.LogDebug(ex, "위상 관찰 실패"); }
+        try { stock.Observe(key, items, DateTime.UtcNow); } catch (Exception ex) { log.LogDebug(ex, "보유량 기록 실패"); }   // 계정 전체 보유량 합산용 (가방 탭)
         currencyLog.Observe(key, currencies, tE.Result.Value?.GameSpaceDisplayName);   // 레이드 보상 실측용 (재화 변화 기록)
         Evaluate(key, new HomeworkObservation(
             tD.Result.Value, tW.Result.Value, tQ.Result.Value, tA.Result.Value, tE.Result.Value, tW2.Result.Value,
