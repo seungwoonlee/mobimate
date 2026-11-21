@@ -955,3 +955,43 @@ button.hw-cell:focus-visible { outline: 2px solid var(--accent); outline-offset:
 /* 빈 공간이 좁으면 말줄임표 대신 두 줄까지 보인다 */
 .tip-line{border-radius:14px;line-height:1.3}
 .tip-line .tip-text{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+
+/* 계정 재료 현황 (가방 탭) */
+.stock-chars{background:var(--bg-2);border:1px solid var(--line);border-radius:12px;padding:8px 12px;font-size:.8125rem}
+.stock-chars summary{cursor:pointer;font-weight:500}
+.stock-char-list{display:flex;flex-wrap:wrap;gap:4px 14px;list-style:none;margin:8px 0;padding:0}
+.stock-char-list li,.stock-holders li{display:flex;gap:8px;align-items:baseline}
+.stock-char-list li.stale span:first-child,.stock-holders li.stale span:first-child{color:var(--warn,#b45309)}
+.stock-warn{color:var(--warn,#b45309)}
+.table-wrap{padding:0;overflow:auto;max-inline-size:100%;max-block-size:min(70vh,1100px);container-type:inline-size}
+.stock-table{border-collapse:separate;border-spacing:0;inline-size:max-content;min-inline-size:100%;font-size:.8125rem}
+.stock-table thead{position:sticky;inset-block-start:0;z-index:2}
+.stock-table th,.stock-table td{padding:6px 10px;border-block-end:1px solid var(--line);text-align:start;white-space:nowrap;vertical-align:middle}
+.stock-table thead th{background:var(--bg-3,var(--bg-2));color:var(--text-2);font-weight:600;font-size:.75rem}
+.stock-table tbody th{position:sticky;inset-inline-start:0;background:var(--bg-2);font-weight:500;z-index:1}
+.stock-table .n{text-align:end}
+.stock-table tr.zero th .stock-name{color:var(--text-3)}
+.stock-table tr.short{background:color-mix(in srgb,var(--danger,#c0392b) 6%,transparent)}
+.stock-name{margin-inline:6px}
+.stock-table .timed{border:0;background:transparent;opacity:.35;padding:0 2px;font-size:.875rem}
+.stock-table .timed[aria-pressed="true"]{opacity:1}
+.stock-table .star{border:0;background:transparent;padding:0 2px;color:var(--text-3)}
+.stock-table .star[aria-pressed="true"]{color:var(--accent)}
+.stock-target{inline-size:6.5ch;min-inline-size:0;padding:3px 6px;text-align:end;border:1px solid var(--line);border-radius:8px;background:var(--bg-1,transparent);color:inherit}
+.stock-target::-webkit-inner-spin-button{appearance:none}
+.stock-short{display:inline-flex;align-items:center;gap:8px}
+.stock-short progress{inline-size:72px;block-size:8px;accent-color:var(--accent)}
+.stock-short .danger{color:var(--danger,#c0392b);font-weight:600}
+.stock-short .ok{color:var(--ok,#2e7d32)}
+.stock-holders summary{cursor:pointer}
+.stock-holders ul{list-style:none;margin:4px 0 0;padding:0;display:grid;gap:2px}
+/* 좁으면 카드로 접는다 (표 폭이 아니라 이 박스 폭 기준) */
+@container (width < 640px){
+  .stock-table,.stock-table tbody,.stock-table tr,.stock-table th,.stock-table td{display:block;inline-size:100%;min-inline-size:0}
+  .stock-table thead{display:none}
+  .stock-table tr{border-block-end:1px solid var(--line);padding:6px 10px}
+  .stock-table th,.stock-table td{border:0;padding:2px 0;white-space:normal}
+  .stock-table tbody th{position:static;background:transparent}
+  .stock-table td::before{content:attr(data-label) ": ";color:var(--text-3);font-size:.75rem}
+  .stock-table td.n{text-align:start}
+}

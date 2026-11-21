@@ -1,7 +1,7 @@
 import { useQuery, type UseQueryOptions } from '@tanstack/react-query';
 import { api } from './http';
 import type {
-  Characters, CharacterView, Currencies, Cutoffs, Envelope, Header, HomeworkBoard, Inventory, Life, Meta, Missions, Nearby, Overview, RankingSetup, Rankings, Status, SttStatus,
+  Characters, CharacterView, Currencies, Cutoffs, Envelope, Header, HomeworkBoard, Inventory, Life, Stock, Meta, Missions, Nearby, Overview, RankingSetup, Rankings, Status, SttStatus,
 } from './types';
 
 /** 쿼리 키 (상세설계 §4.3). SSE 이벤트가 이 키들을 무효화한다. */
@@ -10,6 +10,7 @@ export const keys = {
   overview: ['overview'] as const,
   character: ['character'] as const,
   inventory: ['inventory'] as const,
+  stock: ['stock'] as const,
   currencies: ['currencies'] as const,
   missions: ['missions'] as const,
   life: ['life'] as const,
@@ -31,6 +32,7 @@ export const useHeader = () => q<Header>(keys.header, '/api/header');
 export const useOverview = () => q<Overview>(keys.overview, '/api/overview');
 export const useCharacter = () => q<CharacterView>(keys.character, '/api/character');
 export const useInventory = () => q<Inventory>(keys.inventory, '/api/inventory');
+export const useStock = () => q<Stock>(keys.stock, '/api/stock', { refetchInterval: 60_000 });
 export const useCurrencies = () => q<Currencies>(keys.currencies, '/api/currencies');
 export const useMissions = () => q<Missions>(keys.missions, '/api/missions');
 export const useLife = () => q<Life>(keys.life, '/api/life');

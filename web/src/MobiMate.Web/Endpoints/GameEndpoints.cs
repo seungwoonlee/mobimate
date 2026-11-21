@@ -14,6 +14,8 @@ public sealed record HomeworkResetRequest(string? Scope);
 public sealed record NicknameRequest(string? Nickname);
 public sealed record MergeCharactersRequest(string? From, string? Into);
 public sealed record FavoriteRequest(string? Name, bool? Favorite);
+public sealed record StockTargetRequest(string? Name, int? Target);
+public sealed record StockTimedRequest(string? Name, bool? Timed);
 public sealed record MembershipRequest(string? Character, int? Days);
 public sealed record AssignRequest(string? Character, string? Account);
 public sealed record OrderRequest(List<string>? Order);
@@ -145,6 +147,49 @@ public static class GameEndpoints
                 return tooMany ? ApiResults.Error(400, "VALIDATION", $"즐겨찾기는 {FavoritesStore.MaxPerKind}개까지입니다.") : ApiResults.Error(503, "STORAGE_UNAVAILABLE", "즐겨찾기를 저장하지 못했습니다.");
             hub.Broadcast("state.changed", new { keys = new[] { "favorites" } });
             return ApiResults.Ok(new { name, favorite = req.Favorite.Value });
+        });
+
+        // 계정 전체 보유량 (가방 탭): 캐릭터별로 마지막에 읽은 가방·캐릭터 창고와 계정 창고를 계정 단위로 합산한다
+        api.MapGet("/stock", (StockStore s, AccountStore accounts, GameStateCache state, FavoritesStore fav) =>
+        {
+            var data = accounts.Snapshot();
+            var keys = s.Keys();
+            var groups = keys.GroupBy(k => AccountGrouper.AccountOf(data, k)).ToList();
+            var times = s.ReadTimes(keys);
+            var current = state.CurrentKey is { } ck ? AccountGrouper.AccountOf(data, ck) : null;
+            return ApiResults.Ok(new
+            {
+                currentAccount = current,
+                currentCharacter = state.CurrentKey,
+                accounts = groups.Select(g => new
+                {
+                    id = g.Key,
+                    characters = g.Select(k => new { key = k, atUtc = new DateTimeOffset(times[k], TimeSpan.Zero) }).OrderBy(c => c.atUtc).ToList(),
+                    rows = s.Aggregate(g).Select(r => new
+                    {
+                        name = r.Name, category = r.Category, total = r.Total, bag = r.Bag, storage = r.Storage, account = r.Account,
+                        holders = r.Holders.Select(h => new { character = h.Character, bag = h.Bag, storage = h.Storage, atUtc = new DateTimeOffset(h.AtUtc, TimeSpan.Zero) }),
+                    }),
+                }),
+                prefs = s.Prefs(),
+                favorites = fav.Snapshot().Items,
+            });
+        });
+        api.MapPut("/stock/target", (StockTargetRequest req, StockStore s, SseHub hub) =>
+        {
+            var name = req.Name?.Trim();
+            if (string.IsNullOrEmpty(name) || name.Length > 100 || req.Target is null or < 0) return ApiResults.Error(400, "VALIDATION", "이름과 0 이상의 목표 개수가 필요합니다.");
+            if (!s.SetTarget(name, req.Target.Value)) return ApiResults.Error(503, "STORAGE_UNAVAILABLE", "목표를 저장하지 못했습니다(너무 많거나 저장소를 쓸 수 없습니다).");
+            hub.Broadcast("state.changed", new { keys = new[] { "stock" } });
+            return ApiResults.Ok(new { name, target = req.Target.Value });
+        });
+        api.MapPut("/stock/timed", (StockTimedRequest req, StockStore s, SseHub hub) =>
+        {
+            var name = req.Name?.Trim();
+            if (string.IsNullOrEmpty(name) || name.Length > 100 || req.Timed == null) return ApiResults.Error(400, "VALIDATION", "이름과 timed 값이 필요합니다.");
+            if (!s.SetTimed(name, req.Timed.Value)) return ApiResults.Error(503, "STORAGE_UNAVAILABLE", "표시를 저장하지 못했습니다.");
+            hub.Broadcast("state.changed", new { keys = new[] { "stock" } });
+            return ApiResults.Ok(new { name, timed = req.Timed.Value });
         });
 
         api.MapGet("/cutoffs", (GameViews v, CancellationToken ct) => Respond(v.CutoffsAsync(ct)));

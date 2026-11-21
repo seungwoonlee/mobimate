@@ -82,6 +82,10 @@ export interface CharacterRaw {
 export interface CharacterView { character: CharacterRaw; activity: Record<string, unknown> | null }
 
 export interface InvItem { location: string; name: string; category: string; count: number; locked: boolean; sessionDelta: number; favorite: boolean }
+export interface StockHolder { character: string; bag: number; storage: number; atUtc: string }
+export interface StockRow { name: string; category: string; total: number; bag: number; storage: number; account: number; holders: StockHolder[] }
+export interface StockAccount { id: string; characters: { key: string; atUtc: string }[]; rows: StockRow[] }
+export interface Stock { currentAccount: string | null; currentCharacter: string | null; accounts: StockAccount[]; prefs: { targets: Record<string, number>; timed: string[] }; favorites: string[] }
 export interface Inventory { weight: { current: number; max: number; pct: number; level: Level } | null; items: InvItem[] }
 
 export interface Currency { DisplayName: string; Amount: number }
