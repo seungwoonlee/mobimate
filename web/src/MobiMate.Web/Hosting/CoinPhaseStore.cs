@@ -27,10 +27,13 @@ public sealed class CoinPhaseStore
     private readonly Dictionary<string, CoinPhase> _phases = new(StringComparer.Ordinal);
     private DateTime _lastSave = DateTime.MinValue;
     private bool _dirty;
+    private readonly Func<string, bool> _isMember;
 
-    public CoinPhaseStore(string storageDir, Func<DateTime>? now = null)
+    /// <param name="isMember">그 캐릭터의 계정이 멤버십인가 (상한이 150·15인지 100·10인지). 모르면 false.</param>
+    public CoinPhaseStore(string storageDir, Func<DateTime>? now = null, Func<string, bool>? isMember = null)
     {
         _now = now ?? (() => DateTime.UtcNow);
+        _isMember = isMember ?? (_ => false);
         _path = Path.Combine(storageDir, FileName);
         _changesLog = Path.Combine(storageDir, "currency_changes.jsonl");
         var loaded = _store.TryLoad<Dictionary<string, CoinPhaseEntry>>(_path, out var data) == LoadStatus.Loaded ? data : null;
@@ -54,18 +57,19 @@ public sealed class CoinPhaseStore
         if (string.IsNullOrEmpty(character)) return;
         lock (_lock)
         {
-            if (silver is { } s) ObserveOne(character, CoinKind.Silver, nowUtc, s);
-            if (tribute is { } t) ObserveOne(character, CoinKind.Tribute, nowUtc, t);
+            var member = _isMember(character);
+            if (silver is { } s) ObserveOne(character, CoinKind.Silver, nowUtc, s, CoinForecast.SilverCap(member));
+            if (tribute is { } t) ObserveOne(character, CoinKind.Tribute, nowUtc, t, CoinForecast.TributeCap(member));
             if (_dirty && _now() - _lastSave >= SaveEvery) SaveLocked();
         }
     }
 
-    private void ObserveOne(string character, CoinKind kind, DateTime nowUtc, long held)
+    private void ObserveOne(string character, CoinKind kind, DateTime nowUtc, long held, long cap)
     {
         var k = KeyOf(character, kind);
         if (!_phases.TryGetValue(k, out var c)) _phases[k] = c = Make(kind);
         var before = c.Estimate();
-        c.Observe(nowUtc, held);
+        c.Observe(nowUtc, held, cap);
         var after = c.Estimate();
         if (before?.Width != after?.Width || (before?.Phase ?? -1) != (after?.Phase ?? -1)) _dirty = true;   // 위상이 좁혀졌거나 바뀌었을 때만 저장 대상
     }
@@ -121,8 +125,10 @@ public sealed class CoinPhaseStore
             foreach (var (k, list) in ticks)
             {
                 var c = Make(k.EndsWith("|tribute", StringComparison.Ordinal) ? CoinKind.Tribute : CoinKind.Silver);
-                // 최근 기록을 쓴다: 위상은 상한에서 소비하면 바뀔 수 있어 오래된 것은 믿지 않는다
-                if (c.Bootstrap(list.OrderByDescending(x => x).Take(80).ToList())) _phases[k] = c;
+                // 최근 기록을 쓴다: 상한에서 소비할 때마다 위상이 새로 시작하므로 오래된 것은 믿지 않는다. 많이 모은 것부터 시도하고 일치하지 않으면 더 최근 것만 쓴다.
+                var recent = list.OrderByDescending(x => x).ToList();
+                foreach (var take in new[] { 40, 20, 10 })
+                    if (recent.Count >= Math.Min(take, 5) && c.Bootstrap(recent.Take(take).ToList(), minShare: 0.8)) { _phases[k] = c; break; }
             }
             if (_phases.Count > 0) SaveLocked();
         }

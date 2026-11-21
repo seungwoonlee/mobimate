@@ -7,14 +7,14 @@ public class CoinPhaseTests
     private const int Phase = 10 * 60 + 5;   // 매 30분 중 10분 5초
 
     /// <summary>위상 Phase에서 +1 되는 은동전을 매 <paramref name="poll"/>초마다 읽은 것처럼 먹인다</summary>
-    private static CoinPhase Feed(int minutes, int poll = 60, long start = 20)
+    private static CoinPhase Feed(int minutes, int poll = 60, long start = 20, long cap = 100)
     {
         var c = CoinPhase.Silver();
         for (var s = 0; s <= minutes * 60; s += poll)
         {
             var t = T0.AddSeconds(s);
             var ticks = CoinPhase.TicksBetween(Phase, 1800, T0, t);
-            c.Observe(t, start + ticks);
+            c.Observe(t, start + ticks, cap);
         }
         return c;
     }
@@ -40,8 +40,8 @@ public class CoinPhaseTests
     public void NoInformationYet_ReturnsNull()
     {
         var c = CoinPhase.Silver();
-        c.Observe(T0, 20);
-        c.Observe(T0.AddSeconds(60), 20);   // +1이 없었다는 것만으로는 위상을 못 정한다
+        c.Observe(T0, 20, 100);
+        c.Observe(T0.AddSeconds(60), 20, 100);   // +1이 없었다는 것만으로는 위상을 못 정한다
         Assert.Null(c.Estimate());
     }
 
@@ -75,11 +75,53 @@ public class CoinPhaseTests
     }
 
     [Fact]
-    public void SpendingFromTheCap_ResetsWhatWeKnew()
+    public void SpendingFromTheCap_RestartsTheClock_SoTheSpendMomentIsTheNewPhase()
     {
-        var c = CoinPhase.Silver();
-        c.Observe(T0, 100);
-        c.Observe(T0.AddSeconds(60), 90);   // 상한에서 소비: 시계가 새로 시작
+        // 상한(100)에서 소비하면 충전 시계가 그 순간 새로 시작한다 (실측: 상한에서 소비한 뒤 첫 +1은 한 주기 뒤)
+        var c = Feed(60);   // 위상을 이미 알고 있다
+        var full = CoinPhase.Silver();
+        var spendAt = T0.AddSeconds(7 * 60 + 23);   // 이 순간 소비
+        full.Observe(spendAt.AddSeconds(-30), 100, 100);
+        full.Observe(spendAt.AddSeconds(30), 99, 100);        // 60초 사이에 소비가 있었다
+        var est = full.Estimate();
+        Assert.NotNull(est);
+        Assert.InRange(est!.Value.Width, 1, 61);
+        var expected = (7 * 60 + 23);                          // 위상 = 소비한 순간(주기 안의 초)
+        Assert.InRange(Math.Abs(est.Value.Phase - expected - ((T0 - DateTime.UnixEpoch).TotalSeconds % 1800)), 0, 31);
+        _ = c;
+    }
+
+    [Fact]
+    public void SpendingBelowTheCap_KeepsTheKnownPhase()
+    {
+        var c = Feed(120, poll: 5);
+        var before = c.Estimate()!.Value;
+        var t = T0.AddMinutes(121);
+        c.Observe(t, 22, 100);
+        c.Observe(t.AddSeconds(5), 15, 100);      // 상한 아래에서 소비: 시계는 그대로
+        var after = c.Estimate()!.Value;
+        Assert.Equal(before.Phase, after.Phase, 3);
+        Assert.Equal(before.Width, after.Width);
+    }
+
+    [Fact]
+    public void MemberCap150_IsNotTheCapAt100()
+    {
+        // 멤버십(상한 150)은 100에서 소비해도 시계가 그대로다
+        var c = Feed(120, poll: 5, start: 100, cap: 150);
+        var before = c.Estimate()!.Value;
+        var t = T0.AddMinutes(121);
+        c.Observe(t, 105, 150);
+        c.Observe(t.AddSeconds(5), 90, 150);
+        Assert.Equal(before.Phase, c.Estimate()!.Value.Phase, 3);
+    }
+
+    [Fact]
+    public void SpendingFromTheCap_AfterALongGap_OnlyForgetsTheOldPhase()
+    {
+        var c = Feed(120, poll: 5);
+        c.Observe(T0.AddMinutes(130), 100, 100);
+        c.Observe(T0.AddHours(5), 98, 100);   // 한참 뒤 읽었더니 줄어 있다: 소비한 때를 모른다
         Assert.Null(c.Estimate());
     }
 
@@ -89,9 +131,9 @@ public class CoinPhaseTests
         var c = Feed(180, poll: 5);
         var before = c.Estimate()!.Value;
         var t = T0.AddMinutes(181);
-        c.Observe(t, c.LastHeld!.Value);
-        c.Observe(t.AddSeconds(5), c.LastHeld!.Value + 1);   // 위상과 맞지 않는 곳에서 +1이 나왔다 (읽기 오류)
-        c.Observe(t.AddSeconds(10), c.LastHeld!.Value);
+        c.Observe(t, c.LastHeld!.Value, 100);
+        c.Observe(t.AddSeconds(5), c.LastHeld!.Value + 1, 100);   // 위상과 맞지 않는 곳에서 +1이 나왔다 (읽기 오류)
+        c.Observe(t.AddSeconds(10), c.LastHeld!.Value, 100);
         var after = c.Estimate()!.Value;
         Assert.InRange(Math.Abs(after.Phase - before.Phase), 0, 3);
     }

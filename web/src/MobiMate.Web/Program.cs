@@ -52,7 +52,11 @@ builder.Services.AddSingleton(sp => new FavoritesStore(Dir(sp)));
 builder.Services.AddSingleton(sp => new AccountStore(Dir(sp)));
 builder.Services.AddSingleton(sp => new AccountWalletStore(Dir(sp)));
 builder.Services.AddSingleton(sp => new IdentityFingerprintStore(Dir(sp)));
-builder.Services.AddSingleton(sp => new CoinPhaseStore(Dir(sp)));
+builder.Services.AddSingleton(sp => new CoinPhaseStore(Dir(sp), isMember: key =>
+{
+    var data = sp.GetRequiredService<AccountStore>().Snapshot();
+    return AccountGrouper.IsMember(data, AccountGrouper.AccountOf(data, key), DateTime.UtcNow);
+}));
 builder.Services.AddSingleton(sp => new CharacterMerger(Dir(sp), sp.GetRequiredService<HomeworkCatalog>()));
 builder.Services.AddSingleton(sp => new ClassImages(Dir(sp), sp.GetRequiredService<ILogger<ClassImages>>()));
 builder.Services.AddSingleton(sp =>

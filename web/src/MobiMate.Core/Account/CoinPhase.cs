@@ -7,13 +7,12 @@ namespace MobiMate;
 ///
 /// 위상은 [0, 주기) 초 범위의 "가능한 값의 집합"으로 둔다. 가까운 두 관찰 사이에 +1이 n번 있었다면 그 사이 구간에 위상이 n번 들어 있어야 한다는 식으로
 /// 집합을 줄인다(+1이 없었다면 그 구간은 위상이 아니다). 상한에 닿았거나 소비한 구간은 정보가 없어 쓰지 않는다.
-/// 서로 맞지 않는 관찰이 나오면 바로 믿지 않고, 같은 결론이 두 번 이어질 때만 바꾼다(한 번의 읽기 오류로 망가지지 않게).
+/// 상한이면 충전 시계가 멈추고, 상한에서 소비해 상한 아래로 내려가는 그 순간 시계가 새로 시작한다(실측: 상한에서 소비한 뒤 첫 +1은 25~30분 뒤, 상한 아래에서 소비하면 시계는 그대로).
+/// 그래서 상한에서 소비한 순간이 곧 새 위상이다. 서로 맞지 않는 관찰이 나오면 바로 믿지 않고, 같은 결론이 두 번 이어질 때만 바꾼다(한 번의 읽기 오류로 망가지지 않게).
 /// </summary>
 public sealed class CoinPhase
 {
     public int StepSeconds { get; }
-    /// <summary>상한으로 보는 최소값(은동전 100, 마족 공물 10). 이 이상이면 충전이 멈췄을 수 있어 그 구간은 쓰지 않는다.</summary>
-    public long MinCap { get; }
     /// <summary>두 관찰의 간격이 이보다 길면 그 사이 소비·상한이 섞였을 수 있어 쓰지 않는다.</summary>
     public static readonly TimeSpan MaxGap = TimeSpan.FromMinutes(5);
 
@@ -23,38 +22,46 @@ public sealed class CoinPhase
     public long? LastHeld { get; private set; }
     public DateTime? LastObsUtc { get; private set; }
 
-    public CoinPhase(int stepSeconds, long minCap)
+    public CoinPhase(int stepSeconds)
     {
         StepSeconds = stepSeconds;
-        MinCap = minCap;
         _ok = new bool[stepSeconds];
         Array.Fill(_ok, true);
     }
 
-    public static CoinPhase Silver() => new(30 * 60, 100);
-    public static CoinPhase Tribute() => new(12 * 3600, 10);
+    public static CoinPhase Silver() => new(30 * 60);
+    public static CoinPhase Tribute() => new(12 * 3600);
 
     private static long FloorDiv(long a, long b) => a >= 0 ? a / b : -((-a + b - 1) / b);
     private static long Epoch(DateTime utc) => (long)Math.Floor((utc - DateTime.UnixEpoch).TotalSeconds);
 
-    /// <summary>방금 읽은 보유량을 알린다 (시각은 읽은 순간).</summary>
-    public void Observe(DateTime nowUtc, long held)
+    /// <summary>방금 읽은 보유량을 알린다 (시각은 읽은 순간). <paramref name="cap"/>은 이 계정의 상한(멤버십이면 150·15, 아니면 100·10).</summary>
+    public void Observe(DateTime nowUtc, long held, long cap)
     {
         var prevHeld = LastHeld; var prevAt = LastObsUtc;
         LastHeld = held; LastObsUtc = nowUtc;
-        if (prevHeld is not { } h0 || prevAt is not { } t0 || nowUtc <= t0 || nowUtc - t0 > MaxGap) return;
+        if (prevHeld is not { } h0 || prevAt is not { } t0 || nowUtc <= t0) return;
+        var gap = nowUtc - t0;
 
-        if (held < h0)
+        if (h0 >= cap && held < h0)
         {
-            // 소비. 상한이던 것을 쓰면 충전 시계가 그때부터 새로 시작할 수 있어 위상을 모른다고 본다.
-            if (h0 >= MinCap) { Array.Fill(_ok, true); _alt = null; _altVotes = 0; }
+            // 상한에서 소비: 시계는 그 순간 새로 시작한다. 소비한 순간은 (직전 읽기, 지금] 안이고, +1은 그 순간과 같은 위상에서 일어난다.
+            // 간격이 길면(그 사이 어느 때인지 모른다) 이전 위상이 틀렸다는 것만 알 수 있어 모른다고 본다.
+            _alt = null; _altVotes = 0;
+            if (gap > MaxGap) { Array.Fill(_ok, true); return; }
+            var s = StepSeconds; var a = Epoch(t0); var b = Epoch(nowUtc);
+            var window = new bool[s];
+            for (var e = a + 1; e <= b; e++) window[(int)(((e % s) + s) % s)] = true;
+            _ok = window;
             return;
         }
-        if (h0 >= MinCap) return;   // 충전이 멈춘 상태일 수 있다
+        if (gap > MaxGap) return;                  // 오래 비운 뒤라 그 사이 소비·상한이 섞였을 수 있다
+        if (held < h0) return;                     // 상한 아래에서 소비: 시계는 그대로다(실측), 이 구간은 몇 번 +1인지 모른다
+        if (h0 >= cap) return;                     // 상한에서 그대로: 충전이 멈춰 있다
 
         var n = held - h0;
-        if (n > (nowUtc - t0).TotalSeconds / StepSeconds + 1) return;   // 그 시간에 그만큼 늘 수 없다: 다른 캐릭터 값이 섞였거나 읽기 오류
-        var exact = held < MinCap;   // 상한에 닿지 않았다면 정확히 n번
+        if (n > gap.TotalSeconds / StepSeconds + 1) return;   // 그 시간에 그만큼 늘 수 없다: 다른 캐릭터 값이 섞였거나 읽기 오류
+        var exact = held < cap;   // 상한에 닿지 않았다면 정확히 n번
         var c = Constraint(Epoch(t0), Epoch(nowUtc), n, exact);
         Apply(c);
     }
@@ -120,7 +127,7 @@ public sealed class CoinPhase
     /// 처음 만들 때 과거의 +1 감지 시각들로 위상을 잡는다. 감지는 읽는 주기만큼 늦을 수 있어(<paramref name="lagSeconds"/>) 그 구간을 후보로 보고,
     /// 가장 많이 겹치는 곳을 고른다. 일치하는 비율이 낮으면(위상이 자주 바뀐 캐릭터) 잡지 않는다.
     /// </summary>
-    public bool Bootstrap(IReadOnlyCollection<DateTime> tickDetectedUtc, int lagSeconds = 75)
+    public bool Bootstrap(IReadOnlyCollection<DateTime> tickDetectedUtc, int lagSeconds = 75, double minShare = 0.5)
     {
         if (tickDetectedUtc.Count < 5) return false;
         var s = StepSeconds;
@@ -131,7 +138,7 @@ public sealed class CoinPhase
             for (var k = 0; k <= lagSeconds; k++) votes[((end - k) % s + s) % s]++;
         }
         var max = votes.Max();
-        if (max < Math.Max(5, tickDetectedUtc.Count * 0.5)) return false;
+        if (max < Math.Max(5, tickDetectedUtc.Count * minShare)) return false;
         var thr = (int)Math.Ceiling(max * 0.9);
         for (var i = 0; i < s; i++) _ok[i] = votes[i] >= thr;
         return true;
