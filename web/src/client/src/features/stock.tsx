@@ -2,10 +2,10 @@ import { useDeferredValue, useId, useMemo, useState } from 'react';
 import { useStock } from '../api/queries';
 import type { StockAccount, StockRow } from '../api/types';
 import { ErrorCard, Fresh, Icon, Skeleton } from '../components/ui';
-import { setFavorite, setStockTarget, setStockTimed } from '../lib/actions';
+import { setFavorite, setStockTarget } from '../lib/actions';
 import { fmt, plain } from '../lib/format';
 import { useRouter } from '../state/router';
-import { baseGroupOf, GROUPS, MANAGED, type GroupId } from './stockData';
+import { baseGroupOf, GROUPS, MANAGED, MANAGED_ORDER, tierOf, type GroupId } from './stockData';
 
 const STALE_HOURS = 72;
 
@@ -19,7 +19,7 @@ function ago(iso: string, now = Date.now()): string {
 }
 const isStale = (iso: string) => Date.now() - new Date(iso).getTime() > STALE_HOURS * 3_600_000;
 
-interface Line { name: string; row: StockRow | null; groups: GroupId[]; target: number; timed: boolean; fav: boolean }
+interface Line { name: string; row: StockRow | null; groups: GroupId[]; target: number; fav: boolean }
 
 /**
  * 계정 재료 현황: 한 계정의 모든 캐릭터의 가방·캐릭터 창고와 계정 창고를 합쳐 "이미 가진 양"과 "모자란 양"을 본다.
@@ -32,6 +32,7 @@ export function StockView() {
   const [text, setText] = useState('');
   const search = useDeferredValue(text.trim());
   const rawGroup = params.get('g');
+  const cat = params.get('cat');
   const group: GroupId | 'all' | 'short' = rawGroup === 'short' || GROUPS.some(g => g.id === rawGroup) ? (rawGroup as GroupId | 'short') : 'all';
 
   const data = q.data?.data;
@@ -42,16 +43,14 @@ export function StockView() {
     if (!data || !account) return [];
     const byName = new Map(account.rows.map(r => [plain(r.name).trim(), r]));
     const favs = new Set(data.favorites.map(f => plain(f).trim()));
-    const timed = new Set(data.prefs.timed);
     const names = new Map<string, GroupId[]>();
     const add = (n: string, g: GroupId | null) => { const l = names.get(n) ?? names.set(n, []).get(n)!; if (g && !l.includes(g)) l.push(g); };
     for (const m of MANAGED) add(m.name, m.group);
     for (const n of byName.keys()) add(n, baseGroupOf(n));
     for (const f of favs) { add(f, null); names.get(f)!.push('fav'); }
-    for (const n of timed) { add(n, null); names.get(n)!.push('timed'); }
     for (const n of Object.keys(data.prefs.targets)) add(n, null);
     return [...names].map(([name, groups]) => ({
-      name, row: byName.get(name) ?? null, groups, target: data.prefs.targets[name] ?? 0, timed: timed.has(name), fav: favs.has(name),
+      name, row: byName.get(name) ?? null, groups, target: data.prefs.targets[name] ?? 0, fav: favs.has(name),
     }));
   }, [data, account]);
 
@@ -61,13 +60,14 @@ export function StockView() {
     if (group === 'short') r = r.filter(l => l.target > 0 && (l.row?.total ?? 0) < l.target);
     else if (group !== 'all') r = r.filter(l => l.groups.includes(group));
     else r = r.filter(l => l.groups.length > 0 || (l.row?.total ?? 0) > 0 || l.target > 0);
+    if (cat) r = r.filter(l => (l.row?.category ?? '') === cat);
     if (search) r = r.filter(l => plain(l.name).includes(search) || (l.row?.category ?? '').includes(search));
     return r.sort((a, b) => {
       const ga = Math.min(...a.groups.map(g => order.indexOf(g)), 99), gb = Math.min(...b.groups.map(g => order.indexOf(g)), 99);
       const sa = a.target > 0 ? (a.row?.total ?? 0) - a.target : Infinity, sb = b.target > 0 ? (b.row?.total ?? 0) - b.target : Infinity;
-      return (group === 'all' ? ga - gb : 0) || sa - sb || (b.row?.total ?? 0) - (a.row?.total ?? 0) || a.name.localeCompare(b.name, 'ko');
+      return (group === 'all' ? ga - gb : 0) || sa - sb || (MANAGED_ORDER.get(a.name) ?? 1e9) - (MANAGED_ORDER.get(b.name) ?? 1e9) || (b.row?.total ?? 0) - (a.row?.total ?? 0) || a.name.localeCompare(b.name, 'ko');
     });
-  }, [lines, group, search]);
+  }, [lines, group, search, cat]);
 
   const captionId = useId();
   if (q.isPending) return <Skeleton lines={6} />;
@@ -75,6 +75,7 @@ export function StockView() {
   if (!data || !account) {
     return <div className="card muted">아직 모은 보유량이 없습니다. 게임에 접속한 채로 캐릭터를 한 번씩 읽으면(앱이 자동으로 읽습니다) 여기에 쌓입니다.</div>;
   }
+  const cats = [...new Set(account.rows.map(r => r.category).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ko'));
   const shortCount = lines.filter(l => l.target > 0 && (l.row?.total ?? 0) < l.target).length;
   const chars = account.characters;
   const unread = chars.filter(c => !c.atUtc);
@@ -88,6 +89,12 @@ export function StockView() {
           <button type="button" aria-pressed={group === 'short'} onClick={() => setParam('g', 'short')}>모자란 것{shortCount > 0 && <> · {shortCount}</>}</button>
           {GROUPS.map(g => <button key={g.id} type="button" aria-pressed={group === g.id} title={g.hint} onClick={() => setParam('g', g.id)}>{g.label}</button>)}
         </div>
+        <label className="inv-sort">분류
+          <select value={cat ?? ''} aria-label="게임 분류" onChange={e => setParam('cat', e.target.value || null)}>
+            <option value="">전체</option>
+            {cats.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+        </label>
         <label className="search">
           <Icon name="search" />
           <input type="search" placeholder="재료 이름 검색" value={text} aria-label="재료 검색" onChange={e => setText(e.target.value)} />
@@ -101,20 +108,12 @@ export function StockView() {
         )}
       </div>
 
-      <details className="stock-chars">
-        <summary>
-          {chars.length - unread.length}/{chars.length} 캐릭터 합산
-          {unread.length > 0 && <span className="stock-warn"> · {unread.length}명은 아직 못 읽음(접속하면 채워짐)</span>}
-          {staleChars.length > 0 && <span className="stock-warn"> · {staleChars.length}명은 {STALE_HOURS / 24}일 넘게 못 읽음</span>}
-          {unread.length === 0 && staleChars.length === 0 && <span className="muted"> · 모두 최근에 읽음</span>}
-        </summary>
-        <ul className="stock-char-list">
-          {chars.map(c => (
-            <li key={c.key} className={!c.atUtc || isStale(c.atUtc) ? 'stale' : ''}><span>{c.label}</span> <span className="muted">{c.atUtc ? ago(c.atUtc) : '아직 못 읽음'}</span></li>
-          ))}
-        </ul>
-        <p className="muted small m0">캐릭터를 읽은 시점의 값을 더한 것입니다. 오래 접속하지 않은 캐릭터는 그 뒤에 쓰거나 모은 만큼 다를 수 있습니다. 계정 창고는 한 번만 셉니다.</p>
-      </details>
+      {(unread.length > 0 || staleChars.length > 0) && (
+        <p className="stock-warn small m0">
+          {unread.length > 0 && <>아직 못 읽음: {unread.map(c => c.label).join(', ')} (접속하면 채워집니다) </>}
+          {staleChars.length > 0 && <>{STALE_HOURS / 24}일 넘게 못 읽음: {staleChars.map(c => `${c.label}(${ago(c.atUtc!)})`).join(', ')}</>}
+        </p>
+      )}
 
       {shown.length === 0 ? <div className="card muted">{group === 'short' ? '목표를 정한 재료 중 모자란 것이 없습니다. 개수 칸에 목표를 입력하면 여기에 모입니다.' : '조건에 맞는 재료가 없습니다.'}</div> : (
         <div className="card table-wrap" role="region" aria-labelledby={captionId} tabIndex={0}>
@@ -123,10 +122,10 @@ export function StockView() {
             <thead>
               <tr>
                 <th scope="col" rowSpan={2}>재료</th><th scope="col" rowSpan={2} className="n">합계</th><th scope="col" rowSpan={2} className="n">목표</th><th scope="col" rowSpan={2}>부족</th>
+                <th scope="col" rowSpan={2} className="n acc">계정 창고</th>
                 {chars.map(c => (
                   <th scope="colgroup" colSpan={2} key={c.key} className={`ch ${!c.atUtc ? 'unread' : isStale(c.atUtc) ? 'stale' : ''}`} title={`${c.key} · ${c.atUtc ? `${ago(c.atUtc)} 읽음` : '아직 못 읽음'}`}>{c.label}</th>
                 ))}
-                <th scope="col" rowSpan={2} className="n acc">계정 창고</th>
               </tr>
               <tr>{chars.map(c => <SubHead key={c.key} />)}</tr>
             </thead>
@@ -135,7 +134,7 @@ export function StockView() {
         </div>
       )}
       <p className="faint small m0">
-        {fmt(shown.length)}종 표시 · <Fresh at={q.dataUpdatedAt} /> · 사용기간 제한은 게임이 알려 주지 않아 ⏳로 직접 표시합니다.
+        {fmt(shown.length)}종 표시 · <Fresh at={q.dataUpdatedAt} />
       </p>
     </>
   );
@@ -159,8 +158,7 @@ function StockLine({ l, chars }: { l: Line; chars: Char[] }) {
         <button type="button" className="star" aria-pressed={l.fav} aria-label={`${plain(l.name)} 찜`} title={l.fav ? '찜 해제' : '찜하기 (이 목록에 항상 보입니다)'}
           onClick={() => void setFavorite('items', l.name, !l.fav)}>{l.fav ? '★' : '☆'}</button>
         <span className="stock-name">{plain(l.name)}</span>
-        <button type="button" className="timed" aria-pressed={l.timed} aria-label={`${plain(l.name)} 기간제 표시`} title={l.timed ? '기간제 표시 해제' : '사용기간 제한이 있는 아이템으로 표시'}
-          onClick={() => void setStockTimed(l.name, !l.timed)}>⏳</button>
+        {tierOf(plain(l.name)) && <span className="stock-tier">{tierOf(plain(l.name))}</span>}
       </th>
       <td className="n num strong" data-label="합계">{fmt(total)}</td>
       <td className="n" data-label="목표"><TargetInput name={l.name} value={l.target} /></td>
@@ -169,6 +167,7 @@ function StockLine({ l, chars }: { l: Line; chars: Char[] }) {
           ? <span className="stock-short"><progress max={l.target} value={Math.min(total, l.target)} aria-label={`${plain(l.name)} 목표 달성도`} /><span className={`num ${short > 0 ? 'danger' : 'ok'}`}>{short > 0 ? `−${fmt(short)}` : '충분'}</span></span>
           : <span className="faint">–</span>}
       </td>
+      <td className="n num acc" data-label="계정 창고">{r?.account ? fmt(r.account) : <span className="faint">–</span>}</td>
       {chars.map(c => {
         const h = by.get(c.key);
         const read = !!c.atUtc;
@@ -177,7 +176,6 @@ function StockLine({ l, chars }: { l: Line; chars: Char[] }) {
           <td key={`${c.key}s`} className="n num" data-label={`${c.label} 창고`}>{cell(h?.storage, read)}</td>,
         ];
       })}
-      <td className="n num acc" data-label="계정 창고">{r?.account ? fmt(r.account) : <span className="faint">–</span>}</td>
     </tr>
   );
 }

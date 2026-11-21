@@ -63,11 +63,9 @@ public class StockStoreTests : IDisposable
         s.Observe("A_힐러", [It("inventory", "철괴", 3)], _now);
         s.Flush();
         Assert.True(s.SetTarget("철괴", 50));
-        Assert.True(s.SetTimed("철괴", true));
         var again = Make();
         Assert.Equal(3, again.Aggregate(["A_힐러"]).Single().Total);
         Assert.Equal(50, again.Prefs().Targets["철괴"]);
-        Assert.Contains("철괴", again.Prefs().Timed);
         Assert.True(again.SetTarget("철괴", 0));
         Assert.Empty(again.Prefs().Targets);
     }

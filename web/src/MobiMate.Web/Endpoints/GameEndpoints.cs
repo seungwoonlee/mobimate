@@ -15,7 +15,6 @@ public sealed record NicknameRequest(string? Nickname);
 public sealed record MergeCharactersRequest(string? From, string? Into);
 public sealed record FavoriteRequest(string? Name, bool? Favorite);
 public sealed record StockTargetRequest(string? Name, int? Target);
-public sealed record StockTimedRequest(string? Name, bool? Timed);
 public sealed record MembershipRequest(string? Character, int? Days);
 public sealed record AssignRequest(string? Character, string? Account);
 public sealed record OrderRequest(List<string>? Order);
@@ -196,14 +195,6 @@ public static class GameEndpoints
             if (!s.SetTarget(name, req.Target.Value)) return ApiResults.Error(503, "STORAGE_UNAVAILABLE", "목표를 저장하지 못했습니다(너무 많거나 저장소를 쓸 수 없습니다).");
             hub.Broadcast("state.changed", new { keys = new[] { "stock" } });
             return ApiResults.Ok(new { name, target = req.Target.Value });
-        });
-        api.MapPut("/stock/timed", (StockTimedRequest req, StockStore s, SseHub hub) =>
-        {
-            var name = req.Name?.Trim();
-            if (string.IsNullOrEmpty(name) || name.Length > 100 || req.Timed == null) return ApiResults.Error(400, "VALIDATION", "이름과 timed 값이 필요합니다.");
-            if (!s.SetTimed(name, req.Timed.Value)) return ApiResults.Error(503, "STORAGE_UNAVAILABLE", "표시를 저장하지 못했습니다.");
-            hub.Broadcast("state.changed", new { keys = new[] { "stock" } });
-            return ApiResults.Ok(new { name, timed = req.Timed.Value });
         });
 
         api.MapGet("/cutoffs", (GameViews v, CancellationToken ct) => Respond(v.CutoffsAsync(ct)));

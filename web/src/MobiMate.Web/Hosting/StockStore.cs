@@ -16,11 +16,10 @@ public sealed class StockData
     public Dictionary<string, string> Categories { get; set; } = new();
 }
 
-/// <summary>사용자가 정하는 값: 목표 개수, 사용기간 제한이 있는 아이템 표시 (CLI가 만료 정보를 주지 않아 직접 표시한다)</summary>
+/// <summary>사용자가 정하는 값: 재료별 목표 개수</summary>
 public sealed class StockPrefs
 {
     public Dictionary<string, int> Targets { get; set; } = new();
-    public List<string> Timed { get; set; } = new();
 }
 
 public sealed record StockRow(
@@ -139,27 +138,16 @@ public sealed class StockStore
         lock (_lock) return characterKeys.Where(_data.Characters.ContainsKey).ToDictionary(k => k, k => _data.Characters[k].AtUtc);
     }
 
-    public StockPrefs Prefs() { lock (_lock) return new StockPrefs { Targets = new(_prefs.Targets), Timed = _prefs.Timed.ToList() }; }
+    public StockPrefs Prefs() { lock (_lock) return new StockPrefs { Targets = new(_prefs.Targets) }; }
 
     /// <summary>목표 개수를 정한다(0 이하면 지운다). 저장 실패하면 false.</summary>
     public bool SetTarget(string name, int target)
     {
         lock (_lock)
         {
-            var next = new StockPrefs { Targets = new(_prefs.Targets), Timed = _prefs.Timed.ToList() };
+            var next = new StockPrefs { Targets = new(_prefs.Targets) };
             if (target <= 0) next.Targets.Remove(name);
             else { if (!next.Targets.ContainsKey(name) && next.Targets.Count >= MaxTargets) return false; next.Targets[name] = Math.Min(target, 99_999_999); }
-            if (!_store.Save(_prefsPath, next)) return false;
-            _prefs = next; return true;
-        }
-    }
-
-    public bool SetTimed(string name, bool timed)
-    {
-        lock (_lock)
-        {
-            var next = new StockPrefs { Targets = new(_prefs.Targets), Timed = _prefs.Timed.ToList() };
-            if (timed) { if (!next.Timed.Contains(name)) next.Timed.Add(name); } else next.Timed.Remove(name);
             if (!_store.Save(_prefsPath, next)) return false;
             _prefs = next; return true;
         }
