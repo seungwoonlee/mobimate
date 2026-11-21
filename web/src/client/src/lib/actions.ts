@@ -245,14 +245,3 @@ export async function setStockTarget(name: string, target: number): Promise<void
     toast(`목표를 저장하지 못했습니다: ${msg(e)}`, 'warn');
   }
 }
-
-/** 사용기간 제한이 있는 아이템 표시 (게임이 만료 정보를 주지 않아 직접 표시한다) */
-export async function setStockTimed(name: string, timed: boolean): Promise<void> {
-  if (blockedOffline()) return;
-  try {
-    await api.put('/api/stock/timed', { name, timed });
-    await queryClient.invalidateQueries({ queryKey: keys.stock });
-  } catch (e) {
-    toast(`표시를 저장하지 못했습니다: ${msg(e)}`, 'warn');
-  }
-}

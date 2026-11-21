@@ -1,16 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { baseGroupOf, isRelicName, MANAGED } from './stockData';
+import { baseGroupOf, MANAGED, tierOf } from './stockData';
 
 describe('재료 묶음', () => {
-  it('가공품은 2차, 그 원료는 1차, 임무 아이템은 임무로 나뉜다', () => {
-    expect(baseGroupOf('강철괴')).toBe('made');
-    expect(baseGroupOf('철 광석')).toBe('raw');
+  it('잔영·해연 장비 재료는 영혼석·2차·1차 단계로 한 묶음이다', () => {
+    expect(baseGroupOf('백금강괴')).toBe('equip');
+    expect(tierOf('백금강괴')).toBe('2차');
+    expect(tierOf('망령의 영혼석')).toBe('영혼석');
+    expect(tierOf('은 광석')).toBe('1차');
+    expect(tierOf('강철괴')).toBe('2차');
+  });
+  it('임무 아이템은 임무 재료', () => {
     expect(baseGroupOf('쌀')).toBe('mission');
     expect(baseGroupOf('알 수 없는 것')).toBeNull();
-  });
-  it('잔영·해연 이름은 자동으로 장비 재료 묶음', () => {
-    expect(isRelicName('잔영의 파편')).toBe(true);
-    expect(baseGroupOf('해연 결정')).toBe('relic');
   });
   it('기본 관리 목록에 같은 재료가 두 번 나오지 않는다', () => {
     const names = MANAGED.map(m => m.name);

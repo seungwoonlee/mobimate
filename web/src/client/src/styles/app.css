@@ -957,11 +957,8 @@ button.hw-cell:focus-visible { outline: 2px solid var(--accent); outline-offset:
 .tip-line .tip-text{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
 
 /* 계정 재료 현황 (가방 탭) */
-.stock-chars{background:var(--bg-2);border:1px solid var(--line);border-radius:12px;padding:8px 12px;font-size:.8125rem}
-.stock-chars summary{cursor:pointer;font-weight:500}
-.stock-char-list{display:flex;flex-wrap:wrap;gap:4px 14px;list-style:none;margin:8px 0;padding:0}
-.stock-char-list li,.stock-holders li{display:flex;gap:8px;align-items:baseline}
-.stock-char-list li.stale span:first-child,.stock-holders li.stale span:first-child{color:var(--warn,#b45309)}
+.stock-holders li{display:flex;gap:8px;align-items:baseline}
+.stock-holders li.stale span:first-child{color:var(--warn,#b45309)}
 .stock-warn{color:var(--warn,#b45309)}
 .table-wrap{padding:0;overflow:auto;max-inline-size:100%;max-block-size:min(70vh,1100px);container-type:inline-size}
 .stock-table{border-collapse:separate;border-spacing:0;inline-size:max-content;min-inline-size:100%;font-size:.8125rem}
@@ -973,8 +970,6 @@ button.hw-cell:focus-visible { outline: 2px solid var(--accent); outline-offset:
 .stock-table tr.zero th .stock-name{color:var(--text-3)}
 .stock-table tr.short{background:color-mix(in srgb,var(--danger,#c0392b) 6%,transparent)}
 .stock-name{margin-inline:6px}
-.stock-table .timed{border:0;background:transparent;opacity:.35;padding:0 2px;font-size:.875rem}
-.stock-table .timed[aria-pressed="true"]{opacity:1}
 .stock-table .star{border:0;background:transparent;padding:0 2px;color:var(--text-3)}
 .stock-table .star[aria-pressed="true"]{color:var(--accent)}
 .stock-target{inline-size:6.5ch;min-inline-size:0;padding:3px 6px;text-align:end;border:1px solid var(--line);border-radius:8px;background:var(--bg-1,transparent);color:inherit}
@@ -1000,5 +995,6 @@ button.hw-cell:focus-visible { outline: 2px solid var(--accent); outline-offset:
 .stock-table thead th.ch.unread,.stock-table thead th.ch.stale{color:var(--warn,#b45309)}
 .stock-table thead th.sub{font-weight:500;color:var(--text-3)}
 .stock-table .ch-start{border-inline-start:1px solid var(--line)}
-.stock-table .acc{border-inline-start:2px solid var(--line);background:color-mix(in srgb,var(--accent) 5%,transparent)}
+.stock-table .acc{border-inline-start:1px solid var(--line);background:color-mix(in srgb,var(--accent) 5%,transparent)}
 .stock-table th,.stock-table td{padding-inline:8px}
+.stock-tier{font-size:.6875rem;color:var(--text-3);border:1px solid var(--line);border-radius:6px;padding:0 4px}
