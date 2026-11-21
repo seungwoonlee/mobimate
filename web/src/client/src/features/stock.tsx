@@ -8,6 +8,7 @@ import { useRouter } from '../state/router';
 import { baseGroupOf, GROUPS, MANAGED, MANAGED_ORDER, tierOf, type GroupId } from './stockData';
 
 const STALE_HOURS = 72;
+const SORTS: [string, string][] = [['price', '거래소 가격 높은 순'], ['short', '부족 많은 순'], ['total', '합계 많은 순'], ['group', '묶음 순'], ['name', '이름순']];
 
 /** "3시간 전" 같은 짧은 경과 표현 */
 function ago(iso: string, now = Date.now()): string {
@@ -19,7 +20,7 @@ function ago(iso: string, now = Date.now()): string {
 }
 const isStale = (iso: string) => Date.now() - new Date(iso).getTime() > STALE_HOURS * 3_600_000;
 
-interface Line { name: string; row: StockRow | null; groups: GroupId[]; target: number; fav: boolean }
+interface Line { name: string; row: StockRow | null; groups: GroupId[]; target: number; fav: boolean; price: number | null; tradable: boolean | null }
 
 /**
  * 계정 재료 현황: 한 계정의 모든 캐릭터의 가방·캐릭터 창고와 계정 창고를 합쳐 "이미 가진 양"과 "모자란 양"을 본다.
@@ -33,6 +34,8 @@ export function StockView() {
   const search = useDeferredValue(text.trim());
   const rawGroup = params.get('g');
   const cat = params.get('cat');
+  const rawSort = params.get('sort');
+  const sort = SORTS.some(([k]) => k === rawSort) ? rawSort! : 'price';
   const group: GroupId | 'all' | 'short' = rawGroup === 'short' || GROUPS.some(g => g.id === rawGroup) ? (rawGroup as GroupId | 'short') : 'all';
 
   const data = q.data?.data;
@@ -51,6 +54,7 @@ export function StockView() {
     for (const n of Object.keys(data.prefs.targets)) add(n, null);
     return [...names].map(([name, groups]) => ({
       name, row: byName.get(name) ?? null, groups, target: data.prefs.targets[name] ?? 0, fav: favs.has(name),
+      price: data.prices[name]?.price ?? null, tradable: data.prices[name]?.tradable ?? null,
     }));
   }, [data, account]);
 
@@ -62,12 +66,18 @@ export function StockView() {
     else r = r.filter(l => l.groups.length > 0 || (l.row?.total ?? 0) > 0 || l.target > 0);
     if (cat) r = r.filter(l => (l.row?.category ?? '') === cat);
     if (search) r = r.filter(l => plain(l.name).includes(search) || (l.row?.category ?? '').includes(search));
-    return r.sort((a, b) => {
-      const ga = Math.min(...a.groups.map(g => order.indexOf(g)), 99), gb = Math.min(...b.groups.map(g => order.indexOf(g)), 99);
-      const sa = a.target > 0 ? (a.row?.total ?? 0) - a.target : Infinity, sb = b.target > 0 ? (b.row?.total ?? 0) - b.target : Infinity;
-      return (group === 'all' ? ga - gb : 0) || sa - sb || (MANAGED_ORDER.get(a.name) ?? 1e9) - (MANAGED_ORDER.get(b.name) ?? 1e9) || (b.row?.total ?? 0) - (a.row?.total ?? 0) || a.name.localeCompare(b.name, 'ko');
-    });
-  }, [lines, group, search, cat]);
+    const byName = (a: Line, b: Line) => a.name.localeCompare(b.name, 'ko');
+    const shortOf = (l: Line) => (l.target > 0 ? l.target - (l.row?.total ?? 0) : -Infinity);
+    const groupRank = (l: Line) => Math.min(...l.groups.map(g => order.indexOf(g)), 99);
+    const cmp: Record<string, (a: Line, b: Line) => number> = {
+      price: (a, b) => (b.price ?? -1) - (a.price ?? -1) || byName(a, b),
+      short: (a, b) => shortOf(b) - shortOf(a) || (b.price ?? -1) - (a.price ?? -1) || byName(a, b),
+      total: (a, b) => (b.row?.total ?? 0) - (a.row?.total ?? 0) || byName(a, b),
+      group: (a, b) => groupRank(a) - groupRank(b) || (MANAGED_ORDER.get(a.name) ?? 1e9) - (MANAGED_ORDER.get(b.name) ?? 1e9) || byName(a, b),
+      name: byName,
+    };
+    return r.sort(cmp[sort] ?? cmp.price);
+  }, [lines, group, search, cat, sort]);
 
   const captionId = useId();
   if (q.isPending) return <Skeleton lines={6} />;
@@ -89,6 +99,11 @@ export function StockView() {
           <button type="button" aria-pressed={group === 'short'} onClick={() => setParam('g', 'short')}>모자란 것{shortCount > 0 && <> · {shortCount}</>}</button>
           {GROUPS.map(g => <button key={g.id} type="button" aria-pressed={group === g.id} title={g.hint} onClick={() => setParam('g', g.id)}>{g.label}</button>)}
         </div>
+        <label className="inv-sort">정렬
+          <select value={sort} aria-label="정렬 순서" onChange={e => setParam('sort', e.target.value === 'price' ? null : e.target.value)}>
+            {SORTS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+          </select>
+        </label>
         <label className="inv-sort">분류
           <select value={cat ?? ''} aria-label="게임 분류" onChange={e => setParam('cat', e.target.value || null)}>
             <option value="">전체</option>
@@ -121,8 +136,8 @@ export function StockView() {
             <caption id={captionId} className="sr-only">계정 전체 재료 보유량</caption>
             <thead>
               <tr>
-                <th scope="col" rowSpan={2}>재료</th><th scope="col" rowSpan={2} className="n">합계</th><th scope="col" rowSpan={2} className="n">목표</th><th scope="col" rowSpan={2}>부족</th>
-                <th scope="col" rowSpan={2} className="n acc">계정 창고</th>
+                <th scope="col" rowSpan={2}>재료</th><th scope="col" rowSpan={2} className="n" title="거래소 최저 단가 (1시간마다 갱신)">거래소 (데카)</th><th scope="col" rowSpan={2} className="n">목표</th><th scope="col" rowSpan={2}>부족</th>
+                <th scope="col" rowSpan={2} className="n tot">합계</th><th scope="col" rowSpan={2} className="n acc">계정 창고</th>
                 {chars.map(c => (
                   <th scope="colgroup" colSpan={2} key={c.key} className={`ch ${!c.atUtc ? 'unread' : isStale(c.atUtc) ? 'stale' : ''}`} title={`${c.key} · ${c.atUtc ? `${ago(c.atUtc)} 읽음` : '아직 못 읽음'}`}>{c.label}</th>
                 ))}
@@ -160,13 +175,14 @@ function StockLine({ l, chars }: { l: Line; chars: Char[] }) {
         <span className="stock-name">{plain(l.name)}</span>
         {tierOf(plain(l.name)) && <span className="stock-tier">{tierOf(plain(l.name))}</span>}
       </th>
-      <td className="n num strong" data-label="합계">{fmt(total)}</td>
+      <td className="n num" data-label="거래소">{l.price != null ? fmt(l.price) : <span className="faint" title={l.tradable === false ? '거래소에 없는 아이템' : l.tradable ? '지금 매물이 없습니다' : '아직 가격을 읽지 못했습니다'}>{l.tradable === false ? '–' : l.tradable ? '품절' : '…'}</span>}</td>
       <td className="n" data-label="목표"><TargetInput name={l.name} value={l.target} /></td>
       <td data-label="부족">
         {l.target > 0
           ? <span className="stock-short"><progress max={l.target} value={Math.min(total, l.target)} aria-label={`${plain(l.name)} 목표 달성도`} /><span className={`num ${short > 0 ? 'danger' : 'ok'}`}>{short > 0 ? `−${fmt(short)}` : '충분'}</span></span>
           : <span className="faint">–</span>}
       </td>
+      <td className="n num strong tot" data-label="합계">{fmt(total)}</td>
       <td className="n num acc" data-label="계정 창고">{r?.account ? fmt(r.account) : <span className="faint">–</span>}</td>
       {chars.map(c => {
         const h = by.get(c.key);

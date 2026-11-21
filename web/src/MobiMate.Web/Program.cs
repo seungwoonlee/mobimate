@@ -53,6 +53,7 @@ builder.Services.AddSingleton(sp => new AccountStore(Dir(sp)));
 builder.Services.AddSingleton(sp => new AccountWalletStore(Dir(sp)));
 builder.Services.AddSingleton(sp => new IdentityFingerprintStore(Dir(sp)));
 builder.Services.AddSingleton(sp => new StockStore(Dir(sp)));
+builder.Services.AddSingleton(sp => new MarketPriceService(Dir(sp), sp.GetRequiredService<IGameCli>(), sp.GetRequiredService<ILogger<MarketPriceService>>()));
 builder.Services.AddSingleton(sp => new CoinPhaseStore(Dir(sp), isMember: key =>
 {
     var data = sp.GetRequiredService<AccountStore>().Snapshot();
